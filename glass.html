@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glass Text Box</title>
+<style>
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, 
+    #e0f2fe 0%, 
+    #bae6fd 25%, 
+    #c4b5fd 50%, 
+    #fda4af 75%, 
+    #fca5a5 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.glass {
+  position: relative;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 2rem;
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2),
+              inset 0 4px 20px rgba(255,255,255,0.3);
+  backdrop-filter: blur(2px) saturate(180%);
+  padding: 2rem;
+  width: 400px;
+  max-width: 90%;
+}
+
+.glass::after {
+  content: '';
+  position: absolute;
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2rem;
+  opacity: 0.6;
+  box-shadow: inset -10px -8px 0px -11px rgba(255,255,255,1);
+  filter: blur(1px) brightness(115%);
+  z-index: -1;
+}
+
+.glass h2 {
+  margin: 0 0 1rem 0;
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.glass p {
+  margin: 0;
+  color: rgba(31, 41, 55, 0.8);
+  line-height: 1.6;
+}
+</style>
+</head>
+<body>
+  <div class="glass">
+    <h2>Glassmorphic Card</h2>
+    <p>This is an example of a frosted glass effect with your custom styling. The translucent background, blur, and layered shadows create depth and visual interest.</p>
+  </div>
+</body>
+</html>

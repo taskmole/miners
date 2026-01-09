@@ -1,0 +1,6278 @@
+{
+  "type": "FeatureCollection",
+  "generator": "overpass-turbo",
+  "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.",
+  "timestamp": "2025-06-28T15:25:28Z",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/2112127610",
+        "name": "Alcorcón Central",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_211",
+        "website": "https://www.metromadrid.es/es/linea/linea-12-metrosur#estacion-1203"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.8319872,
+          40.3499384
+        ]
+      },
+      "id": "node/2112127610"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/4912161023",
+        "designation": "L12",
+        "name": "Parque Oeste",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q2482424",
+        "wikipedia": "es:Estación de Parque Oeste"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.849049,
+          40.3458164
+        ]
+      },
+      "id": "node/4912161023"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/4998670036",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "covered": "yes",
+        "fare_area": "A",
+        "layer": "1",
+        "name": "Nuevos Ministerios",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_120",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-618",
+        "wheelchair": "yes",
+        "wikidata": "Q2705508",
+        "wikipedia": "es:Estación de Nuevos Ministerios"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6916991,
+          40.4458416
+        ]
+      },
+      "id": "node/4998670036"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299261414",
+        "name": "Tetuán",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_3",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-103",
+        "wheelchair": "no",
+        "wikidata": "Q515413",
+        "wikipedia": "es:Estación de Tetuán (Metro de Madrid)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6982259,
+          40.4608552
+        ]
+      },
+      "id": "node/5299261414"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299262123",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_190",
+        "covered": "yes",
+        "fare_area": "A",
+        "intercambiador": "Plaza de Castilla",
+        "name": "Plaza de Castilla",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_190",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-101",
+        "wheelchair": "yes",
+        "wikidata": "Q2463399",
+        "wikipedia": "es:Estación de Plaza de Castilla"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6896636,
+          40.4662822
+        ]
+      },
+      "id": "node/5299262123"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299262124",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "addr:postcode": "28036",
+        "addr:street": "Calle de Agustín de Foxá",
+        "fare_area": "A",
+        "name": "Chamartín",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "nohousenumber": "yes",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_261",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-151",
+        "wheelchair": "yes",
+        "wikidata": "Q23081",
+        "wikipedia": "es:Estación de Madrid-Chamartín-Clara Campoamor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6827087,
+          40.4739539
+        ]
+      },
+      "id": "node/5299262124"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299262125",
+        "name": "Bambú",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_262",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-152",
+        "wikidata": "Q2244021",
+        "wikipedia": "es:Estación de Bambú"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.676614,
+          40.4769812
+        ]
+      },
+      "id": "node/5299262125"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299262126",
+        "fare_area": "A",
+        "light_rail": "yes",
+        "name": "Pinar de Chamartín",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_263",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-153",
+        "wikidata": "Q921800",
+        "wikipedia": "es:Estación de Pinar de Chamartín"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6670518,
+          40.4800504
+        ]
+      },
+      "id": "node/5299262126"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314561",
+        "fare_area": "A",
+        "name": "Valdecarros",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-130",
+        "wheelchair": "yes",
+        "wikidata": "Q667797",
+        "wikipedia": "es:Estación de Valdecarros"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.5921171,
+          40.3599901
+        ]
+      },
+      "id": "node/5299314561"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314562",
+        "fare_area": "A",
+        "name": "Las Suertes",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-129",
+        "wheelchair": "yes",
+        "wikidata": "Q3827256",
+        "wikipedia": "es:Estación de Las Suertes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.5991634,
+          40.3635039
+        ]
+      },
+      "id": "node/5299314562"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314564",
+        "fare_area": "A",
+        "name": "Congosto",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-127",
+        "wheelchair": "yes",
+        "wikidata": "Q934059",
+        "wikipedia": "es:Estación de Congosto"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6187268,
+          40.3721977
+        ]
+      },
+      "id": "node/5299314564"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314565",
+        "fare_area": "A",
+        "name": "Villa de Vallecas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-126",
+        "wheelchair": "yes",
+        "wikidata": "Q630441",
+        "wikipedia": "es:Estación de Villa de Vallecas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6212983,
+          40.379394
+        ]
+      },
+      "id": "node/5299314565"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314566",
+        "contact:website": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_25",
+        "fare_area": "A",
+        "name": "Sierra de Guadalupe",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "https://www.crtm.es/tu-transporte-publico/metro/estaciones/4_25",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-125",
+        "wheelchair": "yes",
+        "wikidata": "Q2479478",
+        "wikipedia": "es:Estación de Sierra de Guadalupe"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6249212,
+          40.3825816
+        ]
+      },
+      "id": "node/5299314566"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314567",
+        "fare_area": "A",
+        "name": "Miguel Hernández",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-124",
+        "wikidata": "Q2479837",
+        "wikipedia": "es:Estación de Miguel Hernández"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6400068,
+          40.387548
+        ]
+      },
+      "id": "node/5299314567"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314568",
+        "fare_area": "A",
+        "name": "Alto del Arenal",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-123",
+        "wheelchair": "yes",
+        "wikidata": "Q2479465",
+        "wikipedia": "es:Estación de Alto del Arenal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6458127,
+          40.3900497
+        ]
+      },
+      "id": "node/5299314568"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314569",
+        "fare_area": "A",
+        "name": "Buenos Aires",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo maps;wikipedia",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-122",
+        "wikidata": "Q2479851",
+        "wikipedia": "es:Estación de Buenos Aires (Metro de Madrid)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.653876,
+          40.3916235
+        ]
+      },
+      "id": "node/5299314569"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314570",
+        "fare_area": "A",
+        "name": "Portazgo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-121",
+        "wheelchair": "yes",
+        "wikidata": "Q2479031",
+        "wikipedia": "es:Estación de Portazgo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.659194,
+          40.3930132
+        ]
+      },
+      "id": "node/5299314570"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314571",
+        "fare_area": "A",
+        "name": "Nueva Numancia",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-120",
+        "wheelchair": "no",
+        "wikidata": "Q2696516",
+        "wikipedia": "es:Estación de Nueva Numancia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6647621,
+          40.395963
+        ]
+      },
+      "id": "node/5299314571"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314572",
+        "fare_area": "A",
+        "name": "Puente de Vallecas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-119",
+        "wheelchair": "no",
+        "wikidata": "Q2479039",
+        "wikipedia": "es:Estación de Puente de Vallecas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6689662,
+          40.3980926
+        ]
+      },
+      "id": "node/5299314572"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314576",
+        "fare_area": "A",
+        "name": "Atocha",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "old_name": "Atocha Renfe",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_16",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-116",
+        "wikidata": "Q23093",
+        "wikipedia": "es:Estación de Atocha"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6886008,
+          40.4069749
+        ]
+      },
+      "id": "node/5299314576"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314577",
+        "fare_area": "A",
+        "name": "Estación del Arte",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_15",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-115",
+        "wikidata": "Q2016175",
+        "wikipedia": "es:Estación del Arte"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6914748,
+          40.4088389
+        ]
+      },
+      "id": "node/5299314577"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314578",
+        "alt_name": "Anton Martin Metro;Anton Martin Metro Station",
+        "fare_area": "A",
+        "name": "Antón Martín",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_14",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-114",
+        "wheelchair": "no",
+        "wheelchair:description": "No Lifts. Steps from all entrances and between platforms. (about 65 from platform to street)",
+        "wikidata": "Q2473940",
+        "wikipedia": "es:Estación de Antón Martín"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.699089,
+          40.412291
+        ]
+      },
+      "id": "node/5299314578"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314579",
+        "fare_area": "A",
+        "name": "Tirso de Molina",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_13",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-113",
+        "wikidata": "Q2474438",
+        "wikipedia": "es:Estación de Tirso de Molina"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7045846,
+          40.4123608
+        ]
+      },
+      "id": "node/5299314579"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314581",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Gran Vía",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_11",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-111",
+        "wheelchair": "no",
+        "wikidata": "Q2729745",
+        "wikipedia": "es:Estación de Gran Vía"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7016189,
+          40.4199123
+        ]
+      },
+      "id": "node/5299314581"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314583",
+        "alt_name": "Tribunal Metro;Tribunal Metro Station",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Tribunal",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_10",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-110",
+        "wheelchair": "yes",
+        "wikidata": "Q2479844",
+        "wikipedia": "es:Estación de Tribunal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7010942,
+          40.4262415
+        ]
+      },
+      "id": "node/5299314583"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314587",
+        "fare_area": "A",
+        "name": "Iglesia",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_8",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-108",
+        "wheelchair": "yes",
+        "wheelchair:description": "Step-free from street via lifts",
+        "wikidata": "Q1113361",
+        "wikipedia": "es:Estación de Iglesia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6990132,
+          40.4352634
+        ]
+      },
+      "id": "node/5299314587"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314588",
+        "fare_area": "A",
+        "name": "Ríos Rosas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_7",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-107",
+        "wheelchair": "no",
+        "wikidata": "Q2479349",
+        "wikipedia": "es:Estación de Ríos Rosas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7015924,
+          40.4415935
+        ]
+      },
+      "id": "node/5299314588"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5299314590",
+        "fare_area": "A",
+        "name": "Alvarado",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_5",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-105",
+        "wheelchair": "no",
+        "wikidata": "Q664440",
+        "wikipedia": "es:Estación de Alvarado"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7035098,
+          40.4500867
+        ]
+      },
+      "id": "node/5299314590"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5301853067",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_35",
+        "name": "Sol",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_35",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-112",
+        "wheelchair": "yes",
+        "wikidata": "Q1766008",
+        "wikipedia": "es:Estación de Sol"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7033901,
+          40.416938
+        ]
+      },
+      "id": "node/5301853067"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5301853068",
+        "name": "Valdeacederas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_2",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-102",
+        "wheelchair": "no",
+        "wikidata": "Q2055837",
+        "wikipedia": "es:Estación de Valdeacederas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.694999,
+          40.4645262
+        ]
+      },
+      "id": "node/5301853068"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5301853069",
+        "name": "Estrecho",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_4",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-104",
+        "wheelchair": "no",
+        "wikidata": "Q2055525",
+        "wikipedia": "es:Estación de Estrecho"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7027568,
+          40.4545136
+        ]
+      },
+      "id": "node/5301853069"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302030275",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Colombia",
+        "name:ar": "كولومبيا",
+        "name:es": "Colombia",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "type": "public_transport",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_156",
+        "website": "https://www.metromadrid.es/es/linea/linea-9#estacion-802",
+        "wheelchair": "limited",
+        "wikidata": "Q2462831",
+        "wikipedia": "es:Estación de Colombia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6769611,
+          40.4571156
+        ]
+      },
+      "id": "node/5302030275"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302030277",
+        "colour": "#FB57A1",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Pinar del Rey",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_258",
+        "wheelchair": "yes",
+        "wikidata": "Q2018370",
+        "wikipedia": "es:Estación de Pinar del Rey"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6486781,
+          40.4678284
+        ]
+      },
+      "id": "node/5302030277"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302030279",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Mar de Cristal",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_71",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-418",
+        "wheelchair": "yes",
+        "wikidata": "Q2597956",
+        "wikipedia": "es:Estación de Mar de Cristal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6385808,
+          40.4698205
+        ]
+      },
+      "id": "node/5302030279"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302030283",
+        "colour": "#FB57A1",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Feria de Madrid",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_158",
+        "wheelchair": "yes",
+        "wikidata": "Q2473865",
+        "wikipedia": "es:Estación de Feria de Madrid"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6163088,
+          40.464
+        ]
+      },
+      "id": "node/5302030283"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302030284",
+        "colour": "#FB57A1",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Aeropuerto T1-T2-T3",
+        "name:es": "Aeropuerto T1-T2-T3",
+        "name:pt": "Aeroporto de Madrid T1-T2-T3",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_159",
+        "website": "https://crtm.es/widgets/#/stop/4_159",
+        "wheelchair": "yes",
+        "wheelchair:description": "Lifts down to ticket hall, and from there to platforms. Also stairs. Travelators to Terminals 3, 2 and 1.",
+        "wikidata": "Q2477093",
+        "wikipedia": "es:Estación de Aeropuerto T1-T2-T3"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.5717593,
+          40.4679143
+        ]
+      },
+      "id": "node/5302030284"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302030285",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "colour": "#FB57A1",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Barajas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_160",
+        "wheelchair": "yes",
+        "wikidata": "Q2474414",
+        "wikipedia": "es:Estación de Barajas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.5826207,
+          40.4758121
+        ]
+      },
+      "id": "node/5302030285"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302030286",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "colour": "#FB57A1",
+        "contact:url": "https://crtm.es/widgets/#/stop/4_285",
+        "covered": "yes",
+        "name": "Aeropuerto T4",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_285",
+        "website": "https://www.metromadrid.es/es/linea/linea-8#estacion-808",
+        "wheelchair": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.5928387,
+          40.4924348
+        ]
+      },
+      "id": "node/5302030286"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296020",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Manoteras",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-422",
+        "wikidata": "Q3844841",
+        "wikipedia": "es:Estación de Manoteras"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.662679,
+          40.4766992
+        ]
+      },
+      "id": "node/5302296020"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296721",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Hortaleza",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-421",
+        "wikidata": "Q2056542",
+        "wikipedia": "es:Estación de Hortaleza"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.652125,
+          40.4747276
+        ]
+      },
+      "id": "node/5302296721"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296722",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Parque de Santa María",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source:name": "common knowledge",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-420",
+        "wikidata": "Q2481002",
+        "wikipedia": "es:Estación de Parque de Santa María"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6456986,
+          40.4771257
+        ]
+      },
+      "id": "node/5302296722"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296724",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "San Lorenzo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-419",
+        "wheelchair": "yes",
+        "wikidata": "Q2481355",
+        "wikipedia": "es:Estación de San Lorenzo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6396107,
+          40.4745618
+        ]
+      },
+      "id": "node/5302296724"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296726",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Canillas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-417",
+        "wheelchair": "yes",
+        "wikidata": "Q2481265",
+        "wikipedia": "es:Estación de Canillas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6354426,
+          40.4637721
+        ]
+      },
+      "id": "node/5302296726"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296727",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Esperanza",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-416",
+        "wikidata": "Q2481243",
+        "wikipedia": "es:Estación de Esperanza"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6455644,
+          40.4592436
+        ]
+      },
+      "id": "node/5302296727"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296728",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Arturo Soria",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-415",
+        "wheelchair": "no",
+        "wikidata": "Q2481371",
+        "wikipedia": "es:Estación de Arturo Soria"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6561772,
+          40.455936
+        ]
+      },
+      "id": "node/5302296728"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296729",
+        "fare_area": "A",
+        "name": "Avenida de la Paz",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-414",
+        "wikidata": "Q526358",
+        "wikipedia": "es:Estación de Avenida de la Paz"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6615049,
+          40.4534311
+        ]
+      },
+      "id": "node/5302296729"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296730",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Alfonso XIII",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-413",
+        "wikidata": "Q2481187",
+        "wikipedia": "es:Estación de Alfonso XIII"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6678923,
+          40.4482221
+        ]
+      },
+      "id": "node/5302296730"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296731",
+        "colour": "#9A6908",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Prosperidad",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-412",
+        "wheelchair": "no",
+        "wikidata": "Q2056525",
+        "wikipedia": "es:Estación de Prosperidad"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6748514,
+          40.4442092
+        ]
+      },
+      "id": "node/5302296731"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296732",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Diego de León",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "common knowledge",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_63",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-410",
+        "wikidata": "Q2055658",
+        "wikipedia": "es:Estación de Diego de León"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6747205,
+          40.434474
+        ]
+      },
+      "id": "node/5302296732"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296733",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Lista",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-409",
+        "wheelchair": "no",
+        "wikidata": "Q2479567",
+        "wikipedia": "es:Estación de Lista"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6753988,
+          40.4293973
+        ]
+      },
+      "id": "node/5302296733"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296734",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "alt_name": "Metro Goya;Goya Metro Station",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Goya",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-203",
+        "wikidata": "Q955699",
+        "wikipedia": "es:Estación de Goya (Metro de Madrid)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6762001,
+          40.4246991
+        ]
+      },
+      "id": "node/5302296734"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296735",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Velázquez",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-407",
+        "wheelchair": "no",
+        "wikidata": "Q2481170",
+        "wikipedia": "es:Estación de Velázquez (Metro de Madrid)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.682539,
+          40.4251769
+        ]
+      },
+      "id": "node/5302296735"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296736",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Serrano",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "source:name": "common knowledge",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-406",
+        "wheelchair": "no",
+        "wikidata": "Q2481179",
+        "wikipedia": "es:Estación de Serrano"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6869007,
+          40.4253869
+        ]
+      },
+      "id": "node/5302296736"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296737",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Colón",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "source:name": "common knowledge",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-405",
+        "wheelchair": "no",
+        "wikidata": "Q2481248",
+        "wikipedia": "es:Estación de Colón"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6920413,
+          40.4258007
+        ]
+      },
+      "id": "node/5302296737"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296738",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "alt_name": "Metro Alonso Martínez;Alonso Martínez Metro Station;Metro Alonso Martinez;Alonso Martinez Metro Station",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Alonso Martínez",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "source:name": "common knowledge",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-404",
+        "wheelchair": "no",
+        "wikidata": "Q2481198",
+        "wikipedia": "es:Estación de Alonso Martínez"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.695983,
+          40.4274063
+        ]
+      },
+      "id": "node/5302296738"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296740",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "San Bernardo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "platforms": "4",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-212",
+        "wheelchair": "no",
+        "wikidata": "Q2055810",
+        "wikipedia": "es:Estación de San Bernardo (Metro de Madrid)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.705761,
+          40.4297715
+        ]
+      },
+      "id": "node/5302296740"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302296743",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_52",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Argüelles",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_52",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-310",
+        "wheelchair": "yes",
+        "wikidata": "Q1890537",
+        "wikipedia": "es:Estación de Argüelles"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7161715,
+          40.4307266
+        ]
+      },
+      "id": "node/5302296743"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5302313738",
+        "addr:city": "Madrid",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Avenida de América",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_141",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-411",
+        "wheelchair": "no",
+        "wikidata": "Q730768",
+        "wikipedia": "es:Estación de Avenida de América"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6772962,
+          40.4376477
+        ]
+      },
+      "id": "node/5302313738"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127327",
+        "colour": "#000000",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Casa de Campo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q568579",
+        "wikipedia": "es:Estación de Casa de Campo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7609309,
+          40.4034858
+        ]
+      },
+      "id": "node/5303127327"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127329",
+        "check_date:wheelchair": "2024-11-06",
+        "colour": "#000000",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Campamento",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q2481364",
+        "wikipedia": "es:Estación de Campamento"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7682788,
+          40.3946832
+        ]
+      },
+      "id": "node/5303127329"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127330",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Empalme",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2057577",
+        "wikipedia": "es:Estación de Empalme"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.765486,
+          40.3907261
+        ]
+      },
+      "id": "node/5303127330"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127337",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Eugenia de Montijo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2058271",
+        "wikipedia": "es:Estación de Eugenia de Montijo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7510629,
+          40.3844157
+        ]
+      },
+      "id": "node/5303127337"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127338",
+        "check_date:wheelchair": "2022-11-06",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Carabanchel",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q2056760",
+        "wikipedia": "es:Estación de Carabanchel"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7449835,
+          40.3878172
+        ]
+      },
+      "id": "node/5303127338"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127339",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Vista Alegre",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q616210",
+        "wikipedia": "es:Estación de Vista Alegre"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7400441,
+          40.3887883
+        ]
+      },
+      "id": "node/5303127339"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127340",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Oporto",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_106",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-523",
+        "wheelchair": "no",
+        "wikidata": "Q2057416",
+        "wikipedia": "es:Estación de Oporto"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7317242,
+          40.3886401
+        ]
+      },
+      "id": "node/5303127340"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127342",
+        "check_date:wheelchair": "2022-03-21",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Urgel",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q2696501",
+        "wikipedia": "es:Estación de Urgel"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7253613,
+          40.3925341
+        ]
+      },
+      "id": "node/5303127342"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127343",
+        "addr:city": "Madrid",
+        "addr:street": "Calle del General Ricardos",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Marqués de Vadillo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q2056948",
+        "wikipedia": "es:Estación de Marqués de Vadillo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7164041,
+          40.3974458
+        ]
+      },
+      "id": "node/5303127343"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127344",
+        "fare_area": "A",
+        "location": "underground",
+        "name": "Pirámides",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_93",
+        "wheelchair": "yes",
+        "wikidata": "Q2056493",
+        "wikipedia": "es:Estación de Pirámides"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7119409,
+          40.4020429
+        ]
+      },
+      "id": "node/5303127344"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127346",
+        "colour": "#000000",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Acacias",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q2305840",
+        "wikipedia": "es:Estación de Acacias / Embajadores"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7059572,
+          40.4040749
+        ]
+      },
+      "id": "node/5303127346"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127347",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Puerta de Toledo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q2056515",
+        "wikipedia": "es:Estación de Puerta de Toledo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7110664,
+          40.4070507
+        ]
+      },
+      "id": "node/5303127347"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127348",
+        "addr:city": "Madrid",
+        "addr:street": "Plaza de la Cebada",
+        "alt_name": "La Latina Metro; La Latina Metro Station",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "La Latina",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q1115250",
+        "wikipedia": "es:Estación de La Latina"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7083094,
+          40.4112911
+        ]
+      },
+      "id": "node/5303127348"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127351",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "addr:street": "Plaza de Isabel II",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Ópera",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_36",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-209",
+        "wheelchair": "yes",
+        "wheelchair:description": "Lifts between all levels and street. Line 2 & R have trains as shown with marked wheelchair spaces at each end.",
+        "wikidata": "Q2736048",
+        "wikipedia": "es:Estación de Ópera"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7094148,
+          40.4179827
+        ]
+      },
+      "id": "node/5303127351"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127352",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_49",
+        "covered": "yes",
+        "fare_area": "A",
+        "layer": "-2",
+        "name": "Callao",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_49",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-307",
+        "wheelchair": "yes",
+        "wikidata": "Q2055072",
+        "wikipedia": "es:Estación de Callao"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7059121,
+          40.4202937
+        ]
+      },
+      "id": "node/5303127352"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127354",
+        "check_date:wheelchair": "2023-09-07",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Chueca",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "source:name": "common knowledge",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q3676061",
+        "wikipedia": "es:Estación de Chueca"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6976743,
+          40.4226703
+        ]
+      },
+      "id": "node/5303127354"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127356",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Rubén Darío",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q2056886",
+        "wikipedia": "es:Estación de Rubén Darío"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6896897,
+          40.4330422
+        ]
+      },
+      "id": "node/5303127356"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127357",
+        "check_date:wheelchair": "2022-07-23",
+        "colour": "#000000",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Núñez de Balboa",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q782924",
+        "wikipedia": "es:Estación de Núñez de Balboa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6795551,
+          40.4326416
+        ]
+      },
+      "id": "node/5303127357"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127359",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Ventas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-201",
+        "wheelchair": "no",
+        "wikidata": "Q2014690",
+        "wikipedia": "es:Estación de Ventas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6635419,
+          40.4310642
+        ]
+      },
+      "id": "node/5303127359"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127361",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "El Carmen",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q2480869",
+        "wikipedia": "es:Estación de El Carmen"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6561907,
+          40.4319699
+        ]
+      },
+      "id": "node/5303127361"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127362",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Quintana",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q2480845",
+        "wikipedia": "es:Estación de Quintana"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6481458,
+          40.4331142
+        ]
+      },
+      "id": "node/5303127362"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127363",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Pueblo Nuevo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "train": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_137",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-505",
+        "wheelchair": "yes",
+        "wikidata": "Q384453",
+        "wikipedia": "es:Estación de Pueblo Nuevo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.644171,
+          40.4350329
+        ]
+      },
+      "id": "node/5303127363"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127365",
+        "colour": "#000000",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Ciudad Lineal",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q2054883",
+        "wikipedia": "es:Estación de Ciudad Lineal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6377404,
+          40.4379315
+        ]
+      },
+      "id": "node/5303127365"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127366",
+        "check_date:wheelchair": "2024-11-06",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Suanzes",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q2481009",
+        "wikipedia": "es:Estación de Suanzes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6270164,
+          40.4408788
+        ]
+      },
+      "id": "node/5303127366"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127367",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Torre Arias",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q2056497",
+        "wikipedia": "es:Estación de Torre Arias"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6171219,
+          40.443618
+        ]
+      },
+      "id": "node/5303127367"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127368",
+        "colour": "#000000",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Canillejas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "wheelchair": "no",
+        "wikidata": "Q930999",
+        "wikipedia": "es:Estación de Canillejas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6085862,
+          40.4491131
+        ]
+      },
+      "id": "node/5303127368"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127371",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "El Capricho",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2056510",
+        "wikipedia": "es:Estación de El Capricho"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.5941978,
+          40.4533798
+        ]
+      },
+      "id": "node/5303127371"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303127372",
+        "colour": "#51D532",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Alameda de Osuna",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2403543",
+        "wikipedia": "es:Estación de Alameda de Osuna"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.5879745,
+          40.4575814
+        ]
+      },
+      "id": "node/5303127372"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173537",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_125",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Moncloa",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_125",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-311",
+        "wheelchair": "yes",
+        "wikidata": "Q2449141",
+        "wikipedia": "es:Estación de Moncloa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.719236,
+          40.4350196
+        ]
+      },
+      "id": "node/5303173537"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173540",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_51",
+        "covered": "yes",
+        "fare_area": "A",
+        "layer": "-2",
+        "name": "Ventura Rodríguez",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_51",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-309",
+        "wheelchair": "yes",
+        "wikidata": "Q2378663",
+        "wikipedia": "es:Estación de Ventura Rodríguez"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.713295,
+          40.4267606
+        ]
+      },
+      "id": "node/5303173540"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173541",
+        "alt_name": "Plaza de España Station;Plaza de España Metro Station",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_50",
+        "covered": "yes",
+        "fare_area": "A",
+        "layer": "-2",
+        "name": "Plaza de España",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "source:name": "common knowledge",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_50",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-308",
+        "wheelchair": "no",
+        "wikidata": "Q2219895",
+        "wikipedia": "es:Estación de Plaza de España/Noviciado"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7108809,
+          40.423449
+        ]
+      },
+      "id": "node/5303173541"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173543",
+        "alt_name": "Lavapiés Metro",
+        "colour": "#FDF235",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_47",
+        "fare_area": "A",
+        "name": "Lavapiés",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-305",
+        "wheelchair": "yes",
+        "wikidata": "Q388743",
+        "wikipedia": "es:Estación de Lavapiés"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7006613,
+          40.4084539
+        ]
+      },
+      "id": "node/5303173543"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173544",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_46",
+        "fare_area": "A",
+        "name": "Embajadores",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_46",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-304",
+        "wheelchair": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7022732,
+          40.4048124
+        ]
+      },
+      "id": "node/5303173544"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173545",
+        "colour": "#FDF235",
+        "fare_area": "A",
+        "name": "Palos de la Frontera",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q2481204",
+        "wikipedia": "es:Estación de Palos de la Frontera"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6947843,
+          40.4030849
+        ]
+      },
+      "id": "node/5303173545"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173546",
+        "colour": "#FDF235",
+        "fare_area": "A",
+        "name": "Delicias",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "no",
+        "wikidata": "Q3306947",
+        "wikipedia": "es:Estación de Delicias (Metro de Madrid)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6941225,
+          40.3993312
+        ]
+      },
+      "id": "node/5303173546"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173547",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Legazpi",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_110",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-301",
+        "wheelchair": "yes",
+        "wikidata": "Q2056839",
+        "wikipedia": "es:Estación de Legazpi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6949558,
+          40.3914432
+        ]
+      },
+      "id": "node/5303173547"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173549",
+        "fare_area": "A",
+        "name": "Almendrales",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-351",
+        "wheelchair": "yes",
+        "wikidata": "Q543261",
+        "wikipedia": "es:Estación de Almendrales"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6980105,
+          40.3839505
+        ]
+      },
+      "id": "node/5303173549"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173550",
+        "fare_area": "A",
+        "name": "Hospital 12 de Octubre",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-352",
+        "wheelchair": "yes",
+        "wikidata": "Q929500",
+        "wikipedia": "es:Estación de Hospital 12 de Octubre"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6959057,
+          40.37546
+        ]
+      },
+      "id": "node/5303173550"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173551",
+        "fare_area": "A",
+        "name": "San Fermín-Orcasur",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-353",
+        "wikidata": "Q2057787",
+        "wikipedia": "es:Estación de San Fermín-Orcasur"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6943864,
+          40.369987
+        ]
+      },
+      "id": "node/5303173551"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173552",
+        "fare_area": "A",
+        "name": "Ciudad de los Ángeles",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-354",
+        "wikidata": "Q2042482",
+        "wikipedia": "es:Estación de Ciudad de los Ángeles"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.69343,
+          40.3601741
+        ]
+      },
+      "id": "node/5303173552"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173553",
+        "fare_area": "A",
+        "name": "Villaverde Bajo - Cruce",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-355",
+        "wheelchair": "yes",
+        "wikidata": "Q2056616",
+        "wikipedia": "es:Estación de Villaverde Bajo-Cruce"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6926258,
+          40.351034
+        ]
+      },
+      "id": "node/5303173553"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303173554",
+        "fare_area": "A",
+        "name": "San Cristóbal",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-356",
+        "wikidata": "Q2056478",
+        "wikipedia": "es:Estación de San Cristóbal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6934141,
+          40.3416121
+        ]
+      },
+      "id": "node/5303173554"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303271991",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_6",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Cuatro Caminos",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_6",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-106",
+        "wheelchair": "yes",
+        "wikidata": "Q2420839",
+        "wikipedia": "es:Estación de Cuatro Caminos"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7039643,
+          40.4467812
+        ]
+      },
+      "id": "node/5303271991"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303271993",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Canal",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_144",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-214",
+        "wheelchair": "yes",
+        "wikidata": "Q2479455",
+        "wikipedia": "es:Estación de Canal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.704264,
+          40.4386349
+        ]
+      },
+      "id": "node/5303271993"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303271995",
+        "fare_area": "A",
+        "name": "Quevedo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-213",
+        "wheelchair": "no",
+        "wikidata": "Q747162",
+        "wikipedia": "es:Estación de Quevedo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7044934,
+          40.4331809
+        ]
+      },
+      "id": "node/5303271995"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303271996",
+        "fare_area": "A",
+        "name": "Noviciado",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-211",
+        "wheelchair": "no",
+        "wikidata": "Q2219895",
+        "wikipedia": "es:Estación de Plaza de España/Noviciado"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7073851,
+          40.4247733
+        ]
+      },
+      "id": "node/5303271996"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303271997",
+        "fare_area": "A",
+        "name": "Santo Domingo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-210",
+        "wheelchair": "no",
+        "wikidata": "Q2125964",
+        "wikipedia": "es:Estación de Santo Domingo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7085723,
+          40.4204264
+        ]
+      },
+      "id": "node/5303271997"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303271998",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Sevilla",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source:name": "common knowledge",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-207",
+        "wheelchair": "yes",
+        "wikidata": "Q2056503",
+        "wikipedia": "es:Estación de Sevilla (Metro de Madrid)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6999453,
+          40.4177659
+        ]
+      },
+      "id": "node/5303271998"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303271999",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Banco de España",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "yahoo_maps",
+        "source:name": "common knowledge",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-206",
+        "wheelchair": "no",
+        "wheelchair:description": "Steps only to platforms.",
+        "wikidata": "Q2481227",
+        "wikipedia": "es:Estación de Banco de España"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6949256,
+          40.4190548
+        ]
+      },
+      "id": "node/5303271999"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303272000",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Retiro",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source:name": "common knowledge",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-205",
+        "wheelchair": "no",
+        "wikidata": "Q2056874",
+        "wikipedia": "es:Estación de Retiro"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6864269,
+          40.4204626
+        ]
+      },
+      "id": "node/5303272000"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303272001",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Príncipe de Vergara",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-204",
+        "wheelchair": "yes",
+        "wikidata": "Q582040",
+        "wikipedia": "es:Estación de Príncipe de Vergara"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6803686,
+          40.4226491
+        ]
+      },
+      "id": "node/5303272001"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303272003",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Manuel Becerra",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_29",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-202",
+        "wheelchair": "no",
+        "wikidata": "Q2056869",
+        "wikipedia": "es:Estación de Manuel Becerra"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6687107,
+          40.4281432
+        ]
+      },
+      "id": "node/5303272003"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303272005",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "La Almudena",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-252",
+        "wheelchair": "yes",
+        "wikidata": "Q3820626",
+        "wikipedia": "es:Estación de La Almudena"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6382552,
+          40.4231715
+        ]
+      },
+      "id": "node/5303272005"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303272006",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Alsacia",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-253",
+        "wheelchair": "yes",
+        "wikidata": "Q3613056",
+        "wikipedia": "es:Estación de Alsacia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6237899,
+          40.4182411
+        ]
+      },
+      "id": "node/5303272006"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303272007",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Avenida de Guadalajara",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-254",
+        "wheelchair": "yes",
+        "wikidata": "Q955065",
+        "wikipedia": "es:Estación de Avenida de Guadalajara"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6122237,
+          40.422449
+        ]
+      },
+      "id": "node/5303272007"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5303272059",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "La Elipa",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-251",
+        "wheelchair": "yes",
+        "wikidata": "Q1766021",
+        "wikipedia": "es:Estación de La Elipa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6494651,
+          40.4269992
+        ]
+      },
+      "id": "node/5303272059"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690723",
+        "bicycle": "yes",
+        "colour": "#F89B11",
+        "covered": "yes",
+        "fare_area": "B1",
+        "name": "La Rambla",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_289",
+        "wheelchair": "yes",
+        "wikidata": "Q2244064",
+        "wikipedia": "es:Estación de La Rambla"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.5479154,
+          40.4251447
+        ]
+      },
+      "id": "node/5304690723"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690724",
+        "bicycle": "yes",
+        "colour": "#000000",
+        "covered": "yes",
+        "fare_area": "B1",
+        "name": "Coslada Central",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_288",
+        "wheelchair": "yes",
+        "wikidata": "Q2244036",
+        "wikipedia": "es:Estación de Coslada"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.5619883,
+          40.42389
+        ]
+      },
+      "id": "node/5304690724"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690725",
+        "bicycle": "yes",
+        "colour": "#F89B11",
+        "covered": "yes",
+        "fare_area": "B1",
+        "name": "Barrio del Puerto",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_287",
+        "wheelchair": "yes",
+        "wikidata": "Q2244272",
+        "wikipedia": "es:Estación de Barrio del Puerto"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.5691052,
+          40.4224714
+        ]
+      },
+      "id": "node/5304690725"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690726",
+        "bicycle": "yes",
+        "colour": "#F89B11",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Estadio Metropolitano",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_286",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-751",
+        "wheelchair": "yes",
+        "wikidata": "Q2244081",
+        "wikipedia": "es:Estación de Estadio Metropolitano"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.600962,
+          40.4337998
+        ]
+      },
+      "id": "node/5304690726"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690727",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Las Musas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_132",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-701",
+        "wheelchair": "no",
+        "wikidata": "Q2482052",
+        "wikipedia": "es:Estación de Las Musas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6078503,
+          40.4325722
+        ]
+      },
+      "id": "node/5304690727"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690728",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "San Blas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_133",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-702",
+        "wheelchair": "no",
+        "wikidata": "Q2482075",
+        "wikipedia": "es:Estación de San Blas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.615954,
+          40.4275001
+        ]
+      },
+      "id": "node/5304690728"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690729",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Simancas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_134",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-703",
+        "wheelchair": "no",
+        "wikidata": "Q2481349",
+        "wikipedia": "es:Estación de Simancas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6229906,
+          40.4275549
+        ]
+      },
+      "id": "node/5304690729"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690730",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "García Noblejas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_135",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-704",
+        "wheelchair": "no",
+        "wikidata": "Q2480917",
+        "wikipedia": "es:Estación de García Noblejas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6328626,
+          40.4286476
+        ]
+      },
+      "id": "node/5304690730"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690731",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Ascao",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_136",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-705",
+        "wheelchair": "no",
+        "wikidata": "Q2481405",
+        "wikipedia": "es:Estación de Ascao"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6404493,
+          40.4303119
+        ]
+      },
+      "id": "node/5304690731"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690732",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Barrio de la Concepción",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_138",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-707",
+        "wheelchair": "no",
+        "wikidata": "Q2696985",
+        "wikipedia": "es:Estación de Barrio de la Concepción"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6520984,
+          40.4393659
+        ]
+      },
+      "id": "node/5304690732"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690733",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Parque de las Avenidas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_139",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-708",
+        "wheelchair": "no",
+        "wikidata": "Q2480862",
+        "wikipedia": "es:Estación de Parque de las Avenidas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6629009,
+          40.4393064
+        ]
+      },
+      "id": "node/5304690733"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690734",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Cartagena",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_140",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-709",
+        "wheelchair": "no",
+        "wikidata": "Q3096144",
+        "wikipedia": "es:Estación de Cartagena"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6717961,
+          40.4393935
+        ]
+      },
+      "id": "node/5304690734"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690736",
+        "covered": "yes",
+        "defibrillator:location": "Bajando las escaleras mecánicas en la primera planta.",
+        "emergency": "defibrillator",
+        "fare_area": "A",
+        "indoor": "yes",
+        "name": "Gregorio Marañón",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_142",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-711",
+        "wheelchair": "yes",
+        "wikidata": "Q2056442",
+        "wikipedia": "es:Estación de Gregorio Marañón"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6912127,
+          40.4379941
+        ]
+      },
+      "id": "node/5304690736"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690738",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Alonso Cano",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_143",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-712",
+        "wheelchair": "yes",
+        "wikidata": "Q2481218",
+        "wikipedia": "es:Estación de Alonso Cano"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6992576,
+          40.4384455
+        ]
+      },
+      "id": "node/5304690738"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690739",
+        "colour": "#F89B11",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_145",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Islas Filipinas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source_url": "https://www.crtm.es/widgets/#/stop/4_145",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_145",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-714",
+        "wheelchair": "yes",
+        "wikidata": "Q966680",
+        "wikipedia": "es:Estación de Islas Filipinas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7139784,
+          40.4390433
+        ]
+      },
+      "id": "node/5304690739"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690740",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_146",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Guzmán el Bueno",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_146",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-620",
+        "wheelchair": "yes",
+        "wikidata": "Q2482402",
+        "wikipedia": "es:Estación de Guzmán el Bueno"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7131693,
+          40.4462739
+        ]
+      },
+      "id": "node/5304690740"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690742",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_147",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Francos Rodríguez",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_147",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-716",
+        "wheelchair": "yes",
+        "wikidata": "Q774677",
+        "wikipedia": "es:Estación de Francos Rodríguez"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7121114,
+          40.4566118
+        ]
+      },
+      "id": "node/5304690742"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690743",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Valdezarza",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_148",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-717",
+        "wheelchair": "yes",
+        "wikidata": "Q2482098",
+        "wikipedia": "es:Estación de Valdezarza"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7165189,
+          40.4649188
+        ]
+      },
+      "id": "node/5304690743"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690744",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_149",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Antonio Machado",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_149",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-718",
+        "wheelchair": "yes",
+        "wikidata": "Q2482040",
+        "wikipedia": "es:Estación de Antonio Machado"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7178808,
+          40.4701887
+        ]
+      },
+      "id": "node/5304690744"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690745",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_150",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Peñagrande",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_150",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-719",
+        "wheelchair": "yes",
+        "wikidata": "Q2058663",
+        "wikipedia": "es:Estación de Peñagrande"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7160518,
+          40.4759519
+        ]
+      },
+      "id": "node/5304690745"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690746",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_151",
+        "covered": "yes",
+        "fare_area": "A",
+        "internet_access": "no",
+        "name": "Avenida de la Ilustración",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_151",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-720",
+        "wheelchair": "yes",
+        "wikidata": "Q2482086",
+        "wikipedia": "es:Estación de Avenida de la Ilustración"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7183065,
+          40.4800441
+        ]
+      },
+      "id": "node/5304690746"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304690747",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_152",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Lacoma",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "train": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_152",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-721",
+        "wheelchair": "yes",
+        "wikidata": "Q2482146",
+        "wikipedia": "es:Estación de Lacoma"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7231023,
+          40.4851113
+        ]
+      },
+      "id": "node/5304690747"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5304749212",
+        "alt_name": "Principe Pio metro;Principe Pio metro station",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_198",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Príncipe Pío",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_198",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-625",
+        "wheelchair": "yes",
+        "wikidata": "Q2527066",
+        "wikipedia": "es:Estación de Príncipe Pío"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7193334,
+          40.4209619
+        ]
+      },
+      "id": "node/5304749212"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305025415",
+        "fare_area": "A",
+        "name": "Villaverde Alto",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-3#estacion-357",
+        "wheelchair": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7117691,
+          40.3410325
+        ]
+      },
+      "id": "node/5305025415"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116629",
+        "fare_area": "B1",
+        "name": "Parque Lisboa",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q510707",
+        "wikipedia": "es:Estación de Parque Lisboa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.8207793,
+          40.3494977
+        ]
+      },
+      "id": "node/5305116629"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116632",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "colour": "#000000",
+        "covered": "yes",
+        "fare_area": "B1",
+        "name": "Puerta del Sur",
+        "network": "Metro de Madrid",
+        "operator": "Metro de Madrid",
+        "platforms": "2",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "train": "yes",
+        "type": "public_transport",
+        "wheelchair": "yes",
+        "wikidata": "Q2484406",
+        "wikipedia": "es:Estación de Puerta del Sur"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.8120209,
+          40.3452072
+        ]
+      },
+      "id": "node/5305116632"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116634",
+        "name": "San Nicasio",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q2484393",
+        "wikipedia": "es:Estación de San Nicasio"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7767659,
+          40.3367045
+        ]
+      },
+      "id": "node/5305116634"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116635",
+        "name": "Leganés Central",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7723562,
+          40.3280922
+        ]
+      },
+      "id": "node/5305116635"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116636",
+        "name": "Hospital Severo Ochoa",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q2485068",
+        "wikipedia": "es:Estación de Hospital Severo Ochoa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7678287,
+          40.3217764
+        ]
+      },
+      "id": "node/5305116636"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116637",
+        "name": "Casa del Reloj",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2486887",
+        "wikimedia_commons": "File:Accesos_de_la_estación_de_Casa_del_Reloj.jpg",
+        "wikipedia": "es:Estación de Casa del Reloj"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7594548,
+          40.3266736
+        ]
+      },
+      "id": "node/5305116637"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116638",
+        "name": "Julián Besteiro",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2484526",
+        "wikipedia": "es:Estación de Julián Besteiro"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7523849,
+          40.3346216
+        ]
+      },
+      "id": "node/5305116638"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116640",
+        "name": "El Bercial",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.metromadrid.es/es/viaja_en_metro/red_de_metro/estaciones/ElBercial.html",
+        "wikidata": "Q2485050",
+        "wikipedia": "es:Estación de El Bercial"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.729993,
+          40.329394
+        ]
+      },
+      "id": "node/5305116640"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116641",
+        "name": "Los Espartales",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q2485060",
+        "wikipedia": "es:Estación de Los Espartales"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7183219,
+          40.3241766
+        ]
+      },
+      "id": "node/5305116641"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116642",
+        "interchange": "C-3",
+        "name": "El Casar",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "train": "yes",
+        "wikidata": "Q2778422",
+        "wikipedia": "es:Estación de El Casar"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7102212,
+          40.3183334
+        ]
+      },
+      "id": "node/5305116642"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116644",
+        "fare_area": "B1",
+        "name": "Juan de la Cierva",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q592352",
+        "wikipedia": "es:Estación de Juan de la Cierva"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7224742,
+          40.311798
+        ]
+      },
+      "id": "node/5305116644"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116645",
+        "contact:website": "https://www.citram.es/HORARIOS/info.aspx?estacion=4_226",
+        "covered": "yes",
+        "fare_area": "B1",
+        "name": "Getafe Central",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "shelter": "yes",
+        "start_date": "2000-11-24",
+        "station": "subway",
+        "subway": "yes",
+        "train": "yes",
+        "url": "https://www.crtm.es/tu-transporte-publico/metro/estaciones/4_226",
+        "website": "https://www.metromadrid.es/es/linea/linea-12-metrosur#estacion-1220",
+        "wheelchair": "yes",
+        "wikidata": "Q2485075",
+        "wikipedia": "es:Estación de Getafe Central"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7340308,
+          40.3099984
+        ]
+      },
+      "id": "node/5305116645"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116646",
+        "name": "Alonso de Mendoza",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q2484972",
+        "wikipedia": "es:Estación de Alonso de Mendoza"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7370513,
+          40.3001349
+        ]
+      },
+      "id": "node/5305116646"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116653",
+        "fare_area": "B2",
+        "name": "Loranca",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q2484967",
+        "wikipedia": "es:Estación de Loranca"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.8367671,
+          40.296741
+        ]
+      },
+      "id": "node/5305116653"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116654",
+        "name": "Manuela Malasaña",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2484947",
+        "wikipedia": "es:Estación de Manuela Malasaña"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.864774,
+          40.3091106
+        ]
+      },
+      "id": "node/5305116654"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116655",
+        "name": "Hospital de Móstoles",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2484422",
+        "wikipedia": "es:Estación de Hospital de Móstoles"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.8744217,
+          40.3163098
+        ]
+      },
+      "id": "node/5305116655"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116656",
+        "name": "Pradillo",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2484445",
+        "wikipedia": "es:Estación de Pradillo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.8648272,
+          40.3217118
+        ]
+      },
+      "id": "node/5305116656"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116657",
+        "name": "Móstoles Central",
+        "network": "Metrosur",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_214",
+        "website": "https://www.metromadrid.es/es/linea/linea-12-metrosur#estacion-1206",
+        "wheelchair": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.8634972,
+          40.3290012
+        ]
+      },
+      "id": "node/5305116657"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305116658",
+        "designation": "L12",
+        "fare_area": "B2",
+        "name": "Universidad Rey Juan Carlos",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "ref": "L12",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q2482419",
+        "wikipedia": "es:Estación de Universidad Rey Juan Carlos"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.8721732,
+          40.3348569
+        ]
+      },
+      "id": "node/5305116658"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486974",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Laguna",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_104",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-601",
+        "wheelchair": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7446368,
+          40.3993048
+        ]
+      },
+      "id": "node/5305486974"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486975",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Lucero",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_130",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-628",
+        "wheelchair": "yes",
+        "wikidata": "Q957660",
+        "wikipedia": "es:Estación de Lucero"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7452693,
+          40.4048009
+        ]
+      },
+      "id": "node/5305486975"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486976",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Alto de Extremadura",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_129",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-627",
+        "wheelchair": "no",
+        "wikidata": "Q2482103",
+        "wikipedia": "es:Estación de Alto de Extremadura"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7384073,
+          40.4099947
+        ]
+      },
+      "id": "node/5305486976"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486977",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Puerta del Ángel",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_128",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-626",
+        "wheelchair": "no",
+        "wikidata": "Q2482152",
+        "wikipedia": "es:Estación de Puerta del Ángel"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7271312,
+          40.4138284
+        ]
+      },
+      "id": "node/5305486977"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486979",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_124",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Ciudad Universitaria",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_124",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-622",
+        "wheelchair": "yes",
+        "wikidata": "Q2482378",
+        "wikipedia": "es:Estación de Ciudad Universitaria"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7264206,
+          40.4438005
+        ]
+      },
+      "id": "node/5305486979"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486980",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_123",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Vicente Aleixandre",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_123",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-621",
+        "wheelchair": "no",
+        "wikidata": "Q2482382",
+        "wikipedia": "es:Estación de Vicente Aleixandre"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7190437,
+          40.446506
+        ]
+      },
+      "id": "node/5305486980"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486981",
+        "colour": "#999999",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "República Argentina",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_119",
+        "wheelchair": "no",
+        "wikidata": "Q2479342",
+        "wikipedia": "es:Estación de República Argentina"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6846392,
+          40.4443179
+        ]
+      },
+      "id": "node/5305486981"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486982",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "O'Donnell",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_115",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-613",
+        "wheelchair": "no",
+        "wikidata": "Q2479913",
+        "wikipedia": "es:Estación de O'Donnell"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6690629,
+          40.422202
+        ]
+      },
+      "id": "node/5305486982"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486983",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Sainz de Baranda",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_114",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-612",
+        "wheelchair": "yes",
+        "wikidata": "Q2004752",
+        "wikipedia": "es:Estación de Sainz de Baranda"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6696729,
+          40.4143958
+        ]
+      },
+      "id": "node/5305486983"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486986",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "covered": "yes",
+        "fare_area": "A",
+        "intercambiador": "Méndez Álvaro",
+        "name": "Méndez Álvaro",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_111",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-609",
+        "wheelchair": "no"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6801095,
+          40.395717
+        ]
+      },
+      "id": "node/5305486986"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486987",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "addr:postcode": "28045",
+        "addr:street": "Calle del Bronce",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Arganzuela-Planetario",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "nohousenumber": "yes",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_259",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-608",
+        "wheelchair": "yes",
+        "wikidata": "Q2056461",
+        "wikipedia": "es:Estación de Arganzuela-Planetario"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6884132,
+          40.3932319
+        ]
+      },
+      "id": "node/5305486987"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486988",
+        "addr:city": "Madrid",
+        "addr:country": "ES",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Usera",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_109",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-606",
+        "wheelchair": "yes",
+        "wikidata": "Q643209",
+        "wikipedia": "es:Estación de Usera"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7056039,
+          40.3880344
+        ]
+      },
+      "id": "node/5305486988"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486989",
+        "covered": "yes",
+        "fare_area": "A",
+        "intercambiador": "Plaza Elíptica",
+        "name": "Plaza Elíptica",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_108",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-605",
+        "wheelchair": "no",
+        "wikidata": "Q782113",
+        "wikipedia": "es:Estación de Plaza Elíptica"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7178747,
+          40.3853557
+        ]
+      },
+      "id": "node/5305486989"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486991",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Opañel",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_107",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-604",
+        "wheelchair": "no",
+        "wikidata": "Q2482116",
+        "wikipedia": "es:Estación de Opañel"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7231777,
+          40.3869292
+        ]
+      },
+      "id": "node/5305486991"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305486992",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Carpetana",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_105",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-602",
+        "wheelchair": "yes",
+        "wikidata": "Q2482395",
+        "wikipedia": "es:Estación de Carpetana"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7409821,
+          40.3929166
+        ]
+      },
+      "id": "node/5305486992"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305513281",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Abrantes",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-11#estacion-1102",
+        "wheelchair": "yes",
+        "wikidata": "Q2484433",
+        "wikipedia": "es:Estación de Abrantes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7279849,
+          40.3809981
+        ]
+      },
+      "id": "node/5305513281"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305513282",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Pan Bendito",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-11#estacion-1103",
+        "wheelchair": "yes",
+        "wikidata": "Q2482414",
+        "wikipedia": "es:Estación de Pan Bendito"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7341933,
+          40.3761821
+        ]
+      },
+      "id": "node/5305513282"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305513283",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "San Francisco",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-11#estacion-1104",
+        "wheelchair": "yes",
+        "wikidata": "Q2061686",
+        "wikipedia": "es:Estación de San Francisco"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7397923,
+          40.3736594
+        ]
+      },
+      "id": "node/5305513283"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305513284",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Carabanchel Alto",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-11#estacion-1105",
+        "wheelchair": "yes",
+        "wikidata": "Q2482617",
+        "wikipedia": "es:Estación de Carabanchel Alto"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7517535,
+          40.3718832
+        ]
+      },
+      "id": "node/5305513284"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305513285",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "La Peseta",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-11#estacion-1106",
+        "wheelchair": "yes",
+        "wikidata": "Q2484416",
+        "wikipedia": "es:Estación de La Peseta"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7574077,
+          40.3630249
+        ]
+      },
+      "id": "node/5305513285"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5305513286",
+        "covered": "yes",
+        "fare_area": "B1",
+        "name": "La Fortuna",
+        "network": "Metro de Madrid",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-11#estacion-1107",
+        "wheelchair": "yes",
+        "wikidata": "Q3820855",
+        "wikipedia": "es:Estación de La Fortuna"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7776561,
+          40.3581963
+        ]
+      },
+      "id": "node/5305513286"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5306531886",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_153",
+        "name": "Arroyofresno",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_153",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-722",
+        "wheelchair": "yes",
+        "wikidata": "Q8779308",
+        "wikipedia": "es:Estación de Arroyofresno"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7259989,
+          40.4906807
+        ]
+      },
+      "id": "node/5306531886"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307455072",
+        "fare_area": "A",
+        "name": "Duque de Pastrana",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-9#estacion-905",
+        "wheelchair": "no",
+        "wikidata": "Q927753",
+        "wikipedia": "es:Estación de Duque de Pastrana"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6805854,
+          40.4674764
+        ]
+      },
+      "id": "node/5307455072"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307455075",
+        "colour": "#9F1F99",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_163",
+        "fare_area": "A",
+        "name": "Ventilla",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-9#estacion-903",
+        "wikidata": "Q3192875",
+        "wikipedia": "es:Estación de Ventilla"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.696293,
+          40.4698213
+        ]
+      },
+      "id": "node/5307455075"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307455076",
+        "colour": "#9F1F99",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_162",
+        "fare_area": "A",
+        "name": "Barrio del Pilar",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_162",
+        "website": "https://www.metromadrid.es/es/linea/linea-9#estacion-902",
+        "wheelchair": "no",
+        "wikidata": "Q2463533",
+        "wikipedia": "es:Estación de Barrio del Pilar"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7035391,
+          40.4770471
+        ]
+      },
+      "id": "node/5307455076"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307455077",
+        "colour": "#9F1F99",
+        "contact:website": "https://www.crtm.es/widgets/#/stop/4_161",
+        "fare_area": "A",
+        "name": "Herrera Oria",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-9#estacion-901",
+        "wheelchair": "no",
+        "wikidata": "Q2462763",
+        "wikipedia": "es:Estación de Herrera Oria"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7080099,
+          40.4846027
+        ]
+      },
+      "id": "node/5307455077"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307455078",
+        "colour": "#9F1F99",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Mirasierra",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "train": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q3858791",
+        "wikipedia": "es:Estación de Mirasierra"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7165397,
+          40.4910429
+        ]
+      },
+      "id": "node/5307455078"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307477090",
+        "colour": "#9F1F99",
+        "fare_area": "A",
+        "name": "Pavones",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2479437",
+        "wikipedia": "es:Estación de Pavones"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6352111,
+          40.4005425
+        ]
+      },
+      "id": "node/5307477090"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307477091",
+        "colour": "#9F1F99",
+        "fare_area": "A",
+        "name": "Artilleros",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "no",
+        "wikidata": "Q649362",
+        "wikipedia": "es:Estación de Artilleros"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6418518,
+          40.4052627
+        ]
+      },
+      "id": "node/5307477091"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307477092",
+        "colour": "#9F1F99",
+        "fare_area": "A",
+        "name": "Vinateros",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q2479812",
+        "wikipedia": "es:Estación de Vinateros"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6525288,
+          40.4103313
+        ]
+      },
+      "id": "node/5307477092"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307477093",
+        "colour": "#9F1F99",
+        "fare_area": "A",
+        "name": "Estrella",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q2464797",
+        "wikipedia": "es:Estación de Estrella"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.661347,
+          40.4112849
+        ]
+      },
+      "id": "node/5307477093"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307477094",
+        "fare_area": "A",
+        "name": "Cruz del Rayo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-9#estacion-909",
+        "wheelchair": "no",
+        "wikidata": "Q2004333",
+        "wikipedia": "es:Estación de Cruz del Rayo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6784632,
+          40.4444834
+        ]
+      },
+      "id": "node/5307477094"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307477095",
+        "alt_name": "Ibiza metro station",
+        "colour": "#9F1F99",
+        "fare_area": "A",
+        "name": "Ibiza",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "no",
+        "wikidata": "Q2464739",
+        "wikipedia": "es:Estación de Ibiza"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6781374,
+          40.4183658
+        ]
+      },
+      "id": "node/5307477095"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307477096",
+        "fare_area": "A",
+        "name": "Concha Espina",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "toilets:wheelchair": "no",
+        "train": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-9#estacion-908",
+        "wheelchair": "no",
+        "wikidata": "Q2464246",
+        "wikipedia": "es:Estación de Concha Espina"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6776079,
+          40.4513295
+        ]
+      },
+      "id": "node/5307477096"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307477097",
+        "fare_area": "A",
+        "name": "Pío XII",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-9#estacion-906",
+        "wikidata": "Q2635957",
+        "wikipedia": "es:Estación de Pío XII"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6765305,
+          40.4618018
+        ]
+      },
+      "id": "node/5307477097"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307497168",
+        "contact:website": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_182",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Puerta de Arganda",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "https://www.crtm.es/tu-transporte-publico/metro/estaciones/4_182",
+        "wheelchair": "yes",
+        "wikidata": "Q2059170",
+        "wikipedia": "es:Estación de Puerta de Arganda"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.5957286,
+          40.4012423
+        ]
+      },
+      "id": "node/5307497168"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307497169",
+        "colour": "#9F1F99",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "San Cipriano",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2479793",
+        "wikipedia": "es:Estación de San Cipriano"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6035493,
+          40.4039851
+        ]
+      },
+      "id": "node/5307497169"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307497170",
+        "check_date:wheelchair": "2023-09-15",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Vicálvaro",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-9#estacion-920",
+        "wheelchair": "yes",
+        "wikidata": "Q2479859",
+        "wikipedia": "es:Estación de Vicálvaro (Metro de Madrid)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6088938,
+          40.4042034
+        ]
+      },
+      "id": "node/5307497170"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5307497171",
+        "colour": "#9F1F99",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Valdebernardo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2696095",
+        "wikipedia": "es:Estación de Valdebernardo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.621522,
+          40.3999118
+        ]
+      },
+      "id": "node/5307497171"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310126818",
+        "colour": "#015396",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Lago",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q1902898",
+        "wikipedia": "es:Estación de Lago"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7348806,
+          40.4165076
+        ]
+      },
+      "id": "node/5310126818"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310126819",
+        "colour": "#000000",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Santiago Bernabéu",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2704346",
+        "wikipedia": "es:Estación de Santiago Bernabéu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6907254,
+          40.4523667
+        ]
+      },
+      "id": "node/5310126819"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310126820",
+        "colour": "#000000",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Cuzco",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q2482024",
+        "wikipedia": "es:Estación de Cuzco"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6900166,
+          40.4594841
+        ]
+      },
+      "id": "node/5310126820"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310127221",
+        "colour": "#015396",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Begoña",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "no",
+        "wikidata": "Q2482166",
+        "wikipedia": "es:Estación de Begoña"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6869037,
+          40.4834526
+        ]
+      },
+      "id": "node/5310127221"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310127222",
+        "colour": "#015396",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Fuencarral",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.metromadrid.es/es/viaja_en_metro/red_de_metro/estaciones/Fuencarral.html",
+        "wikidata": "Q2059161",
+        "wikipedia": "es:Estación de Fuencarral (Metro de Madrid)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6930692,
+          40.4947348
+        ]
+      },
+      "id": "node/5310127222"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310127223",
+        "colour": "#015396",
+        "contact:website": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_274",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Tres Olivos",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "https://www.crtm.es/tu-transporte-publico/metro/estaciones/4_274",
+        "website": "https://www.metromadrid.es/es/linea/linea-10#estacion-1051",
+        "wheelchair": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6946891,
+          40.500966
+        ]
+      },
+      "id": "node/5310127223"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310127224",
+        "colour": "#015396",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Montecarmelo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_275",
+        "wheelchair": "yes",
+        "wikidata": "Q2058996",
+        "wikipedia": "es:Estación de Montecarmelo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6959917,
+          40.5053359
+        ]
+      },
+      "id": "node/5310127224"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310127225",
+        "colour": "#000000",
+        "covered": "yes",
+        "fare_area": "A",
+        "light_rail": "yes",
+        "name": "Las Tablas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_276",
+        "wheelchair": "yes",
+        "wikidata": "Q2244102",
+        "wikipedia": "es:Estación de Las Tablas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6694346,
+          40.5083428
+        ]
+      },
+      "id": "node/5310127225"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310127226",
+        "colour": "#015396",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Ronda de la Comunicación",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_277",
+        "wheelchair": "yes",
+        "wikidata": "Q3941077",
+        "wikipedia": "es:Estación de Ronda de la Comunicación"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6623169,
+          40.5151569
+        ]
+      },
+      "id": "node/5310127226"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310127227",
+        "colour": "#015396",
+        "covered": "yes",
+        "fare_area": "B2",
+        "name": "La Granja",
+        "network": "Metro de Madrid",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_278",
+        "wheelchair": "yes",
+        "wikidata": "Q8779955",
+        "wikipedia": "es:Estación de La Granja (Metro de Madrid)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6585237,
+          40.5274337
+        ]
+      },
+      "id": "node/5310127227"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310127228",
+        "colour": "#015396",
+        "covered": "yes",
+        "fare_area": "B2",
+        "name": "La Moraleja",
+        "network": "Metro de Madrid",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_279",
+        "wheelchair": "yes",
+        "wikidata": "Q2059047",
+        "wikipedia": "es:Estación de La Moraleja"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6354938,
+          40.5320326
+        ]
+      },
+      "id": "node/5310127228"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310153776",
+        "colour": "#015396",
+        "covered": "yes",
+        "fare_area": "B1",
+        "name": "Joaquín Vilumbrales",
+        "network": "Metro de Madrid",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q528905",
+        "wikipedia": "es:Estación de Joaquín Vilumbrales"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.8073186,
+          40.3497655
+        ]
+      },
+      "id": "node/5310153776"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310153777",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Cuatro Vientos",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_203",
+        "wheelchair": "yes",
+        "wikidata": "Q2060846"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7919717,
+          40.3778953
+        ]
+      },
+      "id": "node/5310153777"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310153778",
+        "colour": "#015396",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Aviación Española",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2482246",
+        "wikimedia_commons": "Category:Estación de Aviación Española",
+        "wikipedia": "es:Estación de Aviación Española"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7840243,
+          40.3837137
+        ]
+      },
+      "id": "node/5310153778"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310153779",
+        "colour": "#000000",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Colonia Jardín",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "source": "wikipedia",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2060520",
+        "wikipedia": "es:Estación de Colonia Jardín"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7747975,
+          40.3968629
+        ]
+      },
+      "id": "node/5310153779"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5310153781",
+        "check_date:wheelchair": "2024-03-06",
+        "colour": "#015396",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Batán",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q2059269",
+        "wikipedia": "es:Estación de Batán"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7531173,
+          40.4078351
+        ]
+      },
+      "id": "node/5310153781"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5330101189",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Las Rosas",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "website": "https://www.metromadrid.es/es/linea/linea-2#estacion-255",
+        "wheelchair": "yes",
+        "wikidata": "Q3827253",
+        "wikipedia": "es:Estación de Las Rosas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6028437,
+          40.4235572
+        ]
+      },
+      "id": "node/5330101189"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5423856839",
+        "alt_name": "Metro Bilbao;Bilbao Metro Station",
+        "name": "Bilbao",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_9",
+        "website": "https://www.metromadrid.es/es/linea/linea-4#estacion-109",
+        "wheelchair": "no",
+        "wikidata": "Q2479784",
+        "wikipedia": "es:Estación de Bilbao (Metro de Madrid)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7019295,
+          40.4292705
+        ]
+      },
+      "id": "node/5423856839"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5462590351",
+        "addr:city": "Madrid",
+        "addr:housenumber": "44",
+        "addr:postcode": "28007",
+        "addr:street": "Avenida de Menéndez Pelayo",
+        "description": "Linea 1",
+        "name": "Menéndez Pelayo",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_17",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-117",
+        "wheelchair": "yes",
+        "wikidata": "Q2479001",
+        "wikipedia": "es:Estación de Menéndez Pelayo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6811007,
+          40.4042973
+        ]
+      },
+      "id": "node/5462590351"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/6186804853",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Pacífico",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_112",
+        "website": "https://www.metromadrid.es/es/linea/linea-1#estacion-118",
+        "wheelchair": "yes",
+        "wikidata": "Q2479769",
+        "wikipedia": "es:Estación de Pacífico"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6748832,
+          40.4013961
+        ]
+      },
+      "id": "node/6186804853"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/6187761909",
+        "covered": "yes",
+        "fare_area": "A",
+        "name": "Conde de Casal",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_113",
+        "website": "https://www.metromadrid.es/es/linea/linea-6-circular#estacion-611",
+        "wheelchair": "yes",
+        "wikidata": "Q2055817",
+        "wikipedia": "es:Estación de Conde de Casal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.6701194,
+          40.4078121
+        ]
+      },
+      "id": "node/6187761909"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/6354922794",
+        "name": "El Carrascal",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "wikidata": "Q2485042",
+        "wikipedia": "es:Estación de El Carrascal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7405905,
+          40.3364492
+        ]
+      },
+      "id": "node/6354922794"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/6393976871",
+        "contact:website": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_154",
+        "name": "Pitis",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "https://www.crtm.es/tu-transporte-publico/metro/estaciones/4_154",
+        "website": "https://www.metromadrid.es/es/linea/linea-7#estacion-723",
+        "wheelchair": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7255882,
+          40.4953016
+        ]
+      },
+      "id": "node/6393976871"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12301152660",
+        "fare_area": "A",
+        "layer": "1",
+        "name": "Aluche",
+        "network": "Metro de Madrid",
+        "network:wikidata": "Q191987",
+        "operator": "Metro de Madrid",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway",
+        "subway": "yes",
+        "url": "http://www.citram.es/HORARIOS/info.aspx?estacion=4_100",
+        "wheelchair": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7607634,
+          40.3856671
+        ]
+      },
+      "id": "node/12301152660"
+    }
+  ]
+}

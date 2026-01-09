@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Cafe Info Loading</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+</head>
+<body>
+    <h1>Testing Cafe Info CSV Loading</h1>
+    <div id="output"></div>
+    <div id="console"></div>
+
+    <script>
+        const output = document.getElementById('output');
+        const consoleDiv = document.getElementById('console');
+
+        function log(message) {
+            console.log(message);
+            consoleDiv.innerHTML += message + '<br>';
+        }
+
+        async function testLoad() {
+            try {
+                log('Attempting to load cafe_info.csv...');
+
+                const response = await fetch('cafe_info.csv');
+                if (!response.ok) {
+                    log('ERROR: Failed to fetch - ' + response.status);
+                    return;
+                }
+
+                const text = await response.text();
+                log('CSV text loaded, length: ' + text.length);
+
+                const results = Papa.parse(text, {
+                    header: true,
+                    dynamicTyping: false,
+                    skipEmptyLines: true
+                });
+
+                log('Parsed ' + results.data.length + ' rows');
+
+                if (results.data.length > 0) {
+                    const firstCafe = results.data[0];
+                    output.innerHTML = '<h2>First Cafe:</h2>';
+                    output.innerHTML += '<pre>' + JSON.stringify(firstCafe, null, 2) + '</pre>';
+
+                    // Test the date function
+                    if (firstCafe.date_published) {
+                        const pubDate = new Date(firstCafe.date_published);
+                        const now = new Date();
+                        const threeMonthsAgo = new Date();
+                        threeMonthsAgo.setMonth(now.getMonth() - 3);
+
+                        const isNew = pubDate >= threeMonthsAgo;
+                        log('Cafe date: ' + pubDate.toISOString());
+                        log('Three months ago: ' + threeMonthsAgo.toISOString());
+                        log('Is newly added: ' + isNew);
+                    }
+                }
+
+                // Count cafes with photos, socials, and new cafes
+                let withPhoto = 0, withInstagram = 0, withFacebook = 0, withWebsite = 0, newCafes = 0;
+                const now = new Date();
+                const threeMonthsAgo = new Date();
+                threeMonthsAgo.setMonth(now.getMonth() - 3);
+
+                results.data.forEach(cafe => {
+                    if (cafe.featured_photo) withPhoto++;
+                    if (cafe.instagram) withInstagram++;
+                    if (cafe.facebook) withFacebook++;
+                    if (cafe.website) withWebsite++;
+                    if (cafe.date_published) {
+                        const pubDate = new Date(cafe.date_published);
+                        if (pubDate >= threeMonthsAgo) newCafes++;
+                    }
+                });
+
+                log('---');
+                log('With photo: ' + withPhoto);
+                log('With Instagram: ' + withInstagram);
+                log('With Facebook: ' + withFacebook);
+                log('With Website: ' + withWebsite);
+                log('Newly added (last 3 months): ' + newCafes);
+                log('SUCCESS!');
+
+            } catch (error) {
+                log('ERROR: ' + error.message);
+                console.error(error);
+            }
+        }
+
+        testLoad();
+    </script>
+</body>
+</html>
