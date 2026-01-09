@@ -568,8 +568,7 @@ export function EnhancedMapContainer({
                                 <EnhancedMarkerIcon
                                     type={isEuCoffeeTrip ? "eu_coffee_trip" : "cafe"}
                                     isMiners={cafe.franchisePartner}
-                                    size="auto"
-                                    rating={cafe.rating}
+                                    size="default"
                                     isFeatured={cafe.rating && cafe.rating >= 4.8}
                                     state={hoveredMarkerId === markerId ? "hovered" : "default"}
                                 />
