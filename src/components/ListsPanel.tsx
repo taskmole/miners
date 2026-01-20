@@ -356,12 +356,7 @@ export function ListsPanel() {
                     className="glass w-10 h-10 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 transition-all duration-200 relative"
                     title="My Lists"
                 >
-                    <List className="w-5 h-5 text-zinc-700" />
-                    {lists.length > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-zinc-900 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                            {lists.length}
-                        </span>
-                    )}
+                    <List className="w-[18px] h-[18px] text-zinc-500" />
                 </button>
             </div>
         );

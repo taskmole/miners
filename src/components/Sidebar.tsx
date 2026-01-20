@@ -261,7 +261,7 @@ export function Sidebar({
                     className="glass w-10 h-10 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 transition-all duration-200"
                     title="Open filters"
                 >
-                    <SlidersHorizontal className="w-5 h-5 text-zinc-700" />
+                    <SlidersHorizontal className="w-[18px] h-[18px] text-zinc-500" />
                 </button>
             </div>
         );
