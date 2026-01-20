@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import {
-    List,
+    ClipboardList,
     Plus,
     MoreVertical,
     Trash2,
@@ -356,7 +356,7 @@ export function ListsPanel() {
                     className="glass w-10 h-10 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 transition-all duration-200 relative"
                     title="My Lists"
                 >
-                    <List className="w-[18px] h-[18px] text-zinc-500" />
+                    <ClipboardList className="w-[17px] h-[17px] text-zinc-500" />
                 </button>
             </div>
         );
@@ -385,7 +385,7 @@ export function ListsPanel() {
                             <div className="p-4 text-center text-zinc-500 text-sm">Loading...</div>
                         ) : lists.length === 0 ? (
                             <div className="p-6 text-center">
-                                <List className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+                                <ClipboardList className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
                                 <p className="text-sm text-zinc-500">No lists yet</p>
                                 <p className="text-xs text-zinc-400 mt-1">Create one to start saving places</p>
                             </div>

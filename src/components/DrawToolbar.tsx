@@ -159,7 +159,7 @@ export function DrawToolbar() {
         title="Draw tools"
       >
         <MapPinPlus className={cn(
-          "w-[18px] h-[18px]",
+          "w-[17px] h-[17px]",
           isDrawing ? "text-teal-600" : "text-zinc-500"
         )} />
       </button>
