@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import { MapPopup } from '@/components/ui/map';
 import { useMapDraw } from '@/hooks/useMapDraw';
-import { Pencil, X, Trash2, Users, Scan, Link, ExternalLink, Paperclip, ChevronDown, MessageSquare, Banknote } from 'lucide-react';
+import { Pencil, X, Trash2, Users, Scan, Link, ExternalLink, Paperclip, ChevronDown, MessageSquare, Banknote, ListPlus } from 'lucide-react';
+import { AddToListButton } from '@/components/AddToListButton';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/contexts/ToastContext';
 import { AttachmentGallery } from '@/components/attachments';
@@ -893,6 +894,17 @@ export function ShapeComments() {
                 />
               </div>
             )}
+          </div>
+
+          {/* Add to list button - bottom right */}
+          <div className="border-t border-zinc-100 flex justify-end" style={{ padding: '12px 20px' }}>
+            <AddToListButton
+              shape={{
+                shapeId: selectedId,
+                shapeType: isPolygon ? 'polygon' : 'point',
+                shapeName: metadata.name || placeholderName,
+              }}
+            />
           </div>
 
         </div>

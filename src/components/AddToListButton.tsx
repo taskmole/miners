@@ -22,23 +22,53 @@ import { Button } from '@/components/ui/button';
 import { useListsContext } from '@/contexts/ListsContext';
 import type { PlaceInfo } from '@/types/lists';
 
+// Shape info for drawn areas/points
+export interface ShapeInfo {
+  shapeId: string;
+  shapeType: 'polygon' | 'point';
+  shapeName: string;
+}
+
 interface AddToListButtonProps {
-  place: PlaceInfo;
+  place?: PlaceInfo;
+  shape?: ShapeInfo;
 }
 
 /**
- * AddToListButton - Dropdown button for adding places to user lists
+ * AddToListButton - Dropdown button for adding places or shapes to user lists
  * Shows existing lists with checkboxes and option to create new lists
+ * Supports both POIs (place prop) and drawn shapes (shape prop)
  */
-export function AddToListButton({ place }: AddToListButtonProps) {
-  const { lists, toggleInList, isPlaceInList, createList, addToList } = useListsContext();
+export function AddToListButton({ place, shape }: AddToListButtonProps) {
+  const { lists, toggleInList, isPlaceInList, createList, addToList, addDrawnArea, removeDrawnArea } = useListsContext();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  // Handle toggling a place in/out of a list
+  // Determine if this is a shape or a place
+  const isShape = !!shape;
+  const displayName = isShape ? shape.shapeName : place?.placeName || '';
+
+  // Check if a shape is in a specific list
+  const isShapeInList = (shapeId: string, listId: string): boolean => {
+    const list = lists.find(l => l.id === listId);
+    if (!list || !list.drawnAreas) return false;
+    return list.drawnAreas.some(area => area.areaId === shapeId);
+  };
+
+  // Handle toggling a place/shape in/out of a list
   const handleToggle = (listId: string) => {
-    toggleInList(listId, place);
+    if (isShape) {
+      // Toggle shape
+      if (isShapeInList(shape.shapeId, listId)) {
+        removeDrawnArea(listId, shape.shapeId);
+      } else {
+        addDrawnArea(listId, shape.shapeId, shape.shapeType === 'polygon' ? 'polygon' : 'line', shape.shapeName);
+      }
+    } else if (place) {
+      // Toggle place (existing behavior)
+      toggleInList(listId, place);
+    }
   };
 
   // Handle creating a new list
@@ -46,7 +76,11 @@ export function AddToListButton({ place }: AddToListButtonProps) {
     if (!newListName.trim()) return;
 
     const newList = createList(newListName.trim());
-    addToList(newList.id, place);
+    if (isShape) {
+      addDrawnArea(newList.id, shape.shapeId, shape.shapeType === 'polygon' ? 'polygon' : 'line', shape.shapeName);
+    } else if (place) {
+      addToList(newList.id, place);
+    }
     setNewListName('');
     setIsCreateDialogOpen(false);
   };
@@ -57,8 +91,23 @@ export function AddToListButton({ place }: AddToListButtonProps) {
     setIsCreateDialogOpen(true);
   };
 
-  // Count how many lists this place is in
-  const listsWithPlace = lists.filter(list => isPlaceInList(place.placeId, list.id)).length;
+  // Count how many lists this place/shape is in
+  const listsWithItem = isShape
+    ? lists.filter(list => isShapeInList(shape.shapeId, list.id)).length
+    : place ? lists.filter(list => isPlaceInList(place.placeId, list.id)).length : 0;
+
+  // Check if item is in a specific list
+  const isItemInList = (listId: string): boolean => {
+    if (isShape) {
+      return isShapeInList(shape.shapeId, listId);
+    }
+    return place ? isPlaceInList(place.placeId, listId) : false;
+  };
+
+  // Get total items count for a list (items + drawnAreas)
+  const getListItemCount = (list: { items: unknown[]; drawnAreas?: unknown[] }): number => {
+    return list.items.length + (list.drawnAreas?.length || 0);
+  };
 
   return (
     <>
@@ -69,10 +118,10 @@ export function AddToListButton({ place }: AddToListButtonProps) {
             size="sm"
             className="h-auto py-1 px-2"
           >
-            {listsWithPlace > 0 ? (
+            {listsWithItem > 0 ? (
               <>
                 <Check className="h-3.5 w-3.5 text-emerald-600" />
-                <span>In {listsWithPlace} list{listsWithPlace !== 1 ? 's' : ''}</span>
+                <span>In {listsWithItem} list{listsWithItem !== 1 ? 's' : ''}</span>
               </>
             ) : (
               <>
@@ -90,13 +139,13 @@ export function AddToListButton({ place }: AddToListButtonProps) {
               {lists.map(list => (
                 <DropdownMenuCheckboxItem
                   key={list.id}
-                  checked={isPlaceInList(place.placeId, list.id)}
+                  checked={isItemInList(list.id)}
                   onCheckedChange={() => handleToggle(list.id)}
                   onSelect={(e) => e.preventDefault()}
                 >
                   <span className="truncate">{list.name}</span>
                   <span className="ml-auto text-xs text-muted-foreground">
-                    ({list.items.length})
+                    ({getListItemCount(list)})
                   </span>
                 </DropdownMenuCheckboxItem>
               ))}
@@ -139,7 +188,7 @@ export function AddToListButton({ place }: AddToListButtonProps) {
               autoFocus
             />
             <p className="mt-2 text-xs text-muted-foreground">
-              "{place.placeName}" will be added to this list
+              "{displayName}" will be added to this list
             </p>
           </div>
 
