@@ -16,8 +16,12 @@ export interface CafeData {
     franchisePartner?: boolean;
     openingHours?: string;
     image?: string;
+    website?: string;
     instagram?: string;
     facebook?: string;
+    premium?: boolean;
+    datePublished?: string;
+    city: "madrid" | "barcelona" | "prague"; // Which city this cafe belongs to
 }
 
 export interface PropertyData {
@@ -32,16 +36,21 @@ export interface PropertyData {
     hasAirConditioning: boolean;
     url: string;
     title: string;
+    // Optional fields for enhanced display
+    transfer?: number;          // traspaso amount
+    hasBathroom?: boolean;
+    hasStorefront?: boolean;
 }
 
 export interface OtherPoiData {
-    type: "transit" | "office" | "shopping" | "high_street" | "dorm" | "university";
+    type: "transit" | "office" | "shopping" | "high_street" | "dorm" | "university" | "metro";
     category: string;
     name: string;
     lat: number;
     lon: number;
     address: string;
     mapsUrl: string;
+    website?: string;
 }
 
 export type LocationData = CafeData | PropertyData | OtherPoiData;
@@ -49,6 +58,8 @@ export type LocationData = CafeData | PropertyData | OtherPoiData;
 // Category mapping for other.csv
 const categoryMap: Record<string, OtherPoiData["type"]> = {
     "Train Station": "transit",
+    "Metro Station": "transit",
+    "Metro": "transit",
     "Office Center": "office",
     "Shopping Center": "shopping",
     "High Street": "high_street",
@@ -56,13 +67,16 @@ const categoryMap: Record<string, OtherPoiData["type"]> = {
     "University": "university",
 };
 
-// Module-level cache to prevent duplicate fetches across components
-let globalCache: {
+// Cache type definition
+interface MapDataCache {
     cafes: CafeData[];
     properties: PropertyData[];
     otherPois: OtherPoiData[];
-} | null = null;
-let activePromise: Promise<typeof globalCache> | null = null;
+}
+
+// Module-level cache to prevent duplicate fetches across components
+let globalCache: MapDataCache | null = null;
+let activePromise: Promise<MapDataCache | null> | null = null;
 
 export function useMapData() {
     const [cafes, setCafes] = useState<CafeData[]>(globalCache?.cafes || []);
@@ -99,24 +113,25 @@ export function useMapData() {
 
                 // Start new fetch
                 activePromise = (async () => {
-                    // Fetch all data sources in parallel
-                    const [cafesRes, cafeInfoRes, propsRes, otherRes] = await Promise.all([
+                    // Fetch all data sources in parallel (including Barcelona cafes)
+                    const [cafesRes, cafeInfoRes, barcelonaCafesRes, propsRes, otherRes] = await Promise.all([
                         fetch("/api/data?type=data"),
                         fetch("/api/data?type=cafes"), // Fetch enriched info (images)
+                        fetch("/api/data?type=barcelona_cafes"), // Barcelona cafe data
                         fetch("/api/data?type=properties"),
                         fetch("/api/data?type=other")
                     ]);
 
-                    // Process Cafe Info (for images/socials)
+                    // Process Cafe Info (for images/socials) - Madrid enriched data
                     const cafeInfoRaw = await cafeInfoRes.json();
                     const cafeInfoMap = new Map<string, any>();
                     cafeInfoRaw.forEach((info: any) => {
                         if (info.link) cafeInfoMap.set(info.link, info);
                     });
 
-                    // Process Cafes
+                    // Process Madrid Cafes
                     const cafesRaw = await cafesRes.json();
-                    const parsedCafes: CafeData[] = cafesRaw
+                    const madridCafes: CafeData[] = cafesRaw
                         .filter((c: any) => c.lat && c.lon)
                         .map((c: any) => {
                             // Try to find matching info by link
@@ -134,12 +149,44 @@ export function useMapData() {
                                 reviewCount: c.reviewCount ? parseInt(c.reviewCount) : undefined,
                                 franchisePartner: c.franchisePartner === "TRUE",
                                 openingHours: c["openingHours/0/hours"] || undefined,
-                                // Enriched fields
+                                // Enriched fields from cafe_info.csv
                                 image: info?.featured_photo || undefined,
+                                website: info?.website || undefined,
                                 instagram: info?.instagram || undefined,
                                 facebook: info?.facebook || undefined,
+                                premium: info?.premium === 'True' || info?.premium === true,
+                                datePublished: info?.date_published || undefined,
+                                city: "madrid" as const, // Mark as Madrid cafe
                             };
                         });
+
+                    // Process Barcelona Cafes (all data in one CSV)
+                    const barcelonaCafesRaw = await barcelonaCafesRes.json();
+                    const barcelonaCafes: CafeData[] = barcelonaCafesRaw
+                        .filter((c: any) => c.latitude && c.longitude)
+                        .map((c: any) => ({
+                            type: "cafe" as const,
+                            name: c.name || "Unknown Cafe",
+                            link: c.link || undefined,
+                            address: c.address || "",
+                            lat: parseFloat(c.latitude),
+                            lon: parseFloat(c.longitude),
+                            categoryName: "EU Coffee Trip", // All Barcelona cafes from ECT
+                            rating: undefined,
+                            reviewCount: undefined,
+                            franchisePartner: c.name?.toLowerCase().includes("miners") || false,
+                            openingHours: undefined,
+                            image: c.featured_photo || undefined,
+                            website: c.website || undefined,
+                            instagram: c.instagram || undefined,
+                            facebook: c.facebook || undefined,
+                            premium: c.premium === 'True' || c.premium === true,
+                            datePublished: c.date_published || undefined,
+                            city: "barcelona" as const, // Mark as Barcelona cafe
+                        }));
+
+                    // Combine Madrid and Barcelona cafes
+                    const parsedCafes: CafeData[] = [...madridCafes, ...barcelonaCafes];
 
                     // Process Properties
                     const propsRaw = await propsRes.json();
@@ -157,6 +204,10 @@ export function useMapData() {
                             hasAirConditioning: p["features/hasAirConditioning"] === "TRUE",
                             url: p.url || "",
                             title: p["suggestedTexts/title"] || "Property",
+                            // Optional enhanced fields
+                            transfer: p.transfer ? parseInt(p.transfer) : undefined,
+                            hasBathroom: p["features/hasBathroom"] === "TRUE" || p.hasBathroom === "TRUE",
+                            hasStorefront: p["features/hasStorefront"] === "TRUE" || p.hasStorefront === "TRUE",
                         }));
 
                     // Process Other POIs
@@ -172,6 +223,23 @@ export function useMapData() {
                             address: o.Address || "",
                             mapsUrl: o.MapsURL || "",
                         }));
+
+                    // Fetch metro stations from GeoJSON
+                    const metroRes = await fetch("/api/data?type=metro");
+                    if (metroRes.ok) {
+                        const metroData = await metroRes.json();
+                        const metroStations: OtherPoiData[] = metroData.features.map((feature: any) => ({
+                            type: "metro" as const,
+                            category: "Metro Station",
+                            name: feature.properties.name || "Metro Station",
+                            lat: feature.geometry.coordinates[1],
+                            lon: feature.geometry.coordinates[0],
+                            address: "",
+                            mapsUrl: "",
+                            website: feature.properties.website || "",
+                        }));
+                        parsedOther.push(...metroStations);
+                    }
 
                     return { cafes: parsedCafes, properties: parsedProps, otherPois: parsedOther };
                 })();
@@ -206,6 +274,7 @@ export function useMapData() {
             regularCafe: regularCafeCount,
             property: properties.length,
             transit: otherPois.filter((p) => p.type === "transit").length,
+            metro: otherPois.filter((p) => p.type === "metro").length,
             office: otherPois.filter((p) => p.type === "office").length,
             shopping: otherPois.filter((p) => p.type === "shopping").length,
             high_street: otherPois.filter((p) => p.type === "high_street").length,

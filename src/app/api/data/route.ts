@@ -18,6 +18,17 @@ export async function GET(request: NextRequest) {
             delimiter = ";"; // data.csv uses semicolon delimiter
         }
         else if (type === "other") fileName = "other.csv";
+        else if (type === "barcelona_cafes") fileName = "barcelona_cafe_info.csv";
+        else if (type === "metro") {
+            // Handle GeoJSON file for metro stations
+            const filePath = path.join(process.cwd(), "metro.geojson");
+            if (!fs.existsSync(filePath)) {
+                return NextResponse.json({ error: "Metro data not found" }, { status: 404 });
+            }
+            const fileContent = fs.readFileSync(filePath, "utf-8");
+            const geojson = JSON.parse(fileContent);
+            return NextResponse.json(geojson);
+        }
 
         if (!fileName) return NextResponse.json({ error: "Invalid type" }, { status: 400 });
 

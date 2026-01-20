@@ -266,34 +266,36 @@ function MapMarker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
 
-  if (
-    marker.getLngLat().lng !== longitude ||
-    marker.getLngLat().lat !== latitude
-  ) {
+  // Sync position only when coordinates change
+  useEffect(() => {
     marker.setLngLat([longitude, latitude]);
-  }
-  if (marker.isDraggable() !== draggable) {
+  }, [marker, longitude, latitude]);
+
+  // Sync draggable only when prop changes
+  useEffect(() => {
     marker.setDraggable(draggable);
-  }
+  }, [marker, draggable]);
 
-  const currentOffset = marker.getOffset();
-  const newOffset = markerOptions.offset ?? [0, 0];
-  const [newOffsetX, newOffsetY] = Array.isArray(newOffset)
-    ? newOffset
-    : [newOffset.x, newOffset.y];
-  if (currentOffset.x !== newOffsetX || currentOffset.y !== newOffsetY) {
+  // Sync offset only when it changes
+  useEffect(() => {
+    const newOffset = markerOptions.offset ?? [0, 0];
     marker.setOffset(newOffset);
-  }
+  }, [marker, markerOptions.offset]);
 
-  if (marker.getRotation() !== markerOptions.rotation) {
+  // Sync rotation only when it changes
+  useEffect(() => {
     marker.setRotation(markerOptions.rotation ?? 0);
-  }
-  if (marker.getRotationAlignment() !== markerOptions.rotationAlignment) {
+  }, [marker, markerOptions.rotation]);
+
+  // Sync rotation alignment only when it changes
+  useEffect(() => {
     marker.setRotationAlignment(markerOptions.rotationAlignment ?? "auto");
-  }
-  if (marker.getPitchAlignment() !== markerOptions.pitchAlignment) {
+  }, [marker, markerOptions.rotationAlignment]);
+
+  // Sync pitch alignment only when it changes
+  useEffect(() => {
     marker.setPitchAlignment(markerOptions.pitchAlignment ?? "auto");
-  }
+  }, [marker, markerOptions.pitchAlignment]);
 
   return (
     <MarkerContext.Provider value={{ marker, map }}>
@@ -333,12 +335,15 @@ type MarkerPopupProps = {
   className?: string;
   /** Show a close button in the popup (default: false) */
   closeButton?: boolean;
+  /** Callback when popup is closed */
+  onClose?: () => void;
 } & Omit<PopupOptions, "className" | "closeButton">;
 
 function MarkerPopup({
   children,
   className,
   closeButton = false,
+  onClose,
   ...popupOptions
 }: MarkerPopupProps) {
   const { marker, map } = useMarkerContext();
@@ -364,11 +369,16 @@ function MarkerPopup({
     popup.setDOMContent(container);
     marker.setPopup(popup);
 
+    // Listen for popup close event (triggered by clicking elsewhere or close button)
+    const handlePopupClose = () => onClose?.();
+    popup.on("close", handlePopupClose);
+
     return () => {
+      popup.off("close", handlePopupClose);
       marker.setPopup(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map]);
+  }, [map, onClose]);
 
   if (popup.isOpen()) {
     const prev = prevPopupOptions.current;
@@ -388,7 +398,7 @@ function MarkerPopup({
   return createPortal(
     <div
       className={cn(
-        "relative rounded-md border bg-popover p-3 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
+        "relative",
         className
       )}
     >
@@ -396,10 +406,10 @@ function MarkerPopup({
         <button
           type="button"
           onClick={handleClose}
-          className="absolute top-1 right-1 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="absolute top-2.5 right-3 z-20 h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
           aria-label="Close popup"
         >
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5 text-zinc-700" />
           <span className="sr-only">Close</span>
         </button>
       )}
@@ -814,7 +824,7 @@ function MapPopup({
   return createPortal(
     <div
       className={cn(
-        "relative rounded-md border bg-popover p-3 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
+        "relative",
         className
       )}
     >
@@ -822,10 +832,10 @@ function MapPopup({
         <button
           type="button"
           onClick={handleClose}
-          className="absolute top-1 right-1 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="absolute top-2.5 right-3 z-20 h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
           aria-label="Close popup"
         >
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5 text-zinc-700" />
           <span className="sr-only">Close</span>
         </button>
       )}
@@ -991,6 +1001,8 @@ type MapClusterLayerProps<
   clusterThresholds?: [number, number];
   /** Color for unclustered individual points (default: "#3b82f6") */
   pointColor?: string;
+  /** Key that changes when map style changes, triggers layer re-add */
+  styleKey?: number;
   /** Callback when an unclustered point is clicked */
   onPointClick?: (
     feature: GeoJSON.Feature<GeoJSON.Point, P>,
@@ -1013,6 +1025,7 @@ function MapClusterLayer<
   clusterColors = ["#51bbd6", "#f1f075", "#f28cb1"],
   clusterThresholds = [100, 750],
   pointColor = "#3b82f6",
+  styleKey,
   onPointClick,
   onClusterClick,
 }: MapClusterLayerProps<P>) {
@@ -1029,9 +1042,21 @@ function MapClusterLayer<
     pointColor,
   });
 
-  // Add source and layers on mount
+  // Add source and layers on mount or when style changes
   useEffect(() => {
     if (!isLoaded || !map) return;
+
+    // Remove existing layers first (handles re-add after style change)
+    try {
+      if (map.getLayer(clusterCountLayerId))
+        map.removeLayer(clusterCountLayerId);
+      if (map.getLayer(unclusteredLayerId))
+        map.removeLayer(unclusteredLayerId);
+      if (map.getLayer(clusterLayerId)) map.removeLayer(clusterLayerId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+    } catch {
+      // ignore - layers may not exist yet
+    }
 
     // Add clustered GeoJSON source
     map.addSource(sourceId, {
@@ -1110,7 +1135,7 @@ function MapClusterLayer<
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, map, sourceId]);
+  }, [isLoaded, map, sourceId, styleKey]);
 
   // Update source data when data prop changes (only for non-URL data)
   useEffect(() => {

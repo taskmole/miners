@@ -1,52 +1,84 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useMap } from "@/components/ui/map";
-import { Layers, Map as MapIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Carto basemap style URLs
 const STYLES = {
     positron: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
     voyager: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
 };
 
-export function MapStyleSwitcher() {
+// Local thumbnail images for style preview
+const TILE_THUMBNAILS = {
+    positron: "/assets/map-style-bw.png",
+    voyager: "/assets/map-style-color.png",
+};
+
+export function MapStyleSwitcher({ onStyleChange }: { onStyleChange?: () => void }) {
     const { map } = useMap();
     const [activeStyle, setActiveStyle] = useState<"positron" | "voyager">("positron");
 
-    // Handle style change
+    // Switch map style when user clicks a thumbnail
     const handleStyleChange = (styleKey: "positron" | "voyager") => {
-        if (!map) return;
+        if (!map || activeStyle === styleKey) return;
         setActiveStyle(styleKey);
-        map.setStyle(STYLES[styleKey]);
+        // diff: true preserves custom layers (clusters, traffic, population)
+        map.setStyle(STYLES[styleKey], { diff: true });
+        // Wait for style to fully load before signaling change
+        // This ensures overlays can be re-added to the new style
+        map.once("idle", () => {
+            onStyleChange?.();
+        });
     };
 
     return (
-        <div className="absolute bottom-6 left-6 z-10 flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center p-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)]">
+        <div className="absolute bottom-6 left-6 z-10">
+            {/* Horizontal toggle with glassmorphism */}
+            <div className="glass relative flex gap-1.5 p-1 rounded-xl border border-white/40 shadow-[0_0_0_1.5px_rgba(0,0,0,0.3),0_8px_32px_rgba(31,38,135,0.15),inset_0_4px_20px_rgba(255,255,255,0.4)]">
+                {/* Sliding white pill indicator */}
+                <div
+                    className={cn(
+                        "absolute top-1 w-7 h-7 rounded-lg bg-white/60 shadow-sm transition-all duration-200 ease-out",
+                        activeStyle === "positron" ? "left-1" : "left-[calc(4px+28px+6px)]"
+                    )}
+                />
+
+                {/* B&W (Positron) thumbnail */}
                 <button
                     onClick={() => handleStyleChange("positron")}
+                    title="Black & White"
                     className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all duration-300",
+                        "relative z-10 w-7 h-7 rounded-lg transition-all duration-200 overflow-hidden shadow-[0_0_0_1.5px_rgba(0,0,0,0.3)]",
                         activeStyle === "positron"
-                            ? "bg-black text-white shadow-md transform scale-105"
-                            : "text-zinc-700 hover:text-black hover:bg-white/20"
+                            ? "shadow-[0_0_0_1.5px_rgba(0,0,0,0.3),0_2px_4px_rgba(0,0,0,0.15)]"
+                            : "opacity-50 hover:opacity-80"
                     )}
                 >
-                    <MapIcon className="w-3.5 h-3.5" />
-                    Mono
+                    <img
+                        src={TILE_THUMBNAILS.positron}
+                        alt="B&W map style"
+                        className="w-full h-full object-cover"
+                    />
                 </button>
+
+                {/* Color (Voyager) thumbnail */}
                 <button
                     onClick={() => handleStyleChange("voyager")}
+                    title="Colorful"
                     className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all duration-300",
+                        "relative z-10 w-7 h-7 rounded-lg transition-all duration-200 overflow-hidden shadow-[0_0_0_1.5px_rgba(0,0,0,0.3)]",
                         activeStyle === "voyager"
-                            ? "bg-blue-600 text-white shadow-md transform scale-105"
-                            : "text-zinc-700 hover:text-black hover:bg-white/20"
+                            ? "shadow-[0_0_0_1.5px_rgba(0,0,0,0.3),0_2px_4px_rgba(0,0,0,0.15)]"
+                            : "opacity-60 saturate-150 hover:opacity-90"
                     )}
                 >
-                    <Layers className="w-3.5 h-3.5" />
-                    Color
+                    <img
+                        src={TILE_THUMBNAILS.voyager}
+                        alt="Colorful map style"
+                        className="w-full h-full object-cover"
+                    />
                 </button>
             </div>
         </div>

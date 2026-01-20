@@ -118,19 +118,23 @@
 @layer utilities {
   .glass {
     position: relative;
-    background: rgba(255, 255, 255, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(2px) saturate(180%);
-    box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2),
-      inset 0 4px 20px rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(8px) saturate(180%);
+    /* Outer dark outline (12% black) + depth shadow + inner highlight */
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12),
+      0 8px 32px rgba(31, 38, 135, 0.15),
+      inset 0 4px 20px rgba(255, 255, 255, 0.4);
   }
 
   .glass-dark {
     position: relative;
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(12px) saturate(180%);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
+    backdrop-filter: blur(18px) saturate(180%);
+    /* Outer dark outline (25% for dark panels) + depth shadow + subtle inner highlight */
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25),
+      0 8px 32px rgba(0, 0, 0, 0.4),
       inset 0 4px 20px rgba(255, 255, 255, 0.05);
   }
 }
@@ -140,8 +144,10 @@
     @apply border-border outline-ring/50;
   }
 
-  body {
+  html, body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+    max-width: 100vw;
   }
 
   .maplibregl-popup-content {
@@ -149,14 +155,1030 @@
     box-shadow: none !important;
     padding: 0 !important;
     border-radius: 0 !important;
+    max-width: 90vw !important;
+  }
+
+  .maplibregl-popup {
+    max-width: none !important;
   }
 
   .maplibregl-popup-tip {
     display: none !important;
   }
+
+  .maplibregl-ctrl-logo {
+    display: none !important;
+  }
+}
+
+/* ===========================================
+   UNIVERSAL POPUP SYSTEM
+   =========================================== */
+
+/* Base container - all popups use this */
+.popup-base {
+  width: 411px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Image section - fills top half when present */
+.popup-image {
+  position: relative;
+  width: 100%;
+  background: #F7F7F7;
+  overflow: hidden;
+}
+.popup-image.tall { height: 300px; }
+.popup-image.medium { height: 200px; }
+
+.popup-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ===========================================
+   MAPBOX DRAW CONTROLS
+   (Copied from @mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css
+   to avoid Next.js Turbopack module resolution issues)
+   =========================================== */
+
+/* Override default control style */
+.mapbox-gl-draw_ctrl-bottom-left,
+.mapbox-gl-draw_ctrl-top-left {
+  margin-left: 0;
+  border-radius: 0 4px 4px 0;
+}
+.mapbox-gl-draw_ctrl-top-right,
+.mapbox-gl-draw_ctrl-bottom-right {
+  margin-right: 0;
+  border-radius: 4px 0 0 4px;
+}
+
+.mapbox-gl-draw_ctrl-draw-btn {
+  border-color: rgba(0, 0, 0, 0.9);
+  color: rgba(255, 255, 255, 0.5);
+  width: 30px;
+  height: 30px;
+}
+
+.mapbox-gl-draw_ctrl-draw-btn.active,
+.mapbox-gl-draw_ctrl-draw-btn.active:hover {
+  background-color: rgb(0 0 0 / 5%);
+}
+.mapbox-gl-draw_ctrl-draw-btn {
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.mapbox-gl-draw_point {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cpath d='m10 2c-3.3 0-6 2.7-6 6s6 9 6 9 6-5.7 6-9-2.7-6-6-6zm0 2c2.1 0 3.8 1.7 3.8 3.8 0 1.5-1.8 3.9-2.9 5.2h-1.7c-1.1-1.4-2.9-3.8-2.9-5.2-.1-2.1 1.6-3.8 3.7-3.8z'/%3E%3C/svg%3E");
+}
+.mapbox-gl-draw_polygon {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cpath d='m15 12.3v-4.6c.6-.3 1-1 1-1.7 0-1.1-.9-2-2-2-.7 0-1.4.4-1.7 1h-4.6c-.3-.6-1-1-1.7-1-1.1 0-2 .9-2 2 0 .7.4 1.4 1 1.7v4.6c-.6.3-1 1-1 1.7 0 1.1.9 2 2 2 .7 0 1.4-.4 1.7-1h4.6c.3.6 1 1 1.7 1 1.1 0 2-.9 2-2 0-.7-.4-1.4-1-1.7zm-8-.3v-4l1-1h4l1 1v4l-1 1h-4z'/%3E%3C/svg%3E");
+}
+.mapbox-gl-draw_line {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cpath d='m13.5 3.5c-1.4 0-2.5 1.1-2.5 2.5 0 .3 0 .6.2.9l-3.8 3.8c-.3-.1-.6-.2-.9-.2-1.4 0-2.5 1.1-2.5 2.5s1.1 2.5 2.5 2.5 2.5-1.1 2.5-2.5c0-.3 0-.6-.2-.9l3.8-3.8c.3.1.6.2.9.2 1.4 0 2.5-1.1 2.5-2.5s-1.1-2.5-2.5-2.5z'/%3E%3C/svg%3E");
+}
+.mapbox-gl-draw_trash {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cpath d='M10,3.4 c-0.8,0-1.5,0.5-1.8,1.2H5l-1,1v1h12v-1l-1-1h-3.2C11.5,3.9,10.8,3.4,10,3.4z M5,8v7c0,1,1,2,2,2h6c1,0,2-1,2-2V8h-2v5.5h-1.5V8h-3 v5.5H7V8H5z'/%3E%3C/svg%3E");
+}
+.mapbox-gl-draw_uncombine {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cpath d='m12 2c-.3 0-.5.1-.7.3l-1 1c-.4.4-.4 1 0 1.4l1 1c.4.4 1 .4 1.4 0l1-1c.4-.4.4-1 0-1.4l-1-1c-.2-.2-.4-.3-.7-.3zm4 4c-.3 0-.5.1-.7.3l-1 1c-.4.4-.4 1 0 1.4l1 1c.4.4 1 .4 1.4 0l1-1c.4-.4.4-1 0-1.4l-1-1c-.2-.2-.4-.3-.7-.3zm-7 1c-1 0-1 1-.5 1.5.3.3 1 1 1 1l-1 1s-.5.5 0 1 1 0 1 0l1-1 1 1c.5.5 1.5.5 1.5-.5v-4zm-5 3c-.3 0-.5.1-.7.3l-1 1c-.4.4-.4 1 0 1.4l4.9 4.9c.4.4 1 .4 1.4 0l1-1c.4-.4.4-1 0-1.4l-4.9-4.9c-.1-.2-.4-.3-.7-.3z'/%3E%3C/svg%3E");
+}
+.mapbox-gl-draw_combine {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cpath d='M12.1,2c-0.3,0-0.5,0.1-0.7,0.3l-1,1c-0.4,0.4-0.4,1,0,1.4l4.9,4.9c0.4,0.4,1,0.4,1.4,0l1-1 c0.4-0.4,0.4-1,0-1.4l-4.9-4.9C12.6,2.1,12.3,2,12.1,2z M8,8C7,8,7,9,7.5,9.5c0.3,0.3,1,1,1,1l-1,1c0,0-0.5,0.5,0,1s1,0,1,0l1-1l1,1 C11,13,12,13,12,12V8H8z M4,10c-0.3,0-0.5,0.1-0.7,0.3l-1,1c-0.4,0.4-0.4,1,0,1.4l1,1c0.4,0.4,1,0.4,1.4,0l1-1c0.4-0.4,0.4-1,0-1.4 l-1-1C4.5,10.1,4.3,10,4,10z M8,14c-0.3,0-0.5,0.1-0.7,0.3l-1,1c-0.4,0.4-0.4,1,0,1.4l1,1c0.4,0.4,1,0.4,1.4,0l1-1 c0.4-0.4,0.4-1,0-1.4l-1-1C8.5,14.1,8.3,14,8,14z'/%3E%3C/svg%3E");
+}
+
+.mapboxgl-map.mouse-pointer .mapboxgl-canvas-container.mapboxgl-interactive {
+  cursor: pointer;
+}
+.mapboxgl-map.mouse-move .mapboxgl-canvas-container.mapboxgl-interactive {
+  cursor: move;
+}
+.mapboxgl-map.mouse-add .mapboxgl-canvas-container.mapboxgl-interactive,
+.maplibregl-map.mouse-add .maplibregl-canvas-container.maplibregl-interactive {
+  cursor: crosshair;
+}
+/* Drawing modes - show crosshair cursor when drawing areas or points */
+.mapboxgl-map.mode-draw_polygon .mapboxgl-canvas-container.mapboxgl-interactive,
+.mapboxgl-map.mode-draw_line_string .mapboxgl-canvas-container.mapboxgl-interactive,
+.mapboxgl-map.mode-draw_point .mapboxgl-canvas-container.mapboxgl-interactive,
+.maplibregl-map.mode-draw_polygon .maplibregl-canvas-container.maplibregl-interactive,
+.maplibregl-map.mode-draw_line_string .maplibregl-canvas-container.maplibregl-interactive,
+.maplibregl-map.mode-draw_point .maplibregl-canvas-container.maplibregl-interactive {
+  cursor: crosshair;
+}
+.mapboxgl-map.mouse-move.mode-direct_select
+  .mapboxgl-canvas-container.mapboxgl-interactive {
+  cursor: grab;
+  cursor: -moz-grab;
+  cursor: -webkit-grab;
+}
+.mapboxgl-map.mode-direct_select.feature-vertex.mouse-move
+  .mapboxgl-canvas-container.mapboxgl-interactive {
+  cursor: move;
+}
+.mapboxgl-map.mode-direct_select.feature-midpoint.mouse-pointer
+  .mapboxgl-canvas-container.mapboxgl-interactive {
+  cursor: cell;
+}
+.mapboxgl-map.mode-direct_select.feature-feature.mouse-move
+  .mapboxgl-canvas-container.mapboxgl-interactive {
+  cursor: move;
+}
+.mapboxgl-map.mode-static.mouse-pointer
+  .mapboxgl-canvas-container.mapboxgl-interactive {
+  cursor: grab;
+  cursor: -moz-grab;
+  cursor: -webkit-grab;
+}
+
+.mapbox-gl-draw_boxselect {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  background: rgba(0, 0, 0, 0.1);
+  border: 2px dotted #fff;
+  opacity: 0.5;
+}
+
+/* Overlay buttons (eye) - positioned top-right, left of close button */
+.popup-overlay-buttons {
+  position: absolute;
+  top: 10px;
+  right: 44px;
+  display: flex;
+  gap: 8px;
+  z-index: 20;
+}
+
+.popup-overlay-btn {
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: white;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.popup-overlay-btn:hover {
+  background: #F3F4F6;
+  transform: scale(1.10);
+}
+
+.popup-overlay-btn svg {
+  width: 14px;
+  height: 14px;
+  color: #222;
+}
+
+/* Overlay chips - positioned on image */
+.popup-overlay-chips {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+  z-index: 15;
+}
+
+/* Header - name row (with optional chips and comments) */
+.popup-header {
+  padding: 20px 45px 0 20px;  /* 45px right padding to clear close button */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+/* For popups without image - buttons go in header */
+.popup-header-buttons {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.popup-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222;
+  line-height: 1.3;
+  max-width: calc(100% - 50px);  /* Leave room for close button */
+}
+
+/* Chips row - before footer */
+.popup-chips-row {
+  display: flex;
+  gap: 6px;
+  padding: 4px 20px 16px 20px;
+}
+
+/* Chips - badges */
+.popup-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.popup-chip.premium {
+  background: linear-gradient(135deg, #FFD700 0%, #FFC107 100%);
+  color: #000;
+  box-shadow: 0 2px 6px rgba(255, 215, 0, 0.3);
+}
+
+.popup-chip.new {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+}
+
+.popup-chip.ac {
+  background: #DBEAFE;
+  color: #1D4ED8;
+}
+
+.popup-chip.street {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+.popup-chip.type {
+  background: #E5E7EB;
+  color: #374151;
+}
+
+.popup-chip svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Comment bubble */
+.popup-comments {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: #F3F4F6;
+  color: #6B7280;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.popup-comments:hover {
+  background: #E5E7EB;
+}
+
+.popup-comments svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Address */
+.popup-address {
+  color: #9C9C9C;
+  font-size: 14px;
+  padding: 4px 20px 12px 20px;
+  line-height: 1.4;
+}
+
+/* Body - content area */
+.popup-body {
+  padding: 0 20px 12px 20px;
+}
+
+/* Rating row - with space-between for comments on right */
+.popup-rating-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.popup-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: #222;
+}
+
+.popup-rating .value {
+  font-weight: 600;
+}
+
+.popup-rating .separator,
+.popup-rating .reviews,
+.popup-rating .price {
+  color: #717171;
+}
+
+.popup-rating .status-open {
+  color: #10B981;
+  font-weight: 500;
+}
+
+/* Price row (for properties) */
+.popup-price {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 8px;
+}
+
+.popup-price .size {
+  font-weight: 400;
+  color: #717171;
+}
+
+/* Price section with green accent bar */
+.popup-price-accent {
+  border-left: 3px solid #22C55E;
+  margin: 12px 20px;
+  padding: 10px 12px;
+  background: #DCFCE7;
+}
+
+.popup-price-main {
+  font-size: 18px;
+  font-weight: 600;
+  color: #18181B;
+}
+
+.popup-price-secondary {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: #166534;
+  margin-top: 4px;
+}
+
+.popup-price-secondary .separator {
+  margin: 0 6px;
+  color: #D4D4D8;
+}
+
+/* Transfer row */
+.popup-transfer-row {
+  padding: 0 20px;
+  margin-bottom: 12px;
+}
+
+/* Transfer chip - gold */
+.popup-price-transfer {
+  font-size: 11px;
+  font-weight: 500;
+  background: #FEF3C7;
+  color: #92400E;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Details row - features */
+.popup-details-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0 20px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #6B7280;
+}
+
+.popup-details-row .separator {
+  margin: 0 6px;
+  color: #D4D4D8;
+}
+
+/* Description text */
+.popup-description {
+  font-size: 14px;
+  color: #4B5563;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+/* Bullet list (for custom points) */
+.popup-bullet-list {
+  list-style: disc;
+  padding-left: 20px;
+  margin-top: 8px;
+  font-size: 14px;
+  color: #4B5563;
+}
+
+.popup-bullet-list li {
+  margin-bottom: 4px;
+}
+
+/* Footer - always present */
+.popup-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #EBEBEB;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Footer buttons container */
+.popup-buttons {
+  display: flex;
+  align-items: center;
+}
+
+/* Icon button (social links, maps, source logos) */
+.popup-btn-icon {
+  width: 33px;
+  height: 33px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+  margin-right: 8px;
+}
+
+.popup-btn-icon:last-child {
+  margin-right: 0;
+}
+
+.popup-btn-icon:hover {
+  transform: scale(1.05);
+}
+
+.popup-btn-icon.has-bg {
+  background: #F5F5F5;
+}
+
+.popup-btn-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.popup-btn-icon svg {
+  width: 19px;
+  height: 19px;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.popup-btn-icon:hover svg {
+  opacity: 1;
+}
+
+/* Social icons - tighter spacing (2px instead of 8px) */
+.popup-btn-icon.social {
+  margin-right: 2px;
+}
+
+.popup-btn-icon.social:last-child {
+  margin-right: 0;
+}
+
+/* Extra buttons (Edit, PDF for custom points) */
+.popup-btn-text {
+  font-size: 13px;
+  color: #4B5563;
+  background: #F3F4F6;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.2s ease;
+}
+
+.popup-btn-text:hover {
+  background: #E5E7EB;
+}
+
+.popup-btn-text svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ===========================================
+   EU COFFEE TRIP SPECIFIC
+   =========================================== */
+
+/* "Added in last 3 months" ribbon on image */
+.popup-new-ribbon {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 2px 8px rgba(255, 165, 0, 0.4);
+  z-index: 15;
+  white-space: nowrap;
+}
+
+/* ===========================================
+   IMAGE CAROUSEL (for custom points)
+   =========================================== */
+
+.popup-carousel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.popup-carousel-arrows {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 8px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.popup-carousel-arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: white;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  transition: transform 0.2s ease;
+}
+
+.popup-carousel-arrow:hover {
+  transform: scale(1.1);
+}
+
+.popup-carousel-dots {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+}
+
+.popup-carousel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.5);
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.popup-carousel-dot.active {
+  background: white;
+}
+
+/* Download button on image */
+.popup-download-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: white;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: transform 0.2s ease;
+}
+
+.popup-download-btn:hover {
+  transform: scale(1.1);
+}
+
+.popup-download-btn svg {
+  width: 18px;
+  height: 18px;
+  color: #222;
 }
 
 /* Hide Next.js Dev Toast */
 [data-nextjs-toast] {
   display: none !important;
+}
+
+/* ===========================================
+   ATTACHMENT COMPONENTS
+   =========================================== */
+
+/* Attachment section in popups */
+.popup-attachments {
+  padding: 12px 20px;
+  border-top: 1px solid #EBEBEB;
+}
+
+/* Attachment grid */
+.attachment-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Single attachment thumbnail */
+.attachment-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  background: #F4F4F5;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.attachment-thumb:hover {
+  transform: scale(1.05);
+}
+
+.attachment-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attachment-thumb-icon {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.attachment-thumb-icon span {
+  font-size: 8px;
+  color: #71717A;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Remove button on hover */
+.attachment-thumb-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.attachment-thumb:hover .attachment-thumb-remove {
+  display: flex;
+}
+
+/* Tooltip for attachment hover */
+.attachment-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  pointer-events: none;
+}
+
+.attachment-tooltip-content {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attachment-tooltip-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #18181B;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-tooltip-meta {
+  font-size: 10px;
+  color: #71717A;
+}
+
+/* Add attachment button */
+.attachment-add {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  border: 2px dashed #D4D4D8;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.attachment-add:hover:not(:disabled) {
+  border-color: #A1A1AA;
+  background: #FAFAFA;
+}
+
+.attachment-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.attachment-add svg {
+  width: 20px;
+  height: 20px;
+  color: #A1A1AA;
+}
+
+.attachment-add span {
+  font-size: 9px;
+  color: #A1A1AA;
+  font-weight: 500;
+}
+
+/* Upload dropzone (larger variant) */
+.attachment-dropzone {
+  border: 2px dashed #D4D4D8;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.attachment-dropzone:hover {
+  border-color: #A1A1AA;
+  background: #FAFAFA;
+}
+
+.attachment-dropzone.dragging {
+  border-color: #3B82F6;
+  background: #EFF6FF;
+}
+
+/* ===========================================
+   ATTACHMENT VIEWER (Fullscreen Modal)
+   =========================================== */
+
+.attachment-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Close button */
+.attachment-viewer-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.attachment-viewer-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Navigation arrows */
+.attachment-viewer-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.attachment-viewer-nav:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.attachment-viewer-nav.left {
+  left: 20px;
+}
+
+.attachment-viewer-nav.right {
+  right: 20px;
+}
+
+/* Content container */
+.attachment-viewer-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.attachment-viewer-header {
+  text-align: center;
+  margin-bottom: 16px;
+  color: white;
+}
+
+.attachment-viewer-filename {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.attachment-viewer-meta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.attachment-viewer-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Image display */
+.attachment-viewer-image {
+  max-width: 90vw;
+  max-height: calc(90vh - 100px);
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+/* PDF embed */
+.attachment-viewer-pdf {
+  width: 80vw;
+  height: calc(90vh - 100px);
+  border-radius: 8px;
+  border: none;
+}
+
+/* Non-previewable file display */
+.attachment-viewer-file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.attachment-viewer-file-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+  margin-top: 16px;
+  max-width: 300px;
+  text-align: center;
+  word-break: break-word;
+}
+
+.attachment-viewer-file-hint {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 8px;
+}
+
+/* Download button - glassmorphism */
+.attachment-viewer-download {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.attachment-viewer-download:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Dot indicators */
+.attachment-viewer-dots {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
+
+.attachment-viewer-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.attachment-viewer-dot:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.attachment-viewer-dot.active {
+  background: white;
 }

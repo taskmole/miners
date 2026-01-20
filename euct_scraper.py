@@ -101,7 +101,7 @@ def extract_cafe_details(cafe_url: str) -> Dict:
 
     return details
 
-def store_cafe_info(cafes:list[Dict]):
+def store_cafe_info(cafes:list[Dict], output_file:str = "cafe_info.csv"):
     # Scrape additional details from each cafe page
     print(f"Scraping details for {len(cafes)} cafes...")
     for i, cafe in enumerate(cafes, 1):
@@ -111,8 +111,8 @@ def store_cafe_info(cafes:list[Dict]):
         cafe.update(details)
 
     df = pd.DataFrame(cafes)
-    df.to_csv("cafe_info.csv", index=False)
-    return df
+    df.to_csv(output_file, index=False)
+    return df, output_file
 
 
 
@@ -123,11 +123,14 @@ if __name__ == "__main__":
     city = sys.argv[1] if len(sys.argv) > 1 else "madrid"
     city_guide_url = f"https://europeancoffeetrip.com/{city}"
 
+    # Output file defaults to {city}_cafe_info.csv
+    output_file = f"{city}_cafe_info.csv"
+
     print(f"Scraping European Coffee Trip data for: {city.upper()}")
     cafes = extract_cafe_links(city, city_guide_url)
 
     print(f"\nFound {len(cafes)} cafes in {city.title()}.\n")
-    df = store_cafe_info(cafes)
+    df, output_file = store_cafe_info(cafes, output_file)
     print("\n✓ Scraping complete!")
-    print(f"\nData saved to cafe_info.csv with {len(df)} cafes")
+    print(f"\nData saved to {output_file} with {len(df)} cafes")
     print(f"Columns: {', '.join(df.columns)}")

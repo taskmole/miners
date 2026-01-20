@@ -3,68 +3,125 @@ import fs from "fs";
 import path from "path";
 import Papa from "papaparse";
 
+// Convert 12-hour format ("1:00:00 PM") to 24-hour number (13)
+function to24Hour(horaString: string): number {
+  const hour = parseInt(horaString.split(":")[0]);
+  const isPM = horaString.toUpperCase().includes("PM");
+  const isAM = horaString.toUpperCase().includes("AM");
+
+  if (isPM && hour !== 12) return hour + 12;  // 1 PM = 13, 11 PM = 23
+  if (isAM && hour === 12) return 0;          // 12 AM = 0 (midnight)
+  return hour;                                 // 12 PM = 12, 1-11 AM = 1-11
+}
+
+// Fix coordinate formatting: keep only first dot, remove subsequent ones
+function fixCoordinate(coord: string): number {
+  if (!coord) return NaN;
+  let dotCount = 0;
+  const fixed = coord.replace(/\./g, () => {
+    dotCount++;
+    return dotCount === 1 ? "." : "";
+  });
+  return parseFloat(fixed);
+}
+
+// Clean number strings with commas (e.g., "1,021.26" -> 1021.26)
+function parseCount(value: string | undefined): number {
+  const clean = value?.toString().replace(/,/g, "") || "0";
+  return parseFloat(clean) || 0;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const hour = searchParams.get("hour");
+    const grouped = searchParams.get("grouped") === "true";
 
     const filePath = path.join(process.cwd(), "footfall_data.csv");
     const fileContent = fs.readFileSync(filePath, "utf-8");
-
     const { data } = Papa.parse(fileContent, { header: true });
 
-    // Fix malformed coordinates (e.g., "40.430.469" -> "40.430469") and filter by hour if specified
-    const features = data
-      .filter((row: any) => {
-        if (!row.hora) return false;
-        if (!hour) return true;
-        // Match hour from "12:00:00 PM" format
-        const rowHour = parseInt(row.hora.split(":")[0]);
-        const targetHour = parseInt(hour);
-        return rowHour === targetHour || (rowHour === 12 && targetHour === 0 && row.hora.includes("AM"));
-      })
-      .map((row: any) => {
-        // Fix coordinate formatting: keep only first dot, remove subsequent ones
-        const fixCoordinate = (coord: string) => {
-          if (!coord) return NaN;
-          let dotCount = 0;
-          const fixed = coord.replace(/\./g, (match) => {
-            dotCount++;
-            return dotCount === 1 ? "." : "";
-          });
-          return parseFloat(fixed);
-        };
+    // Filter out invalid rows
+    const validRows = (data as any[]).filter((row) => row.hora);
 
-        return {
-          type: "Feature",
-          properties: {
-            hora: row.hora,
+    // GROUPED MODE: Return locations with all 24 hours of data
+    if (grouped) {
+      const locationMap = new Map<string, {
+        distrito: string;
+        direccion: string;
+        lat: number;
+        lon: number;
+        hourly: number[]; // Array of 24 values (index = hour)
+      }>();
+
+      for (const row of validRows) {
+        const lat = fixCoordinate(row.latitude);
+        const lon = fixCoordinate(row.longitude);
+        if (isNaN(lat) || isNaN(lon)) continue;
+
+        const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+        const rowHour = to24Hour(row.hora);
+        const count = parseCount(row.avg_count);
+
+        if (!locationMap.has(key)) {
+          locationMap.set(key, {
             distrito: row.distrito,
             direccion: row.direccion,
-            avg_count: parseFloat(row.avg_count) || 0,
+            lat,
+            lon,
+            hourly: new Array(24).fill(0),
+          });
+        }
+
+        const loc = locationMap.get(key)!;
+        loc.hourly[rowHour] = count;
+      }
+
+      const locations = Array.from(locationMap.values());
+
+      return NextResponse.json(
+        { locations },
+        {
+          headers: {
+            "Cache-Control": "public, max-age=3600",
+            "Content-Type": "application/json",
           },
-          geometry: {
-            type: "Point",
-            coordinates: [
-              fixCoordinate(row.longitude),
-              fixCoordinate(row.latitude),
-            ],
-          },
-        };
+        }
+      );
+    }
+
+    // STANDARD MODE: Return GeoJSON filtered by hour
+    const features = validRows
+      .filter((row: any) => {
+        if (!hour) return true;
+        const rowHour = to24Hour(row.hora);
+        const targetHour = parseInt(hour);
+        return rowHour === targetHour;
       })
+      .map((row: any) => ({
+        type: "Feature",
+        properties: {
+          hora: row.hora,
+          distrito: row.distrito,
+          direccion: row.direccion,
+          avg_count: parseCount(row.avg_count),
+        },
+        geometry: {
+          type: "Point",
+          coordinates: [fixCoordinate(row.longitude), fixCoordinate(row.latitude)],
+        },
+      }))
       .filter(
         (f: any) =>
           !isNaN(f.geometry.coordinates[0]) && !isNaN(f.geometry.coordinates[1])
       );
 
     return NextResponse.json(
-      {
-        type: "FeatureCollection",
-        features,
-      },
+      { type: "FeatureCollection", features },
       {
         headers: {
-          "Cache-Control": "public, max-age=3600", // 1 hour cache
+          // No cache to ensure fresh data after fixes
+          "Cache-Control": "no-store, must-revalidate",
           "Content-Type": "application/json",
         },
       }
