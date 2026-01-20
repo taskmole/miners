@@ -11,7 +11,7 @@ import {
     GraduationCap,
     Home,
     ChevronRight,
-    SlidersHorizontal,
+    Funnel,
     Info,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
@@ -60,7 +60,7 @@ const placeCategories = [
         icon: Coffee,
         hasSubcategories: true,
         subcategories: [
-            { id: "eu_coffee_trip", label: "EU Coffee Trip", countKey: "euCoffeeTrip" },
+            { id: "eu_coffee_trip", label: "European Coffee Trip", countKey: "euCoffeeTrip" },
             { id: "regular_cafe", label: "Regular Cafe", countKey: "regularCafe" },
         ]
     },
@@ -261,7 +261,7 @@ export function Sidebar({
                     className="glass w-10 h-10 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 transition-all duration-200"
                     title="Open filters"
                 >
-                    <SlidersHorizontal className="w-[18px] h-[18px] text-zinc-500" />
+                    <Funnel className="w-[17px] h-[17px] text-zinc-500" />
                 </button>
             </div>
         );
@@ -302,7 +302,7 @@ export function Sidebar({
                                 <div className="border-t border-white/10">
                                     {/* Segmented Toggle Controls */}
                                     <div className="px-4 py-2 border-b border-white/10">
-                                        <div className="flex bg-zinc-200/50 rounded-lg p-0.5">
+                                        <div className="flex bg-zinc-300/60 rounded-lg p-1">
                                             <button
                                                 onClick={handleSelectAll}
                                                 className={cn(
