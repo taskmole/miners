@@ -36,6 +36,13 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local tool configs
+.claude/
+.cursor/
+
+# unused/large data files
+unused_data/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

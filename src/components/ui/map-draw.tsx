@@ -12,6 +12,8 @@ type MapDrawContextValue = {
   mode: DrawMode;
   features: GeoJSON.FeatureCollection;
   selectedFeatureIds: string[];
+  deleteFeature: (featureId: string) => void;
+  clearSelection: () => void;
 };
 
 const MapDrawContext = createContext<MapDrawContextValue | null>(null);
@@ -27,9 +29,11 @@ export function useMapDraw() {
 type MapDrawProps = {
   children?: ReactNode;
   onFeaturesChange?: (features: GeoJSON.FeatureCollection) => void;
+  onShapeCreated?: () => void;
+  onShapeUpdated?: () => void;
 };
 
-export function MapDraw({ children, onFeaturesChange }: MapDrawProps) {
+export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpdated }: MapDrawProps) {
   const { map, isLoaded } = useMap();
   const [draw, setDraw] = useState<MapboxDraw | null>(null);
   const [mode, setMode] = useState<DrawMode>('simple_select');
@@ -45,8 +49,8 @@ export function MapDraw({ children, onFeaturesChange }: MapDrawProps) {
 
     const drawInstance = new MapboxDraw({
       displayControlsDefault: false,
-      styles: convertToMapboxDrawStyles(),
       defaultMode: 'simple_select',
+      styles: convertToMapboxDrawStyles(),
     });
 
     map.addControl(drawInstance);
@@ -78,6 +82,7 @@ export function MapDraw({ children, onFeaturesChange }: MapDrawProps) {
       const allFeatures = draw.getAll();
       setFeatures(allFeatures);
       onFeaturesChange?.(allFeatures);
+      onShapeCreated?.();
 
       // Save to localStorage
       try {
@@ -91,6 +96,7 @@ export function MapDraw({ children, onFeaturesChange }: MapDrawProps) {
       const allFeatures = draw.getAll();
       setFeatures(allFeatures);
       onFeaturesChange?.(allFeatures);
+      onShapeUpdated?.();
 
       // Save to localStorage
       try {
@@ -103,6 +109,7 @@ export function MapDraw({ children, onFeaturesChange }: MapDrawProps) {
     const handleDelete = () => {
       const allFeatures = draw.getAll();
       setFeatures(allFeatures);
+      setSelectedFeatureIds([]); // Clear selection after delete
       onFeaturesChange?.(allFeatures);
 
       // Save to localStorage
@@ -135,7 +142,37 @@ export function MapDraw({ children, onFeaturesChange }: MapDrawProps) {
       map.off('draw.selectionchange', handleSelectionChange);
       map.off('draw.modechange', handleModeChange);
     };
-  }, [map, draw, onFeaturesChange]);
+  }, [map, draw, onFeaturesChange, onShapeCreated, onShapeUpdated]);
+
+  // Delete feature programmatically (MapboxDraw doesn't fire events for programmatic deletions)
+  const deleteFeature = (featureId: string) => {
+    if (!draw || !featureId) return;
+    try {
+      draw.delete(featureId);
+      const allFeatures = draw.getAll();
+      setFeatures(allFeatures);
+      setSelectedFeatureIds([]);
+
+      // Save to localStorage
+      localStorage.setItem('miners-drawn-features', JSON.stringify(allFeatures));
+    } catch (error) {
+      console.error('Error deleting feature:', error);
+    }
+  };
+
+  // Clear selection (allows hover tooltip to show again)
+  const clearSelection = () => {
+    // First deselect in MapboxDraw (this fires selectionchange with empty array)
+    if (draw) {
+      try {
+        draw.changeMode('simple_select');
+      } catch (error) {
+        console.error('Error clearing MapboxDraw selection:', error);
+      }
+    }
+    // Then explicitly clear our state (in case the event doesn't fire)
+    setSelectedFeatureIds([]);
+  };
 
   const contextValue = useMemo(
     () => ({
@@ -143,6 +180,8 @@ export function MapDraw({ children, onFeaturesChange }: MapDrawProps) {
       mode,
       features,
       selectedFeatureIds,
+      deleteFeature,
+      clearSelection,
     }),
     [draw, mode, features, selectedFeatureIds]
   );
