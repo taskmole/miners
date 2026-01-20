@@ -6,12 +6,13 @@ import type { DrawMode } from '@/types/draw';
  * Provides methods to change drawing modes, delete features, and export data
  */
 export function useMapDraw() {
-  const { draw, mode, features, selectedFeatureIds } = useMapDrawContext();
+  const { draw, mode, features, selectedFeatureIds, deleteFeature, clearSelection } = useMapDrawContext();
 
   const changeMode = (newMode: DrawMode) => {
     if (!draw) return;
     try {
-      draw.changeMode(newMode);
+      // Cast to any because MapboxDraw types don't match our DrawMode type
+      (draw as any).changeMode(newMode);
     } catch (error) {
       console.error('Error changing mode:', error);
     }
@@ -24,6 +25,11 @@ export function useMapDraw() {
     } catch (error) {
       console.error('Error deleting features:', error);
     }
+  };
+
+  // Delete a specific feature by ID (uses context function to ensure localStorage is updated)
+  const deleteFeatureById = (featureId: string) => {
+    deleteFeature(featureId);
   };
 
   const clearAll = () => {
@@ -60,6 +66,35 @@ export function useMapDraw() {
     linkElement.click();
   };
 
+  /**
+   * Update properties on a specific feature
+   * Used to set custom colors and other metadata
+   * Note: MapboxDraw stores user properties with 'user_' prefix
+   */
+  const updateFeatureProperties = (featureId: string, properties: Record<string, any>) => {
+    if (!draw) return;
+    try {
+      const feature = draw.get(featureId);
+      if (feature) {
+        // MapboxDraw requires delete + add to update properties
+        // Add user_ prefix to properties for MapboxDraw styling to work
+        const userPrefixedProps: Record<string, any> = {};
+        for (const [key, value] of Object.entries(properties)) {
+          userPrefixedProps[`user_${key}`] = value;
+        }
+
+        const updatedFeature = {
+          ...feature,
+          properties: { ...feature.properties, ...userPrefixedProps }
+        };
+        draw.delete(featureId);
+        draw.add(updatedFeature);
+      }
+    } catch (error) {
+      console.error('Error updating feature properties:', error);
+    }
+  };
+
   return {
     draw,
     mode,
@@ -67,8 +102,11 @@ export function useMapDraw() {
     selectedFeatureIds,
     changeMode,
     deleteSelected,
+    deleteFeatureById,
     clearAll,
     getAll,
     exportGeoJSON,
+    updateFeatureProperties,
+    clearSelection,
   };
 }
