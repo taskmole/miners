@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 import { parse } from "csv-parse/sync";
 
 export async function GET(request: NextRequest) {
@@ -21,23 +19,26 @@ export async function GET(request: NextRequest) {
         else if (type === "barcelona_cafes") fileName = "barcelona_cafe_info.csv";
         else if (type === "metro") {
             // Handle GeoJSON file for metro stations
-            const filePath = path.join(process.cwd(), "metro.geojson");
-            if (!fs.existsSync(filePath)) {
+            const baseUrl = getBaseUrl(request);
+            const response = await fetch(`${baseUrl}/data/metro.geojson`);
+            if (!response.ok) {
                 return NextResponse.json({ error: "Metro data not found" }, { status: 404 });
             }
-            const fileContent = fs.readFileSync(filePath, "utf-8");
-            const geojson = JSON.parse(fileContent);
+            const geojson = await response.json();
             return NextResponse.json(geojson);
         }
 
         if (!fileName) return NextResponse.json({ error: "Invalid type" }, { status: 400 });
 
-        const filePath = path.join(process.cwd(), fileName);
-        if (!fs.existsSync(filePath)) {
+        // Fetch from public folder instead of filesystem
+        const baseUrl = getBaseUrl(request);
+        const response = await fetch(`${baseUrl}/data/${fileName}`);
+
+        if (!response.ok) {
             return NextResponse.json({ error: "File not found" }, { status: 404 });
         }
 
-        const fileContent = fs.readFileSync(filePath, "utf-8");
+        const fileContent = await response.text();
         const records = parse(fileContent, {
             columns: true,
             skip_empty_lines: true,
@@ -50,4 +51,11 @@ export async function GET(request: NextRequest) {
         console.error("API Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
+}
+
+// Helper to get the base URL for fetching public files
+function getBaseUrl(request: NextRequest): string {
+    const host = request.headers.get("host") || "localhost:3000";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    return `${protocol}://${host}`;
 }

@@ -6,7 +6,7 @@ import { useMapDraw } from '@/hooks/useMapDraw';
 import {
   Pentagon,
   MapPin,
-  Pencil,
+  MapPinPlus,
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -75,7 +75,7 @@ export function DrawToolbar() {
                 "w-4 h-4 text-zinc-500 transition-transform duration-200 ease-out",
                 isDrawSectionExpanded && "rotate-90"
               )} />
-              <Pencil className="w-4 h-4 text-zinc-700" />
+              <MapPinPlus className="w-4 h-4 text-zinc-700" />
               <span className="text-sm font-bold text-zinc-900">Draw</span>
             </div>
             {featureCount > 0 && (
@@ -158,9 +158,9 @@ export function DrawToolbar() {
         )}
         title="Draw tools"
       >
-        <Pencil className={cn(
-          "w-5 h-5",
-          isDrawing ? "text-teal-600" : "text-zinc-700"
+        <MapPinPlus className={cn(
+          "w-[18px] h-[18px]",
+          isDrawing ? "text-teal-600" : "text-zinc-500"
         )} />
       </button>
     </div>

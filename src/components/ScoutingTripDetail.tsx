@@ -260,7 +260,7 @@ export function ScoutingTripDetail({
   };
 
   // Handle navigation to a linked item
-  const handleNavigateToLinkedItem = (linkedItem: { id: string; type: string; name: string }) => {
+  const handleNavigateToLinkedItem = (linkedItem: { id: string; type: string; name: string; data?: any }) => {
     // Close the detail modal first
     onClose();
 
@@ -277,7 +277,7 @@ export function ScoutingTripDetail({
         const lon = parseFloat(match[3]);
 
         if (!isNaN(lat) && !isNaN(lon)) {
-          // Dispatch immediately - modal is already closing
+          // Dispatch with POI data for fast popup (avoids O(n) search)
           window.dispatchEvent(
             new CustomEvent("navigate-and-open-popup", {
               detail: {
@@ -285,6 +285,7 @@ export function ScoutingTripDetail({
                 lon,
                 placeId: linkedItem.id,
                 placeType,
+                data: linkedItem.data, // Pass full POI data if available
               },
             })
           );

@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import {
-  Footprints,
+  PersonStanding,
   Plus,
   Upload,
   ChevronRight,
@@ -161,12 +161,7 @@ export function ScoutingPanel({
           className="glass w-10 h-10 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 transition-all duration-200 relative"
           title="Scouting Trips"
         >
-          <Footprints className="w-5 h-5 text-zinc-700" />
-          {counts.total > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-zinc-900 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-              {counts.total > 99 ? '99+' : counts.total}
-            </span>
-          )}
+          <PersonStanding className="w-[18px] h-[18px] text-zinc-500" />
         </button>
       </div>
     );
@@ -242,7 +237,7 @@ export function ScoutingPanel({
             <div className="p-4 text-center text-zinc-500 text-sm">Loading...</div>
           ) : trips.length === 0 ? (
             <div className="p-6 text-center">
-              <Footprints className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+              <PersonStanding className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
               <p className="text-sm text-zinc-500">No scouting trips yet</p>
               <p className="text-xs text-zinc-400 mt-1">
                 Create a new trip or upload a document
