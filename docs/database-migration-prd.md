@@ -936,10 +936,54 @@ These files won't change (UI stays the same):
 
 ## 11. Migration Steps
 
-### Step 1: Supabase Setup
-1. Connect to existing Supabase project
-2. Add credentials to `.env.local`
-3. Install `@supabase/supabase-js`
+### Step 1: Supabase Setup (Two Projects)
+
+We use **two separate Supabase projects** - one for development, one for production:
+
+| Environment | Supabase Project | Purpose |
+|-------------|------------------|---------|
+| Development | `miners-dev` | Testing, experiments, safe to break |
+| Production | `miners-prod` | Real users, live data |
+
+**Why two projects?**
+- Dev has test data, prod has real data - never mixed
+- Break things in dev without affecting real users
+- Test database changes before applying to production
+- Both projects are free tier (Supabase gives you 2 free projects)
+
+**Setup Steps:**
+
+1. Create two Supabase projects at [supabase.com](https://supabase.com):
+   - Project 1: `miners-dev` (for development)
+   - Project 2: `miners-prod` (for production)
+
+2. Create `.env.local` on your laptop (for local development):
+```
+# Development Supabase (connects when running locally)
+NEXT_PUBLIC_SUPABASE_URL=https://[your-dev-project-id].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[your-dev-anon-key]
+
+# Optional: Service role for admin tasks (migrations, seeding)
+SUPABASE_SERVICE_ROLE_KEY=[your-dev-service-key]
+```
+
+3. Set production environment variables in **Vercel Dashboard → Settings → Environment Variables**:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://[your-prod-project-id].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[your-prod-anon-key]
+```
+
+4. Install Supabase client: `npm install @supabase/supabase-js`
+
+**How environment switching works:**
+- Run `npm run dev` locally → Reads `.env.local` → Connects to dev Supabase
+- Deploy to Vercel → Reads Vercel env vars → Connects to prod Supabase
+- Code is identical, environment determines which database
+
+**Important:**
+- Never commit `.env.local` to GitHub (it's already in `.gitignore`)
+- When adding new tables, create them in BOTH projects (dev first, then prod)
+- Table structure must match in both projects; data is intentionally different
 
 ### Step 2: Create Tables
 1. Run `create-tables.sql` in Supabase SQL Editor

@@ -19,6 +19,14 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { usePoiComments } from "@/hooks/usePoiComments";
 import { ToastProvider, useToast } from "@/contexts/ToastContext";
@@ -227,9 +235,18 @@ export function ScoutingTripDetail({
   onClose,
   onEdit,
 }: ScoutingTripDetailProps) {
-  const { getTrips } = useScoutingTrips();
+  const { getTrips, deleteTrip } = useScoutingTrips();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const trips = getTrips();
   const trip = trips.find((t) => t.id === tripId);
+
+  // Handle delete confirmation
+  const handleConfirmDelete = () => {
+    if (!trip) return;
+    deleteTrip(trip.id);
+    setShowDeleteConfirm(false);
+    onClose();
+  };
 
   if (!trip) {
     return (
@@ -331,6 +348,8 @@ export function ScoutingTripDetail({
 
   return (
     <ToastProvider>
+      {/* Main detail modal - hidden when delete confirmation is shown */}
+      {!showDeleteConfirm && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center">
         {/* Backdrop */}
         <div
@@ -584,16 +603,51 @@ export function ScoutingTripDetail({
         </div>
 
         {/* Footer */}
-        {onEdit && trip.status === "draft" && (
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-zinc-200 bg-zinc-50">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-zinc-200 bg-zinc-50">
+          <Button
+            variant="outline"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300"
+          >
+            <Trash2 className="w-4 h-4 mr-1.5" />
+            Delete
+          </Button>
+          <div className="flex items-center gap-3">
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>
-            <Button onClick={() => onEdit(trip)}>Edit Trip</Button>
+            {onEdit && trip.status === "draft" && (
+              <Button onClick={() => onEdit(trip)}>Edit Trip</Button>
+            )}
           </div>
-        )}
+        </div>
         </div>
       </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent showCloseButton={false} className="max-w-sm z-[200]">
+          <DialogHeader>
+            <DialogTitle>Delete Trip</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{trip.name || 'this trip'}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-3">
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ToastProvider>
   );
 }

@@ -1586,6 +1586,51 @@ border-radius: 16px;
 | Revenue Integration | POS API / Manual Entry |
 | AI Coding Standards | Vercel Agent Skills (react-best-practices, web-design-guidelines) |
 
+### Environment Setup (Dev vs Production)
+
+We use **two separate Supabase projects** to keep development and production data isolated:
+
+| Environment | Purpose | Supabase Project |
+|-------------|---------|------------------|
+| Development | Testing, experiments, safe to break | `miners-dev` |
+| Production | Real users, live data | `miners-prod` |
+
+**Why two projects?**
+- Test risky changes without affecting real users
+- Seed test data freely (fake users, test shapes, etc.)
+- Database schema changes can be tested first
+- If you break something in dev, production keeps running
+
+**Environment Variables:**
+
+Create `.env.local` on your laptop for local development:
+```
+# Development Supabase (safe to experiment)
+NEXT_PUBLIC_SUPABASE_URL=https://[your-dev-project].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[your-dev-anon-key]
+
+# Optional: Supabase service role (for migrations/admin tasks)
+SUPABASE_SERVICE_ROLE_KEY=[your-dev-service-key]
+```
+
+Set these in **Vercel Dashboard → Settings → Environment Variables** for production:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://[your-prod-project].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[your-prod-anon-key]
+```
+
+**How it works:**
+- Run locally (`npm run dev`) → Uses `.env.local` → Connects to dev Supabase
+- Deploy to Vercel → Uses Vercel env vars → Connects to prod Supabase
+- Same code, different databases based on where it runs
+
+**Important:** Never commit `.env.local` to GitHub (it's in `.gitignore`). Secrets stay secret.
+
+**When adding new tables:**
+1. Create the table in dev Supabase first (test it)
+2. Once working, create the same table in prod Supabase
+3. Table structure must match in both projects
+
 ### Frontend Performance Patterns
 
 Interactive map features (hover tooltips, shape editing, popup panels) require careful client-side caching to maintain smooth performance with Supabase backend.

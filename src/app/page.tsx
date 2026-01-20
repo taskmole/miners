@@ -14,6 +14,7 @@ import { useMapData } from "@/hooks/useMapData";
 import { ListsProvider } from "@/contexts/ListsContext";
 import { GeoDataProvider } from "@/contexts/GeoDataContext";
 import { LinkingProvider, useLinking } from "@/contexts/LinkingContext";
+import { ScoutingTripsProvider } from "@/contexts/ScoutingTripsContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
 import type { ScoutingTrip, LinkedItem } from "@/types/scouting";
 
@@ -218,9 +219,11 @@ export default function Home() {
   return (
     <GeoDataProvider>
       <ListsProvider>
-        <LinkingProvider>
-          <HomeContent />
-        </LinkingProvider>
+        <ScoutingTripsProvider>
+          <LinkingProvider>
+            <HomeContent />
+          </LinkingProvider>
+        </ScoutingTripsProvider>
       </ListsProvider>
     </GeoDataProvider>
   );

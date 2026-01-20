@@ -1,0 +1,42 @@
+Loading screen
+- Miners logo as the first thing in the UI
+- select Google AUth (or "Show demo" text below)
+- slick modern animation
+
+Custom POIs / areas
+- pre-fill address for points
+- select category (or create new)
+
+Lists
+- replace icon with a document / eye
+- transform into scouting trip
+- export in PDF or CSV
+
+Scouting trips
+- ability to link POIs/areas from map to pre-fill data (should be step 1, not in the form, or at least clear that it's the 2 options)
+- replace icon with a walking man
+- export in PDF
+- pre-fill address
+- new submissions in activity log
+
+Activity log
+- remove icons
+- read/unread disctiction
+
+Profitability algo
+- fixed costs (admin editable)
+- variable costs (admin editable)
+- revenue inputs = conversion, avg. purchase (admin editable)
+- profitability (calculated
+- what if scenario modeling (sliders)
+
+User dashboard
+- admin vs. User
+- CRUD users
+- CRUD roles
+- CRUD fixed costs
+- CRUD variable costs
+- CRUD revenue inputs
+
+Other
+- Google auth -- 3 weeks to get approval??
