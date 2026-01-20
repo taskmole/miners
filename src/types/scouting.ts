@@ -23,6 +23,7 @@ export interface LinkedItem {
   id: string;
   name: string;
   address?: string; // For POIs that have an address
+  data?: any; // Full POI object for fast navigation (avoids O(n) search)
 }
 
 // Uploaded document reference

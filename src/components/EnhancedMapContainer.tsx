@@ -1136,10 +1136,17 @@ function NavigationEventListener({
     onOpenCafePopup,
     onOpenPropertyPopup,
     onOpenPoiPopup,
+    setSelectedCafe,
+    setSelectedProperty,
+    setSelectedPoi,
 }: {
     onOpenCafePopup?: (placeId: string) => void;
     onOpenPropertyPopup?: (placeId: string) => void;
     onOpenPoiPopup?: (placeId: string) => void;
+    // Direct setters for when data is available (avoids O(n) search)
+    setSelectedCafe?: (value: { cafe: CafeData; coordinates: [number, number] } | null) => void;
+    setSelectedProperty?: (value: { property: PropertyData; coordinates: [number, number] } | null) => void;
+    setSelectedPoi?: (value: { poi: OtherPoiData; coordinates: [number, number] } | null) => void;
 }) {
     const { map, isLoaded } = useMap();
 
@@ -1156,9 +1163,9 @@ function NavigationEventListener({
             });
         };
 
-        // Navigation AND open popup (from ListsPanel)
-        const handleNavigateAndOpenPopup = (e: CustomEvent<{ lat: number; lon: number; placeId: string }>) => {
-            const { lat, lon, placeId } = e.detail;
+        // Navigation AND open popup (from ListsPanel or ScoutingTripDetail)
+        const handleNavigateAndOpenPopup = (e: CustomEvent<{ lat: number; lon: number; placeId: string; placeType?: string; data?: any }>) => {
+            const { lat, lon, placeId, data } = e.detail;
 
             // Fly to location (fast animation)
             map.flyTo({
@@ -1171,16 +1178,28 @@ function NavigationEventListener({
             const parts = placeId.split('-');
             const type = parts[0];
 
-            // Open popup shortly after flight starts
+            // Open popup after flight completes
             setTimeout(() => {
-                if (type === 'cafe' || type === 'eu_coffee_trip' || type === 'regular_cafe') {
-                    onOpenCafePopup?.(placeId);
-                } else if (type === 'property') {
-                    onOpenPropertyPopup?.(placeId);
+                // If POI data was passed, use it directly (O(1) - no search needed)
+                if (data) {
+                    if (type === 'cafe' || type === 'eu_coffee_trip' || type === 'regular_cafe') {
+                        setSelectedCafe?.({ cafe: data, coordinates: [lon, lat] });
+                    } else if (type === 'property') {
+                        setSelectedProperty?.({ property: data, coordinates: [lon, lat] });
+                    } else {
+                        setSelectedPoi?.({ poi: data, coordinates: [lon, lat] });
+                    }
                 } else {
-                    onOpenPoiPopup?.(placeId);
+                    // Fallback: search for POI (O(n) - for backward compatibility)
+                    if (type === 'cafe' || type === 'eu_coffee_trip' || type === 'regular_cafe') {
+                        onOpenCafePopup?.(placeId);
+                    } else if (type === 'property') {
+                        onOpenPropertyPopup?.(placeId);
+                    } else {
+                        onOpenPoiPopup?.(placeId);
+                    }
                 }
-            }, 400);
+            }, 650); // Wait for 600ms animation to complete
         };
 
         window.addEventListener('navigate-to-location', handleNavigate as EventListener);
@@ -1190,7 +1209,7 @@ function NavigationEventListener({
             window.removeEventListener('navigate-to-location', handleNavigate as EventListener);
             window.removeEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
         };
-    }, [map, isLoaded, onOpenCafePopup, onOpenPropertyPopup, onOpenPoiPopup]);
+    }, [map, isLoaded, onOpenCafePopup, onOpenPropertyPopup, onOpenPoiPopup, setSelectedCafe, setSelectedProperty, setSelectedPoi]);
 
     return null;
 }
@@ -1346,6 +1365,7 @@ export function EnhancedMapContainer({
         id: string;
         name: string;
         address?: string;
+        data?: any; // Full POI object for fast navigation (avoids O(n) search)
     }) => {
         if (isLinkingMode) {
             addLinkingItem(item);
@@ -1622,6 +1642,9 @@ export function EnhancedMapContainer({
                     onOpenCafePopup={handleOpenCafePopup}
                     onOpenPropertyPopup={handleOpenPropertyPopup}
                     onOpenPoiPopup={handleOpenPoiPopup}
+                    setSelectedCafe={setSelectedCafe}
+                    setSelectedProperty={setSelectedProperty}
+                    setSelectedPoi={setSelectedPoi}
                 />
 
                 {/* Overlay Layers Manager */}
@@ -1699,6 +1722,7 @@ export function EnhancedMapContainer({
                                         id: placeId,
                                         name: cafe.name,
                                         address: cafe.address,
+                                        data: cafe,
                                     });
                                 } else {
                                     setActiveMarkerKey(markerKey);
@@ -1737,6 +1761,7 @@ export function EnhancedMapContainer({
                                                 id: placeId,
                                                 name: cafe.name,
                                                 address: cafe.address,
+                                                data: cafe,
                                             });
                                         } else {
                                             setActiveMarkerKey(markerKey);
@@ -1778,6 +1803,7 @@ export function EnhancedMapContainer({
                                             id: `cafe-${cafe.lat}-${cafe.lon}`,
                                             name: cafe.name,
                                             address: cafe.address,
+                                            data: cafe,
                                         });
                                     } else {
                                         setSelectedCafe({ cafe, coordinates });
@@ -1801,6 +1827,7 @@ export function EnhancedMapContainer({
                                             id: `cafe-${cafe.lat}-${cafe.lon}`,
                                             name: cafe.name,
                                             address: cafe.address,
+                                            data: cafe,
                                         });
                                     } else {
                                         setSelectedCafe({ cafe, coordinates });
@@ -1844,6 +1871,7 @@ export function EnhancedMapContainer({
                                                 id: placeId,
                                                 name: property.title,
                                                 address: property.address,
+                                                data: property,
                                             });
                                         } else {
                                             setActiveMarkerKey(markerKey);
@@ -1881,6 +1909,7 @@ export function EnhancedMapContainer({
                                             id: `property-${property.latitude}-${property.longitude}`,
                                             name: property.title,
                                             address: property.address,
+                                            data: property,
                                         });
                                     } else {
                                         setSelectedProperty({ property, coordinates });
@@ -1935,6 +1964,7 @@ export function EnhancedMapContainer({
                                                 id: placeId,
                                                 name: poi.name,
                                                 address: poi.address,
+                                                data: poi,
                                             });
                                         } else {
                                             setActiveMarkerKey(markerKey);
@@ -1974,6 +2004,7 @@ export function EnhancedMapContainer({
                                                 id: `${poi.type}-${poi.lat}-${poi.lon}`,
                                                 name: poi.name,
                                                 address: poi.address,
+                                                data: poi,
                                             });
                                         } else {
                                             setSelectedPoi({ poi, coordinates });

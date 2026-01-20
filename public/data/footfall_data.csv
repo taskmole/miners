@@ -1,0 +1,721 @@
+hora,distrito,direccion,latitude,longitude,avg_count
+12:00:00 AM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,196.20
+1:00:00 AM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,73.98
+2:00:00 AM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,31.14
+3:00:00 AM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,24.25
+4:00:00 AM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,22.75
+5:00:00 AM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,58.30
+6:00:00 AM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,170.17
+7:00:00 AM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,419.32
+8:00:00 AM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,566.38
+9:00:00 AM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,686.18
+10:00:00 AM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,763.17
+11:00:00 AM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,957.58
+12:00:00 PM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,"1,021.26"
+1:00:00 PM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,"1,217.24"
+2:00:00 PM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,"1,044.68"
+3:00:00 PM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,882.20
+4:00:00 PM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,989.63
+5:00:00 PM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,"1,176.29"
+6:00:00 PM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,"1,369.99"
+7:00:00 PM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,"1,355.36"
+8:00:00 PM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,"1,169.78"
+9:00:00 PM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,830.20
+10:00:00 PM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,534.42
+11:00:00 PM,Chamberí,"Alberto Aguilera 56, 28015 Madrid",40.430.469,-3.713.298,342.80
+12:00:00 AM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,56.41
+1:00:00 AM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,22.96
+2:00:00 AM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,11.22
+3:00:00 AM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,8.56
+4:00:00 AM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,9.00
+5:00:00 AM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,20.46
+6:00:00 AM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,65.21
+7:00:00 AM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,116.97
+8:00:00 AM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,186.89
+9:00:00 AM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,289.13
+10:00:00 AM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,348.73
+11:00:00 AM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,442.65
+12:00:00 PM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,415.50
+1:00:00 PM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,376.41
+2:00:00 PM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,246.31
+3:00:00 PM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,198.29
+4:00:00 PM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,258.39
+5:00:00 PM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,375.49
+6:00:00 PM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,569.98
+7:00:00 PM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,663.30
+8:00:00 PM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,487.41
+9:00:00 PM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,275.79
+10:00:00 PM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,134.99
+11:00:00 PM,Ciudad Lineal,Alcalá entre  Hermanos Machado y José María Pereda,40.432.945,-3.649.175,91.85
+12:00:00 AM,,Av. Albufera,40.397.872,-3.668.193,122.12
+1:00:00 AM,,Av. Albufera,40.397.872,-3.668.193,78.07
+2:00:00 AM,,Av. Albufera,40.397.872,-3.668.193,49.58
+3:00:00 AM,,Av. Albufera,40.397.872,-3.668.193,35.64
+4:00:00 AM,,Av. Albufera,40.397.872,-3.668.193,44.53
+5:00:00 AM,,Av. Albufera,40.397.872,-3.668.193,75.94
+6:00:00 AM,,Av. Albufera,40.397.872,-3.668.193,134.46
+7:00:00 AM,,Av. Albufera,40.397.872,-3.668.193,253.35
+8:00:00 AM,,Av. Albufera,40.397.872,-3.668.193,392.28
+9:00:00 AM,,Av. Albufera,40.397.872,-3.668.193,501.04
+10:00:00 AM,,Av. Albufera,40.397.872,-3.668.193,589.59
+11:00:00 AM,,Av. Albufera,40.397.872,-3.668.193,709.46
+12:00:00 PM,,Av. Albufera,40.397.872,-3.668.193,736.42
+1:00:00 PM,,Av. Albufera,40.397.872,-3.668.193,723.51
+2:00:00 PM,,Av. Albufera,40.397.872,-3.668.193,666.49
+3:00:00 PM,,Av. Albufera,40.397.872,-3.668.193,650.77
+4:00:00 PM,,Av. Albufera,40.397.872,-3.668.193,728.49
+5:00:00 PM,,Av. Albufera,40.397.872,-3.668.193,871.65
+6:00:00 PM,,Av. Albufera,40.397.872,-3.668.193,973.35
+7:00:00 PM,,Av. Albufera,40.397.872,-3.668.193,933.79
+8:00:00 PM,,Av. Albufera,40.397.872,-3.668.193,764.89
+9:00:00 PM,,Av. Albufera,40.397.872,-3.668.193,541.69
+10:00:00 PM,,Av. Albufera,40.397.872,-3.668.193,319.36
+11:00:00 PM,,Av. Albufera,40.397.872,-3.668.193,187.78
+12:00:00 AM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,11.37
+1:00:00 AM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,4.18
+2:00:00 AM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,2.64
+3:00:00 AM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,2.15
+4:00:00 AM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,2.40
+5:00:00 AM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,4.31
+6:00:00 AM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,14.67
+7:00:00 AM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,52.28
+8:00:00 AM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,102.52
+9:00:00 AM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,197.83
+10:00:00 AM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,222.34
+11:00:00 AM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,363.67
+12:00:00 PM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,431.85
+1:00:00 PM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,362.93
+2:00:00 PM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,219.29
+3:00:00 PM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,148.35
+4:00:00 PM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,173.43
+5:00:00 PM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,289.55
+6:00:00 PM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,369.98
+7:00:00 PM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,322.15
+8:00:00 PM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,211.13
+9:00:00 PM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,101.63
+10:00:00 PM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,41.41
+11:00:00 PM,,"Avenida de la Osa Mayor 69, 28023 Madrid",40.459.008,-3.783.391,20.71
+12:00:00 AM,,C. La Laguna 26,40.390.000,-3.742.094,87.38
+1:00:00 AM,,C. La Laguna 26,40.390.000,-3.742.094,41.80
+2:00:00 AM,,C. La Laguna 26,40.390.000,-3.742.094,22.67
+3:00:00 AM,,C. La Laguna 26,40.390.000,-3.742.094,19.01
+4:00:00 AM,,C. La Laguna 26,40.390.000,-3.742.094,23.63
+5:00:00 AM,,C. La Laguna 26,40.390.000,-3.742.094,80.56
+6:00:00 AM,,C. La Laguna 26,40.390.000,-3.742.094,192.42
+7:00:00 AM,,C. La Laguna 26,40.390.000,-3.742.094,396.20
+8:00:00 AM,,C. La Laguna 26,40.390.000,-3.742.094,741.81
+9:00:00 AM,,C. La Laguna 26,40.390.000,-3.742.094,"1,127.24"
+10:00:00 AM,,C. La Laguna 26,40.390.000,-3.742.094,"1,834.43"
+11:00:00 AM,,C. La Laguna 26,40.390.000,-3.742.094,"1,787.92"
+12:00:00 PM,,C. La Laguna 26,40.390.000,-3.742.094,"1,629.88"
+1:00:00 PM,,C. La Laguna 26,40.390.000,-3.742.094,"1,592.03"
+2:00:00 PM,,C. La Laguna 26,40.390.000,-3.742.094,"1,048.58"
+3:00:00 PM,,C. La Laguna 26,40.390.000,-3.742.094,922.43
+4:00:00 PM,,C. La Laguna 26,40.390.000,-3.742.094,"1,140.40"
+5:00:00 PM,,C. La Laguna 26,40.390.000,-3.742.094,"1,847.99"
+6:00:00 PM,,C. La Laguna 26,40.390.000,-3.742.094,"2,138.64"
+7:00:00 PM,,C. La Laguna 26,40.390.000,-3.742.094,"1,928.05"
+8:00:00 PM,,C. La Laguna 26,40.390.000,-3.742.094,"1,125.95"
+9:00:00 PM,,C. La Laguna 26,40.390.000,-3.742.094,499.77
+10:00:00 PM,,C. La Laguna 26,40.390.000,-3.742.094,209.81
+11:00:00 PM,,C. La Laguna 26,40.390.000,-3.742.094,127.35
+12:00:00 AM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,366.58
+1:00:00 AM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,215.21
+2:00:00 AM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,223.81
+3:00:00 AM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,180.09
+4:00:00 AM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,140.13
+5:00:00 AM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,115.25
+6:00:00 AM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,93.90
+7:00:00 AM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,222.07
+8:00:00 AM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,409.66
+9:00:00 AM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,484.71
+10:00:00 AM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,704.54
+11:00:00 AM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,"1,129.84"
+12:00:00 PM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,"1,367.40"
+1:00:00 PM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,"1,416.34"
+2:00:00 PM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,"1,364.03"
+3:00:00 PM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,"1,163.40"
+4:00:00 PM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,"1,132.03"
+5:00:00 PM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,"1,172.13"
+6:00:00 PM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,"1,293.79"
+7:00:00 PM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,"1,410.21"
+8:00:00 PM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,"1,170.98"
+9:00:00 PM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,882.29
+10:00:00 PM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,637.88
+11:00:00 PM,Centro,"Calle Alcalá 34, 28014 Madrid",40.418.256,-3.697.732,458.83
+12:00:00 AM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,474.52
+1:00:00 AM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,242.95
+2:00:00 AM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,130.09
+3:00:00 AM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,82.27
+4:00:00 AM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,52.27
+5:00:00 AM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,55.22
+6:00:00 AM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,89.34
+7:00:00 AM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,158.53
+8:00:00 AM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,431.73
+9:00:00 AM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,964.87
+10:00:00 AM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"1,573.75"
+11:00:00 AM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"2,084.04"
+12:00:00 PM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"2,225.41"
+1:00:00 PM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"2,237.54"
+2:00:00 PM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"2,129.14"
+3:00:00 PM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"2,130.88"
+4:00:00 PM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"2,213.35"
+5:00:00 PM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"2,148.21"
+6:00:00 PM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"1,868.13"
+7:00:00 PM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"1,698.26"
+8:00:00 PM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"1,588.46"
+9:00:00 PM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"1,433.45"
+10:00:00 PM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,"1,198.67"
+11:00:00 PM,Centro,Calle Arenal esquina San Martín,40.417.386,-3.707.141,852.34
+12:00:00 AM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,173.21
+1:00:00 AM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,129.36
+2:00:00 AM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,97.82
+3:00:00 AM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,84.91
+4:00:00 AM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,79.82
+5:00:00 AM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,113.45
+6:00:00 AM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,231.08
+7:00:00 AM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,376.53
+8:00:00 AM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,509.30
+9:00:00 AM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,679.78
+10:00:00 AM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,454.70
+11:00:00 AM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,437.11
+12:00:00 PM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,446.47
+1:00:00 PM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,487.65
+2:00:00 PM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,533.77
+3:00:00 PM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,573.70
+4:00:00 PM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,591.48
+5:00:00 PM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,627.28
+6:00:00 PM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,650.82
+7:00:00 PM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,592.80
+8:00:00 PM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,541.54
+9:00:00 PM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,494.58
+10:00:00 PM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,434.36
+11:00:00 PM,Centro,"Calle Atocha 95, 28012 Madrid",40.411.109,-3.696.471,299.84
+12:00:00 AM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,575.13
+1:00:00 AM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,290.41
+2:00:00 AM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,180.43
+3:00:00 AM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,111.39
+4:00:00 AM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,53.76
+5:00:00 AM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,40.90
+6:00:00 AM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,56.46
+7:00:00 AM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,123.01
+8:00:00 AM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,167.13
+9:00:00 AM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,318.36
+10:00:00 AM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,263.03
+11:00:00 AM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,388.82
+12:00:00 PM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,612.34
+1:00:00 PM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,"1,103.87"
+2:00:00 PM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,"1,836.71"
+3:00:00 PM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,"2,135.70"
+4:00:00 PM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,"1,976.54"
+5:00:00 PM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,"1,635.96"
+6:00:00 PM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,"1,591.29"
+7:00:00 PM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,"1,621.45"
+8:00:00 PM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,"1,657.79"
+9:00:00 PM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,"1,466.61"
+10:00:00 PM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,"1,217.48"
+11:00:00 PM,Centro,"Calle Bailén 10, 28013 Madrid",40.415.111,-3.713.569,962.55
+12:00:00 AM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,27.75
+1:00:00 AM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,12.14
+2:00:00 AM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,5.78
+3:00:00 AM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,3.09
+4:00:00 AM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,3.26
+5:00:00 AM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,6.18
+6:00:00 AM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,18.95
+7:00:00 AM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,58.73
+8:00:00 AM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,101.49
+9:00:00 AM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,126.22
+10:00:00 AM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,155.61
+11:00:00 AM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,189.43
+12:00:00 PM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,208.55
+1:00:00 PM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,212.67
+2:00:00 PM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,170.99
+3:00:00 PM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,137.59
+4:00:00 PM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,150.48
+5:00:00 PM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,177.59
+6:00:00 PM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,220.68
+7:00:00 PM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,243.03
+8:00:00 PM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,198.16
+9:00:00 PM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,143.74
+10:00:00 PM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,88.90
+11:00:00 PM,,"Calle de Doña Urraca 24, 28011 Madrid",40.412.929,-3.726.496,54.84
+12:00:00 AM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,630.99
+1:00:00 AM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,378.18
+2:00:00 AM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,289.98
+3:00:00 AM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,212.24
+4:00:00 AM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,192.65
+5:00:00 AM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,253.88
+6:00:00 AM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,353.02
+7:00:00 AM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,579.88
+8:00:00 AM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,875.33
+9:00:00 AM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"1,107.25"
+10:00:00 AM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"1,433.75"
+11:00:00 AM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"1,848.19"
+12:00:00 PM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"2,488.71"
+1:00:00 PM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"1,563.41"
+2:00:00 PM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"2,289.06"
+3:00:00 PM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"2,855.76"
+4:00:00 PM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"3,386.56"
+5:00:00 PM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"4,018.32"
+6:00:00 PM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"3,840.15"
+7:00:00 PM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"4,020.79"
+8:00:00 PM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"3,333.14"
+9:00:00 PM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"2,158.73"
+10:00:00 PM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,"1,342.55"
+11:00:00 PM,Centro,"Calle Fuencarral 22, 28004 Madrid",40.422.009,-3.700.892,962.06
+12:00:00 AM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,118.46
+1:00:00 AM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,83.81
+2:00:00 AM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,77.66
+3:00:00 AM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,79.97
+4:00:00 AM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,116.00
+5:00:00 AM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,270.35
+6:00:00 AM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,448.05
+7:00:00 AM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,391.19
+8:00:00 AM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,383.42
+9:00:00 AM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,443.63
+10:00:00 AM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,499.08
+11:00:00 AM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,552.50
+12:00:00 PM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,700.81
+1:00:00 PM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,552.11
+2:00:00 PM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,500.00
+3:00:00 PM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,514.52
+4:00:00 PM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,634.55
+5:00:00 PM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,713.92
+6:00:00 PM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,634.38
+7:00:00 PM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,465.24
+8:00:00 PM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,342.41
+9:00:00 PM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,299.59
+10:00:00 PM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,236.57
+11:00:00 PM,Centro,"Calle Génova 12, 28004 Madrid",40.426.953,-3.694.488,163.80
+12:00:00 AM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,227.74
+1:00:00 AM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,153.01
+2:00:00 AM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,106.35
+3:00:00 AM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,76.55
+4:00:00 AM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,72.89
+5:00:00 AM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,128.41
+6:00:00 AM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,207.60
+7:00:00 AM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,290.16
+8:00:00 AM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,372.76
+9:00:00 AM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,476.77
+10:00:00 AM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,565.96
+11:00:00 AM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,654.75
+12:00:00 PM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,740.73
+1:00:00 PM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,704.74
+2:00:00 PM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,677.73
+3:00:00 PM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,666.96
+4:00:00 PM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,738.47
+5:00:00 PM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,859.84
+6:00:00 PM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,897.73
+7:00:00 PM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,900.71
+8:00:00 PM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,828.96
+9:00:00 PM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,706.78
+10:00:00 PM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,587.45
+11:00:00 PM,Centro,"Calle Hortaleza 18, 28004 Madrid",40.421.072,-3.700.490,353.42
+12:00:00 AM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,119.33
+1:00:00 AM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,53.10
+2:00:00 AM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,46.60
+3:00:00 AM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,55.52
+4:00:00 AM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,51.14
+5:00:00 AM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,84.38
+6:00:00 AM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,138.96
+7:00:00 AM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,231.59
+8:00:00 AM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,123.03
+9:00:00 AM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,285.29
+10:00:00 AM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,407.60
+11:00:00 AM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,496.03
+12:00:00 PM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,506.31
+1:00:00 PM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,554.18
+2:00:00 PM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,463.53
+3:00:00 PM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,534.06
+4:00:00 PM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,569.29
+5:00:00 PM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,666.09
+6:00:00 PM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,619.13
+7:00:00 PM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,567.81
+8:00:00 PM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,398.35
+9:00:00 PM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,286.01
+10:00:00 PM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,179.54
+11:00:00 PM,Centro,"Calle Huertas 29, 28014 Madrid",40.413.387,-3.697.740,165.02
+12:00:00 AM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,232.51
+1:00:00 AM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,154.25
+2:00:00 AM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,102.53
+3:00:00 AM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,114.26
+4:00:00 AM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,140.96
+5:00:00 AM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,158.30
+6:00:00 AM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,221.07
+7:00:00 AM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,273.40
+8:00:00 AM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,422.72
+9:00:00 AM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,698.82
+10:00:00 AM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,958.69
+11:00:00 AM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,"1,018.37"
+12:00:00 PM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,"1,107.52"
+1:00:00 PM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,"1,057.99"
+2:00:00 PM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,"1,011.53"
+3:00:00 PM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,926.32
+4:00:00 PM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,928.85
+5:00:00 PM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,845.64
+6:00:00 PM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,867.09
+7:00:00 PM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,844.93
+8:00:00 PM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,859.35
+9:00:00 PM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,791.84
+10:00:00 PM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,620.23
+11:00:00 PM,Centro,"Calle Mayor 13, 28013 Madrid",40.416.376,-3.706.029,427.88
+12:00:00 AM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,244.34
+1:00:00 AM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,114.73
+2:00:00 AM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,68.46
+3:00:00 AM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,45.98
+4:00:00 AM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,54.49
+5:00:00 AM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,91.82
+6:00:00 AM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,239.47
+7:00:00 AM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,455.43
+8:00:00 AM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,603.79
+9:00:00 AM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,551.11
+10:00:00 AM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,585.87
+11:00:00 AM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,910.08
+12:00:00 PM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,934.15
+1:00:00 PM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,981.49
+2:00:00 PM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,"1,063.21"
+3:00:00 PM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,"1,014.18"
+4:00:00 PM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,958.14
+5:00:00 PM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,"1,075.73"
+6:00:00 PM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,"1,116.76"
+7:00:00 PM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,"1,082.62"
+8:00:00 PM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,829.58
+9:00:00 PM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,636.14
+10:00:00 PM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,540.84
+11:00:00 PM,Moncloa - Aravaca,"Calle Princesa 1, 28008 Madrid",40.424.799,-3.712.095,379.44
+12:00:00 AM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,229.16
+1:00:00 AM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,160.37
+2:00:00 AM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,118.37
+3:00:00 AM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,67.04
+4:00:00 AM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,54.47
+5:00:00 AM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,56.47
+6:00:00 AM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,87.16
+7:00:00 AM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,144.09
+8:00:00 AM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,206.10
+9:00:00 AM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,275.91
+10:00:00 AM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,323.68
+11:00:00 AM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,333.87
+12:00:00 PM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,356.94
+1:00:00 PM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,385.63
+2:00:00 PM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,372.58
+3:00:00 PM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,385.98
+4:00:00 PM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,430.91
+5:00:00 PM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,512.51
+6:00:00 PM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,544.55
+7:00:00 PM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,569.53
+8:00:00 PM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,548.10
+9:00:00 PM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,493.21
+10:00:00 PM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,427.51
+11:00:00 PM,Centro,"Calle San Bernardo 36, 28015 Madrid",40.423.803,-3.707.379,315.91
+12:00:00 AM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,46.93
+1:00:00 AM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,29.22
+2:00:00 AM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,25.00
+3:00:00 AM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,23.91
+4:00:00 AM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,52.39
+5:00:00 AM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,126.58
+6:00:00 AM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,274.25
+7:00:00 AM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,399.45
+8:00:00 AM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,721.80
+9:00:00 AM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,"1,110.20"
+10:00:00 AM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,"1,234.38"
+11:00:00 AM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,"1,083.77"
+12:00:00 PM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,951.72
+1:00:00 PM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,747.89
+2:00:00 PM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,723.71
+3:00:00 PM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,852.51
+4:00:00 PM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,"1,088.80"
+5:00:00 PM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,"1,181.99"
+6:00:00 PM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,"1,070.77"
+7:00:00 PM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,792.78
+8:00:00 PM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,548.76
+9:00:00 PM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,399.17
+10:00:00 PM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,210.66
+11:00:00 PM,Centro,"Calle Toledo 23, 28005 Madrid",40.412.891,-3.707.464,72.46
+12:00:00 AM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,105.12
+1:00:00 AM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,53.25
+2:00:00 AM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,26.45
+3:00:00 AM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,18.84
+4:00:00 AM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,18.72
+5:00:00 AM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,50.14
+6:00:00 AM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,144.92
+7:00:00 AM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,279.61
+8:00:00 AM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,631.57
+9:00:00 AM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,617.22
+10:00:00 AM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,761.73
+11:00:00 AM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,"1,036.36"
+12:00:00 PM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,"1,088.93"
+1:00:00 PM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,"1,039.26"
+2:00:00 PM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,877.98
+3:00:00 PM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,777.82
+4:00:00 PM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,999.94
+5:00:00 PM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,"1,044.95"
+6:00:00 PM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,"1,151.87"
+7:00:00 PM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,"1,100.64"
+8:00:00 PM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,806.14
+9:00:00 PM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,479.40
+10:00:00 PM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,275.47
+11:00:00 PM,,"Dolores Barranco 56, 28026 Madrid",40.383.053,-3.707.891,165.82
+12:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,2.58
+1:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,1.45
+2:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,1.15
+3:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,1.10
+4:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,1.84
+5:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,2.35
+6:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,9.62
+7:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,27.73
+8:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,37.28
+9:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,47.95
+10:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,55.97
+11:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,67.87
+12:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,70.55
+1:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,55.78
+2:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,35.71
+3:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,19.33
+4:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,18.98
+5:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,29.75
+6:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,41.29
+7:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,40.77
+8:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,24.53
+9:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,13.23
+10:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,8.57
+11:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  48,40.494.945,-3.687.718,4.88
+12:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,6.26
+1:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,3.34
+2:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,1.64
+3:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,0.76
+4:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,0.67
+5:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,2.17
+6:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,10.58
+7:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,35.41
+8:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,59.57
+9:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,96.78
+10:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,120.12
+11:00:00 AM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,161.77
+12:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,168.09
+1:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,127.59
+2:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,81.96
+3:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,57.34
+4:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,68.99
+5:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,114.50
+6:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,131.49
+7:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,124.17
+8:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,81.76
+9:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,41.13
+10:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,18.94
+11:00:00 PM,,Fuencarral - C.  Nuestra Señora de Valverde  61,40.494.945,-3.687.718,12.13
+12:00:00 AM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,117.05
+1:00:00 AM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,63.49
+2:00:00 AM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,39.68
+3:00:00 AM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,27.20
+4:00:00 AM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,19.53
+5:00:00 AM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,18.10
+6:00:00 AM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,25.09
+7:00:00 AM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,36.86
+8:00:00 AM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,60.86
+9:00:00 AM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,123.80
+10:00:00 AM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,182.76
+11:00:00 AM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,327.43
+12:00:00 PM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,430.09
+1:00:00 PM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,477.97
+2:00:00 PM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,502.95
+3:00:00 PM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,526.02
+4:00:00 PM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,600.95
+5:00:00 PM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,688.42
+6:00:00 PM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,762.40
+7:00:00 PM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,778.27
+8:00:00 PM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,664.38
+9:00:00 PM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,477.14
+10:00:00 PM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,288.13
+11:00:00 PM,Salamanca,Goya entre  General Pardiñas y Francisca Moreno.E-O,40.424.968,-3.678.522,180.87
+12:00:00 AM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"1,280.51"
+1:00:00 AM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,638.14
+2:00:00 AM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,344.50
+3:00:00 AM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,256.05
+4:00:00 AM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,215.41
+5:00:00 AM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,214.32
+6:00:00 AM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,283.93
+7:00:00 AM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,363.54
+8:00:00 AM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,736.54
+9:00:00 AM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"1,473.95"
+10:00:00 AM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"2,840.90"
+11:00:00 AM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"4,495.24"
+12:00:00 PM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"5,524.79"
+1:00:00 PM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"5,800.38"
+2:00:00 PM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"5,587.47"
+3:00:00 PM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"5,734.99"
+4:00:00 PM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"6,294.19"
+5:00:00 PM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"6,707.23"
+6:00:00 PM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"7,053.20"
+7:00:00 PM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"7,056.42"
+8:00:00 PM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"6,424.34"
+9:00:00 PM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"4,995.05"
+10:00:00 PM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"3,284.33"
+11:00:00 PM,Centro,"Gran Vía 33, 28013 Madrid",40.420.153,-3.704.359,"2,156.44"
+12:00:00 AM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"1,123.37"
+1:00:00 AM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,529.93
+2:00:00 AM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,301.43
+3:00:00 AM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,222.98
+4:00:00 AM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,151.28
+5:00:00 AM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,149.25
+6:00:00 AM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,220.57
+7:00:00 AM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,295.77
+8:00:00 AM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,507.00
+9:00:00 AM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,969.02
+10:00:00 AM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"1,999.33"
+11:00:00 AM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"3,142.15"
+12:00:00 PM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"3,983.68"
+1:00:00 PM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"4,255.57"
+2:00:00 PM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"3,962.51"
+3:00:00 PM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"4,031.12"
+4:00:00 PM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"4,696.49"
+5:00:00 PM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"5,289.27"
+6:00:00 PM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"5,841.77"
+7:00:00 PM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"6,383.95"
+8:00:00 PM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"5,771.45"
+9:00:00 PM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"4,293.27"
+10:00:00 PM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"2,507.20"
+11:00:00 PM,Centro,"Gran Vía 34, 28013 Madrid",40.420.270,-3.704.326,"1,566.54"
+12:00:00 AM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,41.84
+1:00:00 AM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,22.05
+2:00:00 AM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,10.39
+3:00:00 AM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,7.23
+4:00:00 AM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,7.29
+5:00:00 AM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,14.85
+6:00:00 AM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,43.79
+7:00:00 AM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,100.25
+8:00:00 AM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,169.44
+9:00:00 AM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,258.53
+10:00:00 AM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,324.69
+11:00:00 AM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,372.83
+12:00:00 PM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,392.83
+1:00:00 PM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,327.66
+2:00:00 PM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,238.14
+3:00:00 PM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,190.36
+4:00:00 PM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,217.63
+5:00:00 PM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,307.17
+6:00:00 PM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,432.04
+7:00:00 PM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,504.34
+8:00:00 PM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,403.82
+9:00:00 PM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,246.77
+10:00:00 PM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,123.31
+11:00:00 PM,Latina,"Madrid Río. Puente de Segovia con Paseo Ermita del Santo Senda peatonal 1, 28011 Madrid",40.413.734,-3.723.948,68.88
+12:00:00 AM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,246.61
+1:00:00 AM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,198.03
+2:00:00 AM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,182.49
+3:00:00 AM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,172.42
+4:00:00 AM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,138.54
+5:00:00 AM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,156.31
+6:00:00 AM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,153.95
+7:00:00 AM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,165.64
+8:00:00 AM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,213.94
+9:00:00 AM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,260.39
+10:00:00 AM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,323.13
+11:00:00 AM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,338.67
+12:00:00 PM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,397.08
+1:00:00 PM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,441.69
+2:00:00 PM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,483.51
+3:00:00 PM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,518.44
+4:00:00 PM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,551.12
+5:00:00 PM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,567.69
+6:00:00 PM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,548.16
+7:00:00 PM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,528.95
+8:00:00 PM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,480.53
+9:00:00 PM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,406.99
+10:00:00 PM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,337.29
+11:00:00 PM,Salamanca,"Paseo de Recoletos 2, 28001 Madrid",40.419.908,-3.692.363,291.59
+12:00:00 AM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,374.05
+1:00:00 AM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,258.41
+2:00:00 AM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,185.33
+3:00:00 AM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,95.65
+4:00:00 AM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,131.36
+5:00:00 AM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,214.41
+6:00:00 AM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,303.27
+7:00:00 AM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,347.26
+8:00:00 AM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,598.92
+9:00:00 AM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,802.79
+10:00:00 AM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,"1,154.22"
+11:00:00 AM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,"1,285.76"
+12:00:00 PM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,"1,316.91"
+1:00:00 PM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,"1,331.02"
+2:00:00 PM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,"1,406.13"
+3:00:00 PM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,"1,688.17"
+4:00:00 PM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,"1,598.82"
+5:00:00 PM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,"1,704.63"
+6:00:00 PM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,"1,760.66"
+7:00:00 PM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,"1,636.64"
+8:00:00 PM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,"1,313.29"
+9:00:00 PM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,"1,128.10"
+10:00:00 PM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,813.06
+11:00:00 PM,Centro,"Plaza del Emperador Carlos V 11, 28012 Madrid",40.409.118,-3.692.441,551.85
+12:00:00 AM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,7.20
+1:00:00 AM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,3.08
+2:00:00 AM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,2.48
+3:00:00 AM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,2.25
+4:00:00 AM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,1.60
+5:00:00 AM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,3.23
+6:00:00 AM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,6.29
+7:00:00 AM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,13.88
+8:00:00 AM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,30.97
+9:00:00 AM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,42.99
+10:00:00 AM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,64.63
+11:00:00 AM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,81.70
+12:00:00 PM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,91.52
+1:00:00 PM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,81.24
+2:00:00 PM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,61.55
+3:00:00 PM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,47.15
+4:00:00 PM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,48.80
+5:00:00 PM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,64.05
+6:00:00 PM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,75.80
+7:00:00 PM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,72.27
+8:00:00 PM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,58.58
+9:00:00 PM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,37.77
+10:00:00 PM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,27.31
+11:00:00 PM,,Plaza Mayor de Barajas,40.473.567,-3.577.728,14.96
+12:00:00 AM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,30.20
+1:00:00 AM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,19.87
+2:00:00 AM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,14.15
+3:00:00 AM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,13.15
+4:00:00 AM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,16.46
+5:00:00 AM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,34.69
+6:00:00 AM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,115.91
+7:00:00 AM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,120.24
+8:00:00 AM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,222.80
+9:00:00 AM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,351.73
+10:00:00 AM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,385.53
+11:00:00 AM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,419.57
+12:00:00 PM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,461.32
+1:00:00 PM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,314.35
+2:00:00 PM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,284.66
+3:00:00 PM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,299.69
+4:00:00 PM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,367.12
+5:00:00 PM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,465.58
+6:00:00 PM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,569.66
+7:00:00 PM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,478.71
+8:00:00 PM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,302.16
+9:00:00 PM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,141.70
+10:00:00 PM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,95.76
+11:00:00 PM,Centro,"Ronda de Valencia 16, 28012 Madrid",40.405.518,-3.700.754,52.45
+12:00:00 AM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,21.80
+1:00:00 AM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,9.62
+2:00:00 AM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,4.38
+3:00:00 AM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,3.70
+4:00:00 AM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,3.46
+5:00:00 AM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,12.07
+6:00:00 AM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,42.29
+7:00:00 AM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,132.85
+8:00:00 AM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,283.81
+9:00:00 AM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,352.77
+10:00:00 AM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,341.21
+11:00:00 AM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,450.26
+12:00:00 PM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,521.60
+1:00:00 PM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,421.90
+2:00:00 PM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,303.06
+3:00:00 PM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,198.03
+4:00:00 PM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,251.54
+5:00:00 PM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,401.95
+6:00:00 PM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,402.28
+7:00:00 PM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,372.22
+8:00:00 PM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,253.43
+9:00:00 PM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,140.99
+10:00:00 PM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,71.91
+11:00:00 PM,,"Torre Arias 25, Canillejas, Madrid",40.445.393,-3.611.413,40.70
