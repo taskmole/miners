@@ -10,6 +10,7 @@ import { ScoutingTripForm } from "@/components/ScoutingTripForm";
 import { ScoutingTripUpload } from "@/components/ScoutingTripUpload";
 import { ScoutingTripDetail } from "@/components/ScoutingTripDetail";
 import { EnhancedMapContainer } from "@/components/EnhancedMapContainer";
+import { LandingPage } from "@/components/LandingPage";
 import { useMapData } from "@/hooks/useMapData";
 import { ListsProvider } from "@/contexts/ListsContext";
 import { GeoDataProvider } from "@/contexts/GeoDataContext";
@@ -25,6 +26,9 @@ const DEFAULT_FILTERS = new Set<string>([]);
 function HomeContent() {
   const { counts } = useMapData();
   const { startLinking, isLinking } = useLinking();
+
+  // Landing page state - shows on first load
+  const [showLanding, setShowLanding] = useState(true);
 
   const [activeFilters, setActiveFilters] = useState<Set<string>>(DEFAULT_FILTERS);
   const [trafficEnabled, setTrafficEnabled] = useState(false);
@@ -210,6 +214,12 @@ function HomeContent() {
           }}
         />
       )}
+
+      {/* Landing Page Overlay */}
+      <LandingPage
+        isVisible={showLanding}
+        onEnterDemo={() => setShowLanding(false)}
+      />
     </main>
   );
 }
