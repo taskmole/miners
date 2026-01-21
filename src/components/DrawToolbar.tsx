@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useMapDraw } from '@/hooks/useMapDraw';
 import {
-  Pentagon,
+  Scan,
   MapPin,
   MapPinPlus,
   ChevronRight,
@@ -20,7 +20,7 @@ type ToolbarButton = {
 
 // Drawing tool buttons - simplified to Area and Point only
 const DRAW_BUTTONS: ToolbarButton[] = [
-  { mode: 'draw_polygon', icon: Pentagon, label: 'Area' },
+  { mode: 'draw_polygon', icon: Scan, label: 'Area' },
   { mode: 'draw_point', icon: MapPin, label: 'Point' },
 ];
 
@@ -68,7 +68,7 @@ export function DrawToolbar() {
           {/* Header row - matches Sidebar section headers */}
           <button
             onClick={() => setIsDrawSectionExpanded(!isDrawSectionExpanded)}
-            className="w-full p-4 flex items-center justify-between hover:bg-white/20 transition-colors"
+            className="w-full p-4 flex items-center hover:bg-white/20 transition-colors"
           >
             <div className="flex items-center gap-2">
               <ChevronRight className={cn(
@@ -76,18 +76,8 @@ export function DrawToolbar() {
                 isDrawSectionExpanded && "rotate-90"
               )} />
               <MapPinPlus className="w-4 h-4 text-zinc-700" />
-              <span className="text-sm font-bold text-zinc-900">Draw</span>
+              <span className="text-sm font-bold text-zinc-900">Add new</span>
             </div>
-            {featureCount > 0 && (
-              <span className="px-2 py-0.5 bg-teal-100/50 text-teal-700 text-[10px] font-bold rounded-full">
-                {featureCount} shape{featureCount !== 1 ? 's' : ''}
-              </span>
-            )}
-            {isDrawing && featureCount === 0 && (
-              <span className="px-2 py-0.5 bg-amber-100/50 text-amber-700 text-[10px] font-bold rounded-full">
-                Drawing
-              </span>
-            )}
           </button>
 
           {/* Expandable content */}
@@ -97,12 +87,9 @@ export function DrawToolbar() {
           >
             <div className="overflow-hidden">
               <div className="border-t border-white/10">
-                {/* Draw mode buttons */}
-                <div className="p-3 space-y-2">
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide px-2">
-                    Shape
-                  </span>
-                  <div className="space-y-1">
+                {/* Draw mode buttons - 2 column grid */}
+                <div className="p-3">
+                  <div className="grid grid-cols-2 gap-2">
                     {DRAW_BUTTONS.map((button) => {
                       const isActive = isButtonActive(button);
                       return (
@@ -110,27 +97,22 @@ export function DrawToolbar() {
                           key={button.label}
                           onClick={() => handleButtonClick(button)}
                           className={cn(
-                            "w-full flex items-center gap-2.5 py-1.5 px-2 rounded-lg transition-colors cursor-pointer",
+                            "flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl transition-colors cursor-pointer",
                             isActive
                               ? "bg-teal-500/20 text-teal-700"
                               : "hover:bg-white/30 text-zinc-700"
                           )}
                         >
                           <button.icon className={cn(
-                            "w-4 h-4",
+                            "w-5 h-5",
                             isActive ? "text-teal-600" : "text-zinc-400"
                           )} />
                           <span className={cn(
-                            "text-sm font-medium",
+                            "text-xs font-medium",
                             isActive ? "text-teal-700" : "text-zinc-700"
                           )}>
                             {button.label}
                           </span>
-                          {isActive && (
-                            <span className="ml-auto px-1.5 py-0.5 bg-teal-500/20 text-teal-600 text-[9px] font-bold rounded">
-                              Active
-                            </span>
-                          )}
                         </button>
                       );
                     })}
