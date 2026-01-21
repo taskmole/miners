@@ -31,22 +31,22 @@ export function HideButton({ placeId, className }: HideButtonProps) {
     <button
       onClick={handleClick}
       className={cn(
-        // Base styles - matches close button style
-        "w-7 h-7 flex items-center justify-center rounded-full transition-all duration-200",
-        // Normal state (not hidden) - gray, subtle
-        !hidden && "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100",
-        // Hidden state - highlighted to show "this is hidden"
-        hidden && "text-amber-600 bg-amber-50 hover:bg-amber-100",
+        // Base styles - matches close button exactly
+        "h-[27px] w-[27px] rounded-full flex items-center justify-center transition-all duration-200",
+        // Normal state (not hidden) - white background with shadow, like close button
+        !hidden && "bg-white/90 shadow-md text-zinc-500 hover:bg-gray-100 hover:scale-110",
+        // Hidden state - subtle rose/red to indicate "this is hidden"
+        hidden && "bg-rose-50 shadow-md text-rose-500 hover:bg-rose-100 hover:scale-110",
         className
       )}
       title={hidden ? "Unhide this location" : "Hide this location"}
     >
       {hidden ? (
         // POI is hidden - show Eye icon (click to unhide/reveal)
-        <Eye className="w-4 h-4" />
+        <Eye className="h-3.5 w-3.5" />
       ) : (
         // POI is visible - show EyeOff icon (click to hide)
-        <EyeOff className="w-4 h-4" />
+        <EyeOff className="h-3.5 w-3.5" />
       )}
     </button>
   );

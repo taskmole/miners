@@ -1208,13 +1208,13 @@
    HIDDEN POI MARKERS
    =========================================== */
 
-/* Hidden marker - faded appearance */
+/* Hidden marker - faded appearance (30% opacity) */
 .marker-hidden {
-  opacity: 0.4 !important;
+  opacity: 0.3 !important;
   transition: opacity 0.2s ease;
 }
 
 /* Hidden marker hover - slightly more visible for interaction */
 .marker-hidden:hover {
-  opacity: 0.6 !important;
+  opacity: 0.5 !important;
 }

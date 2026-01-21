@@ -104,6 +104,7 @@ places (1) ──→ (many) tags
 | activity_log | User action tracking | 0 |
 | user_activity_state | Last viewed timestamp | 0 |
 | mentions | User @mentions in comments | 0 |
+| hidden_pois | User-specific hidden POIs | 0 |
 | scoring_params | AI scoring weights | 6 |
 | app_settings | System configuration | ~5 |
 | user_profiles | Extended user data | 0 |
@@ -352,6 +353,17 @@ CREATE TABLE user_activity_state (
   user_id UUID REFERENCES auth.users(id) PRIMARY KEY,
   last_viewed_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- User Hidden POIs (user-specific hiding)
+CREATE TABLE hidden_pois (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  place_id TEXT NOT NULL,  -- same placeId format used in app (e.g., "cafe-40.4168--3.7038")
+  hidden_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, place_id)
+);
+
+CREATE INDEX hidden_pois_user_idx ON hidden_pois(user_id);
 
 -- User Mentions (for @tagging in comments)
 CREATE TABLE mentions (
@@ -1301,6 +1313,25 @@ CREATE POLICY "mentions_insert_authenticated" ON mentions
 -- Users can mark their own mentions as read
 CREATE POLICY "mentions_update_own" ON mentions
   FOR UPDATE USING (mentioned_user_id = auth.uid());
+```
+
+### 15.9 Hidden POIs Policies
+
+```sql
+-- Enable RLS on hidden_pois table
+ALTER TABLE hidden_pois ENABLE ROW LEVEL SECURITY;
+
+-- Users can only see their own hidden POIs
+CREATE POLICY "hidden_pois_select_own" ON hidden_pois
+  FOR SELECT USING (user_id = auth.uid());
+
+-- Authenticated users can hide POIs (insert)
+CREATE POLICY "hidden_pois_insert_own" ON hidden_pois
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+
+-- Users can unhide their own POIs (delete)
+CREATE POLICY "hidden_pois_delete_own" ON hidden_pois
+  FOR DELETE USING (user_id = auth.uid());
 ```
 
 ---
