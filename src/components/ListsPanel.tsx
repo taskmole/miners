@@ -14,8 +14,6 @@ import {
     FileText,
     Image,
     Download,
-    Hexagon,
-    Minus,
     Calendar,
     Cloud,
     Users,
@@ -767,21 +765,28 @@ function ListSection({
                         </div>
                     ))}
 
-                    {/* Drawn Areas */}
+                    {/* Drawn Areas - same styling as POI items */}
                     {areas.map(area => (
                         <div
                             key={area.id}
-                            className="px-3 py-2 pl-8 flex items-center gap-2 hover:bg-white/20 group"
+                            className="px-3 py-2 flex items-center gap-2 hover:bg-white/20 group border-b border-white/5 last:border-b-0"
                         >
-                            {area.areaType === 'polygon' ? (
-                                <Hexagon className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                            ) : (
-                                <Minus className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                            )}
-                            <span className="text-xs text-zinc-700 truncate flex-1">{area.name}</span>
+                            {/* Drag handle placeholder for alignment */}
+                            <GripVertical className="w-3 h-3 text-zinc-300 shrink-0" />
+
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-zinc-800 truncate">
+                                    {area.name}
+                                </p>
+                                <p className="text-[10px] text-zinc-500 truncate">
+                                    {area.areaType === 'polygon' ? 'Custom area' : 'Custom point'}
+                                </p>
+                            </div>
+
+                            {/* Remove button */}
                             <button
                                 onClick={() => onRemoveArea(area.areaId)}
-                                className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded hover:bg-red-100 flex items-center justify-center"
+                                className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded hover:bg-red-100 flex items-center justify-center shrink-0"
                             >
                                 <X className="w-3 h-3 text-red-500" />
                             </button>

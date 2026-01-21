@@ -13,6 +13,7 @@ import { EnhancedMapContainer } from "@/components/EnhancedMapContainer";
 import { LandingPage } from "@/components/LandingPage";
 import { useMapData } from "@/hooks/useMapData";
 import { ListsProvider } from "@/contexts/ListsContext";
+import { HiddenPoisProvider } from "@/contexts/HiddenPoisContext";
 import { GeoDataProvider } from "@/contexts/GeoDataContext";
 import { LinkingProvider, useLinking } from "@/contexts/LinkingContext";
 import { ScoutingTripsProvider } from "@/contexts/ScoutingTripsContext";
@@ -229,11 +230,13 @@ export default function Home() {
   return (
     <GeoDataProvider>
       <ListsProvider>
-        <ScoutingTripsProvider>
-          <LinkingProvider>
-            <HomeContent />
-          </LinkingProvider>
-        </ScoutingTripsProvider>
+        <HiddenPoisProvider>
+          <ScoutingTripsProvider>
+            <LinkingProvider>
+              <HomeContent />
+            </LinkingProvider>
+          </ScoutingTripsProvider>
+        </HiddenPoisProvider>
       </ListsProvider>
     </GeoDataProvider>
   );
