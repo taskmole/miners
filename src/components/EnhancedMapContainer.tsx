@@ -24,11 +24,12 @@ import type { City } from "@/components/CitySelector";
 import { AddToListButton } from "@/components/AddToListButton";
 import type { PlaceInfo } from "@/types/lists";
 import { TrafficValueCard } from "@/components/TrafficValueCard";
-import { useMapData, CafeData, PropertyData, OtherPoiData } from "@/hooks/useMapData";
+import { useMapData, CafeData, PropertyData, OtherPoiData, LocationData } from "@/hooks/useMapData";
 import { useOverlayData } from "@/hooks/useOverlayData";
 import { useAttachments } from "@/hooks/useAttachments";
 import { AttachmentGallery } from "@/components/attachments";
 import { PopupCommentsSection } from "@/components/PopupCommentsSection";
+import { DisambiguationPopup } from "@/components/DisambiguationPopup";
 import {
     Coffee,
     Building2,
@@ -1281,33 +1282,55 @@ const IconMarker = React.memo(function IconMarker({
     color,
     icon: Icon,
     isMiners = false,
-    isActive = false
+    isActive = false,
+    poiCount = 1
 }: {
     color: string;
     icon: React.ElementType;
     isMiners?: boolean;
     isActive?: boolean;
+    poiCount?: number;
 }) {
+    const showBadge = poiCount > 1;
+
     if (isMiners) {
         return (
-            <div className={cn(
-                "bg-black rounded-full p-1 shadow-lg shadow-black/30 ring-2 ring-yellow-400 transition-transform duration-200",
-                isActive ? "scale-125" : "hover:scale-125"
-            )}>
-                <img
-                    src="/assets/favicon-dark.png"
-                    alt="Miners"
-                    className="size-5 object-contain"
-                />
+            <div className="relative">
+                <div className={cn(
+                    "bg-black rounded-full p-1 shadow-lg shadow-black/30 ring-2 ring-yellow-400 transition-transform duration-200",
+                    isActive ? "scale-125" : "hover:scale-125"
+                )}>
+                    <img
+                        src="/assets/favicon-dark.png"
+                        alt="Miners"
+                        className="size-5 object-contain"
+                    />
+                </div>
+                {showBadge && (
+                    <div className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-orange-500 rounded-full
+                                    flex items-center justify-center text-[10px] font-bold text-white
+                                    border-2 border-white shadow-md">
+                        {poiCount}
+                    </div>
+                )}
             </div>
         );
     }
     return (
-        <div className={cn(
-            `${color} rounded-full p-1.5 shadow-lg transition-transform duration-200`,
-            isActive ? "scale-125" : "hover:scale-125"
-        )}>
-            <Icon className="size-3 text-white" />
+        <div className="relative">
+            <div className={cn(
+                `${color} rounded-full p-1.5 shadow-lg transition-transform duration-200`,
+                isActive ? "scale-125" : "hover:scale-125"
+            )}>
+                <Icon className="size-3 text-white" />
+            </div>
+            {showBadge && (
+                <div className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-orange-500 rounded-full
+                                flex items-center justify-center text-[10px] font-bold text-white
+                                border-2 border-white shadow-md">
+                    {poiCount}
+                </div>
+            )}
         </div>
     );
 });
@@ -1488,6 +1511,44 @@ export function EnhancedMapContainer({
         university: "#be123c",
     };
 
+    // Build location index to detect co-located POIs (same lat/lng)
+    // Key format: "lat_lng" rounded to 5 decimals (~1m precision)
+    const locationIndex = useMemo(() => {
+        const index: Record<string, LocationData[]> = {};
+
+        const makeKey = (lat: number, lon: number) =>
+            `${lat.toFixed(5)}_${lon.toFixed(5)}`;
+
+        // Add all cafes (cafes array already includes miners cafes)
+        cafes.forEach(cafe => {
+            const key = makeKey(cafe.lat, cafe.lon);
+            if (!index[key]) index[key] = [];
+            index[key].push(cafe);
+        });
+
+        // Add properties
+        properties.forEach(prop => {
+            const key = makeKey(prop.latitude, prop.longitude);
+            if (!index[key]) index[key] = [];
+            index[key].push(prop);
+        });
+
+        // Add other POIs
+        otherPois.forEach(poi => {
+            const key = makeKey(poi.lat, poi.lon);
+            if (!index[key]) index[key] = [];
+            index[key].push(poi);
+        });
+
+        return index;
+    }, [cafes, properties, otherPois]);
+
+    // Helper to get co-located POIs for a given coordinate
+    const getColocatedPois = React.useCallback((lat: number, lon: number): LocationData[] => {
+        const key = `${lat.toFixed(5)}_${lon.toFixed(5)}`;
+        return locationIndex[key] || [];
+    }, [locationIndex]);
+
     // State for selected popups
     const [selectedCafe, setSelectedCafe] = useState<{
         cafe: CafeData;
@@ -1501,6 +1562,12 @@ export function EnhancedMapContainer({
 
     const [selectedPoi, setSelectedPoi] = useState<{
         poi: OtherPoiData;
+        coordinates: [number, number];
+    } | null>(null);
+
+    // State for disambiguation popup (when multiple POIs share same coordinates)
+    const [disambiguationData, setDisambiguationData] = useState<{
+        pois: LocationData[];
         coordinates: [number, number];
     } | null>(null);
 
@@ -1527,6 +1594,62 @@ export function EnhancedMapContainer({
     // Callback for when zoom crosses icon threshold
     const handleShowIconsChange = React.useCallback((icons: boolean) => {
         setShowIcons(icons);
+    }, []);
+
+    // Handle click on marker - check for co-located POIs first
+    const handleMarkerClick = React.useCallback((
+        lat: number,
+        lon: number,
+        poi: LocationData,
+        markerKey: string,
+        openPopup: () => void
+    ) => {
+        // Don't show disambiguation in linking mode
+        if (isLinkingMode) {
+            openPopup();
+            return;
+        }
+
+        const colocated = getColocatedPois(lat, lon);
+
+        if (colocated.length > 1) {
+            // Multiple POIs at this location - show disambiguation
+            setDisambiguationData({
+                pois: colocated,
+                coordinates: [lon, lat]
+            });
+        } else {
+            // Single POI - open directly
+            setActiveMarkerKey(markerKey);
+            openPopup();
+        }
+    }, [isLinkingMode, getColocatedPois]);
+
+    // Handle selection from disambiguation popup
+    const handleDisambiguationSelect = React.useCallback((poi: LocationData) => {
+        // Close disambiguation popup
+        setDisambiguationData(null);
+
+        // Open the appropriate popup based on POI type
+        if (poi.type === "cafe") {
+            const cafe = poi as CafeData;
+            setSelectedCafe({
+                cafe,
+                coordinates: [cafe.lon, cafe.lat]
+            });
+        } else if (poi.type === "property") {
+            const property = poi as PropertyData;
+            setSelectedProperty({
+                property,
+                coordinates: [property.longitude, property.latitude]
+            });
+        } else {
+            const otherPoi = poi as OtherPoiData;
+            setSelectedPoi({
+                poi: otherPoi,
+                coordinates: [otherPoi.lon, otherPoi.lat]
+            });
+        }
     }, []);
 
     // Helper to parse coordinates from placeId (handles negative numbers)
@@ -1710,6 +1833,8 @@ export function EnhancedMapContainer({
                 {minersCafes.map((cafe, i) => {
                     const markerKey = `miners-${cafe.lat}-${cafe.lon}-${i}`;
                     const placeId = `cafe-${cafe.lat}-${cafe.lon}`;
+                    const colocated = getColocatedPois(cafe.lat, cafe.lon);
+                    const hasMultiplePois = colocated.length > 1;
                     return (
                         <MapMarker
                             key={markerKey}
@@ -1724,15 +1849,21 @@ export function EnhancedMapContainer({
                                         address: cafe.address,
                                         data: cafe,
                                     });
+                                } else if (hasMultiplePois) {
+                                    // Show disambiguation popup
+                                    setDisambiguationData({
+                                        pois: colocated,
+                                        coordinates: [cafe.lon, cafe.lat]
+                                    });
                                 } else {
                                     setActiveMarkerKey(markerKey);
                                 }
                             }}
                         >
                             <MarkerContent>
-                                <IconMarker color="bg-black" icon={Coffee} isMiners isActive={activeMarkerKey === markerKey} />
+                                <IconMarker color="bg-black" icon={Coffee} isMiners isActive={activeMarkerKey === markerKey} poiCount={colocated.length} />
                             </MarkerContent>
-                            {!isLinkingMode && (
+                            {!isLinkingMode && !hasMultiplePois && (
                                 <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
                                     <CafePopupContent cafe={cafe} />
                                 </MarkerPopup>
@@ -1749,6 +1880,8 @@ export function EnhancedMapContainer({
                             const isEuCoffeeTrip = cafe.link?.includes("europeancoffeetrip");
                             const markerKey = `cafe-icon-${cafe.lat}-${cafe.lon}-${i}`;
                             const placeId = `cafe-${cafe.lat}-${cafe.lon}`;
+                            const colocated = getColocatedPois(cafe.lat, cafe.lon);
+                            const hasMultiplePois = colocated.length > 1;
                             return (
                                 <MapMarker
                                     key={markerKey}
@@ -1763,6 +1896,11 @@ export function EnhancedMapContainer({
                                                 address: cafe.address,
                                                 data: cafe,
                                             });
+                                        } else if (hasMultiplePois) {
+                                            setDisambiguationData({
+                                                pois: colocated,
+                                                coordinates: [cafe.lon, cafe.lat]
+                                            });
                                         } else {
                                             setActiveMarkerKey(markerKey);
                                         }
@@ -1773,9 +1911,10 @@ export function EnhancedMapContainer({
                                             color={isEuCoffeeTrip ? "bg-blue-900" : "bg-sky-500"}
                                             icon={Coffee}
                                             isActive={activeMarkerKey === markerKey}
+                                            poiCount={colocated.length}
                                         />
                                     </MarkerContent>
-                                    {!isLinkingMode && (
+                                    {!isLinkingMode && !hasMultiplePois && (
                                         <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
                                             <CafePopupContent cafe={cafe} />
                                         </MarkerPopup>
@@ -1859,6 +1998,8 @@ export function EnhancedMapContainer({
                         {visibleProperties.map((property, i) => {
                             const markerKey = `property-icon-${property.latitude}-${property.longitude}-${i}`;
                             const placeId = `property-${property.latitude}-${property.longitude}`;
+                            const colocated = getColocatedPois(property.latitude, property.longitude);
+                            const hasMultiplePois = colocated.length > 1;
                             return (
                                 <MapMarker
                                     key={markerKey}
@@ -1873,15 +2014,20 @@ export function EnhancedMapContainer({
                                                 address: property.address,
                                                 data: property,
                                             });
+                                        } else if (hasMultiplePois) {
+                                            setDisambiguationData({
+                                                pois: colocated,
+                                                coordinates: [property.longitude, property.latitude]
+                                            });
                                         } else {
                                             setActiveMarkerKey(markerKey);
                                         }
                                     }}
                                 >
                                     <MarkerContent>
-                                        <IconMarker color="bg-[#78C500]" icon={Home} isActive={activeMarkerKey === markerKey} />
+                                        <IconMarker color="bg-[#78C500]" icon={Home} isActive={activeMarkerKey === markerKey} poiCount={colocated.length} />
                                     </MarkerContent>
-                                    {!isLinkingMode && (
+                                    {!isLinkingMode && !hasMultiplePois && (
                                         <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
                                             <PropertyPopupContent property={property} />
                                         </MarkerPopup>
@@ -1952,6 +2098,8 @@ export function EnhancedMapContainer({
                             };
                             const markerKey = `poi-icon-${poi.lat}-${poi.lon}-${i}`;
                             const placeId = `${poi.type}-${poi.lat}-${poi.lon}`;
+                            const colocated = getColocatedPois(poi.lat, poi.lon);
+                            const hasMultiplePois = colocated.length > 1;
                             return (
                                 <MapMarker
                                     key={markerKey}
@@ -1966,15 +2114,20 @@ export function EnhancedMapContainer({
                                                 address: poi.address,
                                                 data: poi,
                                             });
+                                        } else if (hasMultiplePois) {
+                                            setDisambiguationData({
+                                                pois: colocated,
+                                                coordinates: [poi.lon, poi.lat]
+                                            });
                                         } else {
                                             setActiveMarkerKey(markerKey);
                                         }
                                     }}
                                 >
                                     <MarkerContent>
-                                        <IconMarker color={bgColorMap[poi.type] || "bg-gray-500"} icon={Icon} isActive={activeMarkerKey === markerKey} />
+                                        <IconMarker color={bgColorMap[poi.type] || "bg-gray-500"} icon={Icon} isActive={activeMarkerKey === markerKey} poiCount={colocated.length} />
                                     </MarkerContent>
-                                    {!isLinkingMode && (
+                                    {!isLinkingMode && !hasMultiplePois && (
                                         <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
                                             <OtherPoiPopupContent poi={poi} />
                                         </MarkerPopup>
@@ -2029,7 +2182,40 @@ export function EnhancedMapContainer({
                         <OtherPoiPopupContent poi={selectedPoi.poi} />
                     </MapPopup>
                 )}
+
             </Map>
+
+            {/* Disambiguation Popup - floating overlay when multiple POIs share same coordinates */}
+            {disambiguationData && (
+                <div
+                    className="absolute inset-0 z-50 flex items-center justify-center"
+                    onClick={(e) => {
+                        // Close when clicking the backdrop
+                        if (e.target === e.currentTarget) {
+                            setDisambiguationData(null);
+                        }
+                    }}
+                >
+                    {/* Semi-transparent backdrop */}
+                    <div className="absolute inset-0 bg-black/20" />
+
+                    {/* Popup card */}
+                    <div className="relative animate-in fade-in-0 zoom-in-95 duration-200">
+                        <DisambiguationPopup
+                            pois={disambiguationData.pois}
+                            onSelect={handleDisambiguationSelect}
+                        />
+                        {/* Close button */}
+                        <button
+                            onClick={() => setDisambiguationData(null)}
+                            className="absolute -top-2 -right-2 w-7 h-7 bg-white rounded-full shadow-lg
+                                       flex items-center justify-center hover:bg-gray-100 transition-colors"
+                        >
+                            <X className="w-4 h-4 text-zinc-600" />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Loading overlay */}
             {isLoading && (

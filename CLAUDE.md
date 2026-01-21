@@ -1,8 +1,20 @@
+# How I Work
+I'm not technical - I don't read or understand code.
+
 # Planning Rules
-- When I ask you to plan, explain steps in plain English only
-- NO code snippets in plans - I don't read code
-- Use simple language a non-developer can understand
+- Plain English only, NO code snippets
+- Simple language, numbered steps
 
 # Permissions
-- When auto-accept edits is on, don't ask for permission on bash commands either
-- Just run what you need to run
+- Just run commands without asking
+
+# Code Style
+- Clean, well-commented, simple
+
+# When Done
+- Run build and fix any errors
+
+# Available Tools
+- Code simplifier plugin
+- Feature development plugin
+- Frontend design plugin
