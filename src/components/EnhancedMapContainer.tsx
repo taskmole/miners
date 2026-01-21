@@ -22,6 +22,8 @@ import { ToastProvider, useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
 import { AddToListButton } from "@/components/AddToListButton";
+import { HideButton } from "@/components/HideButton";
+import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import type { PlaceInfo } from "@/types/lists";
 import { TrafficValueCard } from "@/components/TrafficValueCard";
 import { useMapData, CafeData, PropertyData, OtherPoiData, LocationData } from "@/hooks/useMapData";
@@ -120,6 +122,31 @@ const iconConfig: Record<string, { icon: React.ElementType; color: string; bg: s
         ring: "ring-rose-300"
     },
 };
+
+// Helper function to generate unique placeId
+// Format: {type}-{lat}-{lon} (coordinates with 5 decimal places = ~1m precision)
+function generatePlaceId(type: string, lat: number, lon: number): string {
+    return `${type}-${lat.toFixed(5)}-${lon.toFixed(5)}`;
+}
+
+// Helper function to check if a POI's type filter is currently active
+// This matches the visibility logic used in visibleCafes, visibleProperties, visibleOtherPois
+function isPoiFilterActive(poi: LocationData, activeFilters: Set<string>, ratingFilter: number): boolean {
+    if (poi.type === "cafe") {
+        const cafe = poi as CafeData;
+        const isEuCoffeeTrip = cafe.link?.includes("europeancoffeetrip");
+        const categoryMatch = isEuCoffeeTrip
+            ? activeFilters.has("eu_coffee_trip") || activeFilters.has("cafe")
+            : activeFilters.has("regular_cafe") || activeFilters.has("cafe");
+        const ratingMatch = !ratingFilter || (cafe.rating && cafe.rating >= ratingFilter);
+        return categoryMatch && ratingMatch;
+    } else if (poi.type === "property") {
+        return activeFilters.has("property");
+    } else {
+        // Other POI types (transit, shopping, high_street, office, dorm, university)
+        return activeFilters.has(poi.type);
+    }
+}
 
 // Layer management helper functions
 function getFirstSymbolLayer(map: any): string | undefined {
@@ -735,9 +762,13 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe }: { cafe
     const mapsUrl = `https://www.google.com/maps?q=${cafe.lat},${cafe.lon}`;
     const recentlyAdded = isRecentlyAdded(cafe.datePublished);
     const commentCount = 0; // TODO: Get from data when available
+    const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
 
     return (
         <div className="popup-base">
+            {/* Hide button - positioned next to close button */}
+            <HideButton placeId={placeId} className="absolute top-2.5 right-12 z-20" />
+
             {/* Image with overlays */}
             {cafe.image && (
                 <div className="popup-image tall">
@@ -795,10 +826,10 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe }: { cafe
             </div>
 
             {/* Attachments section */}
-            <PopupAttachmentsSection placeId={`cafe-${cafe.lat}-${cafe.lon}`} />
+            <PopupAttachmentsSection placeId={placeId} />
 
             {/* Comments section */}
-            <PopupCommentsSection placeId={`cafe-${cafe.lat}-${cafe.lon}`} />
+            <PopupCommentsSection placeId={placeId} />
 
             {/* Footer */}
             <div className="popup-footer">
@@ -847,9 +878,13 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe }: { cafe
 const RegularCafePopup = React.memo(function RegularCafePopup({ cafe }: { cafe: CafeData }) {
     const mapsUrl = `https://www.google.com/maps?q=${cafe.lat},${cafe.lon}`;
     const commentCount = 0; // TODO: Get from data when available
+    const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
 
     return (
         <div className="popup-base">
+            {/* Hide button - positioned next to close button */}
+            <HideButton placeId={placeId} className="absolute top-2.5 right-12 z-20" />
+
             {/* Header */}
             <div className="popup-header">
                 <span className="popup-name">{cafe.name}</span>
@@ -886,10 +921,10 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe }: { cafe: 
             </div>
 
             {/* Attachments section */}
-            <PopupAttachmentsSection placeId={`cafe-${cafe.lat}-${cafe.lon}`} />
+            <PopupAttachmentsSection placeId={placeId} />
 
             {/* Comments section */}
-            <PopupCommentsSection placeId={`cafe-${cafe.lat}-${cafe.lon}`} />
+            <PopupCommentsSection placeId={placeId} />
 
             {/* Footer */}
             <div className="popup-footer">
@@ -901,7 +936,7 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe }: { cafe: 
                 {/* Hide "Add to list" for Miners' own cafes */}
                 {!cafe.franchisePartner && (
                     <AddToListButton place={{
-                        placeId: `cafe-${cafe.lat}-${cafe.lon}`,
+                        placeId: placeId,
                         placeType: 'regular_cafe',
                         placeName: cafe.name,
                         placeAddress: cafe.address,
@@ -934,6 +969,7 @@ function capitalizeFirst(str: string): string {
 // Property popup content - Uses universal popup base - memoized
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property }: { property: PropertyData }) {
     const mapsUrl = `https://www.google.com/maps?q=${property.latitude},${property.longitude}`;
+    const placeId = `property-${property.latitude.toFixed(5)}-${property.longitude.toFixed(5)}`;
 
     // Build features array
     const features: string[] = [];
@@ -943,6 +979,9 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
 
     return (
         <div className="popup-base">
+            {/* Hide button - positioned next to close button */}
+            <HideButton placeId={placeId} className="absolute top-2.5 right-12 z-20" />
+
             {/* Header - Title */}
             <div className="popup-header">
                 <span className="popup-name">{capitalizeFirst(property.title)}</span>
@@ -989,10 +1028,10 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             )}
 
             {/* Attachments section */}
-            <PopupAttachmentsSection placeId={`property-${property.latitude}-${property.longitude}`} />
+            <PopupAttachmentsSection placeId={placeId} />
 
             {/* Comments section */}
-            <PopupCommentsSection placeId={`property-${property.latitude}-${property.longitude}`} />
+            <PopupCommentsSection placeId={placeId} />
 
             {/* Footer */}
             <div className="popup-footer">
@@ -1021,9 +1060,13 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
 const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi }: { poi: OtherPoiData }) {
     const mapsUrl = poi.mapsUrl || `https://www.google.com/maps?q=${poi.lat},${poi.lon}`;
     const commentCount = 0; // TODO: Get from data when available
+    const placeId = `${poi.type}-${poi.lat.toFixed(5)}-${poi.lon.toFixed(5)}`;
 
     return (
         <div className="popup-base">
+            {/* Hide button - positioned next to close button */}
+            <HideButton placeId={placeId} className="absolute top-2.5 right-12 z-20" />
+
             {/* Header with name, type chip, and comment bubble */}
             <div className="popup-header">
                 <span className="popup-name">{poi.name}</span>
@@ -1040,10 +1083,10 @@ const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi }: {
             <div className="popup-address">{poi.address}</div>
 
             {/* Attachments section */}
-            <PopupAttachmentsSection placeId={`${poi.type}-${poi.lat}-${poi.lon}`} />
+            <PopupAttachmentsSection placeId={placeId} />
 
             {/* Comments section */}
-            <PopupCommentsSection placeId={`${poi.type}-${poi.lat}-${poi.lon}`} />
+            <PopupCommentsSection placeId={placeId} />
 
             {/* Footer */}
             <div className="popup-footer">
@@ -1058,7 +1101,7 @@ const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi }: {
                     )}
                 </div>
                 <AddToListButton place={{
-                    placeId: `${poi.type}-${poi.lat}-${poi.lon}`,
+                    placeId: placeId,
                     placeType: poi.type as PlaceInfo['placeType'],
                     placeName: poi.name,
                     placeAddress: poi.address,
@@ -1283,19 +1326,21 @@ const IconMarker = React.memo(function IconMarker({
     icon: Icon,
     isMiners = false,
     isActive = false,
+    isHidden = false,
     poiCount = 1
 }: {
     color: string;
     icon: React.ElementType;
     isMiners?: boolean;
     isActive?: boolean;
+    isHidden?: boolean;
     poiCount?: number;
 }) {
     const showBadge = poiCount > 1;
 
     if (isMiners) {
         return (
-            <div className="relative">
+            <div className={cn("relative", isHidden && "marker-hidden")}>
                 <div className={cn(
                     "bg-black rounded-full p-1 shadow-lg shadow-black/30 ring-2 ring-yellow-400 transition-transform duration-200",
                     isActive ? "scale-125" : "hover:scale-125"
@@ -1317,7 +1362,7 @@ const IconMarker = React.memo(function IconMarker({
         );
     }
     return (
-        <div className="relative">
+        <div className={cn("relative", isHidden && "marker-hidden")}>
             <div className={cn(
                 `${color} rounded-full p-1.5 shadow-lg transition-transform duration-200`,
                 isActive ? "scale-125" : "hover:scale-125"
@@ -1348,6 +1393,7 @@ interface EnhancedMapContainerProps {
     onDrawnFeaturesChange?: (features: GeoJSON.FeatureCollection) => void;
     selectedCity?: City;
     isLinkingMode?: boolean;
+    showHiddenPois?: boolean;
 }
 
 export function EnhancedMapContainer({
@@ -1363,6 +1409,7 @@ export function EnhancedMapContainer({
     onDrawnFeaturesChange,
     selectedCity,
     isLinkingMode = false,
+    showHiddenPois = false,
 }: EnhancedMapContainerProps) {
     const { cafes, properties, otherPois, isLoading, error } = useMapData();
     const {
@@ -1381,6 +1428,9 @@ export function EnhancedMapContainer({
 
     // Linking context for adding POIs to scouting trips
     const { addItem: addLinkingItem } = useLinking();
+
+    // Hidden POIs context
+    const { isHidden } = useHiddenPoisContext();
 
     // Handler for marker click in linking mode
     const handleLinkingClick = React.useCallback((item: {
@@ -1402,7 +1452,7 @@ export function EnhancedMapContainer({
     );
 
     // Filter visible markers based on active filters, rating, and city (excluding Miners cafes)
-    // When in linking mode, show ALL markers so user can select from them
+    // When in linking mode or showHiddenPois mode, show ALL markers
     const visibleCafes = useMemo(
         () => cafes.filter(c => {
             // Skip Miners cafes - they're always shown separately
@@ -1411,8 +1461,8 @@ export function EnhancedMapContainer({
             // City filter - only show cafes from selected city
             if (c.city !== selectedCity?.id) return false;
 
-            // In linking mode, show all cafes (skip category/rating filters)
-            if (isLinkingMode) return true;
+            // In linking mode or showHiddenPois mode, show all cafes (skip category filters)
+            if (isLinkingMode || showHiddenPois) return true;
 
             // Category filter
             const isEuCoffeeTrip = c.link?.includes("europeancoffeetrip");
@@ -1425,53 +1475,72 @@ export function EnhancedMapContainer({
 
             return categoryMatch && ratingMatch;
         }),
-        [cafes, activeFilters, ratingFilter, selectedCity, isLinkingMode]
+        [cafes, activeFilters, ratingFilter, selectedCity, isLinkingMode, showHiddenPois]
     );
 
     const visibleProperties = useMemo(
-        () => (isLinkingMode || activeFilters.has("property") ? properties : []),
-        [properties, activeFilters, isLinkingMode]
+        () => (isLinkingMode || showHiddenPois || activeFilters.has("property") ? properties : []),
+        [properties, activeFilters, isLinkingMode, showHiddenPois]
     );
 
     const visibleOtherPois = useMemo(
-        () => isLinkingMode ? otherPois : otherPois.filter((poi) => activeFilters.has(poi.type)),
-        [otherPois, activeFilters, isLinkingMode]
+        () => (isLinkingMode || showHiddenPois) ? otherPois : otherPois.filter((poi) => activeFilters.has(poi.type)),
+        [otherPois, activeFilters, isLinkingMode, showHiddenPois]
     );
 
     // Convert cafes to GeoJSON for cluster layers (split by type for different colors)
+    // When showHiddenPois is true, only include hidden POIs
     const euCoffeeTripGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
         type: "FeatureCollection",
         features: visibleCafes
             .filter(c => c.link?.includes("europeancoffeetrip"))
+            .filter(cafe => {
+                if (!showHiddenPois) return true;
+                const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon);
+                return isHidden(placeId);
+            })
             .map(cafe => ({
                 type: "Feature" as const,
                 geometry: { type: "Point" as const, coordinates: [cafe.lon, cafe.lat] },
                 properties: { ...cafe }
             }))
-    }), [visibleCafes]);
+    }), [visibleCafes, showHiddenPois, isHidden]);
 
     const regularCafeGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
         type: "FeatureCollection",
         features: visibleCafes
             .filter(c => !c.link?.includes("europeancoffeetrip"))
+            .filter(cafe => {
+                if (!showHiddenPois) return true;
+                const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon);
+                return isHidden(placeId);
+            })
             .map(cafe => ({
                 type: "Feature" as const,
                 geometry: { type: "Point" as const, coordinates: [cafe.lon, cafe.lat] },
                 properties: { ...cafe }
             }))
-    }), [visibleCafes]);
+    }), [visibleCafes, showHiddenPois, isHidden]);
 
     // Convert properties to GeoJSON
+    // When showHiddenPois is true, only include hidden POIs
     const propertyGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
         type: "FeatureCollection",
-        features: visibleProperties.map(p => ({
-            type: "Feature" as const,
-            geometry: { type: "Point" as const, coordinates: [p.longitude, p.latitude] },
-            properties: { ...p }
-        }))
-    }), [visibleProperties]);
+        features: visibleProperties
+            .filter(property => {
+                if (!showHiddenPois) return true;
+                const placeId = generatePlaceId('property', property.latitude, property.longitude);
+                return isHidden(placeId);
+            })
+            .map(p => ({
+                type: "Feature" as const,
+                geometry: { type: "Point" as const, coordinates: [p.longitude, p.latitude] },
+                properties: { ...p }
+            }))
+    }), [visibleProperties, showHiddenPois, isHidden]);
 
     // Convert other POIs to GeoJSON by type
+    // When showHiddenPois is true, only include hidden POIs
     const poiGeoJSONByType = useMemo(() => {
         const types = ["transit", "metro", "office", "shopping", "high_street", "dorm", "university"] as const;
         const byType: Record<string, GeoJSON.FeatureCollection<GeoJSON.Point>> = {};
@@ -1480,6 +1549,11 @@ export function EnhancedMapContainer({
                 type: "FeatureCollection",
                 features: visibleOtherPois
                     .filter(p => p.type === type)
+                    .filter(poi => {
+                        if (!showHiddenPois) return true;
+                        const placeId = generatePlaceId(poi.type, poi.lat, poi.lon);
+                        return isHidden(placeId);
+                    })
                     .map(poi => ({
                         type: "Feature" as const,
                         geometry: { type: "Point" as const, coordinates: [poi.lon, poi.lat] },
@@ -1488,7 +1562,7 @@ export function EnhancedMapContainer({
             };
         });
         return byType;
-    }, [visibleOtherPois]);
+    }, [visibleOtherPois, showHiddenPois, isHidden]);
 
     // Cluster colors by POI type (matching iconConfig)
     const clusterColorsByType: Record<string, [string, string, string]> = {
@@ -1543,11 +1617,32 @@ export function EnhancedMapContainer({
         return index;
     }, [cafes, properties, otherPois]);
 
+    // Helper to get placeId for any POI type (used for hidden check)
+    // Uses toFixed(5) to match locationIndex precision for consistent grouping
+    const getPlaceId = React.useCallback((poi: LocationData): string => {
+        if (poi.type === "cafe") {
+            const cafe = poi as CafeData;
+            return `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
+        } else if (poi.type === "property") {
+            const prop = poi as PropertyData;
+            return `property-${prop.latitude.toFixed(5)}-${prop.longitude.toFixed(5)}`;
+        } else {
+            const other = poi as OtherPoiData;
+            return `${other.type}-${other.lat.toFixed(5)}-${other.lon.toFixed(5)}`;
+        }
+    }, []);
+
     // Helper to get co-located POIs for a given coordinate
+    // Filters out hidden POIs so they don't count in aggregations
     const getColocatedPois = React.useCallback((lat: number, lon: number): LocationData[] => {
         const key = `${lat.toFixed(5)}_${lon.toFixed(5)}`;
-        return locationIndex[key] || [];
-    }, [locationIndex]);
+        const allPois = locationIndex[key] || [];
+        // Filter out hidden POIs AND POIs whose type filter is not active
+        return allPois.filter(poi =>
+            !isHidden(getPlaceId(poi)) &&
+            isPoiFilterActive(poi, activeFilters, ratingFilter)
+        );
+    }, [locationIndex, isHidden, getPlaceId, activeFilters, ratingFilter]);
 
     // State for selected popups
     const [selectedCafe, setSelectedCafe] = useState<{
@@ -1832,8 +1927,13 @@ export function EnhancedMapContainer({
                 {/* MINERS CAFES - Always visible with nice icons */}
                 {minersCafes.map((cafe, i) => {
                     const markerKey = `miners-${cafe.lat}-${cafe.lon}-${i}`;
-                    const placeId = `cafe-${cafe.lat}-${cafe.lon}`;
+                    const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon, cafe.name);
+                    const hidden = isHidden(placeId);
+                    // In "Hidden" mode, only show hidden POIs
+                    if (showHiddenPois && !hidden) return null;
                     const colocated = getColocatedPois(cafe.lat, cafe.lon);
+                    // If hidden: show faded if alone, skip if other visible POIs at same spot
+                    if (hidden && !showHiddenPois && colocated.length > 0) return null;
                     const hasMultiplePois = colocated.length > 1;
                     return (
                         <MapMarker
@@ -1861,7 +1961,7 @@ export function EnhancedMapContainer({
                             }}
                         >
                             <MarkerContent>
-                                <IconMarker color="bg-black" icon={Coffee} isMiners isActive={activeMarkerKey === markerKey} poiCount={colocated.length} />
+                                <IconMarker color="bg-black" icon={Coffee} isMiners isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
                             </MarkerContent>
                             {!isLinkingMode && !hasMultiplePois && (
                                 <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
@@ -1879,8 +1979,13 @@ export function EnhancedMapContainer({
                         {visibleCafes.map((cafe, i) => {
                             const isEuCoffeeTrip = cafe.link?.includes("europeancoffeetrip");
                             const markerKey = `cafe-icon-${cafe.lat}-${cafe.lon}-${i}`;
-                            const placeId = `cafe-${cafe.lat}-${cafe.lon}`;
+                            const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon, cafe.name);
+                            const hidden = isHidden(placeId);
+                            // In "Hidden" mode, only show hidden POIs
+                            if (showHiddenPois && !hidden) return null;
                             const colocated = getColocatedPois(cafe.lat, cafe.lon);
+                            // If hidden: show faded if alone, skip if other visible POIs at same spot
+                            if (hidden && !showHiddenPois && colocated.length > 0) return null;
                             const hasMultiplePois = colocated.length > 1;
                             return (
                                 <MapMarker
@@ -1911,6 +2016,7 @@ export function EnhancedMapContainer({
                                             color={isEuCoffeeTrip ? "bg-blue-900" : "bg-sky-500"}
                                             icon={Coffee}
                                             isActive={activeMarkerKey === markerKey}
+                                            isHidden={hidden}
                                             poiCount={colocated.length}
                                         />
                                     </MarkerContent>
@@ -1939,7 +2045,7 @@ export function EnhancedMapContainer({
                                     if (isLinkingMode) {
                                         handleLinkingClick({
                                             type: 'place',
-                                            id: `cafe-${cafe.lat}-${cafe.lon}`,
+                                            id: generatePlaceId('cafe', cafe.lat, cafe.lon, cafe.name),
                                             name: cafe.name,
                                             address: cafe.address,
                                             data: cafe,
@@ -1963,7 +2069,7 @@ export function EnhancedMapContainer({
                                     if (isLinkingMode) {
                                         handleLinkingClick({
                                             type: 'place',
-                                            id: `cafe-${cafe.lat}-${cafe.lon}`,
+                                            id: generatePlaceId('cafe', cafe.lat, cafe.lon, cafe.name),
                                             name: cafe.name,
                                             address: cafe.address,
                                             data: cafe,
@@ -1997,8 +2103,13 @@ export function EnhancedMapContainer({
                         {/* Zoomed in: Show icon markers */}
                         {visibleProperties.map((property, i) => {
                             const markerKey = `property-icon-${property.latitude}-${property.longitude}-${i}`;
-                            const placeId = `property-${property.latitude}-${property.longitude}`;
+                            const placeId = generatePlaceId('property', property.latitude, property.longitude, property.title);
+                            const hidden = isHidden(placeId);
+                            // In "Hidden" mode, only show hidden POIs
+                            if (showHiddenPois && !hidden) return null;
                             const colocated = getColocatedPois(property.latitude, property.longitude);
+                            // If hidden: show faded if alone, skip if other visible POIs at same spot
+                            if (hidden && !showHiddenPois && colocated.length > 0) return null;
                             const hasMultiplePois = colocated.length > 1;
                             return (
                                 <MapMarker
@@ -2025,7 +2136,7 @@ export function EnhancedMapContainer({
                                     }}
                                 >
                                     <MarkerContent>
-                                        <IconMarker color="bg-[#78C500]" icon={Home} isActive={activeMarkerKey === markerKey} poiCount={colocated.length} />
+                                        <IconMarker color="bg-[#78C500]" icon={Home} isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
                                     </MarkerContent>
                                     {!isLinkingMode && !hasMultiplePois && (
                                         <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
@@ -2052,7 +2163,7 @@ export function EnhancedMapContainer({
                                     if (isLinkingMode) {
                                         handleLinkingClick({
                                             type: 'place',
-                                            id: `property-${property.latitude}-${property.longitude}`,
+                                            id: generatePlaceId('property', property.latitude, property.longitude, property.title),
                                             name: property.title,
                                             address: property.address,
                                             data: property,
@@ -2097,8 +2208,13 @@ export function EnhancedMapContainer({
                                 university: "bg-rose-700",
                             };
                             const markerKey = `poi-icon-${poi.lat}-${poi.lon}-${i}`;
-                            const placeId = `${poi.type}-${poi.lat}-${poi.lon}`;
+                            const placeId = generatePlaceId(poi.type, poi.lat, poi.lon, poi.name);
+                            const hidden = isHidden(placeId);
+                            // In "Hidden" mode, only show hidden POIs
+                            if (showHiddenPois && !hidden) return null;
                             const colocated = getColocatedPois(poi.lat, poi.lon);
+                            // If hidden: show faded if alone, skip if other visible POIs at same spot
+                            if (hidden && !showHiddenPois && colocated.length > 0) return null;
                             const hasMultiplePois = colocated.length > 1;
                             return (
                                 <MapMarker
@@ -2125,7 +2241,7 @@ export function EnhancedMapContainer({
                                     }}
                                 >
                                     <MarkerContent>
-                                        <IconMarker color={bgColorMap[poi.type] || "bg-gray-500"} icon={Icon} isActive={activeMarkerKey === markerKey} poiCount={colocated.length} />
+                                        <IconMarker color={bgColorMap[poi.type] || "bg-gray-500"} icon={Icon} isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
                                     </MarkerContent>
                                     {!isLinkingMode && !hasMultiplePois && (
                                         <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
@@ -2154,7 +2270,7 @@ export function EnhancedMapContainer({
                                         if (isLinkingMode) {
                                             handleLinkingClick({
                                                 type: 'place',
-                                                id: `${poi.type}-${poi.lat}-${poi.lon}`,
+                                                id: generatePlaceId(poi.type, poi.lat, poi.lon, poi.name),
                                                 name: poi.name,
                                                 address: poi.address,
                                                 data: poi,
