@@ -40,6 +40,7 @@ function HomeContent() {
   const [incomeWealthyFilter, setIncomeWealthyFilter] = useState(0);
   const [trafficHour, setTrafficHour] = useState(12);
   const [ratingFilter, setRatingFilter] = useState(0);
+  const [showHiddenPois, setShowHiddenPois] = useState(false);
   const [drawnFeatures, setDrawnFeatures] = useState<GeoJSON.FeatureCollection>({
     type: 'FeatureCollection',
     features: []
@@ -129,6 +130,7 @@ function HomeContent() {
           onDrawnFeaturesChange={handleDrawnFeaturesChange}
           selectedCity={selectedCity}
           isLinkingMode={isLinking}
+          showHiddenPois={showHiddenPois}
         />
       </div>
 
@@ -156,6 +158,8 @@ function HomeContent() {
             onIncomeWealthyFilterChange={setIncomeWealthyFilter}
             trafficHour={trafficHour}
             onTrafficHourChange={setTrafficHour}
+            showHiddenPois={showHiddenPois}
+            onShowHiddenPoisToggle={setShowHiddenPois}
           />
           <ActivityLog />
           <ListsPanel />

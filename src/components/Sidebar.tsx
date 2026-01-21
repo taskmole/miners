@@ -14,6 +14,7 @@ import {
     Funnel,
     Info,
 } from "lucide-react";
+import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -51,6 +52,8 @@ interface SidebarProps {
     onIncomeWealthyFilterChange?: (filter: number) => void;
     trafficHour?: number;
     onTrafficHourChange?: (hour: number) => void;
+    showHiddenPois?: boolean;
+    onShowHiddenPoisToggle?: (show: boolean) => void;
 }
 
 const placeCategories = [
@@ -94,7 +97,11 @@ export function Sidebar({
     onIncomeWealthyFilterChange,
     trafficHour = 12,
     onTrafficHourChange,
+    showHiddenPois = false,
+    onShowHiddenPoisToggle,
 }: SidebarProps) {
+    // Get hidden POIs count from context
+    const { hiddenCount } = useHiddenPoisContext();
     // Panel open/closed state
     const [isOpen, setIsOpen] = React.useState(false);
     // Which main sections are expanded (places, traffic)
@@ -207,10 +214,14 @@ export function Sidebar({
             "regular_cafe"
         ]);
         onFilterChange(allFilters);
+        // Turn off "hidden only" mode when selecting all
+        onShowHiddenPoisToggle?.(false);
     };
 
     const handleClearAll = () => {
         onFilterChange(new Set<string>());
+        // Turn off "hidden only" mode when clearing all
+        onShowHiddenPoisToggle?.(false);
     };
 
     const toggleCategoryExpand = (id: string) => {
@@ -307,7 +318,7 @@ export function Sidebar({
                                                 onClick={handleSelectAll}
                                                 className={cn(
                                                     "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
-                                                    isAllSelected
+                                                    isAllSelected && !showHiddenPois
                                                         ? "bg-white text-zinc-900 shadow-sm"
                                                         : "text-zinc-500 hover:text-zinc-700"
                                                 )}
@@ -318,13 +329,31 @@ export function Sidebar({
                                                 onClick={handleClearAll}
                                                 className={cn(
                                                     "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
-                                                    isNoneSelected
+                                                    isNoneSelected && !showHiddenPois
                                                         ? "bg-white text-zinc-900 shadow-sm"
                                                         : "text-zinc-500 hover:text-zinc-700"
                                                 )}
                                             >
                                                 Clear All
                                             </button>
+                                            {/* Hidden button - shows only hidden POIs when clicked */}
+                                            {hiddenCount > 0 && (
+                                                <button
+                                                    onClick={() => {
+                                                        // Clear all regular filters and show only hidden POIs
+                                                        onFilterChange(new Set<string>());
+                                                        onShowHiddenPoisToggle?.(true);
+                                                    }}
+                                                    className={cn(
+                                                        "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
+                                                        showHiddenPois
+                                                            ? "bg-white text-zinc-900 shadow-sm"
+                                                            : "text-zinc-500 hover:text-zinc-700"
+                                                    )}
+                                                >
+                                                    Hidden
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
 
