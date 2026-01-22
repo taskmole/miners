@@ -17,6 +17,7 @@ import { HiddenPoisProvider } from "@/contexts/HiddenPoisContext";
 import { GeoDataProvider } from "@/contexts/GeoDataContext";
 import { LinkingProvider, useLinking } from "@/contexts/LinkingContext";
 import { ScoutingTripsProvider } from "@/contexts/ScoutingTripsContext";
+import { PointCategoriesProvider } from "@/contexts/PointCategoriesContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
 import type { ScoutingTrip, LinkedItem } from "@/types/scouting";
 
@@ -233,15 +234,17 @@ function HomeContent() {
 export default function Home() {
   return (
     <GeoDataProvider>
-      <ListsProvider>
-        <HiddenPoisProvider>
-          <ScoutingTripsProvider>
-            <LinkingProvider>
-              <HomeContent />
-            </LinkingProvider>
-          </ScoutingTripsProvider>
-        </HiddenPoisProvider>
-      </ListsProvider>
+      <PointCategoriesProvider>
+        <ListsProvider>
+          <HiddenPoisProvider>
+            <ScoutingTripsProvider>
+              <LinkingProvider>
+                <HomeContent />
+              </LinkingProvider>
+            </ScoutingTripsProvider>
+          </HiddenPoisProvider>
+        </ListsProvider>
+      </PointCategoriesProvider>
     </GeoDataProvider>
   );
 }
