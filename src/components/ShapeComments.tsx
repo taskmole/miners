@@ -4,9 +4,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import { MapPopup } from '@/components/ui/map';
 import { useMapDraw } from '@/hooks/useMapDraw';
-import { Pencil, X, Trash2, Users, Scan, Link, ExternalLink, Paperclip, ChevronDown, MessageSquare, Banknote, ListPlus } from 'lucide-react';
+import { Pencil, X, Trash2, Users, Scan, Link, ExternalLink, Paperclip, ChevronDown, MessageSquare, Banknote, ListPlus, FolderOpen, Plus, Check, ChevronsUpDown } from 'lucide-react';
 import { AddToListButton } from '@/components/AddToListButton';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/contexts/ToastContext';
 import { AttachmentGallery } from '@/components/attachments';
 import type { Attachment } from '@/types/attachments';
@@ -16,6 +19,7 @@ import type { Feature, Polygon } from 'geojson';
 import { getCachedStats, invalidateStatsCache, formatArea, formatPopulation, formatIncome } from '@/lib/area-calculations';
 import { useGeoData } from '@/contexts/GeoDataContext';
 import { useLinking } from '@/contexts/LinkingContext';
+import { usePointCategoriesContext } from '@/contexts/PointCategoriesContext';
 
 // Storage keys
 const COMMENTS_STORAGE_KEY = 'miners-drawn-comments';
@@ -298,8 +302,23 @@ export function ShapeComments() {
   const [attachmentsExpanded, setAttachmentsExpanded] = useState(false);
   const [commentsExpanded, setCommentsExpanded] = useState(false);
 
+  // Category dropdown state
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
   // Shared geo data from context (loaded once at app level)
   const { densityData, incomeData } = useGeoData();
+
+  // Point categories context
+  const {
+    categories,
+    createCategory,
+    deleteCategory,
+    canDeleteCategory,
+    getCategoryPointCount,
+    getCategoryById
+  } = usePointCategoriesContext();
 
   // Collect all unique tags from all shapes for suggestions
   const allUniqueTags = useMemo(() => {
@@ -405,6 +424,10 @@ export function ShapeComments() {
     setEditingLink(false);
     setNewComment('');
     setNewTag('');
+    // Reset category dropdown state
+    setCategoryDropdownOpen(false);
+    setIsAddingCategory(false);
+    setNewCategoryName('');
   }, [selectedId, allMetadata]);
 
   // Handlers
@@ -701,6 +724,205 @@ export function ShapeComments() {
               </button>
             )}
           </div>
+
+          {/* Category section - only for Points, not Polygons */}
+          {!isPolygon && (
+            <div className="border-t border-zinc-100" style={{ padding: '12px 20px' }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <FolderOpen className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Category</span>
+              </div>
+
+              {isAddingCategory ? (
+                // Add new category inline form
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === 'Enter' && newCategoryName.trim()) {
+                        const created = createCategory(newCategoryName.trim());
+                        if (created && selectedId) {
+                          const newMetadata = { ...allMetadata[selectedId], categoryId: created.id };
+                          const updated = { ...allMetadata, [selectedId]: newMetadata };
+                          setAllMetadata(updated);
+                          saveMetadata(updated);
+                          showToast('Category created');
+                        }
+                        setNewCategoryName('');
+                        setIsAddingCategory(false);
+                      }
+                      if (e.key === 'Escape') {
+                        setNewCategoryName('');
+                        setIsAddingCategory(false);
+                      }
+                    }}
+                    placeholder="Category name..."
+                    className="h-8 text-sm flex-1"
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={() => {
+                      if (newCategoryName.trim()) {
+                        const created = createCategory(newCategoryName.trim());
+                        if (created && selectedId) {
+                          const newMetadata = { ...allMetadata[selectedId], categoryId: created.id };
+                          const updated = { ...allMetadata, [selectedId]: newMetadata };
+                          setAllMetadata(updated);
+                          saveMetadata(updated);
+                          showToast('Category created');
+                        }
+                      }
+                      setNewCategoryName('');
+                      setIsAddingCategory(false);
+                    }}
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 px-2"
+                    onClick={() => {
+                      setNewCategoryName('');
+                      setIsAddingCategory(false);
+                    }}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                // Category popover dropdown
+                <Popover open={categoryDropdownOpen} onOpenChange={setCategoryDropdownOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={categoryDropdownOpen}
+                      className="w-full justify-between h-9 text-sm font-normal"
+                    >
+                      <span className={cn(
+                        metadata.categoryId ? "text-foreground" : "text-muted-foreground"
+                      )}>
+                        {metadata.categoryId
+                          ? getCategoryById(metadata.categoryId)?.name || 'Unknown'
+                          : 'Select category...'}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[240px] p-0" align="start" side="top" sideOffset={4}>
+                    <div className="max-h-[300px] overflow-y-auto">
+                      {/* None option */}
+                      <button
+                        onClick={() => {
+                          if (selectedId) {
+                            const newMetadata = { ...allMetadata[selectedId], categoryId: undefined };
+                            const updated = { ...allMetadata, [selectedId]: newMetadata };
+                            setAllMetadata(updated);
+                            saveMetadata(updated);
+                            showToast('Saved');
+                          }
+                          setCategoryDropdownOpen(false);
+                        }}
+                        className={cn(
+                          "w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2",
+                          !metadata.categoryId && "bg-accent"
+                        )}
+                      >
+                        <Check className={cn(
+                          "h-4 w-4",
+                          !metadata.categoryId ? "opacity-100" : "opacity-0"
+                        )} />
+                        <span className="text-muted-foreground italic">None</span>
+                      </button>
+
+                      {/* Separator */}
+                      <div className="h-px bg-border my-1" />
+
+                      {/* Category options */}
+                      {categories.map((cat) => {
+                        const isSelected = metadata.categoryId === cat.id;
+                        const { canDelete, reason } = canDeleteCategory(cat.id);
+
+                        return (
+                          <div
+                            key={cat.id}
+                            className={cn(
+                              "flex items-center px-3 py-2 hover:bg-accent transition-colors group",
+                              isSelected && "bg-accent"
+                            )}
+                          >
+                            <button
+                              onClick={() => {
+                                if (selectedId) {
+                                  const newMetadata = { ...allMetadata[selectedId], categoryId: cat.id };
+                                  const updated = { ...allMetadata, [selectedId]: newMetadata };
+                                  setAllMetadata(updated);
+                                  saveMetadata(updated);
+                                  showToast('Saved');
+                                }
+                                setCategoryDropdownOpen(false);
+                              }}
+                              className="flex-1 text-left text-sm flex items-center gap-2"
+                            >
+                              <Check className={cn(
+                                "h-4 w-4",
+                                isSelected ? "opacity-100" : "opacity-0"
+                              )} />
+                              {cat.name}
+                            </button>
+
+                            {/* Delete button - only for user-created categories */}
+                            {!cat.isSystem && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (canDelete) {
+                                    deleteCategory(cat.id);
+                                    showToast('Category deleted');
+                                  } else {
+                                    showToast(reason || 'Cannot delete', 'error');
+                                  }
+                                }}
+                                className={cn(
+                                  "p-1 rounded transition-all",
+                                  canDelete
+                                    ? "text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100"
+                                    : "text-muted-foreground/30 cursor-not-allowed opacity-0 group-hover:opacity-100"
+                                )}
+                                title={canDelete ? 'Delete category' : reason}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Separator */}
+                      <div className="h-px bg-border my-1" />
+
+                      {/* Add new option */}
+                      <button
+                        onClick={() => {
+                          setCategoryDropdownOpen(false);
+                          setIsAddingCategory(true);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Add new category...</span>
+                      </button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+          )}
 
           {/* Stats section - Area, Population, and Income (only for polygons) */}
           {areaStats && (

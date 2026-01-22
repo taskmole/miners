@@ -8,12 +8,14 @@ import type { Feature, Polygon } from 'geojson';
 import { getCachedStats, formatArea, formatPopulation, formatIncome } from '@/lib/area-calculations';
 import { useGeoData } from '@/contexts/GeoDataContext';
 
+import { POINT_CATEGORIES_STORAGE_KEY, DEFAULT_CATEGORIES } from '@/types/point-categories';
+
 // Storage keys (same as ShapeComments.tsx)
 const COMMENTS_STORAGE_KEY = 'miners-drawn-comments';
 const METADATA_STORAGE_KEY = 'miners-shape-metadata';
 
 // Get shape metadata from localStorage
-function getShapeMetadata(featureId: string): { name?: string; tags?: string[] } {
+function getShapeMetadata(featureId: string): { name?: string; tags?: string[]; categoryId?: string } {
   try {
     const saved = localStorage.getItem(METADATA_STORAGE_KEY);
     if (saved) {
@@ -22,6 +24,23 @@ function getShapeMetadata(featureId: string): { name?: string; tags?: string[] }
     }
   } catch {}
   return {};
+}
+
+// Get category name by ID from localStorage
+function getCategoryName(categoryId: string): string | undefined {
+  try {
+    const saved = localStorage.getItem(POINT_CATEGORIES_STORAGE_KEY);
+    if (saved) {
+      const state = JSON.parse(saved);
+      const categories = state.categories || [];
+      const found = categories.find((c: { id: string; name: string }) => c.id === categoryId);
+      if (found) return found.name;
+    }
+    // Fallback to default categories
+    const defaultCat = DEFAULT_CATEGORIES.find(c => c.id === categoryId);
+    return defaultCat?.name;
+  } catch {}
+  return undefined;
 }
 
 // Get comment count from localStorage
@@ -41,6 +60,7 @@ type TooltipData = {
   y: number;
   featureId: string;
   name: string;
+  categoryName?: string;
   area: string;
   population: string;
   income: string;
@@ -119,6 +139,11 @@ export function ShapeHoverTooltip() {
         const metadata = getShapeMetadata(featureId);
         const commentCount = getCommentCount(featureId);
 
+        // Get category name for points
+        const categoryName = isPoint && metadata.categoryId
+          ? getCategoryName(metadata.categoryId)
+          : undefined;
+
         // Calculate stats using cache (only for polygons)
         const stats = isPolygon
           ? getCachedStats(featureId, fullFeature as Feature<Polygon>, densityData, incomeData)
@@ -129,6 +154,7 @@ export function ShapeHoverTooltip() {
           y: e.point.y,
           featureId,
           name: metadata.name || (isPolygon ? 'Untitled Area' : 'Untitled Point'),
+          categoryName,
           area: isPolygon ? formatArea(stats.area) : '',
           population: isPolygon ? formatPopulation(stats.population) : '',
           income: isPolygon ? formatIncome(stats.income) : '',
@@ -188,6 +214,13 @@ export function ShapeHoverTooltip() {
           {tooltip.name}
         </div>
 
+        {/* Category - only for points with a category assigned */}
+        {tooltip.isPoint && tooltip.categoryName && (
+          <div className="text-xs text-zinc-500 mt-0.5 truncate max-w-[220px]">
+            {tooltip.categoryName}
+          </div>
+        )}
+
         {/* Area, Population, and Income - only for polygons */}
         {!tooltip.isPoint && (
           <div className="flex items-center gap-3 mt-2">
@@ -215,17 +248,9 @@ export function ShapeHoverTooltip() {
         {/* Tags + Comments section */}
         {(tooltip.tags.length > 0 || tooltip.commentCount > 0) && (
           <div className="flex items-center gap-2 mt-2 pt-2 border-t border-zinc-100">
-            {/* Comment bubble - LEFT */}
-            {tooltip.commentCount > 0 && (
-              <div className="flex items-center gap-1 text-zinc-400">
-                <MessageCircle className="w-3 h-3" />
-                <span className="text-[11px]">{tooltip.commentCount}</span>
-              </div>
-            )}
-
-            {/* Tags - RIGHT */}
+            {/* Tags - LEFT */}
             {tooltip.tags.length > 0 && (
-              <div className="flex items-center gap-1 flex-wrap ml-auto">
+              <div className="flex items-center gap-1 flex-wrap">
                 {tooltip.tags.slice(0, 3).map((tag, i) => (
                   <span key={i} className="px-2 py-0.5 bg-[#E5E7EB] text-[#374151] text-[11px] font-medium rounded-md">
                     {tag}
@@ -234,6 +259,14 @@ export function ShapeHoverTooltip() {
                 {tooltip.tags.length > 3 && (
                   <span className="text-[10px] text-zinc-400">+{tooltip.tags.length - 3}</span>
                 )}
+              </div>
+            )}
+
+            {/* Comment bubble - after tags */}
+            {tooltip.commentCount > 0 && (
+              <div className="flex items-center gap-1 text-zinc-400">
+                <MessageCircle className="w-3 h-3" />
+                <span className="text-[11px]">{tooltip.commentCount}</span>
               </div>
             )}
           </div>
