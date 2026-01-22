@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import { MapPopup } from '@/components/ui/map';
 import { useMapDraw } from '@/hooks/useMapDraw';
-import { Pencil, X, Trash2, Users, Scan, Link, ExternalLink, Paperclip, ChevronDown, MessageSquare, Banknote, ListPlus, FolderOpen, Plus, Check, ChevronsUpDown } from 'lucide-react';
+import { Pencil, X, Trash2, Users, Scan, Link, ExternalLink, Paperclip, ChevronDown, MessageSquare, Banknote, ListPlus, FolderOpen, Plus, Check, ChevronsUpDown, MapPin } from 'lucide-react';
 import { AddToListButton } from '@/components/AddToListButton';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -20,6 +20,7 @@ import { getCachedStats, invalidateStatsCache, formatArea, formatPopulation, for
 import { useGeoData } from '@/contexts/GeoDataContext';
 import { useLinking } from '@/contexts/LinkingContext';
 import { usePointCategoriesContext } from '@/contexts/PointCategoriesContext';
+import { reverseGeocode, formatShortAddress } from '@/lib/geocoding';
 
 // Storage keys
 const COMMENTS_STORAGE_KEY = 'miners-drawn-comments';
@@ -307,6 +308,9 @@ export function ShapeComments() {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
 
+  // Address fetching state (for Points only)
+  const [isFetchingAddress, setIsFetchingAddress] = useState(false);
+
   // Shared geo data from context (loaded once at app level)
   const { densityData, incomeData } = useGeoData();
 
@@ -429,6 +433,39 @@ export function ShapeComments() {
     setIsAddingCategory(false);
     setNewCategoryName('');
   }, [selectedId, allMetadata]);
+
+  // Auto-fetch address for Points that don't have one yet
+  useEffect(() => {
+    if (!selectedId || !selectedFeature) return;
+
+    // Only for Points, not Polygons
+    if (selectedFeature.geometry.type !== 'Point') return;
+
+    // Skip if already has an address
+    const metadata = allMetadata[selectedId];
+    if (metadata?.address) return;
+
+    // Get coordinates from the point geometry
+    const coords = selectedFeature.geometry.coordinates as [number, number];
+    const [lon, lat] = coords;
+
+    setIsFetchingAddress(true);
+
+    reverseGeocode(lat, lon)
+      .then((address) => {
+        // Save address to metadata
+        const newMetadata = { ...allMetadata[selectedId], address };
+        const updated = { ...allMetadata, [selectedId]: newMetadata };
+        setAllMetadata(updated);
+        saveMetadata(updated);
+      })
+      .catch((error) => {
+        console.error('Failed to fetch address:', error);
+      })
+      .finally(() => {
+        setIsFetchingAddress(false);
+      });
+  }, [selectedId, selectedFeature, allMetadata]);
 
   // Handlers
   const handleSaveName = useCallback(() => {
@@ -724,6 +761,27 @@ export function ShapeComments() {
               </button>
             )}
           </div>
+
+          {/* Address section - only for Points, not Polygons */}
+          {!isPolygon && (
+            <div className="border-t border-zinc-100" style={{ padding: '10px 20px' }}>
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+                {isFetchingAddress ? (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 border-[1.5px] border-zinc-300 border-t-zinc-500 rounded-full animate-spin" />
+                    <span className="text-sm text-zinc-400">Loading</span>
+                  </div>
+                ) : metadata.address ? (
+                  <span className="text-sm text-zinc-600" title={metadata.address}>
+                    {formatShortAddress(metadata.address)}
+                  </span>
+                ) : (
+                  <span className="text-sm text-zinc-400 italic">Address unavailable</span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Category section - only for Points, not Polygons */}
           {!isPolygon && (
