@@ -21,6 +21,7 @@ import { useGeoData } from '@/contexts/GeoDataContext';
 import { useLinking } from '@/contexts/LinkingContext';
 import { usePointCategoriesContext } from '@/contexts/PointCategoriesContext';
 import { reverseGeocode, formatShortAddress } from '@/lib/geocoding';
+import { getCurrentUserId, canEditShape } from '@/lib/browser-session';
 
 // Storage keys
 const COMMENTS_STORAGE_KEY = 'miners-drawn-comments';
@@ -350,6 +351,18 @@ export function ShapeComments() {
     };
   }, [features.features]);
 
+  // Listen for unauthorized shape edit attempts (from map-draw.tsx)
+  useEffect(() => {
+    const handleUnauthorizedEdit = () => {
+      showToast('You can only edit shapes you created', 'error');
+    };
+
+    window.addEventListener('unauthorized-shape-edit', handleUnauthorizedEdit);
+    return () => {
+      window.removeEventListener('unauthorized-shape-edit', handleUnauthorizedEdit);
+    };
+  }, [showToast]);
+
   // When MapboxDraw selection changes, open popup for newly selected shape
   // Or add to linking items if in linking mode
   const latestSelectedId = selectedFeatureIds[0];
@@ -418,11 +431,28 @@ export function ShapeComments() {
   }, [features]);
 
   // Reset editing state when selection changes
+  // Also stamp authorship on NEW shapes (shapes without createdBy)
   useEffect(() => {
     if (selectedId) {
       const metadata = allMetadata[selectedId];
       setNameValue(metadata?.name || '');
       setLinkValue(metadata?.link || '');
+
+      // Stamp authorship on new shapes (only if no createdBy exists)
+      // Legacy shapes (created before this update) keep createdBy as undefined
+      if (metadata && metadata.createdBy === undefined && Object.keys(metadata).length === 0) {
+        // This is a completely new shape with empty metadata - stamp it
+        const newMetadata = { ...metadata, createdBy: getCurrentUserId() };
+        const updated = { ...allMetadata, [selectedId]: newMetadata };
+        setAllMetadata(updated);
+        saveMetadata(updated);
+      } else if (!metadata) {
+        // No metadata at all - create it with authorship
+        const newMetadata = { createdBy: getCurrentUserId() };
+        const updated = { ...allMetadata, [selectedId]: newMetadata };
+        setAllMetadata(updated);
+        saveMetadata(updated);
+      }
     }
     setEditingName(false);
     setEditingLink(false);
@@ -434,27 +464,38 @@ export function ShapeComments() {
     setNewCategoryName('');
   }, [selectedId, allMetadata]);
 
-  // Auto-fetch address for Points that don't have one yet
+  // Auto-fetch address for Points: when created OR when moved to new coordinates
   useEffect(() => {
     if (!selectedId || !selectedFeature) return;
 
     // Only for Points, not Polygons
     if (selectedFeature.geometry.type !== 'Point') return;
 
-    // Skip if already has an address
     const metadata = allMetadata[selectedId];
-    if (metadata?.address) return;
-
-    // Get coordinates from the point geometry
     const coords = selectedFeature.geometry.coordinates as [number, number];
     const [lon, lat] = coords;
+
+    // Check if we need to fetch address:
+    // 1. No address exists yet (new point)
+    // 2. No stored coords (legacy point that needs coords saved)
+    // 3. OR coordinates have changed since last fetch (point was moved)
+    const storedCoords = metadata?.addressCoords;
+    const needsFetch = !metadata?.address || !storedCoords || (
+      Math.abs(storedCoords[0] - lon) > 0.00001 || Math.abs(storedCoords[1] - lat) > 0.00001
+    );
+
+    if (!needsFetch) return;
 
     setIsFetchingAddress(true);
 
     reverseGeocode(lat, lon)
       .then((address) => {
-        // Save address to metadata
-        const newMetadata = { ...allMetadata[selectedId], address };
+        // Save address AND the coordinates used to fetch it
+        const newMetadata = {
+          ...allMetadata[selectedId],
+          address,
+          addressCoords: [lon, lat] as [number, number]
+        };
         const updated = { ...allMetadata, [selectedId]: newMetadata };
         setAllMetadata(updated);
         saveMetadata(updated);
@@ -642,6 +683,9 @@ export function ShapeComments() {
   const isPolygon = selectedFeature.geometry.type === 'Polygon';
   const placeholderName = isPolygon ? 'Untitled Area' : 'Untitled Point';
 
+  // Check if current user can edit this shape
+  const canEdit = canEditShape(metadata.createdBy);
+
   return (
     <MapPopup
       longitude={center[0]}
@@ -657,13 +701,15 @@ export function ShapeComments() {
           <div className="popup-header" style={{ padding: '16px 20px 12px' }}>
             {/* Action buttons - top right (matching POI popup style) */}
             <div className="absolute top-2.5 right-3 z-20 flex items-center gap-1.5">
-              <button
-                onClick={handleDeleteShape}
-                className="h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
-                title="Delete shape"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-zinc-500" />
-              </button>
+              {canEdit && (
+                <button
+                  onClick={handleDeleteShape}
+                  className="h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
+                  title="Delete shape"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-zinc-500" />
+                </button>
+              )}
               <button
                 onClick={handleClosePopup}
                 className="h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
@@ -673,8 +719,8 @@ export function ShapeComments() {
               </button>
             </div>
             <div className="w-full">
-              {/* Name - editable */}
-              {editingName ? (
+              {/* Name - editable only for authors */}
+              {editingName && canEdit ? (
                 <input
                   value={nameValue}
                   onChange={(e) => setNameValue(e.target.value)}
@@ -690,7 +736,7 @@ export function ShapeComments() {
                   className="text-base font-semibold text-zinc-900 bg-transparent outline-none w-full"
                   autoFocus
                 />
-              ) : (
+              ) : canEdit ? (
                 <button
                   onClick={() => setEditingName(true)}
                   className="text-left group flex items-center gap-2"
@@ -703,17 +749,26 @@ export function ShapeComments() {
                   </span>
                   <Pencil className="w-3.5 h-3.5 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
+              ) : (
+                <span className={cn(
+                  "text-base font-semibold",
+                  metadata.name ? "text-zinc-900" : "text-zinc-400"
+                )}>
+                  {metadata.name || placeholderName}
+                </span>
               )}
-              {/* Creator info */}
-              <div className="text-[10px] text-zinc-400 mt-1" title="jzapletal1@gmail.com">
-                Created by <span className="font-semibold">Jaroslav</span>
-              </div>
+              {/* View only indicator for non-authors */}
+              {!canEdit && (
+                <div className="text-[10px] text-amber-600 mt-1">
+                  View only
+                </div>
+              )}
             </div>
           </div>
 
           {/* Link section */}
           <div className="border-t border-zinc-100" style={{ padding: '10px 20px' }}>
-            {editingLink ? (
+            {editingLink && canEdit ? (
               <div className="flex items-center gap-2">
                 <Link className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
                 <input
@@ -744,14 +799,16 @@ export function ShapeComments() {
                   <ExternalLink className="w-3.5 h-3.5" />
                   {extractDomain(metadata.link)}
                 </a>
-                <button
-                  onClick={() => setEditingLink(true)}
-                  className="p-1 hover:bg-zinc-100 rounded transition-colors"
-                >
-                  <Pencil className="w-3 h-3 text-zinc-400" />
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => setEditingLink(true)}
+                    className="p-1 hover:bg-zinc-100 rounded transition-colors"
+                  >
+                    <Pencil className="w-3 h-3 text-zinc-400" />
+                  </button>
+                )}
               </div>
-            ) : (
+            ) : canEdit ? (
               <button
                 onClick={() => setEditingLink(true)}
                 className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-600"
@@ -759,6 +816,11 @@ export function ShapeComments() {
                 <Link className="w-3.5 h-3.5" />
                 <span>Add link</span>
               </button>
+            ) : (
+              <div className="flex items-center gap-1.5 text-sm text-zinc-400">
+                <Link className="w-3.5 h-3.5" />
+                <span>No link</span>
+              </div>
             )}
           </div>
 
@@ -791,7 +853,14 @@ export function ShapeComments() {
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Category</span>
               </div>
 
-              {isAddingCategory ? (
+              {!canEdit ? (
+                // Read-only view for non-authors
+                <div className="text-sm text-zinc-600">
+                  {metadata.categoryId
+                    ? getCategoryById(metadata.categoryId)?.name || 'Unknown'
+                    : <span className="text-zinc-400 italic">None</span>}
+                </div>
+              ) : isAddingCategory ? (
                 // Add new category inline form
                 <div className="flex items-center gap-2">
                   <Input
@@ -1046,42 +1115,49 @@ export function ShapeComments() {
                   className="popup-chip type inline-flex items-center gap-1 leading-none"
                 >
                   {tag}
-                  <button
-                    onClick={() => handleRemoveTag(tag)}
-                    className="w-3.5 h-3.5 rounded-full flex items-center justify-center hover:bg-zinc-600 transition-colors"
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={() => handleRemoveTag(tag)}
+                      className="w-3.5 h-3.5 rounded-full flex items-center justify-center hover:bg-zinc-600 transition-colors"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  )}
                 </span>
               ))}
-              <TagInput
-                value={newTag}
-                onChange={setNewTag}
-                onAdd={handleAddTag}
-                onFocus={() => setShowTagSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowTagSuggestions(false), 150)}
-                showSuggestions={showTagSuggestions}
-                suggestions={(() => {
-                  const currentTags = metadata.tags || [];
-                  return allUniqueTags.filter(tag =>
-                    !currentTags.includes(tag) &&
-                    tag.toLowerCase().includes(newTag.toLowerCase())
-                  ).slice(0, 3);
-                })()}
-                onSelectSuggestion={(tag) => {
-                  if (!selectedId) return;
-                  const tags = metadata.tags || [];
-                  if (!tags.includes(tag)) {
-                    const newMetadata = { ...allMetadata[selectedId], tags: [...tags, tag] };
-                    const updated = { ...allMetadata, [selectedId]: newMetadata };
-                    setAllMetadata(updated);
-                    saveMetadata(updated);
-                    showToast('Saved');
-                  }
-                  setNewTag('');
-                  setShowTagSuggestions(false);
-                }}
-              />
+              {canEdit && (
+                <TagInput
+                  value={newTag}
+                  onChange={setNewTag}
+                  onAdd={handleAddTag}
+                  onFocus={() => setShowTagSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowTagSuggestions(false), 150)}
+                  showSuggestions={showTagSuggestions}
+                  suggestions={(() => {
+                    const currentTags = metadata.tags || [];
+                    return allUniqueTags.filter(tag =>
+                      !currentTags.includes(tag) &&
+                      tag.toLowerCase().includes(newTag.toLowerCase())
+                    ).slice(0, 3);
+                  })()}
+                  onSelectSuggestion={(tag) => {
+                    if (!selectedId) return;
+                    const tags = metadata.tags || [];
+                    if (!tags.includes(tag)) {
+                      const newMetadata = { ...allMetadata[selectedId], tags: [...tags, tag] };
+                      const updated = { ...allMetadata, [selectedId]: newMetadata };
+                      setAllMetadata(updated);
+                      saveMetadata(updated);
+                      showToast('Saved');
+                    }
+                    setNewTag('');
+                    setShowTagSuggestions(false);
+                  }}
+                />
+              )}
+              {!canEdit && (metadata.tags || []).length === 0 && (
+                <span className="text-sm text-zinc-400 italic">No tags</span>
+              )}
             </div>
           </div>
 
