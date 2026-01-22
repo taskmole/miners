@@ -4,7 +4,18 @@ import React, { createContext, useContext, useEffect, useState, useMemo, type Re
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import { useMap } from './map';
 import { convertToMapboxDrawStyles } from '@/lib/draw-styles';
-import type { DrawMode } from '@/types/draw';
+import type { DrawMode, ShapeMetadata } from '@/types/draw';
+import { canEditShape } from '@/lib/browser-session';
+
+// Load shape metadata from localStorage
+function loadMetadata(): Record<string, ShapeMetadata> {
+  try {
+    const saved = localStorage.getItem('miners-shape-metadata');
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
 
 // Context for drawing state
 type MapDrawContextValue = {
@@ -94,6 +105,47 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
 
     const handleUpdate = () => {
       const allFeatures = draw.getAll();
+
+      // Check ownership: find which features were updated and verify the user can edit them
+      const metadata = loadMetadata();
+      const oldFeatureMap = new Map(features.features.map(f => [f.id, f]));
+
+      let unauthorizedEdit = false;
+      for (const feature of allFeatures.features) {
+        const oldFeature = oldFeatureMap.get(feature.id);
+        if (oldFeature) {
+          // Check if geometry changed
+          const oldCoords = JSON.stringify(oldFeature.geometry.coordinates);
+          const newCoords = JSON.stringify(feature.geometry.coordinates);
+          if (oldCoords !== newCoords) {
+            // Geometry changed - check if user can edit this shape
+            const shapeMetadata = metadata[feature.id as string];
+            if (!canEditShape(shapeMetadata?.createdBy)) {
+              unauthorizedEdit = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (unauthorizedEdit) {
+        // Revert: restore features from localStorage
+        try {
+          const saved = localStorage.getItem('miners-drawn-features');
+          if (saved) {
+            const savedFeatures = JSON.parse(saved);
+            draw.set(savedFeatures);
+            setFeatures(savedFeatures);
+          }
+        } catch (error) {
+          console.error('Error reverting features:', error);
+        }
+
+        // Dispatch event so toast can be shown
+        window.dispatchEvent(new CustomEvent('unauthorized-shape-edit'));
+        return;
+      }
+
       setFeatures(allFeatures);
       onFeaturesChange?.(allFeatures);
       onShapeUpdated?.();
