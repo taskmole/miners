@@ -23,7 +23,7 @@ export interface DrawState {
 // Draw action types
 export type DrawAction = 'delete' | 'clear' | 'export';
 
-// Shape metadata (name, color, tags, link, attachments, category) - stored separately from GeoJSON
+// Shape metadata (name, color, tags, link, attachments, category, address) - stored separately from GeoJSON
 export interface ShapeMetadata {
   name?: string;
   color?: string;
@@ -31,6 +31,7 @@ export interface ShapeMetadata {
   link?: string;
   attachments?: Attachment[];
   categoryId?: string;  // Reference to point category (only for Points, not Polygons)
+  address?: string;     // Reverse-geocoded address (only for Points)
 }
 
 // Shape comment
