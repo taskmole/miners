@@ -178,6 +178,7 @@
 /* Base container - all popups use this */
 .popup-base {
   width: 411px;
+  max-width: 90vw;
   background: white;
   border-radius: 12px;
   box-shadow: 0 6px 16px rgba(0,0,0,0.12);
@@ -1217,4 +1218,60 @@
 /* Hidden marker hover - slightly more visible for interaction */
 .marker-hidden:hover {
   opacity: 0.5 !important;
+}
+
+/* ===========================================
+   SCROLL INDICATORS
+   =========================================== */
+
+/* Make scrollbars more visible on mobile */
+.overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+/* ===========================================
+   MOBILE TAP FEEDBACK
+   =========================================== */
+
+/* Active/tap state for all interactive elements */
+@media (hover: none) {
+  button:active,
+  [role="button"]:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+}
+
+/* Ensure touch targets are at least 44px */
+@media (max-width: 640px) {
+  /* Make form inputs taller on mobile */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  select,
+  textarea {
+    min-height: 44px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
 }

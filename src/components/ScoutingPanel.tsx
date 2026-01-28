@@ -155,13 +155,13 @@ export function ScoutingPanel({
   // Collapsed state - button only
   if (!isExpanded) {
     return (
-      <div ref={panelRef} className="fixed top-[120px] right-6 z-40">
+      <div ref={panelRef} className="fixed top-[136px] right-6 z-40">
         <button
           onClick={() => setIsExpanded(true)}
-          className="glass w-10 h-10 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 transition-all duration-200 relative"
+          className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
           title="Scouting Trips"
         >
-          <Route className="w-[17px] h-[17px] text-zinc-500" />
+          <Route className="w-5 h-5 text-zinc-500" />
         </button>
       </div>
     );
@@ -169,15 +169,15 @@ export function ScoutingPanel({
 
   // Expanded state - full panel
   return (
-    <div ref={panelRef} className="fixed top-[120px] right-6 z-50">
-      <div className="glass rounded-2xl overflow-hidden border border-white/40 w-80 animate-in fade-in slide-in-from-top-2 duration-200">
+    <div ref={panelRef} className="fixed top-[136px] right-6 z-50">
+      <div className="glass rounded-2xl overflow-hidden border border-white/40 w-80 max-w-[80vw] animate-in fade-in slide-in-from-top-2 duration-200">
         {/* Header */}
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-bold text-zinc-900">Scouting Trips</span>
             <button
               onClick={() => setIsExpanded(false)}
-              className="w-6 h-6 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 transition-colors"
+              className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
