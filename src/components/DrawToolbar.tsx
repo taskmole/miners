@@ -8,6 +8,7 @@ import {
   MapPin,
   MapPinPlus,
   ChevronRight,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DrawMode } from '@/types/draw';
@@ -60,15 +61,25 @@ export function DrawToolbar() {
   // Render content based on state
   const content = isExpanded ? (
     // Expanded panel - matches Sidebar styling
-    <div ref={panelRef} className="fixed top-[168px] right-6 z-[55]">
-      <div className="glass rounded-2xl overflow-hidden border border-white/40 w-72 animate-in fade-in slide-in-from-top-2 duration-200">
+    <div ref={panelRef} className="fixed top-[192px] right-6 z-[55]">
+      <div className="glass rounded-2xl overflow-hidden border border-white/40 w-72 max-w-[80vw] animate-in fade-in slide-in-from-top-2 duration-200">
+        {/* Header with close button */}
+        <div className="p-4 flex items-center justify-between border-b border-white/10">
+          <span className="text-sm font-bold text-zinc-900">Draw</span>
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
         {/* ===== DRAW SECTION ===== */}
         <div className="border-b border-white/10">
           {/* Header row - matches Sidebar section headers */}
           <button
             onClick={() => setIsDrawSectionExpanded(!isDrawSectionExpanded)}
-            className="w-full p-4 flex items-center hover:bg-white/20 transition-colors"
+            className="w-full p-4 flex items-center hover:bg-white/20 active:bg-white/30 transition-colors"
           >
             <div className="flex items-center gap-2">
               <ChevronRight className={cn(
@@ -131,17 +142,17 @@ export function DrawToolbar() {
     </div>
   ) : (
     // Collapsed state - matches Sidebar collapsed button
-    <div ref={panelRef} className="fixed top-[168px] right-6 z-40">
+    <div ref={panelRef} className="fixed top-[192px] right-6 z-40">
       <button
         onClick={() => setIsExpanded(true)}
         className={cn(
-          "glass w-10 h-10 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 transition-all duration-200",
+          "glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200",
           isDrawing && "ring-2 ring-teal-500/50"
         )}
         title="Draw tools"
       >
         <MapPinPlus className={cn(
-          "w-[17px] h-[17px]",
+          "w-5 h-5",
           isDrawing ? "text-teal-600" : "text-zinc-500"
         )} />
       </button>

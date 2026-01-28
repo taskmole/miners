@@ -224,7 +224,27 @@ function MapMarker({
     const handleMouseEnter = (e: MouseEvent) => onMouseEnter?.(e);
     const handleMouseLeave = (e: MouseEvent) => onMouseLeave?.(e);
 
+    // Touch support for mobile - track touch start position to distinguish tap from drag
+    let touchStartX = 0;
+    let touchStartY = 0;
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    };
+    const handleTouchEnd = (e: TouchEvent) => {
+      const touch = e.changedTouches[0];
+      const dx = Math.abs(touch.clientX - touchStartX);
+      const dy = Math.abs(touch.clientY - touchStartY);
+      // Only trigger click if finger didn't move much (it's a tap, not a drag)
+      if (dx < 10 && dy < 10) {
+        e.preventDefault();
+        onClick?.(e as unknown as MouseEvent);
+      }
+    };
+
     markerInstance.getElement()?.addEventListener("click", handleClick);
+    markerInstance.getElement()?.addEventListener("touchstart", handleTouchStart, { passive: true });
+    markerInstance.getElement()?.addEventListener("touchend", handleTouchEnd);
     markerInstance
       .getElement()
       ?.addEventListener("mouseenter", handleMouseEnter);

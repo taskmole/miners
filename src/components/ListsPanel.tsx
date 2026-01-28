@@ -7,13 +7,9 @@ import {
     MoreVertical,
     Trash2,
     Pencil,
-    Paperclip,
     ChevronDown,
     ChevronRight,
     X,
-    FileText,
-    Image,
-    Download,
     Calendar,
     Cloud,
     Users,
@@ -21,9 +17,12 @@ import {
     GripVertical,
     FileSpreadsheet,
     FileDown,
+    Route,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useListsContext } from "@/contexts/ListsContext";
+import { useScoutingTripsContext } from "@/contexts/ScoutingTripsContext";
+import type { LinkedItem, ScoutingTrip } from "@/types/scouting";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -40,7 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import type { LocationList, ListItem, ListAttachment, VisitLog } from "@/types/lists";
+import type { LocationList, ListItem, VisitLog } from "@/types/lists";
 
 // Custom event to navigate to location AND open popup
 // Also includes placeType so the filter can be enabled if needed
@@ -196,26 +195,34 @@ async function exportListAsPDF(list: LocationList): Promise<void> {
     doc.save(`${list.name.replace(/[^a-z0-9]/gi, '_')}_export.pdf`);
 }
 
-export function ListsPanel() {
+interface ListsPanelProps {
+    cityId?: string;
+    onCreateTripFromList?: (trip: ScoutingTrip) => void;
+}
+
+export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
     const {
         lists,
         isLoaded,
         createList,
         deleteList,
         renameList,
-        addAttachment,
-        removeAttachment,
         removeItem,
         removeDrawnArea,
         updateVisitPlan,
         reorderItems,
     } = useListsContext();
 
+    const {
+        createTrip,
+        updateTrip,
+        addLinkedItem,
+    } = useScoutingTripsContext();
+
     const [isExpanded, setIsExpanded] = useState(false);
     const [expandedLists, setExpandedLists] = useState<Set<string>>(new Set());
     const [expandedVisitPlans, setExpandedVisitPlans] = useState<Set<string>>(new Set());
     const panelRef = useRef<HTMLDivElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Dialog states
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -289,23 +296,36 @@ export function ListsPanel() {
         setSelectedListId(null);
     };
 
-    // Handle file selection for attachments
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !selectedListId) return;
+    // Handle creating a scouting trip from a list
+    const handleCreateTripFromList = (list: LocationList) => {
+        if (!cityId) return;
 
-        try {
-            await addAttachment(selectedListId, file);
-        } catch (error) {
-            console.error('Error adding attachment:', error);
+        // Create new trip
+        const trip = createTrip(cityId);
+
+        // Update trip name to match list name
+        updateTrip(trip.id, { name: list.name });
+
+        // Add all list items as linked items
+        for (const item of list.items) {
+            const linkedItem: LinkedItem = {
+                type: 'place',
+                id: item.placeId,
+                name: item.placeName,
+                address: item.placeAddress,
+                data: {
+                    lat: item.lat,
+                    lon: item.lon,
+                    placeType: item.placeType,
+                },
+            };
+            addLinkedItem(trip.id, linkedItem);
         }
-        e.target.value = '';
-    };
 
-    // Open file dialog for attachments
-    const openAttachmentDialog = (listId: string) => {
-        setSelectedListId(listId);
-        fileInputRef.current?.click();
+        // Open the scouting form with the new trip
+        if (onCreateTripFromList) {
+            onCreateTripFromList(trip);
+        }
     };
 
     // Handle clicking on a POI item - navigate AND open popup
@@ -313,14 +333,6 @@ export function ListsPanel() {
     const handleItemClick = (item: ListItem) => {
         navigateAndOpenPopup(item.lat, item.lon, item.placeId, item.placeType);
         setIsExpanded(false);
-    };
-
-    // Download attachment
-    const downloadAttachment = (attachment: ListAttachment) => {
-        const link = document.createElement('a');
-        link.href = attachment.data;
-        link.download = attachment.name;
-        link.click();
     };
 
     // Drag handlers
@@ -348,13 +360,13 @@ export function ListsPanel() {
     // Collapsed state
     if (!isExpanded) {
         return (
-            <div ref={panelRef} className="fixed top-[72px] right-6 z-40">
+            <div ref={panelRef} className="fixed top-[80px] right-6 z-40">
                 <button
                     onClick={() => setIsExpanded(true)}
-                    className="glass w-10 h-10 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 transition-all duration-200 relative"
+                    className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
                     title="My Lists"
                 >
-                    <ClipboardList className="w-[17px] h-[17px] text-zinc-500" />
+                    <ClipboardList className="w-5 h-5 text-zinc-500" />
                 </button>
             </div>
         );
@@ -363,18 +375,26 @@ export function ListsPanel() {
     // Expanded state
     return (
         <>
-            <div ref={panelRef} className="fixed top-[72px] right-6 z-50">
-                <div className="glass rounded-2xl overflow-hidden border border-white/40 w-80 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div ref={panelRef} className="fixed top-[80px] right-6 z-50">
+                <div className="glass rounded-2xl overflow-hidden border border-white/40 w-80 max-w-[80vw] animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* Header */}
                     <div className="p-4 flex items-center justify-between border-b border-white/10">
                         <span className="text-sm font-bold text-zinc-900">Lists</span>
-                        <button
-                            onClick={() => setIsCreateDialogOpen(true)}
-                            className="w-6 h-6 rounded-md border border-zinc-300 text-zinc-500 flex items-center justify-center hover:bg-zinc-100 transition-colors"
-                            title="Create new list"
-                        >
-                            <Plus className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setIsCreateDialogOpen(true)}
+                                className="w-7 h-7 rounded-md border border-zinc-300 text-zinc-500 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+                                title="Create new list"
+                            >
+                                <Plus className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setIsExpanded(false)}
+                                className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Lists - scrollable */}
@@ -395,7 +415,7 @@ export function ListsPanel() {
                                     isExpanded={expandedLists.has(list.id)}
                                     isVisitPlanExpanded={expandedVisitPlans.has(list.id)}
                                     onToggleExpanded={() => toggleListExpanded(list.id)}
-                                    onToggleVisitPlan={() => toggleVisitPlanExpanded(list.id)}
+                                    onCreateTrip={() => handleCreateTripFromList(list)}
                                     onItemClick={handleItemClick}
                                     onRename={() => {
                                         setSelectedListId(list.id);
@@ -406,9 +426,6 @@ export function ListsPanel() {
                                         setSelectedListId(list.id);
                                         setIsDeleteDialogOpen(true);
                                     }}
-                                    onAddAttachment={() => openAttachmentDialog(list.id)}
-                                    onRemoveAttachment={(attachmentId) => removeAttachment(list.id, attachmentId)}
-                                    onDownloadAttachment={downloadAttachment}
                                     onRemoveItem={(itemId) => removeItem(list.id, itemId)}
                                     onRemoveArea={(areaId) => removeDrawnArea(list.id, areaId)}
                                     onUpdateVisitPlan={(plan) => updateVisitPlan(list.id, plan)}
@@ -426,15 +443,6 @@ export function ListsPanel() {
                     </div>
                 </div>
             </div>
-
-            {/* Hidden file input for attachments */}
-            <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={handleFileSelect}
-                accept="image/*,.pdf,.doc,.docx,.txt"
-            />
 
             {/* Create List Dialog */}
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -501,13 +509,10 @@ interface ListSectionProps {
     isExpanded: boolean;
     isVisitPlanExpanded: boolean;
     onToggleExpanded: () => void;
-    onToggleVisitPlan: () => void;
+    onCreateTrip: () => void;
     onItemClick: (item: ListItem) => void;
     onRename: () => void;
     onDelete: () => void;
-    onAddAttachment: () => void;
-    onRemoveAttachment: (attachmentId: string) => void;
-    onDownloadAttachment: (attachment: ListAttachment) => void;
     onRemoveItem: (itemId: string) => void;
     onRemoveArea: (areaId: string) => void;
     onUpdateVisitPlan: (plan: VisitLog) => void;
@@ -526,13 +531,10 @@ function ListSection({
     isExpanded,
     isVisitPlanExpanded,
     onToggleExpanded,
-    onToggleVisitPlan,
+    onCreateTrip,
     onItemClick,
     onRename,
     onDelete,
-    onAddAttachment,
-    onRemoveAttachment,
-    onDownloadAttachment,
     onRemoveItem,
     onRemoveArea,
     onUpdateVisitPlan,
@@ -549,7 +551,6 @@ function ListSection({
 
     const items = list.items || [];
     const areas = list.drawnAreas || [];
-    const attachments = list.attachments || [];
     const visitPlan = list.visitPlan;
     const totalCount = items.length + areas.length;
     const hasVisitPlan = visitPlan && (visitPlan.visitDate || visitPlan.comments);
@@ -575,10 +576,6 @@ function ListSection({
                         <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                     )}
 
-                    {attachments.length > 0 && (
-                        <Paperclip className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                    )}
-
                     <span className="text-xs text-zinc-500 shrink-0">({totalCount})</span>
                 </div>
 
@@ -590,24 +587,20 @@ function ListSection({
                         </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={onToggleVisitPlan}>
-                            <Calendar className="w-4 h-4 mr-2" />
-                            Plan visit
+                        <DropdownMenuItem onSelect={onCreateTrip}>
+                            <Route className="w-4 h-4 mr-2" />
+                            Create trip
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={onRename}>
                             <Pencil className="w-4 h-4 mr-2" />
                             Rename
                         </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={onAddAttachment}>
-                            <Paperclip className="w-4 h-4 mr-2" />
-                            Add attachment
-                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={onExportCSV}>
+                        <DropdownMenuItem onSelect={() => setTimeout(onExportCSV, 0)}>
                             <FileSpreadsheet className="w-4 h-4 mr-2" />
                             Export CSV
                         </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={onExportPDF}>
+                        <DropdownMenuItem onSelect={() => setTimeout(onExportPDF, 0)}>
                             <FileDown className="w-4 h-4 mr-2" />
                             Export PDF
                         </DropdownMenuItem>
@@ -693,40 +686,6 @@ function ListSection({
             {/* Expanded content */}
             {isExpanded && (
                 <div className="bg-white/10">
-                    {/* Attachments */}
-                    {attachments.length > 0 && (
-                        <div className="px-3 py-2 border-b border-white/10">
-                            <p className="text-[10px] font-semibold text-zinc-500 uppercase mb-2">Attachments</p>
-                            <div className="flex flex-wrap gap-2">
-                                {attachments.map(att => (
-                                    <div
-                                        key={att.id}
-                                        className="flex items-center gap-1.5 px-2 py-1 bg-white/50 rounded text-xs group"
-                                    >
-                                        {att.type.startsWith('image/') ? (
-                                            <Image className="w-3 h-3 text-zinc-500" />
-                                        ) : (
-                                            <FileText className="w-3 h-3 text-zinc-500" />
-                                        )}
-                                        <span className="text-zinc-700 truncate max-w-[100px]">{att.name}</span>
-                                        <button
-                                            onClick={() => onDownloadAttachment(att)}
-                                            className="opacity-0 group-hover:opacity-100 hover:text-blue-600"
-                                        >
-                                            <Download className="w-3 h-3" />
-                                        </button>
-                                        <button
-                                            onClick={() => onRemoveAttachment(att.id)}
-                                            className="opacity-0 group-hover:opacity-100 hover:text-red-600"
-                                        >
-                                            <X className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
                     {/* POI Items with drag and drop */}
                     {items.map((item, index) => (
                         <div

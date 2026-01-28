@@ -13,6 +13,7 @@ import {
     ChevronRight,
     Funnel,
     Info,
+    X,
 } from "lucide-react";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import { Slider } from "@/components/ui/slider";
@@ -269,10 +270,10 @@ export function Sidebar({
             <div ref={panelRef} className="fixed top-6 right-6 z-40">
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="glass w-10 h-10 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 transition-all duration-200"
+                    className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200"
                     title="Open filters"
                 >
-                    <Funnel className="w-[17px] h-[17px] text-zinc-500" />
+                    <Funnel className="w-5 h-5 text-zinc-500" />
                 </button>
             </div>
         );
@@ -283,7 +284,17 @@ export function Sidebar({
     return (
         <div ref={panelRef} className="fixed top-6 right-6 z-[60]">
             <ScrollArea className="max-h-[calc(100vh-48px)]">
-                <div className="glass rounded-2xl overflow-hidden border border-white/40 w-80 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="glass rounded-2xl overflow-hidden border border-white/40 w-80 max-w-[80vw] animate-in fade-in slide-in-from-top-2 duration-200">
+                    {/* Header with close button */}
+                    <div className="p-4 flex items-center justify-between border-b border-white/10">
+                        <span className="text-sm font-bold text-zinc-900">Filters</span>
+                        <button
+                            onClick={() => setIsOpen(false)}
+                            className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
 
                     {/* ===== PLACES SECTION ===== */}
                     <div className="border-b border-white/10">

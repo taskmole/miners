@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect } from "react";
-import { History, MapPin, Star, MessageSquare, Pencil, Plus, Eye } from "lucide-react";
+import { History, MapPin, Star, MessageSquare, Pencil, Plus, Eye, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Activity types for different actions
@@ -140,17 +140,17 @@ export function ActivityLog() {
         }
     };
 
-    // Collapsed state - just the history icon button (below pencil icon)
+    // Collapsed state - just the history icon button (below draw toolbar)
     // Uses z-40 so it appears below expanded filter panels (which use z-50)
     if (!isExpanded) {
         return (
-            <div ref={panelRef} className="fixed top-[216px] right-6 z-40">
+            <div ref={panelRef} className="fixed top-[248px] right-6 z-40">
                 <button
                     onClick={() => setIsExpanded(true)}
-                    className="glass w-10 h-10 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 transition-all duration-200 relative"
+                    className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
                     title="Activity log"
                 >
-                    <History className="w-[17px] h-[17px] text-zinc-500" />
+                    <History className="w-5 h-5 text-zinc-500" />
                     {logs.length > 0 && (
                         <span className="absolute -top-1 -right-1 w-4 h-4 bg-zinc-900 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                             {logs.length}
@@ -164,17 +164,25 @@ export function ActivityLog() {
     // Expanded state - full panel with glassmorphism (light style like other panels)
     // Uses z-50 to appear above other collapsed icons
     return (
-        <div ref={panelRef} className="fixed top-[216px] right-6 z-50">
-            <div className="glass rounded-2xl overflow-hidden border border-white/40 w-80 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div ref={panelRef} className="fixed top-[248px] right-6 z-50">
+            <div className="glass rounded-2xl overflow-hidden border border-white/40 w-80 max-w-[80vw] animate-in fade-in slide-in-from-top-2 duration-200">
                 {/* Header */}
                 <div className="p-4 flex items-center justify-between border-b border-white/10">
                     <div className="flex items-center gap-2">
                         <History className="w-4 h-4 text-zinc-700" />
                         <span className="text-sm font-bold text-zinc-900">Activity Log</span>
                     </div>
-                    <span className="px-2 py-0.5 bg-zinc-100/50 text-zinc-600 text-[10px] font-bold rounded-full">
-                        {logs.length} updates
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 bg-zinc-100/50 text-zinc-600 text-[10px] font-bold rounded-full">
+                            {logs.length} updates
+                        </span>
+                        <button
+                            onClick={() => setIsExpanded(false)}
+                            className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Log entries - scrollable */}
