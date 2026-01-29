@@ -109,9 +109,14 @@ export function BottomSheet({
     [onClose]
   );
 
-  // On desktop, just render children directly
+  // On desktop, render with animation
   if (!isMobile) {
-    return isOpen ? <>{children}</> : null;
+    if (!isOpen) return null;
+    return (
+      <div className="animate-in fade-in-0 zoom-in-95 duration-200">
+        {children}
+      </div>
+    );
   }
 
   // Don't render on server or before mount
