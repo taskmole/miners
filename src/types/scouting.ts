@@ -4,12 +4,16 @@
  * Structure for scouting trips (location pitches) with:
  * - Form-based creation (Lease Decision Brief fields)
  * - Document upload option
- * - Multiple POI/area linking
+ * - Single main property focus with optional related places
+ * - Attachments (photos, documents)
+ * - Questions checklist for on-site use
  * - Comments support
  *
  * localStorage-based for now, designed for easy Supabase migration.
  * Maps to the 'pitches' table in database-migration-prd.md
  */
+
+import { Attachment } from './attachments';
 
 // Status of a scouting trip
 export type ScoutingTripStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
@@ -34,6 +38,15 @@ export interface UploadedDocument {
   size: number;
   data: string; // Base64 encoded
   uploadedAt: string;
+}
+
+// Checklist item for on-site questions
+export interface ChecklistItem {
+  id: string;
+  question: string;
+  isChecked: boolean;
+  notes: string;
+  isDefault: boolean; // true for default questions, false for user-added
 }
 
 // Photo attachment (reuses existing attachment pattern)
@@ -65,11 +78,23 @@ export interface ScoutingTrip {
   // Name/title for the trip
   name: string;
 
-  // Linked POIs and/or areas (multiple supported)
-  linkedItems: LinkedItem[];
+  // Main property being scouted (ONE property per trip)
+  property: LinkedItem | null;
+
+  // Related places for context (from list, not the main focus)
+  relatedPlaces: LinkedItem[];
+
+  // Checklist of questions for on-site use
+  checklist: ChecklistItem[];
+
+  // Attachments (photos, documents, etc.)
+  attachments: Attachment[];
 
   // For upload type: the uploaded document
   uploadedDocument?: UploadedDocument;
+
+  // Legacy field for migration (will be removed after migration)
+  linkedItems?: LinkedItem[];
 
   // ===== FORM FIELDS (Lease Decision Brief) =====
 
@@ -126,7 +151,32 @@ export interface ScoutingTripsState {
 
 // Storage constants
 export const SCOUTING_TRIPS_STORAGE_KEY = 'miners-scouting-trips';
-export const SCOUTING_TRIPS_VERSION = 1;
+export const SCOUTING_TRIPS_VERSION = 2; // Bumped for new data structure
+
+// Default placeholder questions (user will supply real questions later)
+export const DEFAULT_CHECKLIST_QUESTIONS = [
+  'What is the overall condition of the space?',
+  'Is the rent within budget?',
+  'How is the natural lighting?',
+  'Is the location visible from the street?',
+  'How is the foot traffic in the area?',
+  'Are there parking/delivery access options?',
+  'What renovations would be needed?',
+  'Who are the neighboring businesses?',
+  'Is the landlord responsive?',
+  'Any concerns or red flags?',
+];
+
+// Create default checklist items from questions
+export function createDefaultChecklist(): ChecklistItem[] {
+  return DEFAULT_CHECKLIST_QUESTIONS.map((question, index) => ({
+    id: `default_${index}`,
+    question,
+    isChecked: false,
+    notes: '',
+    isDefault: true,
+  }));
+}
 
 // Default empty trip for form initialization
 export function createEmptyTrip(cityId: string, authorName: string = 'Guest'): Omit<ScoutingTrip, 'id' | 'createdAt' | 'updatedAt'> {
@@ -137,7 +187,10 @@ export function createEmptyTrip(cityId: string, authorName: string = 'Guest'): O
     tripType: 'form',
     status: 'draft',
     name: '',
-    linkedItems: [],
+    property: null,
+    relatedPlaces: [],
+    checklist: createDefaultChecklist(),
+    attachments: [],
     photos: [],
   };
 }
@@ -145,6 +198,34 @@ export function createEmptyTrip(cityId: string, authorName: string = 'Guest'): O
 // Generate unique ID
 export function generateTripId(): string {
   return `trip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Migrate old trip format (linkedItems) to new format (property + relatedPlaces)
+export function migrateTrip(trip: ScoutingTrip): ScoutingTrip {
+  // If already migrated (has property field set or explicitly null), skip
+  if (trip.property !== undefined || trip.relatedPlaces !== undefined) {
+    // Ensure arrays exist
+    return {
+      ...trip,
+      relatedPlaces: trip.relatedPlaces || [],
+      checklist: trip.checklist || createDefaultChecklist(),
+      attachments: trip.attachments || [],
+    };
+  }
+
+  // Migrate from linkedItems
+  const linkedItems = trip.linkedItems || [];
+  const firstItem = linkedItems.length > 0 ? linkedItems[0] : null;
+  const otherItems = linkedItems.slice(1);
+
+  return {
+    ...trip,
+    property: firstItem,
+    relatedPlaces: otherItems,
+    checklist: trip.checklist || createDefaultChecklist(),
+    attachments: trip.attachments || [],
+    linkedItems: undefined, // Remove legacy field
+  };
 }
 
 // Status display helpers

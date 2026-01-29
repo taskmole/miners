@@ -17,6 +17,9 @@ import {
   XCircle,
   Download,
   MessageSquare,
+  ClipboardCheck,
+  Paperclip,
+  Building,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +36,8 @@ import { ToastProvider, useToast } from "@/contexts/ToastContext";
 import { formatRelativeTime } from "@/types/comments";
 import { Trash2 } from "lucide-react";
 import { statusLabels, statusColors } from "@/types/scouting";
+import { TripChecklist } from "@/components/TripChecklist";
+import { AttachmentGallery } from "@/components/attachments";
 import type { ScoutingTrip, ScoutingTripStatus } from "@/types/scouting";
 
 interface ScoutingTripDetailProps {
@@ -432,25 +437,73 @@ export function ScoutingTripDetail({
             </div>
           )}
 
-          {/* Linked items */}
-          {trip.linkedItems && trip.linkedItems.length > 0 && (
+          {/* Property Being Scouted */}
+          {trip.property && (
+            <div className="px-6 py-4 border-b border-zinc-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Building className="w-4 h-4 text-amber-600" />
+                <span className="text-sm font-medium text-zinc-900">
+                  Property Being Scouted
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleNavigateToLinkedItem({ id: trip.property!.id, type: trip.property!.type, name: trip.property!.name, data: trip.property!.data })}
+                className="w-full flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200 hover:bg-amber-100 transition-colors text-left"
+              >
+                <MapPin className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-zinc-900 truncate">{trip.property.name}</p>
+                  {trip.property.address && (
+                    <p className="text-xs text-zinc-500 truncate">{trip.property.address}</p>
+                  )}
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* Related Places */}
+          {trip.relatedPlaces && trip.relatedPlaces.length > 0 && (
             <div className="px-6 py-4 border-b border-zinc-200">
               <div className="flex items-center gap-2 mb-3">
                 <MapPin className="w-4 h-4 text-zinc-500" />
                 <span className="text-sm font-medium text-zinc-900">
-                  Locations
+                  Related Places
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {trip.linkedItems.map((item) => (
+                {trip.relatedPlaces.map((item) => (
                   <LinkedItemChip
                     key={item.id}
                     name={item.name}
-                    onNavigate={() => handleNavigateToLinkedItem({ id: item.id, type: item.type, name: item.name })}
+                    onNavigate={() => handleNavigateToLinkedItem({ id: item.id, type: item.type, name: item.name, data: item.data })}
                   />
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Checklist */}
+          {trip.checklist && trip.checklist.length > 0 && (
+            <DetailSection title="Checklist" icon={ClipboardCheck} defaultExpanded={true}>
+              <TripChecklist
+                items={trip.checklist}
+                onChange={() => {}}
+                readOnly={true}
+              />
+            </DetailSection>
+          )}
+
+          {/* Attachments */}
+          {trip.attachments && trip.attachments.length > 0 && (
+            <DetailSection title="Attachments" icon={Paperclip} defaultExpanded={true}>
+              <AttachmentGallery
+                attachments={trip.attachments}
+                onUpload={async () => ({ success: false, error: 'Read only' })}
+                onRemove={() => {}}
+                disabled={true}
+              />
+            </DetailSection>
           )}
 
           {/* Location Section */}

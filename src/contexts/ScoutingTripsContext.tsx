@@ -8,16 +8,19 @@ import type {
   LinkedItem,
   ScoutingPhoto,
   UploadedDocument,
+  ChecklistItem,
 } from '@/types/scouting';
+import type { Attachment } from '@/types/attachments';
 import {
   SCOUTING_TRIPS_STORAGE_KEY,
   SCOUTING_TRIPS_VERSION,
   generateTripId,
   createEmptyTrip,
+  migrateTrip,
 } from '@/types/scouting';
 
 /**
- * Get initial state from localStorage
+ * Get initial state from localStorage with migration for old trips
  */
 function getInitialState(): ScoutingTripsState {
   if (typeof window === 'undefined') {
@@ -28,9 +31,11 @@ function getInitialState(): ScoutingTripsState {
     const saved = localStorage.getItem(SCOUTING_TRIPS_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved) as ScoutingTripsState;
+      // Migrate all trips to new format (property + relatedPlaces + checklist + attachments)
+      const migratedTrips = (parsed.trips || []).map(migrateTrip);
       return {
-        version: parsed.version || SCOUTING_TRIPS_VERSION,
-        trips: parsed.trips || [],
+        version: SCOUTING_TRIPS_VERSION,
+        trips: migratedTrips,
       };
     }
   } catch (error) {
@@ -64,10 +69,19 @@ interface ScoutingTripsContextValue {
   rejectTrip: (tripId: string, rejectionNotes: string, reviewerName?: string) => void;
   // Delete operations
   deleteTrip: (tripId: string) => void;
-  // Linked items
+  // Property & Related Places (new structure)
+  setProperty: (tripId: string, property: LinkedItem) => void;
+  addRelatedPlace: (tripId: string, item: LinkedItem) => void;
+  removeRelatedPlace: (tripId: string, itemId: string) => void;
+  // Legacy linked items (for backwards compatibility during transition)
   addLinkedItem: (tripId: string, item: LinkedItem) => void;
   removeLinkedItem: (tripId: string, itemId: string) => void;
-  // Photos
+  // Checklist
+  updateChecklist: (tripId: string, checklist: ChecklistItem[]) => void;
+  // Attachments
+  addAttachment: (tripId: string, attachment: Attachment) => void;
+  removeAttachment: (tripId: string, attachmentId: string) => void;
+  // Photos (legacy)
   addPhoto: (tripId: string, photo: ScoutingPhoto) => void;
   removePhoto: (tripId: string, photoId: string) => void;
 }
@@ -228,19 +242,19 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
     }));
   }, []);
 
-  // ===== LINKED ITEMS MANAGEMENT =====
+  // ===== PROPERTY & RELATED PLACES MANAGEMENT =====
 
-  // Add a linked item to a trip
-  const addLinkedItem = useCallback((tripId: string, item: LinkedItem): void => {
+  // Set the main property for a trip
+  const setProperty = useCallback((tripId: string, property: LinkedItem): void => {
     setState(prev => ({
       ...prev,
       trips: prev.trips.map(t =>
         t.id === tripId
           ? {
               ...t,
-              linkedItems: [...t.linkedItems, item],
-              // Auto-fill address from first linked POI if not set
-              address: t.address || (item.type === 'place' && item.address ? item.address : t.address),
+              property,
+              // Auto-fill address from property if not set
+              address: t.address || property.address,
               updatedAt: new Date().toISOString(),
             }
           : t
@@ -248,15 +262,93 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
     }));
   }, []);
 
-  // Remove a linked item from a trip
-  const removeLinkedItem = useCallback((tripId: string, itemId: string): void => {
+  // Add a related place to a trip
+  const addRelatedPlace = useCallback((tripId: string, item: LinkedItem): void => {
     setState(prev => ({
       ...prev,
       trips: prev.trips.map(t =>
         t.id === tripId
           ? {
               ...t,
-              linkedItems: t.linkedItems.filter(i => i.id !== itemId),
+              relatedPlaces: [...t.relatedPlaces, item],
+              updatedAt: new Date().toISOString(),
+            }
+          : t
+      ),
+    }));
+  }, []);
+
+  // Remove a related place from a trip
+  const removeRelatedPlace = useCallback((tripId: string, itemId: string): void => {
+    setState(prev => ({
+      ...prev,
+      trips: prev.trips.map(t =>
+        t.id === tripId
+          ? {
+              ...t,
+              relatedPlaces: t.relatedPlaces.filter(i => i.id !== itemId),
+              updatedAt: new Date().toISOString(),
+            }
+          : t
+      ),
+    }));
+  }, []);
+
+  // Legacy: Add a linked item (now adds to relatedPlaces for backwards compatibility)
+  const addLinkedItem = useCallback((tripId: string, item: LinkedItem): void => {
+    addRelatedPlace(tripId, item);
+  }, [addRelatedPlace]);
+
+  // Legacy: Remove a linked item (now removes from relatedPlaces)
+  const removeLinkedItem = useCallback((tripId: string, itemId: string): void => {
+    removeRelatedPlace(tripId, itemId);
+  }, [removeRelatedPlace]);
+
+  // ===== CHECKLIST MANAGEMENT =====
+
+  // Update the entire checklist for a trip
+  const updateChecklist = useCallback((tripId: string, checklist: ChecklistItem[]): void => {
+    setState(prev => ({
+      ...prev,
+      trips: prev.trips.map(t =>
+        t.id === tripId
+          ? {
+              ...t,
+              checklist,
+              updatedAt: new Date().toISOString(),
+            }
+          : t
+      ),
+    }));
+  }, []);
+
+  // ===== ATTACHMENT MANAGEMENT =====
+
+  // Add an attachment to a trip
+  const addAttachment = useCallback((tripId: string, attachment: Attachment): void => {
+    setState(prev => ({
+      ...prev,
+      trips: prev.trips.map(t =>
+        t.id === tripId
+          ? {
+              ...t,
+              attachments: [...t.attachments, attachment],
+              updatedAt: new Date().toISOString(),
+            }
+          : t
+      ),
+    }));
+  }, []);
+
+  // Remove an attachment from a trip
+  const removeAttachment = useCallback((tripId: string, attachmentId: string): void => {
+    setState(prev => ({
+      ...prev,
+      trips: prev.trips.map(t =>
+        t.id === tripId
+          ? {
+              ...t,
+              attachments: t.attachments.filter(a => a.id !== attachmentId),
               updatedAt: new Date().toISOString(),
             }
           : t
@@ -327,8 +419,14 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
         approveTrip,
         rejectTrip,
         deleteTrip,
+        setProperty,
+        addRelatedPlace,
+        removeRelatedPlace,
         addLinkedItem,
         removeLinkedItem,
+        updateChecklist,
+        addAttachment,
+        removeAttachment,
         addPhoto,
         removePhoto,
       }}
