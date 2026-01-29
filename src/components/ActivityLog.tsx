@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
-import { History, MapPin, Star, MessageSquare, Pencil, Plus, Eye, X } from "lucide-react";
+import React from "react";
+import { History, MapPin, Star, MessageSquare, Pencil, Plus, Eye, X, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSheetState } from "@/contexts/SheetContext";
+import { MobilePanel } from "@/components/ui/mobile-panel";
+import { useMobile } from "@/hooks/useMobile";
 
 // Activity types for different actions
 type ActivityType = "added" | "updated" | "commented" | "visited" | "rated" | "created";
@@ -118,55 +121,44 @@ export const navigateToLocation = (lat: number, lon: number) => {
 };
 
 export function ActivityLog() {
-    const [isExpanded, setIsExpanded] = React.useState(false);
-    const panelRef = useRef<HTMLDivElement>(null);
-
-    // Click outside to close
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-                setIsExpanded(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    const { isOpen: isExpanded, open, close } = useSheetState("activity");
+    const isMobile = useMobile();
 
     // Handle clicking on an activity row - navigates to location on map
     const handleActivityClick = (item: ActivityItem) => {
         if (item.target.lat && item.target.lon) {
             navigateToLocation(item.target.lat, item.target.lon);
-            setIsExpanded(false); // Close panel after clicking
+            close();
         }
     };
 
-    // Collapsed state - just the history icon button (below draw toolbar)
-    // Uses z-40 so it appears below expanded filter panels (which use z-50)
-    if (!isExpanded) {
-        return (
-            <div ref={panelRef} className="fixed top-[248px] right-6 z-40">
-                <button
-                    onClick={() => setIsExpanded(true)}
-                    className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
-                    title="Activity log"
-                >
-                    <History className="w-5 h-5 text-zinc-500" />
-                    {logs.length > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-zinc-900 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                            {logs.length}
-                        </span>
-                    )}
-                </button>
-            </div>
-        );
-    }
+    // Collapsed button
+    const collapsedButton = (
+        <button
+            onClick={open}
+            className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
+            title="Activity log"
+        >
+            <Activity className="w-5 h-5 text-zinc-500" />
+            {logs.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-zinc-900 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {logs.length}
+                </span>
+            )}
+        </button>
+    );
 
-    // Expanded state - full panel with glassmorphism (light style like other panels)
-    // Uses z-50 to appear above other collapsed icons
     return (
-        <div ref={panelRef} className="fixed top-[248px] right-6 z-50">
-            <div className="glass rounded-2xl overflow-hidden border border-white/40 w-80 max-w-[80vw] animate-in fade-in slide-in-from-top-2 duration-200">
-                {/* Header */}
+        <MobilePanel
+            isOpen={isExpanded}
+            onClose={close}
+            desktopPosition={{ top: "248px", right: "24px" }}
+            title="Activity Log"
+            collapsedButton={collapsedButton}
+            snapPoint="partial"
+        >
+            {/* Header - only on desktop */}
+            {!isMobile && (
                 <div className="p-4 flex items-center justify-between border-b border-white/10">
                     <div className="flex items-center gap-2">
                         <History className="w-4 h-4 text-zinc-700" />
@@ -177,13 +169,23 @@ export function ActivityLog() {
                             {logs.length} updates
                         </span>
                         <button
-                            onClick={() => setIsExpanded(false)}
+                            onClick={close}
                             className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
                         >
                             <X className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
+            )}
+
+            {/* Mobile header with count badge */}
+            {isMobile && (
+                <div className="p-4 flex items-center justify-end border-b border-zinc-100">
+                    <span className="px-2 py-0.5 bg-zinc-100/50 text-zinc-600 text-[10px] font-bold rounded-full">
+                        {logs.length} updates
+                    </span>
+                </div>
+            )}
 
                 {/* Log entries - scrollable */}
                 <div className="max-h-[400px] overflow-y-auto">
@@ -221,7 +223,6 @@ export function ActivityLog() {
                         </div>
                     ))}
                 </div>
-            </div>
-        </div>
+        </MobilePanel>
     );
 }

@@ -116,6 +116,11 @@
 }
 
 @layer utilities {
+  /* Safe area padding for iOS devices with notch/home indicator */
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   .glass {
     position: relative;
     background: rgba(255, 255, 255, 0.5);

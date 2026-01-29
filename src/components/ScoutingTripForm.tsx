@@ -15,11 +15,19 @@ import {
   Image,
   Save,
   Send,
+  ClipboardCheck,
+  Paperclip,
+  Building,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MobileSelect, type SelectOption } from "@/components/ui/mobile-select";
 import { useScoutingTrips } from "@/hooks/useScoutingTrips";
+import { TripChecklist } from "@/components/TripChecklist";
+import { AttachmentGallery } from "@/components/attachments";
+import { processFileToAttachment } from "@/utils/attachmentUtils";
+import type { Attachment } from "@/types/attachments";
 import type {
   ScoutingTrip,
   PropertyType,
@@ -27,12 +35,14 @@ import type {
   VisibilityLevel,
   AccessLevel,
   LinkedItem,
+  ChecklistItem,
 } from "@/types/scouting";
 import {
   propertyTypeLabels,
   conditionLabels,
   visibilityLabels,
   accessLabels,
+  createDefaultChecklist,
 } from "@/types/scouting";
 
 // Props for the form modal
@@ -121,17 +131,20 @@ function Select<T extends string>({
   options: Record<T, string>;
   placeholder?: string;
 }) {
+  // Convert Record to SelectOption array
+  const selectOptions: SelectOption[] = Object.entries(options).map(([key, label]) => ({
+    value: key,
+    label: label as string,
+  }));
+
   return (
-    <select
+    <MobileSelect
       value={value || ''}
-      onChange={(e) => onChange(e.target.value as T)}
-      className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
-    >
-      <option value="">{placeholder || 'Select...'}</option>
-      {Object.entries(options).map(([key, label]) => (
-        <option key={key} value={key}>{label as string}</option>
-      ))}
-    </select>
+      onChange={(v) => onChange(v as T)}
+      options={selectOptions}
+      placeholder={placeholder || 'Select...'}
+      searchable={false}
+    />
   );
 }
 
@@ -166,12 +179,19 @@ export function ScoutingTripForm({
   pendingLinkedItems = [],
   onStartLinking,
 }: ScoutingTripFormProps) {
-  const { createTrip, updateTrip, submitTrip, addLinkedItem, removeLinkedItem } = useScoutingTrips();
+  const { createTrip, updateTrip, submitTrip, addAttachment, removeAttachment, updateChecklist } = useScoutingTrips();
 
   // Form state - initialize from existing trip or empty
   const [tripId, setTripId] = useState<string | null>(existingTrip?.id || null);
   const [name, setName] = useState(existingTrip?.name || '');
-  const [linkedItems, setLinkedItems] = useState<LinkedItem[]>(existingTrip?.linkedItems || []);
+
+  // New: Property and related places (replaces linkedItems)
+  const [property, setProperty] = useState<LinkedItem | null>(existingTrip?.property || null);
+  const [relatedPlaces, setRelatedPlaces] = useState<LinkedItem[]>(existingTrip?.relatedPlaces || []);
+
+  // New: Checklist and attachments
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(existingTrip?.checklist || createDefaultChecklist());
+  const [attachments, setAttachments] = useState<Attachment[]>(existingTrip?.attachments || []);
 
   // Location fields
   const [address, setAddress] = useState(existingTrip?.address || '');
@@ -221,7 +241,10 @@ export function ScoutingTripForm({
     if (existingTrip) {
       setTripId(existingTrip.id);
       setName(existingTrip.name || '');
-      setLinkedItems(existingTrip.linkedItems || []);
+      setProperty(existingTrip.property || null);
+      setRelatedPlaces(existingTrip.relatedPlaces || []);
+      setChecklist(existingTrip.checklist || createDefaultChecklist());
+      setAttachments(existingTrip.attachments || []);
       setAddress(existingTrip.address || '');
       setAreaSqm(existingTrip.areaSqm?.toString() || '');
       setStorageSqm(existingTrip.storageSqm?.toString() || '');
@@ -249,7 +272,10 @@ export function ScoutingTripForm({
       // Reset to empty form
       setTripId(null);
       setName('');
-      setLinkedItems([]);
+      setProperty(null);
+      setRelatedPlaces([]);
+      setChecklist(createDefaultChecklist());
+      setAttachments([]);
       setAddress('');
       setAreaSqm('');
       setStorageSqm('');
@@ -280,29 +306,49 @@ export function ScoutingTripForm({
   }, [existingTrip]);
 
   // Merge pending linked items from map selection
+  // First item becomes property (if no property set), rest become related places
   useEffect(() => {
     if (pendingLinkedItems.length > 0) {
-      setLinkedItems(prev => {
-        // Add items that aren't already in the list
-        const newItems = pendingLinkedItems.filter(
-          item => !prev.some(existing => existing.id === item.id)
-        );
-        const merged = [...prev, ...newItems];
-
-        // Auto-fill address from first linked item if empty
-        if (!address && newItems.length > 0 && newItems[0].address) {
-          setAddress(newItems[0].address);
+      // If no property is set, use first pending item as property
+      if (!property && pendingLinkedItems.length > 0) {
+        const firstItem = pendingLinkedItems[0];
+        setProperty(firstItem);
+        // Auto-fill address and name from property
+        if (!address && firstItem.address) {
+          setAddress(firstItem.address);
         }
-
-        return merged;
-      });
+        if (!name && firstItem.name) {
+          setName(firstItem.name);
+        }
+        // Add remaining items as related places
+        if (pendingLinkedItems.length > 1) {
+          const remaining = pendingLinkedItems.slice(1);
+          setRelatedPlaces(prev => {
+            const newItems = remaining.filter(
+              item => !prev.some(existing => existing.id === item.id)
+            );
+            return [...prev, ...newItems];
+          });
+        }
+      } else {
+        // Property already set, add all pending items as related places
+        setRelatedPlaces(prev => {
+          const newItems = pendingLinkedItems.filter(
+            item => !prev.some(existing => existing.id === item.id) && item.id !== property?.id
+          );
+          return [...prev, ...newItems];
+        });
+      }
     }
-  }, [pendingLinkedItems, address]);
+  }, [pendingLinkedItems, property, address, name]);
 
   // Build the trip data from form state
   const buildTripData = (): Partial<ScoutingTrip> => ({
     name,
-    linkedItems,
+    property,
+    relatedPlaces,
+    checklist,
+    attachments,
     address,
     areaSqm: areaSqm ? parseFloat(areaSqm) : undefined,
     storageSqm: storageSqm ? parseFloat(storageSqm) : undefined,
@@ -369,18 +415,23 @@ export function ScoutingTripForm({
     onClose();
   };
 
-  // Handle adding a linked item (will be called from parent after map selection)
-  const handleAddLinkedItem = (item: LinkedItem) => {
-    setLinkedItems(prev => [...prev, item]);
-    // Auto-fill address from first linked item if empty
-    if (!address && item.address) {
-      setAddress(item.address);
-    }
+  // Handle removing a related place
+  const handleRemoveRelatedPlace = (itemId: string) => {
+    setRelatedPlaces(prev => prev.filter(i => i.id !== itemId));
   };
 
-  // Handle removing a linked item
-  const handleRemoveLinkedItem = (itemId: string) => {
-    setLinkedItems(prev => prev.filter(i => i.id !== itemId));
+  // Handle adding an attachment
+  const handleAddAttachment = async (file: File) => {
+    const result = await processFileToAttachment(file, 'Guest');
+    if (result.success && result.attachment) {
+      setAttachments(prev => [...prev, result.attachment!]);
+    }
+    return result;
+  };
+
+  // Handle removing an attachment
+  const handleRemoveAttachment = (attachmentId: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== attachmentId));
   };
 
   if (!isOpen) return null;
@@ -425,37 +476,89 @@ export function ScoutingTripForm({
             </FormField>
           </div>
 
-          {/* Linked Items */}
+          {/* Property Being Scouted */}
           <div className="px-6 py-4 border-b border-zinc-200">
             <div className="flex items-center justify-between mb-3">
-              <label className="text-xs font-medium text-zinc-700">Linked Locations</label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onStartLinking}
-                className="h-7 text-xs gap-1"
-              >
-                <LinkIcon className="w-3 h-3" />
-                Add Link
-              </Button>
+              <div className="flex items-center gap-2">
+                <Building className="w-4 h-4 text-amber-600" />
+                <label className="text-xs font-medium text-zinc-700">Property Being Scouted</label>
+              </div>
+              {onStartLinking && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onStartLinking}
+                  className="h-7 text-xs gap-1"
+                >
+                  <MapPin className="w-3 h-3" />
+                  {property ? 'Change' : 'Select Property'}
+                </Button>
+              )}
             </div>
-            {linkedItems.length > 0 ? (
+            {property ? (
+              <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <MapPin className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-zinc-900 truncate">{property.name}</p>
+                  {property.address && (
+                    <p className="text-xs text-zinc-500 truncate">{property.address}</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200 border-dashed text-center">
+                <p className="text-xs text-zinc-400">
+                  No property selected yet
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Related Places (context from list) */}
+          {relatedPlaces.length > 0 && (
+            <div className="px-6 py-4 border-b border-zinc-200">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-xs font-medium text-zinc-700">Related Places</label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onStartLinking}
+                  className="h-7 text-xs gap-1"
+                >
+                  <LinkIcon className="w-3 h-3" />
+                  Add More
+                </Button>
+              </div>
               <div className="flex flex-wrap gap-2">
-                {linkedItems.map(item => (
+                {relatedPlaces.map(item => (
                   <LinkedItemBadge
                     key={item.id}
                     item={item}
-                    onRemove={() => handleRemoveLinkedItem(item.id)}
+                    onRemove={() => handleRemoveRelatedPlace(item.id)}
                   />
                 ))}
               </div>
-            ) : (
-              <p className="text-xs text-zinc-400">
-                No locations linked. Click &quot;Add Link&quot; to select POIs or areas from the map.
-              </p>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Checklist Section */}
+          <FormSection title="Checklist" icon={ClipboardCheck} defaultExpanded={true}>
+            <TripChecklist
+              items={checklist}
+              onChange={setChecklist}
+            />
+          </FormSection>
+
+          {/* Attachments Section */}
+          <FormSection title="Attachments" icon={Paperclip} defaultExpanded={true}>
+            <AttachmentGallery
+              attachments={attachments}
+              onUpload={handleAddAttachment}
+              onRemove={handleRemoveAttachment}
+            />
+          </FormSection>
 
           {/* Location Section */}
           <FormSection title="Location" icon={MapPin}>
@@ -683,11 +786,6 @@ export function ScoutingTripForm({
               />
             </FormField>
 
-            {/* TODO: Photo upload section */}
-            <div className="p-4 border border-dashed border-zinc-300 rounded-lg text-center">
-              <Image className="w-6 h-6 text-zinc-300 mx-auto mb-2" />
-              <p className="text-xs text-zinc-400">Photo upload coming soon</p>
-            </div>
           </FormSection>
         </div>
 
