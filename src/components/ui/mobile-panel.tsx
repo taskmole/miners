@@ -106,6 +106,7 @@ export function MobilePanel({
       <div
         className={cn(
           "glass rounded-2xl overflow-hidden border border-white/40",
+          "animate-in fade-in-0 zoom-in-95 duration-200",
           "max-w-[80vw]",
           desktopWidth,
           className
