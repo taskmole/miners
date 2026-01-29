@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   Route,
   Plus,
@@ -8,11 +8,15 @@ import {
   ChevronRight,
   FileText,
   MapPin,
+  MapPinned,
   Clock,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useScoutingTrips } from "@/hooks/useScoutingTrips";
+import { useSheetState } from "@/contexts/SheetContext";
+import { MobilePanel } from "@/components/ui/mobile-panel";
+import { useMobile } from "@/hooks/useMobile";
 import { Button } from "@/components/ui/button";
 import type { ScoutingTrip } from "@/types/scouting";
 import { statusLabels, statusColors } from "@/types/scouting";
@@ -111,28 +115,17 @@ export function ScoutingPanel({
   onSelectTrip,
 }: ScoutingPanelProps) {
   const { getTrips, getTripCounts, isLoaded } = useScoutingTrips();
-  const [isExpanded, setIsExpanded] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const { isOpen: isExpanded, open, close } = useSheetState("scouting");
+  const isMobile = useMobile();
 
   const trips = getTrips(cityId);
   const counts = getTripCounts(cityId);
-
-  // Click outside to close
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setIsExpanded(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // Handle create new click
   const handleCreateNew = () => {
     if (onCreateNew) {
       onCreateNew();
-      setIsExpanded(false);
+      close();
     }
   };
 
@@ -140,7 +133,7 @@ export function ScoutingPanel({
   const handleUpload = () => {
     if (onUpload) {
       onUpload();
-      setIsExpanded(false);
+      close();
     }
   };
 
@@ -148,42 +141,44 @@ export function ScoutingPanel({
   const handleSelectTrip = (trip: ScoutingTrip) => {
     if (onSelectTrip) {
       onSelectTrip(trip);
-      setIsExpanded(false);
+      close();
     }
   };
 
-  // Collapsed state - button only
-  if (!isExpanded) {
-    return (
-      <div ref={panelRef} className="fixed top-[136px] right-6 z-40">
-        <button
-          onClick={() => setIsExpanded(true)}
-          className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
-          title="Scouting Trips"
-        >
-          <Route className="w-5 h-5 text-zinc-500" />
-        </button>
-      </div>
-    );
-  }
+  // Collapsed button
+  const collapsedButton = (
+    <button
+      onClick={open}
+      className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
+      title="Scouting Trips"
+    >
+      <MapPinned className="w-5 h-5 text-zinc-500" />
+    </button>
+  );
 
-  // Expanded state - full panel
   return (
-    <div ref={panelRef} className="fixed top-[136px] right-6 z-50">
-      <div className="glass rounded-2xl overflow-hidden border border-white/40 w-80 max-w-[80vw] animate-in fade-in slide-in-from-top-2 duration-200">
-        {/* Header */}
+    <MobilePanel
+      isOpen={isExpanded}
+      onClose={close}
+      desktopPosition={{ top: "136px", right: "24px" }}
+      title="Scouting Trips"
+      collapsedButton={collapsedButton}
+      snapPoint="partial"
+    >
+      {/* Header - only on desktop */}
+      {!isMobile && (
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-bold text-zinc-900">Scouting Trips</span>
             <button
-              onClick={() => setIsExpanded(false)}
+              onClick={close}
               className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Action buttons */}
+          {/* Desktop action buttons in header */}
           <div className="flex gap-2">
             <Button
               onClick={handleCreateNew}
@@ -204,8 +199,32 @@ export function ScoutingPanel({
             </Button>
           </div>
         </div>
+      )}
 
-        {/* Status summary */}
+      {/* Mobile action buttons */}
+      {isMobile && (
+        <div className="p-4 border-b border-zinc-100">
+          <div className="flex gap-2">
+            <Button
+              onClick={handleCreateNew}
+              className="flex-1 h-11 text-sm gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Create New
+            </Button>
+            <Button
+              onClick={handleUpload}
+              variant="outline"
+              className="flex-1 h-11 text-sm gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Upload
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Status summary */}
         {counts.total > 0 && (
           <div className="px-4 py-2 bg-zinc-50/50 border-b border-white/10 flex gap-3 text-[10px]">
             {counts.draft > 0 && (
@@ -253,7 +272,6 @@ export function ScoutingPanel({
             ))
           )}
         </div>
-      </div>
-    </div>
+    </MobilePanel>
   );
 }

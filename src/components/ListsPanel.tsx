@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
-    ClipboardList,
+    FolderOpen,
     Plus,
     MoreVertical,
     Trash2,
@@ -22,6 +22,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useListsContext } from "@/contexts/ListsContext";
 import { useScoutingTripsContext } from "@/contexts/ScoutingTripsContext";
+import { useSheetState } from "@/contexts/SheetContext";
+import { MobilePanel } from "@/components/ui/mobile-panel";
+import { useMobile } from "@/hooks/useMobile";
 import type { LinkedItem, ScoutingTrip } from "@/types/scouting";
 import {
     DropdownMenu,
@@ -219,31 +222,24 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
         addLinkedItem,
     } = useScoutingTripsContext();
 
-    const [isExpanded, setIsExpanded] = useState(false);
+    // Use SheetContext for coordinated open/close
+    const { isOpen: isExpanded, open, close } = useSheetState("lists");
+    const isMobile = useMobile();
+
     const [expandedLists, setExpandedLists] = useState<Set<string>>(new Set());
     const [expandedVisitPlans, setExpandedVisitPlans] = useState<Set<string>>(new Set());
-    const panelRef = useRef<HTMLDivElement>(null);
 
     // Dialog states
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
+    const [selectedListForTrip, setSelectedListForTrip] = useState<LocationList | null>(null);
     const [newListName, setNewListName] = useState("");
 
     // Drag and drop state
     const [draggedItem, setDraggedItem] = useState<{ listId: string; index: number } | null>(null);
-
-    // Click outside to close
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-                setIsExpanded(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
 
     // Toggle list expansion
     const toggleListExpanded = (listId: string) => {
@@ -300,15 +296,60 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
     const handleCreateTripFromList = (list: LocationList) => {
         if (!cityId) return;
 
-        // Create new trip
-        const trip = createTrip(cityId);
+        const totalItems = list.items.length + (list.drawnAreas?.length || 0);
 
-        // Update trip name to match list name
-        updateTrip(trip.id, { name: list.name });
+        // If only one item, use it directly as the property
+        if (totalItems === 1) {
+            createTripWithProperty(list, list.items[0] || null, list.drawnAreas?.[0] || null);
+        } else if (totalItems > 1) {
+            // Multiple items - show picker to select main property
+            setSelectedListForTrip(list);
+            setIsPropertyPickerOpen(true);
+        } else {
+            // Empty list - just create trip with list name
+            const trip = createTrip(cityId);
+            updateTrip(trip.id, { name: list.name });
+            if (onCreateTripFromList) {
+                onCreateTripFromList(trip);
+            }
+        }
+    };
 
-        // Add all list items as linked items
+    // Create trip with selected property
+    const createTripWithProperty = (
+        list: LocationList,
+        selectedItem: ListItem | null,
+        selectedArea: { areaId: string; areaType: string; areaName: string } | null
+    ) => {
+        if (!cityId) return;
+
+        // Create the main property LinkedItem
+        let propertyLinkedItem: LinkedItem | null = null;
+        if (selectedItem) {
+            propertyLinkedItem = {
+                type: 'place',
+                id: selectedItem.placeId,
+                name: selectedItem.placeName,
+                address: selectedItem.placeAddress,
+                data: {
+                    lat: selectedItem.lat,
+                    lon: selectedItem.lon,
+                    placeType: selectedItem.placeType,
+                },
+            };
+        } else if (selectedArea) {
+            propertyLinkedItem = {
+                type: 'area',
+                id: selectedArea.areaId,
+                name: selectedArea.areaName,
+            };
+        }
+
+        // Create related places from other items
+        const relatedPlaces: LinkedItem[] = [];
         for (const item of list.items) {
-            const linkedItem: LinkedItem = {
+            if (selectedItem && item.placeId === selectedItem.placeId) continue;
+            relatedPlaces.push({
                 type: 'place',
                 id: item.placeId,
                 name: item.placeName,
@@ -318,21 +359,45 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
                     lon: item.lon,
                     placeType: item.placeType,
                 },
-            };
-            addLinkedItem(trip.id, linkedItem);
+            });
+        }
+        for (const area of list.drawnAreas || []) {
+            if (selectedArea && area.areaId === selectedArea.areaId) continue;
+            relatedPlaces.push({
+                type: 'area',
+                id: area.areaId,
+                name: area.areaName,
+            });
         }
 
-        // Open the scouting form with the new trip
+        // Create new trip with property and related places
+        const trip = createTrip(cityId);
+        updateTrip(trip.id, {
+            name: propertyLinkedItem?.name || list.name,
+            property: propertyLinkedItem,
+            relatedPlaces,
+            address: propertyLinkedItem?.address || '',
+        });
+
+        // Close picker and open the scouting form
+        setIsPropertyPickerOpen(false);
+        setSelectedListForTrip(null);
         if (onCreateTripFromList) {
             onCreateTripFromList(trip);
         }
+    };
+
+    // Handle property selection from picker
+    const handlePropertySelected = (item: ListItem | null, area: { areaId: string; areaType: string; areaName: string } | null) => {
+        if (!selectedListForTrip) return;
+        createTripWithProperty(selectedListForTrip, item, area);
     };
 
     // Handle clicking on a POI item - navigate AND open popup
     // Also passes placeType so the filter can be enabled if not already on
     const handleItemClick = (item: ListItem) => {
         navigateAndOpenPopup(item.lat, item.lon, item.placeId, item.placeType);
-        setIsExpanded(false);
+        close();
     };
 
     // Drag handlers
@@ -357,92 +422,114 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
         setDraggedItem(null);
     };
 
-    // Collapsed state
-    if (!isExpanded) {
-        return (
-            <div ref={panelRef} className="fixed top-[80px] right-6 z-40">
-                <button
-                    onClick={() => setIsExpanded(true)}
-                    className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
-                    title="My Lists"
-                >
-                    <ClipboardList className="w-5 h-5 text-zinc-500" />
-                </button>
-            </div>
-        );
-    }
+    // Collapsed button for desktop
+    const collapsedButton = (
+        <button
+            onClick={open}
+            className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
+            title="My Lists"
+        >
+            <FolderOpen className="w-5 h-5 text-zinc-500" />
+        </button>
+    );
 
-    // Expanded state
-    return (
+    // Panel content (same for mobile and desktop)
+    const panelContent = (
         <>
-            <div ref={panelRef} className="fixed top-[80px] right-6 z-50">
-                <div className="glass rounded-2xl overflow-hidden border border-white/40 w-80 max-w-[80vw] animate-in fade-in slide-in-from-top-2 duration-200">
-                    {/* Header */}
-                    <div className="p-4 flex items-center justify-between border-b border-white/10">
-                        <span className="text-sm font-bold text-zinc-900">Lists</span>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setIsCreateDialogOpen(true)}
-                                className="w-7 h-7 rounded-md border border-zinc-300 text-zinc-500 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
-                                title="Create new list"
-                            >
-                                <Plus className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => setIsExpanded(false)}
-                                className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Lists - scrollable */}
-                    <div className="max-h-[400px] overflow-y-auto">
-                        {!isLoaded ? (
-                            <div className="p-4 text-center text-zinc-500 text-sm">Loading...</div>
-                        ) : lists.length === 0 ? (
-                            <div className="p-6 text-center">
-                                <ClipboardList className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-                                <p className="text-sm text-zinc-500">No lists yet</p>
-                                <p className="text-xs text-zinc-400 mt-1">Create one to start saving places</p>
-                            </div>
-                        ) : (
-                            lists.map(list => (
-                                <ListSection
-                                    key={list.id}
-                                    list={list}
-                                    isExpanded={expandedLists.has(list.id)}
-                                    isVisitPlanExpanded={expandedVisitPlans.has(list.id)}
-                                    onToggleExpanded={() => toggleListExpanded(list.id)}
-                                    onCreateTrip={() => handleCreateTripFromList(list)}
-                                    onItemClick={handleItemClick}
-                                    onRename={() => {
-                                        setSelectedListId(list.id);
-                                        setNewListName(list.name);
-                                        setIsRenameDialogOpen(true);
-                                    }}
-                                    onDelete={() => {
-                                        setSelectedListId(list.id);
-                                        setIsDeleteDialogOpen(true);
-                                    }}
-                                    onRemoveItem={(itemId) => removeItem(list.id, itemId)}
-                                    onRemoveArea={(areaId) => removeDrawnArea(list.id, areaId)}
-                                    onUpdateVisitPlan={(plan) => updateVisitPlan(list.id, plan)}
-                                    onExportCSV={() => exportListAsCSV(list)}
-                                    onExportPDF={() => exportListAsPDF(list)}
-                                    onDragStart={(index) => handleDragStart(list.id, index)}
-                                    onDragOver={(e, index) => handleDragOver(e, list.id, index)}
-                                    onDrop={(index) => handleDrop(list.id, index)}
-                                    onDragEnd={handleDragEnd}
-                                    isDragging={draggedItem?.listId === list.id}
-                                    draggedIndex={draggedItem?.listId === list.id ? draggedItem.index : null}
-                                />
-                            ))
-                        )}
+            {/* Header - only show on desktop (mobile uses BottomSheet title) */}
+            {!isMobile && (
+                <div className="p-4 flex items-center justify-between border-b border-white/10">
+                    <span className="text-sm font-bold text-zinc-900">Lists</span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setIsCreateDialogOpen(true)}
+                            className="w-7 h-7 rounded-md border border-zinc-300 text-zinc-500 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+                            title="Create new list"
+                        >
+                            <Plus className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={close}
+                            className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
                     </div>
                 </div>
+            )}
+
+            {/* Mobile header actions */}
+            {isMobile && (
+                <div className="p-4 flex items-center justify-end gap-2 border-b border-zinc-100">
+                    <button
+                        onClick={() => setIsCreateDialogOpen(true)}
+                        className="w-9 h-9 rounded-lg border border-zinc-300 text-zinc-500 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+                        title="Create new list"
+                    >
+                        <Plus className="w-5 h-5" />
+                    </button>
+                </div>
+            )}
+
+            {/* Lists - scrollable */}
+            <div className={cn("overflow-y-auto", isMobile ? "flex-1" : "max-h-[400px]")}>
+                {!isLoaded ? (
+                    <div className="p-4 text-center text-zinc-500 text-sm">Loading...</div>
+                ) : lists.length === 0 ? (
+                    <div className="p-6 text-center">
+                        <FolderOpen className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+                        <p className="text-sm text-zinc-500">No lists yet</p>
+                        <p className="text-xs text-zinc-400 mt-1">Create one to start saving places</p>
+                    </div>
+                ) : (
+                    lists.map(list => (
+                        <ListSection
+                            key={list.id}
+                            list={list}
+                            isExpanded={expandedLists.has(list.id)}
+                            isVisitPlanExpanded={expandedVisitPlans.has(list.id)}
+                            onToggleExpanded={() => toggleListExpanded(list.id)}
+                            onCreateTrip={() => handleCreateTripFromList(list)}
+                            onItemClick={handleItemClick}
+                            onRename={() => {
+                                setSelectedListId(list.id);
+                                setNewListName(list.name);
+                                setIsRenameDialogOpen(true);
+                            }}
+                            onDelete={() => {
+                                setSelectedListId(list.id);
+                                setIsDeleteDialogOpen(true);
+                            }}
+                            onRemoveItem={(itemId) => removeItem(list.id, itemId)}
+                            onRemoveArea={(areaId) => removeDrawnArea(list.id, areaId)}
+                            onUpdateVisitPlan={(plan) => updateVisitPlan(list.id, plan)}
+                            onExportCSV={() => exportListAsCSV(list)}
+                            onExportPDF={() => exportListAsPDF(list)}
+                            onDragStart={(index) => handleDragStart(list.id, index)}
+                            onDragOver={(e, index) => handleDragOver(e, list.id, index)}
+                            onDrop={(index) => handleDrop(list.id, index)}
+                            onDragEnd={handleDragEnd}
+                            isDragging={draggedItem?.listId === list.id}
+                            draggedIndex={draggedItem?.listId === list.id ? draggedItem.index : null}
+                        />
+                    ))
+                )}
             </div>
+        </>
+    );
+
+    return (
+        <>
+            <MobilePanel
+                isOpen={isExpanded}
+                onClose={close}
+                desktopPosition={{ top: "80px", right: "24px" }}
+                title="Lists"
+                collapsedButton={collapsedButton}
+                snapPoint="partial"
+            >
+                {panelContent}
+            </MobilePanel>
 
             {/* Create List Dialog */}
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -496,6 +583,59 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
                         <Button variant="destructive" onClick={handleDeleteList}>Delete</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Property Picker Dialog - for selecting main property when creating trip from list */}
+            <Dialog open={isPropertyPickerOpen} onOpenChange={(open) => {
+                setIsPropertyPickerOpen(open);
+                if (!open) setSelectedListForTrip(null);
+            }}>
+                <DialogContent className="sm:max-w-md max-h-[70vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Select Property to Scout</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-zinc-600 mb-4">
+                        Which location is the main property you're scouting? Other places will be saved as related context.
+                    </p>
+                    <div className="flex-1 overflow-y-auto space-y-2">
+                        {selectedListForTrip?.items.map((item) => (
+                            <button
+                                key={item.placeId}
+                                onClick={() => handlePropertySelected(item, null)}
+                                className="w-full flex items-start gap-3 p-3 rounded-lg border border-zinc-200 hover:border-amber-400 hover:bg-amber-50 transition-colors text-left"
+                            >
+                                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Route className="w-4 h-4 text-amber-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-zinc-900 truncate">{item.placeName}</p>
+                                    <p className="text-xs text-zinc-500 truncate">{item.placeAddress}</p>
+                                </div>
+                            </button>
+                        ))}
+                        {selectedListForTrip?.drawnAreas?.map((area) => (
+                            <button
+                                key={area.areaId}
+                                onClick={() => handlePropertySelected(null, area)}
+                                className="w-full flex items-start gap-3 p-3 rounded-lg border border-zinc-200 hover:border-amber-400 hover:bg-amber-50 transition-colors text-left"
+                            >
+                                <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Route className="w-4 h-4 text-zinc-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-zinc-900 truncate">{area.areaName}</p>
+                                    <p className="text-xs text-zinc-500">Custom area</p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                    <DialogFooter className="mt-4">
+                        <Button variant="outline" onClick={() => {
+                            setIsPropertyPickerOpen(false);
+                            setSelectedListForTrip(null);
+                        }}>Cancel</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

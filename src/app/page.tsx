@@ -9,6 +9,7 @@ import { ScoutingPanel } from "@/components/ScoutingPanel";
 import { ScoutingTripForm } from "@/components/ScoutingTripForm";
 import { ScoutingTripUpload } from "@/components/ScoutingTripUpload";
 import { ScoutingTripDetail } from "@/components/ScoutingTripDetail";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { EnhancedMapContainer } from "@/components/EnhancedMapContainer";
 import { LandingPage } from "@/components/LandingPage";
 import { useMapData } from "@/hooks/useMapData";
@@ -18,6 +19,7 @@ import { GeoDataProvider } from "@/contexts/GeoDataContext";
 import { LinkingProvider, useLinking } from "@/contexts/LinkingContext";
 import { ScoutingTripsProvider } from "@/contexts/ScoutingTripsContext";
 import { PointCategoriesProvider } from "@/contexts/PointCategoriesContext";
+import { SheetProvider } from "@/contexts/SheetContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
 import type { ScoutingTrip, LinkedItem } from "@/types/scouting";
 
@@ -111,6 +113,22 @@ function HomeContent() {
     };
   }, [activeFilters]);
 
+  // Listen for create-trip-from-property events from CreateTripButton
+  useEffect(() => {
+    const handleCreateTripFromProperty = (e: CustomEvent) => {
+      const { trip } = e.detail;
+      if (trip) {
+        setSelectedTrip(trip);
+        setIsScoutingFormOpen(true);
+      }
+    };
+
+    window.addEventListener('create-trip-from-property', handleCreateTripFromProperty as EventListener);
+    return () => {
+      window.removeEventListener('create-trip-from-property', handleCreateTripFromProperty as EventListener);
+    };
+  }, []);
+
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-zinc-100">
       {/* Linking mode banner */}
@@ -163,7 +181,13 @@ function HomeContent() {
             onShowHiddenPoisToggle={setShowHiddenPois}
           />
           <ActivityLog />
-          <ListsPanel />
+          <ListsPanel
+            cityId={selectedCity.id}
+            onCreateTripFromList={(trip) => {
+              setSelectedTrip(trip);
+              setIsScoutingFormOpen(true);
+            }}
+          />
           <ScoutingPanel
             cityId={selectedCity.id}
             onCreateNew={() => setIsScoutingFormOpen(true)}
@@ -173,6 +197,7 @@ function HomeContent() {
               setIsScoutingDetailOpen(true);
             }}
           />
+          <MobileBottomNav />
         </>
       )}
 
@@ -239,7 +264,9 @@ export default function Home() {
           <HiddenPoisProvider>
             <ScoutingTripsProvider>
               <LinkingProvider>
-                <HomeContent />
+                <SheetProvider>
+                  <HomeContent />
+                </SheetProvider>
               </LinkingProvider>
             </ScoutingTripsProvider>
           </HiddenPoisProvider>

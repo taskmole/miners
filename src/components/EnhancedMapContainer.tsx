@@ -22,6 +22,7 @@ import { ToastProvider, useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
 import { AddToListButton } from "@/components/AddToListButton";
+import { CreateTripButton } from "@/components/CreateTripButton";
 import { HideButton } from "@/components/HideButton";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import type { PlaceInfo } from "@/types/lists";
@@ -32,6 +33,9 @@ import { useAttachments } from "@/hooks/useAttachments";
 import { AttachmentGallery } from "@/components/attachments";
 import { PopupCommentsSection } from "@/components/PopupCommentsSection";
 import { DisambiguationPopup } from "@/components/DisambiguationPopup";
+import { useMobile } from "@/hooks/useMobile";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { useSheetState } from "@/contexts/SheetContext";
 import {
     Coffee,
     Building2,
@@ -967,7 +971,7 @@ function capitalizeFirst(str: string): string {
 }
 
 // Property popup content - Uses universal popup base - memoized
-const PropertyPopupContent = React.memo(function PropertyPopupContent({ property }: { property: PropertyData }) {
+const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId }: { property: PropertyData; cityId: string }) {
     const mapsUrl = `https://www.google.com/maps?q=${property.latitude},${property.longitude}`;
     const placeId = `property-${property.latitude.toFixed(5)}-${property.longitude.toFixed(5)}`;
 
@@ -1043,14 +1047,26 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                         <img src="/assets/google-maps-logo-bare.png" alt="Maps" style={{ width: 19, height: 19, objectFit: 'contain' }} />
                     </a>
                 </div>
-                <AddToListButton place={{
-                    placeId: `property-${property.latitude}-${property.longitude}`,
-                    placeType: 'property',
-                    placeName: property.title,
-                    placeAddress: property.address,
-                    lat: property.latitude,
-                    lon: property.longitude,
-                }} />
+                <div className="flex gap-1.5">
+                    <CreateTripButton
+                        property={{
+                            id: `property-${property.latitude}-${property.longitude}`,
+                            name: property.title,
+                            address: property.address,
+                            type: 'place',
+                            data: property,
+                        }}
+                        cityId={cityId}
+                    />
+                    <AddToListButton place={{
+                        placeId: `property-${property.latitude}-${property.longitude}`,
+                        placeType: 'property',
+                        placeName: property.title,
+                        placeAddress: property.address,
+                        lat: property.latitude,
+                        lon: property.longitude,
+                    }} />
+                </div>
             </div>
         </div>
     );
@@ -1660,6 +1676,10 @@ export function EnhancedMapContainer({
         coordinates: [number, number];
     } | null>(null);
 
+    // Mobile detection for bottom sheet POI display
+    const isMobile = useMobile();
+    const { openSheet: openPOISheet, closeSheet: closePOISheet, isSheetOpen: isPOISheetOpen } = useSheetState("poi-details");
+
     // State for disambiguation popup (when multiple POIs share same coordinates)
     const [disambiguationData, setDisambiguationData] = useState<{
         pois: LocationData[];
@@ -2084,7 +2104,7 @@ export function EnhancedMapContainer({
                 )}
 
                 {/* Cafe Popup - shown when a cafe point is clicked */}
-                {selectedCafe && (
+                {selectedCafe && !isMobile && (
                     <MapPopup
                         longitude={selectedCafe.coordinates[0]}
                         latitude={selectedCafe.coordinates[1]}
@@ -2095,6 +2115,20 @@ export function EnhancedMapContainer({
                     >
                         <CafePopupContent cafe={selectedCafe.cafe} />
                     </MapPopup>
+                )}
+
+                {/* Mobile: Cafe bottom sheet */}
+                {selectedCafe && isMobile && (
+                    <BottomSheet
+                        isOpen={true}
+                        onClose={() => setSelectedCafe(null)}
+                        title={selectedCafe.cafe.name || "Cafe"}
+                        snapPoint="partial"
+                    >
+                        <div className="p-4">
+                            <CafePopupContent cafe={selectedCafe.cafe} />
+                        </div>
+                    </BottomSheet>
                 )}
 
                 {/* PROPERTIES - Conditional rendering based on zoom */}
@@ -2140,7 +2174,7 @@ export function EnhancedMapContainer({
                                     </MarkerContent>
                                     {!isLinkingMode && !hasMultiplePois && (
                                         <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
-                                            <PropertyPopupContent property={property} />
+                                            <PropertyPopupContent property={property} cityId={selectedCity?.id || ''} />
                                         </MarkerPopup>
                                     )}
                                 </MapMarker>
@@ -2178,7 +2212,7 @@ export function EnhancedMapContainer({
                 )}
 
                 {/* Property Popup */}
-                {selectedProperty && (
+                {selectedProperty && !isMobile && (
                     <MapPopup
                         longitude={selectedProperty.coordinates[0]}
                         latitude={selectedProperty.coordinates[1]}
@@ -2187,8 +2221,22 @@ export function EnhancedMapContainer({
                         anchor="top"
                         className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
                     >
-                        <PropertyPopupContent property={selectedProperty.property} />
+                        <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} />
                     </MapPopup>
+                )}
+
+                {/* Mobile: Property bottom sheet */}
+                {selectedProperty && isMobile && (
+                    <BottomSheet
+                        isOpen={true}
+                        onClose={() => setSelectedProperty(null)}
+                        title={selectedProperty.property.title || "Property"}
+                        snapPoint="partial"
+                    >
+                        <div className="p-4">
+                            <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} />
+                        </div>
+                    </BottomSheet>
                 )}
 
                 {/* OTHER POIs - Conditional rendering based on zoom */}
@@ -2286,7 +2334,7 @@ export function EnhancedMapContainer({
                 )}
 
                 {/* Other POI Popup */}
-                {selectedPoi && (
+                {selectedPoi && !isMobile && (
                     <MapPopup
                         longitude={selectedPoi.coordinates[0]}
                         latitude={selectedPoi.coordinates[1]}
@@ -2297,6 +2345,20 @@ export function EnhancedMapContainer({
                     >
                         <OtherPoiPopupContent poi={selectedPoi.poi} />
                     </MapPopup>
+                )}
+
+                {/* Mobile: Other POI bottom sheet */}
+                {selectedPoi && isMobile && (
+                    <BottomSheet
+                        isOpen={true}
+                        onClose={() => setSelectedPoi(null)}
+                        title={selectedPoi.poi.name || "Location"}
+                        snapPoint="partial"
+                    >
+                        <div className="p-4">
+                            <OtherPoiPopupContent poi={selectedPoi.poi} />
+                        </div>
+                    </BottomSheet>
                 )}
 
             </Map>
