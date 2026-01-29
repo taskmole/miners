@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Coffee,
     Train,
@@ -16,9 +16,12 @@ import {
     X,
 } from "lucide-react";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
+import { useSheetState } from "@/contexts/SheetContext";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { MobilePanel } from "@/components/ui/mobile-panel";
+import { useMobile } from "@/hooks/useMobile";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -103,13 +106,13 @@ export function Sidebar({
 }: SidebarProps) {
     // Get hidden POIs count from context
     const { hiddenCount } = useHiddenPoisContext();
-    // Panel open/closed state
-    const [isOpen, setIsOpen] = React.useState(false);
+    // Use SheetContext for coordinated open/close
+    const { isOpen, open, close } = useSheetState("filters");
+    const isMobile = useMobile();
     // Which main sections are expanded (places, traffic)
     const [expandedSections, setExpandedSections] = React.useState<Set<string>>(new Set());
     // Which place categories are expanded (for cafe subcategories)
     const [expandedCategories, setExpandedCategories] = React.useState<Set<string>>(new Set(["cafe"]));
-    const panelRef = useRef<HTMLDivElement>(null);
 
     // Local state for debounced sliders
     const [localRating, setLocalRating] = useState(ratingFilter);
@@ -174,16 +177,7 @@ export function Sidebar({
         return () => clearTimeout(timer);
     }, [localDensityFilter, populationDensityFilter, onPopulationDensityFilterChange]);
 
-    // Click outside to close
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    // Click outside handling is now done by MobilePanel
 
     // Toggle a main section (places, traffic)
     const toggleSection = (section: string) => {
@@ -263,38 +257,41 @@ export function Sidebar({
     const isPopulationExpanded = expandedSections.has('population');
     const isIncomeExpanded = expandedSections.has('income');
 
-    // Render filter icon button (closed state)
-    // Uses z-40 to match other collapsed icon buttons
-    if (!isOpen) {
-        return (
-            <div ref={panelRef} className="fixed top-6 right-6 z-40">
-                <button
-                    onClick={() => setIsOpen(true)}
-                    className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200"
-                    title="Open filters"
-                >
-                    <Funnel className="w-5 h-5 text-zinc-500" />
-                </button>
-            </div>
-        );
-    }
+    // Collapsed button for desktop
+    const collapsedButton = (
+        <button
+            onClick={open}
+            className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200"
+            title="Open filters"
+        >
+            <Funnel className="w-5 h-5 text-zinc-500" />
+        </button>
+    );
 
-    // Render accordion panel
-    // Uses z-[60] to ensure it appears above all collapsed icon buttons (z-40) and other expanded panels (z-50)
+    // Render using MobilePanel
     return (
-        <div ref={panelRef} className="fixed top-6 right-6 z-[60]">
-            <ScrollArea className="max-h-[calc(100vh-48px)]">
-                <div className="glass rounded-2xl overflow-hidden border border-white/40 w-80 max-w-[80vw] animate-in fade-in slide-in-from-top-2 duration-200">
-                    {/* Header with close button */}
+        <MobilePanel
+            isOpen={isOpen}
+            onClose={close}
+            desktopPosition={{ top: "24px", right: "24px" }}
+            title="Filters"
+            collapsedButton={collapsedButton}
+            zIndex={60}
+            snapPoint="full"
+        >
+            <ScrollArea className={cn("overflow-y-auto", isMobile ? "h-full" : "max-h-[calc(100vh-48px)]")}>
+                {/* Header - only on desktop */}
+                {!isMobile && (
                     <div className="p-4 flex items-center justify-between border-b border-white/10">
                         <span className="text-sm font-bold text-zinc-900">Filters</span>
                         <button
-                            onClick={() => setIsOpen(false)}
+                            onClick={close}
                             className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
                         >
                             <X className="w-4 h-4" />
                         </button>
                     </div>
+                )}
 
                     {/* ===== PLACES SECTION ===== */}
                     <div className="border-b border-white/10">
@@ -726,8 +723,7 @@ export function Sidebar({
                             </div>
                         </div>
                     </div>
-                </div>
             </ScrollArea>
-        </div>
+        </MobilePanel>
     );
 }
