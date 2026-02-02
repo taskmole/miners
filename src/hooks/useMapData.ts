@@ -203,10 +203,10 @@ export function useMapData() {
                             district: p.district || "",
                             hasAirConditioning: p["features/hasAirConditioning"] === "TRUE",
                             url: p.url || "",
-                            title: p["suggestedTexts/title"] || "Property",
+                            title: p.title || p["suggestedTexts/title"] || "Property",
                             // Optional enhanced fields
                             transfer: p.transfer ? parseInt(p.transfer) : undefined,
-                            hasBathroom: p["features/hasBathroom"] === "TRUE" || p.hasBathroom === "TRUE",
+                            hasBathroom: p["features/hasBathroom"] === "TRUE" || p.hasBathroom === "TRUE" || (p.bathrooms && parseInt(p.bathrooms) > 0),
                             hasStorefront: p["features/hasStorefront"] === "TRUE" || p.hasStorefront === "TRUE",
                         }));
 
