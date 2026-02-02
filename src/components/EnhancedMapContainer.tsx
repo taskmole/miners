@@ -1905,7 +1905,7 @@ export function EnhancedMapContainer({
                     onShapeUpdated={shapeCreatedCallback ?? undefined}
                 >
                     <DrawToolbar />
-                    <ShapeComments />
+                    <ShapeComments cityId={selectedCity?.id} />
                     <ShapeHoverTooltip />
                     <DrawingIndicator />
                 </MapDraw>

@@ -6,6 +6,7 @@ import { MapPopup } from '@/components/ui/map';
 import { useMapDraw } from '@/hooks/useMapDraw';
 import { Pencil, X, Trash2, Users, Scan, Link, ExternalLink, Paperclip, ChevronDown, MessageSquare, Banknote, ListPlus, FolderOpen, Plus, Check, ChevronsUpDown, MapPin } from 'lucide-react';
 import { AddToListButton } from '@/components/AddToListButton';
+import { CreateTripButton } from '@/components/CreateTripButton';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -281,8 +282,13 @@ function TagInput({
   );
 }
 
+// Props interface
+interface ShapeCommentsProps {
+  cityId?: string;
+}
+
 // Main component - renders popup for selected shape
-export function ShapeComments() {
+export function ShapeComments({ cityId }: ShapeCommentsProps) {
   const { features, selectedFeatureIds, deleteFeatureById, clearSelection } = useMapDraw();
   const { showToast } = useToast();
   const { isLinking, addItem: addLinkingItem } = useLinking();
@@ -1252,8 +1258,24 @@ export function ShapeComments() {
             )}
           </div>
 
-          {/* Add to list button - bottom right */}
-          <div className="border-t border-zinc-100 flex justify-end" style={{ padding: '12px 20px' }}>
+          {/* Action buttons - bottom right */}
+          <div className="border-t border-zinc-100 flex justify-end gap-1.5" style={{ padding: '12px 20px' }}>
+            {/* Only show Create Trip button for points with "Places for Rent" category */}
+            {cityId && !isPolygon && metadata.categoryId === 'cat-places-for-rent' && (
+              <CreateTripButton
+                property={{
+                  id: `shape-${selectedId}`,
+                  name: metadata.name || placeholderName,
+                  address: metadata.address,
+                  type: 'place',
+                  data: {
+                    geometry: selectedFeature.geometry,
+                    metadata,
+                  },
+                }}
+                cityId={cityId}
+              />
+            )}
             <AddToListButton
               shape={{
                 shapeId: selectedId,
