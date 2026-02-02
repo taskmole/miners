@@ -81,11 +81,9 @@ function TripCard({
             </span>
           </div>
 
-          {/* Address or linked items */}
+          {/* Address or property name */}
           <div className="text-xs text-zinc-500 truncate mt-0.5">
-            {trip.address || (trip.linkedItems.length > 0
-              ? `${trip.linkedItems.length} linked location${trip.linkedItems.length > 1 ? 's' : ''}`
-              : 'No location')}
+            {trip.address || trip.property?.name || 'No location'}
           </div>
 
           {/* Meta info */}

@@ -586,7 +586,7 @@ export function ScoutingTripForm({
           )}
 
           {/* Checklist Section */}
-          <FormSection title="Checklist" icon={ClipboardCheck} defaultExpanded={true}>
+          <FormSection title="Checklist" icon={ClipboardCheck} defaultExpanded={false}>
             <TripChecklist
               items={checklist}
               onChange={setChecklist}
@@ -594,7 +594,7 @@ export function ScoutingTripForm({
           </FormSection>
 
           {/* Attachments Section */}
-          <FormSection title="Attachments" icon={Paperclip} defaultExpanded={true}>
+          <FormSection title="Attachments" icon={Paperclip} defaultExpanded={false}>
             <AttachmentGallery
               attachments={attachments}
               onUpload={handleAddAttachment}
@@ -603,7 +603,7 @@ export function ScoutingTripForm({
           </FormSection>
 
           {/* Location Section */}
-          <FormSection title="Location" icon={MapPin}>
+          <FormSection title="Location" icon={MapPin} defaultExpanded={false}>
             <FormField label="Address" required error={showErrors && errors.address}>
               <Input
                 value={address}

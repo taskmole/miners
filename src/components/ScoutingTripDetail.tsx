@@ -485,7 +485,7 @@ export function ScoutingTripDetail({
 
           {/* Checklist */}
           {trip.checklist && trip.checklist.length > 0 && (
-            <DetailSection title="Checklist" icon={ClipboardCheck} defaultExpanded={true}>
+            <DetailSection title="Checklist" icon={ClipboardCheck} defaultExpanded={false}>
               <TripChecklist
                 items={trip.checklist}
                 onChange={() => {}}

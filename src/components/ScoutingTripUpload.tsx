@@ -169,7 +169,7 @@ export function ScoutingTripUpload({
 
     // Update with additional data
     updateTrip(newTrip.id, {
-      linkedItems,
+      relatedPlaces: linkedItems,
       address: address.trim() || undefined,
       neighbourhoodProfile: notes.trim() || undefined,
       status: 'submitted',
