@@ -206,6 +206,7 @@ export function ScoutingTripForm({
   const [monthlyRent, setMonthlyRent] = useState<string>(existingTrip?.monthlyRent?.toString() || '');
   const [serviceFees, setServiceFees] = useState<string>(existingTrip?.serviceFees?.toString() || '');
   const [deposit, setDeposit] = useState<string>(existingTrip?.deposit?.toString() || '');
+  const [transferFee, setTransferFee] = useState<string>(existingTrip?.transferFee?.toString() || '');
   const [fitoutCost, setFitoutCost] = useState<string>(existingTrip?.fitoutCost?.toString() || '');
   const [openingInvestment, setOpeningInvestment] = useState<string>(existingTrip?.openingInvestment?.toString() || '');
   const [expectedDailyRevenue, setExpectedDailyRevenue] = useState<string>(existingTrip?.expectedDailyRevenue?.toString() || '');
@@ -237,6 +238,7 @@ export function ScoutingTripForm({
   const isValid = !hasErrors;
 
   // Reset form when trip changes
+  // Pre-populates from Idealista property data when available
   useEffect(() => {
     if (existingTrip) {
       setTripId(existingTrip.id);
@@ -245,21 +247,32 @@ export function ScoutingTripForm({
       setRelatedPlaces(existingTrip.relatedPlaces || []);
       setChecklist(existingTrip.checklist || createDefaultChecklist());
       setAttachments(existingTrip.attachments || []);
-      setAddress(existingTrip.address || '');
-      setAreaSqm(existingTrip.areaSqm?.toString() || '');
+
+      // Check if this is an Idealista property with data we can pre-populate
+      const propertyData = existingTrip.property?.data;
+      const isIdealistaProperty = propertyData && propertyData.type === 'property';
+
+      // Location fields - use existing values or pre-populate from property
+      setAddress(existingTrip.address || existingTrip.property?.address || '');
+      setAreaSqm(existingTrip.areaSqm?.toString() || (isIdealistaProperty && propertyData.size ? propertyData.size.toString() : ''));
       setStorageSqm(existingTrip.storageSqm?.toString() || '');
       setPropertyType(existingTrip.propertyType);
       setFootfallEstimate(existingTrip.footfallEstimate?.toString() || '');
-      setNeighbourhoodProfile(existingTrip.neighbourhoodProfile || '');
+      setNeighbourhoodProfile(existingTrip.neighbourhoodProfile || (isIdealistaProperty && propertyData.district ? propertyData.district : ''));
       setNearbyCompetitors(existingTrip.nearbyCompetitors || '');
-      setMonthlyRent(existingTrip.monthlyRent?.toString() || '');
+
+      // Financial fields - use existing values or pre-populate from property
+      setMonthlyRent(existingTrip.monthlyRent?.toString() || (isIdealistaProperty && propertyData.price ? propertyData.price.toString() : ''));
       setServiceFees(existingTrip.serviceFees?.toString() || '');
-      setDeposit(existingTrip.deposit?.toString() || '');
+      setDeposit(existingTrip.deposit?.toString() || (isIdealistaProperty && propertyData.price ? (propertyData.price * 2).toString() : ''));
+      setTransferFee(existingTrip.transferFee?.toString() || (isIdealistaProperty && propertyData.transfer ? propertyData.transfer.toString() : ''));
       setFitoutCost(existingTrip.fitoutCost?.toString() || '');
       setOpeningInvestment(existingTrip.openingInvestment?.toString() || '');
       setExpectedDailyRevenue(existingTrip.expectedDailyRevenue?.toString() || '');
       setMonthlyRevenueRange(existingTrip.monthlyRevenueRange || '');
       setPaybackMonths(existingTrip.paybackMonths?.toString() || '');
+
+      // Operational fields
       setVentilation(existingTrip.ventilation);
       setWaterWaste(existingTrip.waterWaste);
       setPowerCapacity(existingTrip.powerCapacity);
@@ -286,6 +299,7 @@ export function ScoutingTripForm({
       setMonthlyRent('');
       setServiceFees('');
       setDeposit('');
+      setTransferFee('');
       setFitoutCost('');
       setOpeningInvestment('');
       setExpectedDailyRevenue('');
@@ -307,6 +321,7 @@ export function ScoutingTripForm({
 
   // Merge pending linked items from map selection
   // First item becomes property (if no property set), rest become related places
+  // Also pre-populates form fields from Idealista property data
   useEffect(() => {
     if (pendingLinkedItems.length > 0) {
       // If no property is set, use first pending item as property
@@ -320,6 +335,32 @@ export function ScoutingTripForm({
         if (!name && firstItem.name) {
           setName(firstItem.name);
         }
+
+        // Pre-populate fields from Idealista property data if available
+        const propertyData = firstItem.data;
+        if (propertyData && propertyData.type === 'property') {
+          // Location: Area from size
+          if (!areaSqm && propertyData.size) {
+            setAreaSqm(propertyData.size.toString());
+          }
+          // Location: Neighbourhood from district
+          if (!neighbourhoodProfile && propertyData.district) {
+            setNeighbourhoodProfile(propertyData.district);
+          }
+          // Financial: Monthly rent from price
+          if (!monthlyRent && propertyData.price) {
+            setMonthlyRent(propertyData.price.toString());
+          }
+          // Financial: Deposit estimate (2x monthly rent)
+          if (!deposit && propertyData.price) {
+            setDeposit((propertyData.price * 2).toString());
+          }
+          // Financial: Transfer fee (traspaso) if available
+          if (!transferFee && propertyData.transfer) {
+            setTransferFee(propertyData.transfer.toString());
+          }
+        }
+
         // Add remaining items as related places
         if (pendingLinkedItems.length > 1) {
           const remaining = pendingLinkedItems.slice(1);
@@ -340,7 +381,7 @@ export function ScoutingTripForm({
         });
       }
     }
-  }, [pendingLinkedItems, property, address, name]);
+  }, [pendingLinkedItems, property, address, name, areaSqm, neighbourhoodProfile, monthlyRent, deposit, transferFee]);
 
   // Build the trip data from form state
   const buildTripData = (): Partial<ScoutingTrip> => ({
@@ -359,6 +400,7 @@ export function ScoutingTripForm({
     monthlyRent: monthlyRent ? parseFloat(monthlyRent) : undefined,
     serviceFees: serviceFees ? parseFloat(serviceFees) : undefined,
     deposit: deposit ? parseFloat(deposit) : undefined,
+    transferFee: transferFee ? parseFloat(transferFee) : undefined,
     fitoutCost: fitoutCost ? parseFloat(fitoutCost) : undefined,
     openingInvestment: openingInvestment ? parseFloat(openingInvestment) : undefined,
     expectedDailyRevenue: expectedDailyRevenue ? parseFloat(expectedDailyRevenue) : undefined,
@@ -661,15 +703,24 @@ export function ScoutingTripForm({
                   placeholder="e.g., 5000"
                 />
               </FormField>
-              <FormField label="Fit-out Cost (€)">
+              <FormField label="Transfer Fee (€)">
                 <Input
                   type="number"
-                  value={fitoutCost}
-                  onChange={(e) => setFitoutCost(e.target.value)}
-                  placeholder="e.g., 40000"
+                  value={transferFee}
+                  onChange={(e) => setTransferFee(e.target.value)}
+                  placeholder="License transfer (traspaso)"
                 />
               </FormField>
             </div>
+
+            <FormField label="Fit-out Cost (€)">
+              <Input
+                type="number"
+                value={fitoutCost}
+                onChange={(e) => setFitoutCost(e.target.value)}
+                placeholder="e.g., 40000"
+              />
+            </FormField>
 
             <FormField label="Opening Investment Total (€)">
               <Input

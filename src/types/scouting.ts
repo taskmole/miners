@@ -111,6 +111,7 @@ export interface ScoutingTrip {
   monthlyRent?: number;
   serviceFees?: number;
   deposit?: number;
+  transferFee?: number; // One-time license transfer cost (traspaso)
   fitoutCost?: number;
   openingInvestment?: number;
   expectedDailyRevenue?: number;
