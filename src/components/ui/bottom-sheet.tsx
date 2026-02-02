@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMobileDevice } from "@/hooks/useMobile";
 
@@ -174,6 +175,15 @@ export function BottomSheet({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
+        {/* Close button - always visible, top-right */}
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-3 z-50 w-10 h-10 flex items-center justify-center rounded-full text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+          aria-label="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-2">
           <div className="w-10 h-1 bg-zinc-300 rounded-full" />
@@ -181,7 +191,7 @@ export function BottomSheet({
 
         {/* Title bar (optional) */}
         {title && (
-          <div className="px-4 pb-3 border-b border-zinc-100">
+          <div className="px-4 pb-3 pr-16 border-b border-zinc-100">
             <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
           </div>
         )}

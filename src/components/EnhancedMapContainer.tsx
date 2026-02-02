@@ -2026,6 +2026,8 @@ export function EnhancedMapContainer({
                                                 pois: colocated,
                                                 coordinates: [cafe.lon, cafe.lat]
                                             });
+                                        } else if (isMobile) {
+                                            setSelectedCafe({ cafe, coordinates: [cafe.lon, cafe.lat] });
                                         } else {
                                             setActiveMarkerKey(markerKey);
                                         }
@@ -2040,7 +2042,7 @@ export function EnhancedMapContainer({
                                             poiCount={colocated.length}
                                         />
                                     </MarkerContent>
-                                    {!isLinkingMode && !hasMultiplePois && (
+                                    {!isLinkingMode && !hasMultiplePois && !isMobile && (
                                         <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
                                             <CafePopupContent cafe={cafe} />
                                         </MarkerPopup>
@@ -2164,6 +2166,8 @@ export function EnhancedMapContainer({
                                                 pois: colocated,
                                                 coordinates: [property.longitude, property.latitude]
                                             });
+                                        } else if (isMobile) {
+                                            setSelectedProperty({ property, coordinates: [property.longitude, property.latitude] });
                                         } else {
                                             setActiveMarkerKey(markerKey);
                                         }
@@ -2172,7 +2176,7 @@ export function EnhancedMapContainer({
                                     <MarkerContent>
                                         <IconMarker color="bg-[#78C500]" icon={Home} isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
                                     </MarkerContent>
-                                    {!isLinkingMode && !hasMultiplePois && (
+                                    {!isLinkingMode && !hasMultiplePois && !isMobile && (
                                         <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
                                             <PropertyPopupContent property={property} cityId={selectedCity?.id || ''} />
                                         </MarkerPopup>
@@ -2283,6 +2287,8 @@ export function EnhancedMapContainer({
                                                 pois: colocated,
                                                 coordinates: [poi.lon, poi.lat]
                                             });
+                                        } else if (isMobile) {
+                                            setSelectedPoi({ poi, coordinates: [poi.lon, poi.lat] });
                                         } else {
                                             setActiveMarkerKey(markerKey);
                                         }
@@ -2291,7 +2297,7 @@ export function EnhancedMapContainer({
                                     <MarkerContent>
                                         <IconMarker color={bgColorMap[poi.type] || "bg-gray-500"} icon={Icon} isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
                                     </MarkerContent>
-                                    {!isLinkingMode && !hasMultiplePois && (
+                                    {!isLinkingMode && !hasMultiplePois && !isMobile && (
                                         <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
                                             <OtherPoiPopupContent poi={poi} />
                                         </MarkerPopup>
