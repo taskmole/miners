@@ -30,6 +30,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { useMobile } from "@/hooks/useMobile";
 import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { usePoiComments } from "@/hooks/usePoiComments";
 import { ToastProvider, useToast } from "@/contexts/ToastContext";
@@ -240,7 +242,8 @@ export function ScoutingTripDetail({
   onClose,
   onEdit,
 }: ScoutingTripDetailProps) {
-  const { getTrips, deleteTrip } = useScoutingTrips();
+  const isMobile = useMobile();
+  const { getTrips, deleteTrip, updateChecklist } = useScoutingTrips();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const trips = getTrips();
   const trip = trips.find((t) => t.id === tripId);
@@ -355,17 +358,21 @@ export function ScoutingTripDetail({
     <ToastProvider>
       {/* Main detail modal - hidden when delete confirmation is shown */}
       {!showDeleteConfirm && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div className={`fixed inset-0 z-[100] flex ${isMobile ? 'items-end' : 'items-center justify-center'}`}>
         {/* Backdrop */}
         <div
           className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           onClick={onClose}
         />
 
-        {/* Modal */}
-        <div className="relative w-full max-w-lg mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        {/* Modal - full height from bottom on mobile, centered on desktop */}
+        <div className={`relative w-full bg-white shadow-2xl overflow-hidden flex flex-col ${
+          isMobile
+            ? 'max-h-[90vh] rounded-t-2xl'
+            : 'max-w-lg mx-4 rounded-2xl max-h-[90vh]'
+        }`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 bg-white">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 bg-white" style={isMobile ? { paddingTop: "calc(16px + env(safe-area-inset-top, 0px))" } : undefined}>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-lg font-bold text-zinc-900 truncate">
@@ -488,8 +495,7 @@ export function ScoutingTripDetail({
             <DetailSection title="Checklist" icon={ClipboardCheck} defaultExpanded={false}>
               <TripChecklist
                 items={trip.checklist}
-                onChange={() => {}}
-                readOnly={true}
+                onChange={(items) => updateChecklist(trip.id, items)}
               />
             </DetailSection>
           )}
