@@ -198,8 +198,8 @@
   background: #F7F7F7;
   overflow: hidden;
 }
-.popup-image.tall { height: 300px; }
-.popup-image.medium { height: 200px; }
+.popup-image.tall { height: min(300px, 40vh); }
+.popup-image.medium { height: min(200px, 30vh); }
 
 .popup-image img {
   width: 100%;
@@ -704,16 +704,26 @@
     box-shadow: none;
   }
 
-  /* Larger touch targets for icon buttons */
+  /* Smaller images on mobile to fit more content */
+  .popup-image.tall {
+    height: min(160px, 22vh);
+  }
+  .popup-image.medium {
+    height: min(120px, 18vh);
+  }
+
+  /* Larger touch targets for icon buttons with unified styling */
   .popup-btn-icon {
     width: 44px;
     height: 44px;
-    margin-right: 12px;
+    margin-right: 8px;
+    background: #f0f0f0;
+    border-radius: 10px;
   }
 
   .popup-btn-icon svg {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
   }
 
   /* Larger text buttons */
@@ -728,32 +738,46 @@
     height: 18px;
   }
 
-  /* Stack footer vertically on mobile */
+  /* Footer: keep as row like desktop, allow wrapping */
   .popup-footer {
-    flex-direction: column;
-    gap: 16px;
-    padding: 16px;
-    align-items: stretch;
-  }
-
-  /* Center icon buttons and allow wrapping */
-  .popup-buttons {
-    gap: 8px;
     flex-wrap: wrap;
-    justify-content: center;
-    width: 100%;
+    gap: 12px;
+    padding: 12px 16px;
   }
 
-  /* Fix icon images - contain instead of cover */
+  /* Icon buttons: left-aligned row */
+  .popup-buttons {
+    gap: 6px;
+  }
+
+  /* Fix icon images - contain instead of cover, unified sizing */
   .popup-btn-icon img {
+    width: 22px;
+    height: 22px;
     object-fit: contain;
-    padding: 6px;
   }
 
-  /* Make "Add to list" button full width on mobile */
-  .popup-footer > button,
-  .popup-footer > div:last-child button {
-    width: 100%;
+  /* Attachment viewer mobile adjustments */
+  .attachment-viewer-close {
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    right: 12px;
+  }
+
+  .attachment-viewer-nav {
+    width: 40px;
+    height: 40px;
+  }
+
+  .attachment-viewer-nav.left {
+    left: 8px;
+  }
+
+  .attachment-viewer-nav.right {
+    right: 8px;
+  }
+
+  .attachment-viewer-download {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
 }
 
