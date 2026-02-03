@@ -55,6 +55,33 @@ export function BottomSheet({
     }
   }, [isOpen]);
 
+  // Body scroll lock when sheet is open
+  useEffect(() => {
+    if (!isMobile) return;
+
+    if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen, isMobile]);
+
+  // Escape key to close
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Handle touch start
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     // Only start drag if touching the drag handle area (top 48px)
@@ -175,17 +202,18 @@ export function BottomSheet({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Close button - always visible, top-right */}
+        {/* Close button - always visible, top-right, with safe area padding */}
         <button
           onClick={onClose}
-          className="absolute top-2 right-3 z-50 w-10 h-10 flex items-center justify-center rounded-full text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+          className="absolute right-3 z-50 w-10 h-10 flex items-center justify-center rounded-full text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+          style={{ top: "calc(8px + env(safe-area-inset-top, 0px))" }}
           aria-label="Close"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-2">
+        {/* Drag handle - with safe area padding */}
+        <div className="flex justify-center pb-2" style={{ paddingTop: "calc(12px + env(safe-area-inset-top, 0px))" }}>
           <div className="w-10 h-1 bg-zinc-300 rounded-full" />
         </div>
 

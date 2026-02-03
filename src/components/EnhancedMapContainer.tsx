@@ -133,6 +133,37 @@ function generatePlaceId(type: string, lat: number, lon: number): string {
     return `${type}-${lat.toFixed(5)}-${lon.toFixed(5)}`;
 }
 
+// Adaptive popup container - renders MapPopup on desktop, BottomSheet on mobile
+interface AdaptivePopupProps {
+    coordinates: [number, number];
+    onClose: () => void;
+    children: React.ReactNode;
+    isMobile: boolean;
+}
+
+function AdaptivePopup({ coordinates, onClose, children, isMobile }: AdaptivePopupProps) {
+    if (isMobile) {
+        return (
+            <BottomSheet isOpen={true} onClose={onClose} snapPoint="partial">
+                <div className="p-4">{children}</div>
+            </BottomSheet>
+        );
+    }
+
+    return (
+        <MapPopup
+            longitude={coordinates[0]}
+            latitude={coordinates[1]}
+            onClose={onClose}
+            closeButton
+            anchor="top"
+            className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
+        >
+            {children}
+        </MapPopup>
+    );
+}
+
 // Helper function to check if a POI's type filter is currently active
 // This matches the visibility logic used in visibleCafes, visibleProperties, visibleOtherPois
 function isPoiFilterActive(poi: LocationData, activeFilters: Set<string>, ratingFilter: number): boolean {
@@ -709,8 +740,8 @@ function isRecentlyAdded(dateStr?: string): boolean {
     return published >= threeMonthsAgo;
 }
 
-// Reusable attachments section for POI popups (collapsible)
-function PopupAttachmentsSection({ placeId }: { placeId: string }) {
+// Reusable attachments section for POI popups (collapsible) - memoized to prevent re-renders
+const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ placeId }: { placeId: string }) {
     const { getPoiAttachments, addPoiAttachment, removePoiAttachment } = useAttachments();
     const { showToast } = useToast();
     const [isExpanded, setIsExpanded] = useState(false);
@@ -759,7 +790,7 @@ function PopupAttachmentsSection({ placeId }: { placeId: string }) {
             )}
         </div>
     );
-}
+});
 
 // EU Coffee Trip Popup - Uses universal popup base classes - memoized to prevent re-renders
 const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe }: { cafe: CafeData }) {
@@ -1047,7 +1078,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                         <img src="/assets/google-maps-logo-bare.png" alt="Maps" style={{ width: 19, height: 19, objectFit: 'contain' }} />
                     </a>
                 </div>
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 flex-shrink-0">
                     <CreateTripButton
                         property={{
                             id: `property-${property.latitude}-${property.longitude}`,
@@ -1961,6 +1992,7 @@ export function EnhancedMapContainer({
                             latitude={cafe.lat}
                             longitude={cafe.lon}
                             onClick={() => {
+                                console.log('[Miners click] isMobile:', isMobile, 'isLinkingMode:', isLinkingMode, 'hasMultiplePois:', hasMultiplePois);
                                 if (isLinkingMode) {
                                     handleLinkingClick({
                                         type: 'place',
@@ -1975,6 +2007,9 @@ export function EnhancedMapContainer({
                                         pois: colocated,
                                         coordinates: [cafe.lon, cafe.lat]
                                     });
+                                } else if (isMobile) {
+                                    console.log('[Miners click] Setting selectedCafe for mobile');
+                                    setSelectedCafe({ cafe, coordinates: [cafe.lon, cafe.lat] });
                                 } else {
                                     setActiveMarkerKey(markerKey);
                                 }
@@ -1983,7 +2018,7 @@ export function EnhancedMapContainer({
                             <MarkerContent>
                                 <IconMarker color="bg-black" icon={Coffee} isMiners isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
                             </MarkerContent>
-                            {!isLinkingMode && !hasMultiplePois && (
+                            {!isLinkingMode && !hasMultiplePois && !isMobile && (
                                 <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
                                     <CafePopupContent cafe={cafe} />
                                 </MarkerPopup>
@@ -2105,34 +2140,6 @@ export function EnhancedMapContainer({
                     </>
                 )}
 
-                {/* Cafe Popup - shown when a cafe point is clicked */}
-                {selectedCafe && !isMobile && (
-                    <MapPopup
-                        longitude={selectedCafe.coordinates[0]}
-                        latitude={selectedCafe.coordinates[1]}
-                        onClose={() => setSelectedCafe(null)}
-                        closeButton
-                        anchor="top"
-                        className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
-                    >
-                        <CafePopupContent cafe={selectedCafe.cafe} />
-                    </MapPopup>
-                )}
-
-                {/* Mobile: Cafe bottom sheet */}
-                {selectedCafe && isMobile && (
-                    <BottomSheet
-                        isOpen={true}
-                        onClose={() => setSelectedCafe(null)}
-                        title={selectedCafe.cafe.name || "Cafe"}
-                        snapPoint="partial"
-                    >
-                        <div className="p-4">
-                            <CafePopupContent cafe={selectedCafe.cafe} />
-                        </div>
-                    </BottomSheet>
-                )}
-
                 {/* PROPERTIES - Conditional rendering based on zoom */}
                 {showIcons ? (
                     <>
@@ -2213,34 +2220,6 @@ export function EnhancedMapContainer({
                             />
                         )}
                     </>
-                )}
-
-                {/* Property Popup */}
-                {selectedProperty && !isMobile && (
-                    <MapPopup
-                        longitude={selectedProperty.coordinates[0]}
-                        latitude={selectedProperty.coordinates[1]}
-                        onClose={() => setSelectedProperty(null)}
-                        closeButton
-                        anchor="top"
-                        className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
-                    >
-                        <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} />
-                    </MapPopup>
-                )}
-
-                {/* Mobile: Property bottom sheet */}
-                {selectedProperty && isMobile && (
-                    <BottomSheet
-                        isOpen={true}
-                        onClose={() => setSelectedProperty(null)}
-                        title={selectedProperty.property.title || "Property"}
-                        snapPoint="partial"
-                    >
-                        <div className="p-4">
-                            <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} />
-                        </div>
-                    </BottomSheet>
                 )}
 
                 {/* OTHER POIs - Conditional rendering based on zoom */}
@@ -2339,35 +2318,38 @@ export function EnhancedMapContainer({
                     </>
                 )}
 
-                {/* Other POI Popup */}
-                {selectedPoi && !isMobile && (
-                    <MapPopup
-                        longitude={selectedPoi.coordinates[0]}
-                        latitude={selectedPoi.coordinates[1]}
-                        onClose={() => setSelectedPoi(null)}
-                        closeButton
-                        anchor="top"
-                        className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
-                    >
-                        <OtherPoiPopupContent poi={selectedPoi.poi} />
-                    </MapPopup>
-                )}
-
-                {/* Mobile: Other POI bottom sheet */}
-                {selectedPoi && isMobile && (
-                    <BottomSheet
-                        isOpen={true}
-                        onClose={() => setSelectedPoi(null)}
-                        title={selectedPoi.poi.name || "Location"}
-                        snapPoint="partial"
-                    >
-                        <div className="p-4">
-                            <OtherPoiPopupContent poi={selectedPoi.poi} />
-                        </div>
-                    </BottomSheet>
-                )}
-
             </Map>
+
+            {/* POI Popups - rendered outside Map for proper mobile BottomSheet rendering */}
+            {selectedCafe && (
+                <AdaptivePopup
+                    coordinates={selectedCafe.coordinates}
+                    onClose={() => setSelectedCafe(null)}
+                    isMobile={isMobile}
+                >
+                    <CafePopupContent cafe={selectedCafe.cafe} />
+                </AdaptivePopup>
+            )}
+
+            {selectedProperty && (
+                <AdaptivePopup
+                    coordinates={selectedProperty.coordinates}
+                    onClose={() => setSelectedProperty(null)}
+                    isMobile={isMobile}
+                >
+                    <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} />
+                </AdaptivePopup>
+            )}
+
+            {selectedPoi && (
+                <AdaptivePopup
+                    coordinates={selectedPoi.coordinates}
+                    onClose={() => setSelectedPoi(null)}
+                    isMobile={isMobile}
+                >
+                    <OtherPoiPopupContent poi={selectedPoi.poi} />
+                </AdaptivePopup>
+            )}
 
             {/* Disambiguation Popup - floating overlay when multiple POIs share same coordinates */}
             {disambiguationData && (

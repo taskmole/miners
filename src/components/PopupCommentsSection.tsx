@@ -13,8 +13,9 @@ interface PopupCommentsSectionProps {
 /**
  * Comments section for POI popups
  * Uses same Tailwind classes as ShapeComments.tsx for consistency
+ * Memoized to prevent unnecessary re-renders
  */
-export function PopupCommentsSection({ placeId }: PopupCommentsSectionProps) {
+export const PopupCommentsSection = React.memo(function PopupCommentsSection({ placeId }: PopupCommentsSectionProps) {
   const { getComments, addComment, removeComment } = usePoiComments();
   const { showToast } = useToast();
   const [newComment, setNewComment] = useState('');
@@ -103,4 +104,4 @@ export function PopupCommentsSection({ placeId }: PopupCommentsSectionProps) {
       )}
     </div>
   );
-}
+});
