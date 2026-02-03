@@ -1002,7 +1002,7 @@ function capitalizeFirst(str: string): string {
 }
 
 // Property popup content - Uses universal popup base - memoized
-const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId }: { property: PropertyData; cityId: string }) {
+const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
     const mapsUrl = `https://www.google.com/maps?q=${property.latitude},${property.longitude}`;
     const placeId = `property-${property.latitude.toFixed(5)}-${property.longitude.toFixed(5)}`;
 
@@ -1088,6 +1088,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                             data: property,
                         }}
                         cityId={cityId}
+                        onClose={onClose}
                     />
                     <AddToListButton place={{
                         placeId: `property-${property.latitude}-${property.longitude}`,
@@ -2337,7 +2338,7 @@ export function EnhancedMapContainer({
                     onClose={() => setSelectedProperty(null)}
                     isMobile={isMobile}
                 >
-                    <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} />
+                    <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={() => setSelectedProperty(null)} />
                 </AdaptivePopup>
             )}
 

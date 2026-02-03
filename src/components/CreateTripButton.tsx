@@ -19,6 +19,7 @@ interface CreateTripButtonProps {
   property: PropertyInfo;
   cityId: string;
   variant?: 'default' | 'compact';
+  onClose?: () => void; // Optional callback to close the parent popup
 }
 
 /**
@@ -26,10 +27,13 @@ interface CreateTripButtonProps {
  * Appears in property popups next to "Add to list"
  * Creates the trip and dispatches event to open the form
  */
-export function CreateTripButton({ property, cityId, variant = 'default' }: CreateTripButtonProps) {
+export function CreateTripButton({ property, cityId, variant = 'default', onClose }: CreateTripButtonProps) {
   const { createTrip, updateTrip } = useScoutingTrips();
 
   const handleClick = () => {
+    // Close the parent popup first (so the trip form isn't hidden behind it)
+    onClose?.();
+
     // Create new trip
     const trip = createTrip(cityId);
 

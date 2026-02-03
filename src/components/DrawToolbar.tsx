@@ -40,6 +40,7 @@ export function DrawToolbar() {
 
   const handleButtonClick = (button: ToolbarButton) => {
     changeMode(button.mode);
+    close(); // Close the panel so the user can draw on the map
   };
 
   const isButtonActive = (button: ToolbarButton) => {
