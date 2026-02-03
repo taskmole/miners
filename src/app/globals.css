@@ -692,6 +692,72 @@
 }
 
 /* ===========================================
+   MOBILE POPUP STYLES
+   =========================================== */
+
+@media (max-width: 640px) {
+  /* Full width popup on mobile */
+  .popup-base {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* Larger touch targets for icon buttons */
+  .popup-btn-icon {
+    width: 44px;
+    height: 44px;
+    margin-right: 12px;
+  }
+
+  .popup-btn-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Larger text buttons */
+  .popup-btn-text {
+    font-size: 15px;
+    padding: 12px 16px;
+    gap: 6px;
+  }
+
+  .popup-btn-text svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Stack footer vertically on mobile */
+  .popup-footer {
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+    align-items: stretch;
+  }
+
+  /* Center icon buttons and allow wrapping */
+  .popup-buttons {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  /* Fix icon images - contain instead of cover */
+  .popup-btn-icon img {
+    object-fit: contain;
+    padding: 6px;
+  }
+
+  /* Make "Add to list" button full width on mobile */
+  .popup-footer > button,
+  .popup-footer > div:last-child button {
+    width: 100%;
+  }
+}
+
+/* ===========================================
    EU COFFEE TRIP SPECIFIC
    =========================================== */
 
