@@ -11,7 +11,8 @@ export type PlaceType =
   | 'shopping'
   | 'high_street'
   | 'dorm'
-  | 'university';
+  | 'university'
+  | 'gym';
 
 // Visit log for tracking location visits (per PRD Section 3.8)
 export interface VisitLog {
@@ -34,15 +35,6 @@ export interface ListItem {
   addedAt: string;         // ISO timestamp
 }
 
-// Attachment stored as base64 (for localStorage)
-export interface ListAttachment {
-  id: string;
-  name: string;            // Original filename
-  type: string;            // MIME type (image/jpeg, application/pdf)
-  data: string;            // Base64 encoded content
-  addedAt: string;         // ISO timestamp
-}
-
 // Drawn area item (polygon or line from drawing tool)
 export interface DrawnAreaItem {
   id: string;              // UUID for this list entry
@@ -59,7 +51,6 @@ export interface LocationList {
   createdAt: string;       // ISO timestamp
   items: ListItem[];
   drawnAreas: DrawnAreaItem[];
-  attachments: ListAttachment[];
   visitPlan?: VisitLog;    // Visit planning at list level
 }
 

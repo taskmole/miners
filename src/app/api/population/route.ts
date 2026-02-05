@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Prevent static generation - this route needs to run at request time
+export const dynamic = "force-dynamic";
+
 // Helper to get the base URL for fetching public files
 function getBaseUrl(request: NextRequest): string {
   const host = request.headers.get("host") || "localhost:3000";

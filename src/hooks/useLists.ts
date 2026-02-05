@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { LocationList, ListItem, ListsState, PlaceInfo, VisitLog, ListAttachment, DrawnAreaItem } from '@/types/lists';
+import type { LocationList, ListItem, ListsState, PlaceInfo, VisitLog, DrawnAreaItem } from '@/types/lists';
 
 // localStorage key for lists data
 const STORAGE_KEY = 'miners-location-lists';
@@ -72,7 +72,6 @@ export function useLists() {
       createdAt: new Date().toISOString(),
       items: [],
       drawnAreas: [],
-      attachments: [],
     };
 
     setLists(prev => [...prev, newList]);
@@ -252,47 +251,6 @@ export function useLists() {
     }));
   }, []);
 
-  // Add an attachment to a list
-  const addAttachment = useCallback((listId: string, file: File): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        const attachment: ListAttachment = {
-          id: generateId(),
-          name: file.name,
-          type: file.type,
-          data: base64,
-          addedAt: new Date().toISOString(),
-        };
-
-        setLists(prev => prev.map(list => {
-          if (list.id !== listId) return list;
-          const attachments = list.attachments || [];
-          return {
-            ...list,
-            attachments: [...attachments, attachment],
-          };
-        }));
-        resolve();
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
-  }, []);
-
-  // Remove an attachment from a list
-  const removeAttachment = useCallback((listId: string, attachmentId: string): void => {
-    setLists(prev => prev.map(list => {
-      if (list.id !== listId) return list;
-      const attachments = list.attachments || [];
-      return {
-        ...list,
-        attachments: attachments.filter(att => att.id !== attachmentId),
-      };
-    }));
-  }, []);
-
   // Remove an item from a list by its item ID
   const removeItem = useCallback((listId: string, itemId: string): void => {
     setLists(prev => prev.map(list => {
@@ -319,8 +277,6 @@ export function useLists() {
     renameList,
     addDrawnArea,
     removeDrawnArea,
-    addAttachment,
-    removeAttachment,
     removeItem,
   };
 }

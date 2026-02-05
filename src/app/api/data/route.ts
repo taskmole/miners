@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parse } from "csv-parse/sync";
 
+// Prevent static generation - this route needs to run at request time
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") || "cafes";
@@ -17,6 +20,14 @@ export async function GET(request: NextRequest) {
         }
         else if (type === "other") fileName = "other.csv";
         else if (type === "barcelona_cafes") fileName = "barcelona_cafe_info.csv";
+        else if (type === "google_cafes") fileName = "google_places_cafes.csv";
+        else if (type === "google_madrid") fileName = "google_places_madrid.csv";
+        else if (type === "google_barcelona") fileName = "google_places_barcelona.csv";
+        else if (type === "google_prague") fileName = "google_places_prague.csv";
+        else if (type === "google_enrichment") fileName = "google_places_enrichment.csv";
+        else if (type === "gyms_madrid") fileName = "gyms_madrid.csv";
+        else if (type === "gyms_barcelona") fileName = "gyms_barcelona.csv";
+        else if (type === "gyms_prague") fileName = "gyms_prague.csv";
         else if (type === "metro") {
             // Handle GeoJSON file for metro stations
             const baseUrl = getBaseUrl(request);

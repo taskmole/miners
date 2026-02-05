@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
 
+// Prevent static generation - this route needs to run at request time
+export const dynamic = "force-dynamic";
+
 // Convert 12-hour format ("1:00:00 PM") to 24-hour number (13)
 function to24Hour(horaString: string): number {
   const hour = parseInt(horaString.split(":")[0]);

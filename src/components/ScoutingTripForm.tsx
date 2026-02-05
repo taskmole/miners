@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useMobile } from "@/hooks/useMobile";
 import { MobileSelect, type SelectOption } from "@/components/ui/mobile-select";
 import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { TripChecklist } from "@/components/TripChecklist";
@@ -179,6 +180,7 @@ export function ScoutingTripForm({
   pendingLinkedItems = [],
   onStartLinking,
 }: ScoutingTripFormProps) {
+  const isMobile = useMobile();
   const { createTrip, updateTrip, submitTrip, addAttachment, removeAttachment, updateChecklist } = useScoutingTrips();
 
   // Form state - initialize from existing trip or empty
@@ -479,17 +481,21 @@ export function ScoutingTripForm({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className={`fixed inset-0 z-[100] flex ${isMobile ? 'items-end' : 'items-center justify-center'}`}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Modal */}
-      <div className="relative w-full max-w-2xl max-h-[90vh] mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      {/* Modal - full height from bottom on mobile, centered on desktop */}
+      <div className={`relative w-full bg-white shadow-2xl overflow-hidden flex flex-col ${
+        isMobile
+          ? 'max-h-[90vh] rounded-t-2xl'
+          : 'max-w-2xl mx-4 rounded-2xl max-h-[90vh]'
+      }`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200" style={isMobile ? { paddingTop: "calc(16px + env(safe-area-inset-top, 0px))" } : undefined}>
           <h2 className="text-lg font-bold text-zinc-900">
             {existingTrip ? 'Edit Scouting Trip' : 'New Scouting Trip'}
           </h2>

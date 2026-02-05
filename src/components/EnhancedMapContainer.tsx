@@ -59,6 +59,7 @@ import {
     X,
     MessageSquare,
     Paperclip,
+    Dumbbell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCompactNumber } from "@/lib/format-numbers";
@@ -124,6 +125,12 @@ const iconConfig: Record<string, { icon: React.ElementType; color: string; bg: s
         color: "text-rose-700",
         bg: "bg-rose-50",
         ring: "ring-rose-300"
+    },
+    gym: {
+        icon: Dumbbell,
+        color: "text-red-700",
+        bg: "bg-red-50",
+        ring: "ring-red-300"
     },
 };
 
@@ -1621,6 +1628,7 @@ export function EnhancedMapContainer({
         high_street: ["#c2410c", "#ea580c", "#f97316"], // orange-700
         dorm: ["#0e7490", "#0891b2", "#06b6d4"],        // cyan-700
         university: ["#be123c", "#e11d48", "#f43f5e"],  // rose-700
+        gym: ["#b91c1c", "#dc2626", "#ef4444"],              // red-700
     };
 
     const pointColorByType: Record<string, string> = {
@@ -1631,6 +1639,7 @@ export function EnhancedMapContainer({
         high_street: "#c2410c",
         dorm: "#0e7490",
         university: "#be123c",
+        gym: "#b91c1c",
     };
 
     // Build location index to detect co-located POIs (same lat/lng)
@@ -2238,6 +2247,7 @@ export function EnhancedMapContainer({
                                 high_street: "bg-orange-700",
                                 dorm: "bg-cyan-700",
                                 university: "bg-rose-700",
+                                gym: "bg-red-700",
                             };
                             const markerKey = `poi-icon-${poi.lat}-${poi.lon}-${i}`;
                             const placeId = generatePlaceId(poi.type, poi.lat, poi.lon, poi.name);
