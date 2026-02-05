@@ -24,12 +24,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MobilePanel } from "@/components/ui/mobile-panel";
 import { useMobile } from "@/hooks/useMobile";
 import { cn } from "@/lib/utils";
+import type { EuctFilter } from "@/types/filters";
 
 interface SidebarProps {
     counts?: {
         cafe: number;
         euCoffeeTrip: number;
         regularCafe: number;
+        premiumEuCoffeeTrip: number;
+        newEuCoffeeTrip: number;
         property: number;
         transit: number;
         metro: number;
@@ -44,6 +47,8 @@ interface SidebarProps {
     onFilterChange: (filters: Set<string>) => void;
     ratingFilter?: number;
     onRatingChange?: (rating: number) => void;
+    euctFilter?: EuctFilter;
+    onEuctFilterChange?: (filter: EuctFilter) => void;
     trafficEnabled?: boolean;
     onTrafficToggle?: (enabled: boolean) => void;
     trafficValuesEnabled?: boolean;
@@ -84,12 +89,21 @@ const placeCategories = [
     { id: "gym", label: "Gym", icon: Dumbbell, countKey: "gym" },
 ];
 
+// Options for the EUCT sub-filter segmented toggle
+const euctFilterOptions: { value: EuctFilter; label: string; countKey: string }[] = [
+    { value: "all", label: "All", countKey: "euCoffeeTrip" },
+    { value: "new", label: "New", countKey: "newEuCoffeeTrip" },
+    { value: "premium", label: "Premium", countKey: "premiumEuCoffeeTrip" },
+];
+
 export function Sidebar({
     counts,
     activeFilters,
     onFilterChange,
     ratingFilter = 0,
     onRatingChange,
+    euctFilter = "all",
+    onEuctFilterChange,
     trafficEnabled = false,
     onTrafficToggle,
     trafficValuesEnabled = false,
@@ -179,6 +193,13 @@ export function Sidebar({
         }, 150);
         return () => clearTimeout(timer);
     }, [localDensityFilter, populationDensityFilter, onPopulationDensityFilterChange]);
+
+    // Reset EUCT filter to "all" when European Coffee Trip is unchecked
+    useEffect(() => {
+        if (!activeFilters.has("eu_coffee_trip") && euctFilter !== "all") {
+            onEuctFilterChange?.("all");
+        }
+    }, [activeFilters, euctFilter, onEuctFilterChange]);
 
     // Click outside handling is now done by MobilePanel
 
@@ -465,28 +486,72 @@ export function Sidebar({
 
                                                                     {cat.subcategories.map((sub) => {
                                                                         const subActive = activeFilters.has(sub.id);
-                                                                        const subCount = getCount(sub.countKey);
+                                                                        const isEuct = sub.id === "eu_coffee_trip";
+
+                                                                        // Show filtered count when EUCT sub-filter is active
+                                                                        let subCountKey = sub.countKey;
+                                                                        if (isEuct && euctFilter === "premium") {
+                                                                            subCountKey = "premiumEuCoffeeTrip";
+                                                                        } else if (isEuct && euctFilter === "new") {
+                                                                            subCountKey = "newEuCoffeeTrip";
+                                                                        }
+                                                                        const subCount = getCount(subCountKey);
 
                                                                         return (
-                                                                            <div
-                                                                                key={sub.id}
-                                                                                className="flex items-center justify-between py-1 px-2 rounded hover:bg-black/10"
-                                                                            >
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <Checkbox
-                                                                                        id={sub.id}
-                                                                                        checked={subActive}
-                                                                                        onCheckedChange={(checked) => handleToggle(sub.id, !!checked)}
-                                                                                        className="w-3.5 h-3.5"
-                                                                                    />
-                                                                                    <label htmlFor={sub.id} className="text-[11px] font-medium text-zinc-900/70 cursor-pointer">
-                                                                                        {sub.label}
-                                                                                    </label>
+                                                                            <React.Fragment key={sub.id}>
+                                                                                <div
+                                                                                    className="flex items-center justify-between py-1 px-2 rounded hover:bg-black/10"
+                                                                                >
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Checkbox
+                                                                                            id={sub.id}
+                                                                                            checked={subActive}
+                                                                                            onCheckedChange={(checked) => handleToggle(sub.id, !!checked)}
+                                                                                            className="w-3.5 h-3.5"
+                                                                                        />
+                                                                                        <label htmlFor={sub.id} className="text-[11px] font-medium text-zinc-900/70 cursor-pointer">
+                                                                                            {sub.label}
+                                                                                        </label>
+                                                                                    </div>
+                                                                                    <span className="text-[10px] text-zinc-400">
+                                                                                        {subCount}
+                                                                                    </span>
                                                                                 </div>
-                                                                                <span className="text-[10px] text-zinc-400">
-                                                                                    {subCount}
-                                                                                </span>
-                                                                            </div>
+                                                                                {/* EUCT sub-filter toggle: All / New / Premium */}
+                                                                                {isEuct && (
+                                                                                    <div
+                                                                                        className="grid transition-[grid-template-rows] duration-200 ease-out"
+                                                                                        style={{ gridTemplateRows: subActive ? '1fr' : '0fr' }}
+                                                                                    >
+                                                                                        <div className="overflow-hidden">
+                                                                                            <div className="flex bg-zinc-300/60 rounded-lg p-1 ml-6 mr-2 my-1">
+                                                                                                {euctFilterOptions.map((opt) => (
+                                                                                                    <button
+                                                                                                        key={opt.value}
+                                                                                                        onClick={() => onEuctFilterChange?.(opt.value)}
+                                                                                                        className={cn(
+                                                                                                            "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
+                                                                                                            euctFilter === opt.value
+                                                                                                                ? "bg-white text-zinc-900 shadow-sm"
+                                                                                                                : "text-zinc-500 hover:text-zinc-700"
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        {opt.label}
+                                                                                                        <span className={cn(
+                                                                                                            "ml-1.5 text-[10px] font-medium",
+                                                                                                            euctFilter === opt.value
+                                                                                                                ? "text-zinc-400"
+                                                                                                                : "text-zinc-400/60"
+                                                                                                        )}>
+                                                                                                            {getCount(opt.countKey)}
+                                                                                                        </span>
+                                                                                                    </button>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                            </React.Fragment>
                                                                         );
                                                                     })}
                                                                 </div>

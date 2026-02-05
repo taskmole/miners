@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { isRecentlyAdded } from "@/lib/dateUtils";
 
 // Types for all POI categories
 export interface CafeData {
@@ -80,7 +81,7 @@ interface MapDataCache {
 let globalCache: MapDataCache | null = null;
 let activePromise: Promise<MapDataCache | null> | null = null;
 
-export function useMapData() {
+export function useMapData(cityId?: string) {
     const [cafes, setCafes] = useState<CafeData[]>(globalCache?.cafes || []);
     const [properties, setProperties] = useState<PropertyData[]>(globalCache?.properties || []);
     const [otherPois, setOtherPois] = useState<OtherPoiData[]>(globalCache?.otherPois || []);
@@ -344,26 +345,43 @@ export function useMapData() {
         loadData();
     }, []);
 
-    // Compute counts per category with detailed breakdown
+    // Compute counts per category with detailed breakdown (filtered by selected city)
     const counts = useMemo(() => {
-        const euCoffeeTripCount = cafes.filter(c => c.link?.includes("europeancoffeetrip")).length;
-        const regularCafeCount = cafes.filter(c => !c.link?.includes("europeancoffeetrip")).length;
+        // Filter cafes by selected city so counts match what's visible on the map
+        const cityCafes = cityId ? cafes.filter(c => c.city === cityId) : cafes;
+        const euctCafes = cityCafes.filter(c => c.link?.includes("europeancoffeetrip"));
+
+        // Count premium and new EUCT cafes in a single pass
+        let premiumEuCoffeeTrip = 0;
+        let newEuCoffeeTrip = 0;
+        for (const c of euctCafes) {
+            if (c.premium) premiumEuCoffeeTrip++;
+            if (isRecentlyAdded(c.datePublished)) newEuCoffeeTrip++;
+        }
+
+        // Count other POI types in a single pass
+        const poiCounts: Record<string, number> = {};
+        for (const p of otherPois) {
+            poiCounts[p.type] = (poiCounts[p.type] || 0) + 1;
+        }
 
         return {
-            cafe: cafes.length,
-            euCoffeeTrip: euCoffeeTripCount,
-            regularCafe: regularCafeCount,
+            cafe: cityCafes.length,
+            euCoffeeTrip: euctCafes.length,
+            regularCafe: cityCafes.length - euctCafes.length,
+            premiumEuCoffeeTrip,
+            newEuCoffeeTrip,
             property: properties.length,
-            transit: otherPois.filter((p) => p.type === "transit").length,
-            metro: otherPois.filter((p) => p.type === "metro").length,
-            office: otherPois.filter((p) => p.type === "office").length,
-            shopping: otherPois.filter((p) => p.type === "shopping").length,
-            high_street: otherPois.filter((p) => p.type === "high_street").length,
-            dorm: otherPois.filter((p) => p.type === "dorm").length,
-            university: otherPois.filter((p) => p.type === "university").length,
-            gym: otherPois.filter((p) => p.type === "gym").length,
+            transit: poiCounts["transit"] || 0,
+            metro: poiCounts["metro"] || 0,
+            office: poiCounts["office"] || 0,
+            shopping: poiCounts["shopping"] || 0,
+            high_street: poiCounts["high_street"] || 0,
+            dorm: poiCounts["dorm"] || 0,
+            university: poiCounts["university"] || 0,
+            gym: poiCounts["gym"] || 0,
         };
-    }, [cafes, properties, otherPois]);
+    }, [cafes, properties, otherPois, cityId]);
 
     return {
         cafes,
