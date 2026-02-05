@@ -52,6 +52,7 @@ When the user types any of these, immediately execute the action — no question
 - **`.test`** → Run Playwright mobile viewport tests against localhost:3000 to verify no layout issues at 375px, 390px, and 428px widths.
 - **`.s`** → Run the code simplifier agent on recently modified code to make sure it's as efficient as it can be.
 - **`.sim`** → Re-explain the last thing you said in plain, simple English. Short sentences. No jargon. Like you're talking to a smart 15-year-old. Be concise — if it can be said in 3 sentences, don't use 10.
+- **`.kill`** → Kill the dev server running on port 3000. Confirm it's stopped.
 
 # Available Tools
 - Code simplifier plugin
