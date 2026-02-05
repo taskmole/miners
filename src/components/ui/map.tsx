@@ -24,6 +24,11 @@ import React from "react";
 
 const AUTOPAN_PADDING = 20;
 const AUTOPAN_THRESHOLD = 5;
+const AUTOPAN_DELAY_MS = 250;
+
+function easeOutCubic(t: number) {
+  return 1 - Math.pow(1 - t, 3);
+}
 
 function autoPanForPopup(map: MapLibreGL.Map, popup: MapLibreGL.Popup) {
   if (!popup.isOpen()) return;
@@ -42,26 +47,27 @@ function autoPanForPopup(map: MapLibreGL.Map, popup: MapLibreGL.Popup) {
   if (popupRect.right > mapRect.right - AUTOPAN_PADDING) {
     dx = popupRect.right - mapRect.right + AUTOPAN_PADDING;
   }
-  // Left overrides right when both overflow
   if (popupRect.left < mapRect.left + AUTOPAN_PADDING) {
     dx = popupRect.left - mapRect.left - AUTOPAN_PADDING;
   }
 
   if (popupRect.bottom > mapRect.bottom - AUTOPAN_PADDING) {
-    // Pan enough to clear the edge, plus extra push toward upper screen
     dy = popupRect.bottom - mapRect.bottom + AUTOPAN_PADDING + mapRect.height * 0.1;
-    // Clamp so the popup top doesn't go above the map top edge
     const maxDy = popupRect.top - mapRect.top - AUTOPAN_PADDING;
     if (maxDy > 0) dy = Math.min(dy, maxDy);
   }
-  // Top overrides bottom when both overflow
   if (popupRect.top < mapRect.top + AUTOPAN_PADDING) {
     dy = popupRect.top - mapRect.top - AUTOPAN_PADDING;
   }
 
+  if (Math.abs(dy) > AUTOPAN_THRESHOLD) {
+    const popupCenterX = (popupRect.left + popupRect.right) / 2;
+    const mapCenterX = (mapRect.left + mapRect.right) / 2;
+    dx = popupCenterX - mapCenterX;
+  }
+
   if (Math.abs(dx) > AUTOPAN_THRESHOLD || Math.abs(dy) > AUTOPAN_THRESHOLD) {
-    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
-    map.panBy([dx, dy], { duration: 600, easing: easeOut });
+    map.panBy([dx, dy], { duration: 600, easing: easeOutCubic });
   }
 }
 
@@ -73,16 +79,14 @@ function usePopupAutoPan(map: MapLibreGL.Map | null, popup: MapLibreGL.Popup) {
 
     const scheduleAutoPan = () => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      // Delay accounts for React portal render + CSS entrance animation
       timerRef.current = setTimeout(() => {
         autoPanForPopup(map, popup);
         timerRef.current = null;
-      }, 250);
+      }, AUTOPAN_DELAY_MS);
     };
 
     popup.on("open", scheduleAutoPan);
 
-    // Handle case where popup is already open before this effect runs
     if (popup.isOpen()) {
       scheduleAutoPan();
     }
