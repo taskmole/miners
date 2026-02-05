@@ -1597,7 +1597,7 @@ export function EnhancedMapContainer({
     // Convert other POIs to GeoJSON by type
     // When showHiddenPois is true, only include hidden POIs
     const poiGeoJSONByType = useMemo(() => {
-        const types = ["transit", "metro", "office", "shopping", "high_street", "dorm", "university"] as const;
+        const types = ["transit", "metro", "office", "shopping", "high_street", "dorm", "university", "gym"] as const;
         const byType: Record<string, GeoJSON.FeatureCollection<GeoJSON.Point>> = {};
         types.forEach(type => {
             byType[type] = {
