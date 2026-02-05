@@ -47,6 +47,10 @@ CLAUDE.md
 # unused/large data files
 unused_data/
 
+# internal docs and examples
+docs/
+examples/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
