@@ -801,7 +801,7 @@ const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ pl
 
 // EU Coffee Trip Popup - Uses universal popup base classes - memoized to prevent re-renders
 const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe }: { cafe: CafeData }) {
-    const mapsUrl = `https://www.google.com/maps?q=${cafe.lat},${cafe.lon}`;
+    const mapsUrl = cafe.googleMapsUrl || `https://www.google.com/maps?q=${cafe.lat},${cafe.lon}`;
     const recentlyAdded = isRecentlyAdded(cafe.datePublished);
     const commentCount = 0; // TODO: Get from data when available
     const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
@@ -918,7 +918,7 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe }: { cafe
 
 // Regular Cafe popup content (non-EU Coffee Trip) - Uses universal popup base - memoized
 const RegularCafePopup = React.memo(function RegularCafePopup({ cafe }: { cafe: CafeData }) {
-    const mapsUrl = `https://www.google.com/maps?q=${cafe.lat},${cafe.lon}`;
+    const mapsUrl = cafe.googleMapsUrl || `https://www.google.com/maps?q=${cafe.lat},${cafe.lon}`;
     const commentCount = 0; // TODO: Get from data when available
     const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
 
@@ -2329,37 +2329,65 @@ export function EnhancedMapContainer({
                     </>
                 )}
 
+                {/* Desktop POI Popups - must be inside Map for useMap context */}
+                {!isMobile && selectedCafe && (
+                    <MapPopup
+                        longitude={selectedCafe.coordinates[0]}
+                        latitude={selectedCafe.coordinates[1]}
+                        onClose={() => setSelectedCafe(null)}
+                        closeButton
+                        anchor="top"
+                        className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
+                    >
+                        <CafePopupContent cafe={selectedCafe.cafe} />
+                    </MapPopup>
+                )}
+
+                {!isMobile && selectedProperty && (
+                    <MapPopup
+                        longitude={selectedProperty.coordinates[0]}
+                        latitude={selectedProperty.coordinates[1]}
+                        onClose={() => setSelectedProperty(null)}
+                        closeButton
+                        anchor="top"
+                        className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
+                    >
+                        <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={() => setSelectedProperty(null)} />
+                    </MapPopup>
+                )}
+
+                {!isMobile && selectedPoi && (
+                    <MapPopup
+                        longitude={selectedPoi.coordinates[0]}
+                        latitude={selectedPoi.coordinates[1]}
+                        onClose={() => setSelectedPoi(null)}
+                        closeButton
+                        anchor="top"
+                        className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
+                    >
+                        <OtherPoiPopupContent poi={selectedPoi.poi} />
+                    </MapPopup>
+                )}
+
             </Map>
 
-            {/* POI Popups - rendered outside Map for proper mobile BottomSheet rendering */}
-            {selectedCafe && (
-                <AdaptivePopup
-                    coordinates={selectedCafe.coordinates}
-                    onClose={() => setSelectedCafe(null)}
-                    isMobile={isMobile}
-                >
-                    <CafePopupContent cafe={selectedCafe.cafe} />
-                </AdaptivePopup>
+            {/* Mobile POI Popups - BottomSheet must be outside Map */}
+            {isMobile && selectedCafe && (
+                <BottomSheet isOpen={true} onClose={() => setSelectedCafe(null)} snapPoint="partial">
+                    <div className="p-4"><CafePopupContent cafe={selectedCafe.cafe} /></div>
+                </BottomSheet>
             )}
 
-            {selectedProperty && (
-                <AdaptivePopup
-                    coordinates={selectedProperty.coordinates}
-                    onClose={() => setSelectedProperty(null)}
-                    isMobile={isMobile}
-                >
-                    <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={() => setSelectedProperty(null)} />
-                </AdaptivePopup>
+            {isMobile && selectedProperty && (
+                <BottomSheet isOpen={true} onClose={() => setSelectedProperty(null)} snapPoint="partial">
+                    <div className="p-4"><PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={() => setSelectedProperty(null)} /></div>
+                </BottomSheet>
             )}
 
-            {selectedPoi && (
-                <AdaptivePopup
-                    coordinates={selectedPoi.coordinates}
-                    onClose={() => setSelectedPoi(null)}
-                    isMobile={isMobile}
-                >
-                    <OtherPoiPopupContent poi={selectedPoi.poi} />
-                </AdaptivePopup>
+            {isMobile && selectedPoi && (
+                <BottomSheet isOpen={true} onClose={() => setSelectedPoi(null)} snapPoint="partial">
+                    <div className="p-4"><OtherPoiPopupContent poi={selectedPoi.poi} /></div>
+                </BottomSheet>
             )}
 
             {/* Disambiguation Popup - floating overlay when multiple POIs share same coordinates */}

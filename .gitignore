@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+tests/screenshots/
 
 # next.js
 /.next/
@@ -39,6 +42,7 @@ yarn-error.log*
 # local tool configs
 .claude/
 .cursor/
+CLAUDE.md
 
 # unused/large data files
 unused_data/
