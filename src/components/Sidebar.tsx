@@ -14,6 +14,7 @@ import {
     Funnel,
     Info,
     X,
+    Dumbbell,
 } from "lucide-react";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import { useSheetState } from "@/contexts/SheetContext";
@@ -37,6 +38,7 @@ interface SidebarProps {
         high_street: number;
         dorm: number;
         university: number;
+        gym: number;
     };
     activeFilters: Set<string>;
     onFilterChange: (filters: Set<string>) => void;
@@ -79,6 +81,7 @@ const placeCategories = [
     { id: "high_street", label: "High Street", icon: Users, countKey: "high_street" },
     { id: "dorm", label: "Student Dormitory", icon: GraduationCap, countKey: "dorm" },
     { id: "university", label: "University", icon: GraduationCap, countKey: "university" },
+    { id: "gym", label: "Gym", icon: Dumbbell, countKey: "gym" },
 ];
 
 export function Sidebar({

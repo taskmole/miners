@@ -20,8 +20,6 @@ interface ListsContextValue {
   renameList: (listId: string, newName: string) => void;
   addDrawnArea: (listId: string, areaId: string, areaType: 'polygon' | 'line', name: string) => void;
   removeDrawnArea: (listId: string, areaId: string) => void;
-  addAttachment: (listId: string, file: File) => Promise<void>;
-  removeAttachment: (listId: string, attachmentId: string) => void;
   removeItem: (listId: string, itemId: string) => void;
 }
 
