@@ -26,7 +26,9 @@ import { CreateTripButton } from "@/components/CreateTripButton";
 import { HideButton } from "@/components/HideButton";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import type { PlaceInfo } from "@/types/lists";
+import type { EuctFilter } from "@/types/filters";
 import { TrafficValueCard } from "@/components/TrafficValueCard";
+import { isRecentlyAdded } from "@/lib/dateUtils";
 import { useMapData, CafeData, PropertyData, OtherPoiData, LocationData } from "@/hooks/useMapData";
 import { useOverlayData } from "@/hooks/useOverlayData";
 import { useAttachments } from "@/hooks/useAttachments";
@@ -173,13 +175,18 @@ function AdaptivePopup({ coordinates, onClose, children, isMobile }: AdaptivePop
 
 // Helper function to check if a POI's type filter is currently active
 // This matches the visibility logic used in visibleCafes, visibleProperties, visibleOtherPois
-function isPoiFilterActive(poi: LocationData, activeFilters: Set<string>, ratingFilter: number): boolean {
+function isPoiFilterActive(poi: LocationData, activeFilters: Set<string>, ratingFilter: number, euctFilter: EuctFilter = "all"): boolean {
     if (poi.type === "cafe") {
         const cafe = poi as CafeData;
         const isEuCoffeeTrip = cafe.link?.includes("europeancoffeetrip");
         const categoryMatch = isEuCoffeeTrip
             ? activeFilters.has("eu_coffee_trip") || activeFilters.has("cafe")
             : activeFilters.has("regular_cafe") || activeFilters.has("cafe");
+        // Apply EUCT sub-filter (premium/new) only to EUCT cafes
+        if (isEuCoffeeTrip && categoryMatch && euctFilter !== "all") {
+            if (euctFilter === "premium" && !cafe.premium) return false;
+            if (euctFilter === "new" && !isRecentlyAdded(cafe.datePublished)) return false;
+        }
         const ratingMatch = !ratingFilter || (cafe.rating && cafe.rating >= ratingFilter);
         return categoryMatch && ratingMatch;
     } else if (poi.type === "property") {
@@ -738,14 +745,7 @@ function EnhancedMarkerIcon({
     );
 }
 
-// Helper to check if a date is within the last 3 months
-function isRecentlyAdded(dateStr?: string): boolean {
-    if (!dateStr) return false;
-    const published = new Date(dateStr);
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-    return published >= threeMonthsAgo;
-}
+// isRecentlyAdded imported from @/lib/dateUtils
 
 // Reusable attachments section for POI popups (collapsible) - memoized to prevent re-renders
 const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ placeId }: { placeId: string }) {
@@ -1438,6 +1438,7 @@ const IconMarker = React.memo(function IconMarker({
 interface EnhancedMapContainerProps {
     activeFilters: Set<string>;
     ratingFilter?: number;
+    euctFilter?: EuctFilter;
     trafficEnabled?: boolean;
     trafficValuesEnabled?: boolean;
     populationEnabled?: boolean;
@@ -1454,6 +1455,7 @@ interface EnhancedMapContainerProps {
 export function EnhancedMapContainer({
     activeFilters,
     ratingFilter = 0,
+    euctFilter = "all",
     trafficEnabled,
     trafficValuesEnabled,
     populationEnabled,
@@ -1519,18 +1521,10 @@ export function EnhancedMapContainer({
             // In linking mode or showHiddenPois mode, show all cafes (skip category filters)
             if (isLinkingMode || showHiddenPois) return true;
 
-            // Category filter
-            const isEuCoffeeTrip = c.link?.includes("europeancoffeetrip");
-            const categoryMatch = isEuCoffeeTrip
-                ? activeFilters.has("eu_coffee_trip") || activeFilters.has("cafe")
-                : activeFilters.has("regular_cafe") || activeFilters.has("cafe");
-
-            // Rating filter - only apply if ratingFilter > 0
-            const ratingMatch = !ratingFilter || (c.rating && c.rating >= ratingFilter);
-
-            return categoryMatch && ratingMatch;
+            // Delegate category, EUCT sub-filter, and rating checks to shared helper
+            return isPoiFilterActive(c, activeFilters, ratingFilter, euctFilter);
         }),
-        [cafes, activeFilters, ratingFilter, selectedCity, isLinkingMode, showHiddenPois]
+        [cafes, activeFilters, ratingFilter, euctFilter, selectedCity, isLinkingMode, showHiddenPois]
     );
 
     const visibleProperties = useMemo(
@@ -1697,9 +1691,9 @@ export function EnhancedMapContainer({
         // Filter out hidden POIs AND POIs whose type filter is not active
         return allPois.filter(poi =>
             !isHidden(getPlaceId(poi)) &&
-            isPoiFilterActive(poi, activeFilters, ratingFilter)
+            isPoiFilterActive(poi, activeFilters, ratingFilter, euctFilter)
         );
-    }, [locationIndex, isHidden, getPlaceId, activeFilters, ratingFilter]);
+    }, [locationIndex, isHidden, getPlaceId, activeFilters, ratingFilter, euctFilter]);
 
     // State for selected popups
     const [selectedCafe, setSelectedCafe] = useState<{

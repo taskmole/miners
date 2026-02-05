@@ -50,6 +50,7 @@ When the user types any of these, immediately execute the action — no question
 - **`.ui`** → Activate the UI fix workflow: read ALL component + style files first, trace the full style cascade, explain the root cause, then apply ONE targeted fix. Verify at mobile widths (375px, 390px, 428px). Run type check and lint.
 - **`.audit`** → Run a parallel codebase audit: spawn multiple agents simultaneously — one for dead code, one for type safety, one for component complexity, one for CSS issues. Combine findings into a single prioritized summary.
 - **`.test`** → Run Playwright mobile viewport tests against localhost:3000 to verify no layout issues at 375px, 390px, and 428px widths.
+- **`.s`** → Run the code simplifier agent on recently modified code to make sure it's as efficient as it can be.
 
 # Available Tools
 - Code simplifier plugin

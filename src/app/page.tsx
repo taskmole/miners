@@ -22,13 +22,15 @@ import { PointCategoriesProvider } from "@/contexts/PointCategoriesContext";
 import { SheetProvider } from "@/contexts/SheetContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
 import type { ScoutingTrip, LinkedItem } from "@/types/scouting";
+import type { EuctFilter } from "@/types/filters";
 
 // Default active filters - empty (Miners cafes are always shown separately)
 const DEFAULT_FILTERS = new Set<string>([]);
 
 // Inner component that uses the linking context
 function HomeContent() {
-  const { counts } = useMapData();
+  const [selectedCity, setSelectedCity] = useState<City>(cities[0]);
+  const { counts } = useMapData(selectedCity.id);
   const { startLinking, isLinking } = useLinking();
 
   // Landing page state - shows on first load
@@ -43,12 +45,12 @@ function HomeContent() {
   const [incomeWealthyFilter, setIncomeWealthyFilter] = useState(0);
   const [trafficHour, setTrafficHour] = useState(12);
   const [ratingFilter, setRatingFilter] = useState(0);
+  const [euctFilter, setEuctFilter] = useState<EuctFilter>("all");
   const [showHiddenPois, setShowHiddenPois] = useState(false);
   const [drawnFeatures, setDrawnFeatures] = useState<GeoJSON.FeatureCollection>({
     type: 'FeatureCollection',
     features: []
   });
-  const [selectedCity, setSelectedCity] = useState<City>(cities[0]);
 
   // Scouting trip modal states
   const [isScoutingFormOpen, setIsScoutingFormOpen] = useState(false);
@@ -139,6 +141,7 @@ function HomeContent() {
         <EnhancedMapContainer
           activeFilters={activeFilters}
           ratingFilter={ratingFilter}
+          euctFilter={euctFilter}
           trafficEnabled={trafficEnabled}
           trafficValuesEnabled={trafficValuesEnabled}
           populationEnabled={populationEnabled}
@@ -163,6 +166,8 @@ function HomeContent() {
             onFilterChange={handleFilterChange}
             ratingFilter={ratingFilter}
             onRatingChange={setRatingFilter}
+            euctFilter={euctFilter}
+            onEuctFilterChange={setEuctFilter}
             trafficEnabled={trafficEnabled}
             onTrafficToggle={setTrafficEnabled}
             trafficValuesEnabled={trafficValuesEnabled}
