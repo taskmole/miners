@@ -51,6 +51,47 @@ unused_data/
 docs/
 examples/
 
+# root-level CSV duplicates (canonical copies live in public/data/)
+/barcelona_cafe_info.csv
+/cafe_info.csv
+/data.csv
+/data_backup_*.csv
+/density.csv
+/footfall_data.csv
+/idealista.csv
+/other.csv
+
+# raw GIS shapefiles
+BARRIOS*
+
+# GeoJSON source files (served from public/data/)
+/barrios.geojson
+/barrios_with_density.geojson
+/income_2023.geojson
+/madrid_income_2023.geojson
+/metro.geojson
+
+# scratch / reference HTML
+/glass.html
+/index.html
+/test_cafe_info.html
+
+# Python scrapers (one-off scripts)
+*.py
+requirements.txt
+__pycache__/
+
+# server runtime files
+.server.log
+.server.pid
+start_server.sh
+
+# supabase local temp
+supabase/.temp/
+
+# IDE
+.vscode/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
