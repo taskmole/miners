@@ -22,6 +22,81 @@ import { X, Minus, Plus, Locate, Maximize, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React from "react";
 
+const AUTOPAN_PADDING = 20;
+const AUTOPAN_THRESHOLD = 5;
+
+function autoPanForPopup(map: MapLibreGL.Map, popup: MapLibreGL.Popup) {
+  if (!popup.isOpen()) return;
+
+  const popupEl = popup.getElement();
+  if (!popupEl) return;
+
+  const popupRect = popupEl.getBoundingClientRect();
+  const mapRect = map.getContainer().getBoundingClientRect();
+
+  if (popupRect.width === 0 || popupRect.height === 0) return;
+
+  let dx = 0;
+  let dy = 0;
+
+  if (popupRect.right > mapRect.right - AUTOPAN_PADDING) {
+    dx = popupRect.right - mapRect.right + AUTOPAN_PADDING;
+  }
+  // Left overrides right when both overflow
+  if (popupRect.left < mapRect.left + AUTOPAN_PADDING) {
+    dx = popupRect.left - mapRect.left - AUTOPAN_PADDING;
+  }
+
+  if (popupRect.bottom > mapRect.bottom - AUTOPAN_PADDING) {
+    // Pan enough to clear the edge, plus extra push toward upper screen
+    dy = popupRect.bottom - mapRect.bottom + AUTOPAN_PADDING + mapRect.height * 0.1;
+    // Clamp so the popup top doesn't go above the map top edge
+    const maxDy = popupRect.top - mapRect.top - AUTOPAN_PADDING;
+    if (maxDy > 0) dy = Math.min(dy, maxDy);
+  }
+  // Top overrides bottom when both overflow
+  if (popupRect.top < mapRect.top + AUTOPAN_PADDING) {
+    dy = popupRect.top - mapRect.top - AUTOPAN_PADDING;
+  }
+
+  if (Math.abs(dx) > AUTOPAN_THRESHOLD || Math.abs(dy) > AUTOPAN_THRESHOLD) {
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+    map.panBy([dx, dy], { duration: 600, easing: easeOut });
+  }
+}
+
+function usePopupAutoPan(map: MapLibreGL.Map | null, popup: MapLibreGL.Popup) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!map) return;
+
+    const scheduleAutoPan = () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      // Delay accounts for React portal render + CSS entrance animation
+      timerRef.current = setTimeout(() => {
+        autoPanForPopup(map, popup);
+        timerRef.current = null;
+      }, 250);
+    };
+
+    popup.on("open", scheduleAutoPan);
+
+    // Handle case where popup is already open before this effect runs
+    if (popup.isOpen()) {
+      scheduleAutoPan();
+    }
+
+    return () => {
+      popup.off("open", scheduleAutoPan);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [map, popup]);
+}
+
 type MapContextValue = {
   map: MapLibreGL.Map | null;
   isLoaded: boolean;
@@ -382,6 +457,8 @@ function MarkerPopup({
     return popupInstance;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  usePopupAutoPan(map, popup);
 
   useEffect(() => {
     if (!map) return;
@@ -798,6 +875,8 @@ function MapPopup({
     return popupInstance;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  usePopupAutoPan(map, popup);
 
   useEffect(() => {
     if (!map) return;
