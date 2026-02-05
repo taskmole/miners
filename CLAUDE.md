@@ -26,14 +26,30 @@ I'm not technical - I don't read or understand code.
 - Test the fix by describing the expected visual result for ALL screen sizes (mobile, tablet, desktop)
 - If a user reports a layout bug persists, re-read the full component from scratch rather than patching
 
+# Debugging Rules
+- If a bug report is vague (e.g. "the button is broken"), ask WHAT is wrong and WHERE before touching code
+- Keep track of what you've already tried in the current session — never repeat the same failed approach
+- If a fix fails twice, stop and rethink the approach from scratch instead of making more small tweaks
+- When the user says something "still doesn't work", re-read the full component from scratch — don't just tweak your last edit
+
 # Workflow Rules
 - For multi-file changes, create a TodoWrite checklist first
 - Complete each item and mark it done immediately
 - Do NOT report a task as done until every single todo item is checked off
 - After completing all items, re-read the todo list and confirm each one is actually done
+- Keep tasks small and focused — one component or one feature per session, not full codebase audits
 
 # When Done
 - Run build and fix any errors
+
+# Quick Commands
+When the user types any of these, immediately execute the action — no questions asked:
+- **`.help`** → List all available quick commands with descriptions. Just print the table below, nothing else.
+- **`.3`** → Kill anything on port 3000, then run `npm run dev` in the background. Confirm it started.
+- **`.c`** → Run git status and diff, stage the changed files, write a fitting commit message, commit, and push. Confirm success.
+- **`.ui`** → Activate the UI fix workflow: read ALL component + style files first, trace the full style cascade, explain the root cause, then apply ONE targeted fix. Verify at mobile widths (375px, 390px, 428px). Run type check and lint.
+- **`.audit`** → Run a parallel codebase audit: spawn multiple agents simultaneously — one for dead code, one for type safety, one for component complexity, one for CSS issues. Combine findings into a single prioritized summary.
+- **`.test`** → Run Playwright mobile viewport tests against localhost:3000 to verify no layout issues at 375px, 390px, and 428px widths.
 
 # Available Tools
 - Code simplifier plugin
