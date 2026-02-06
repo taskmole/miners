@@ -31,6 +31,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useMobile } from "@/hooks/useMobile";
 import { useScoutingTrips } from "@/hooks/useScoutingTrips";
@@ -42,6 +48,7 @@ import { statusLabels, statusColors } from "@/types/scouting";
 import { TripChecklist } from "@/components/TripChecklist";
 import { AttachmentGallery } from "@/components/attachments";
 import { generateTripPdf } from "@/components/TripPdfExport";
+import { generateTripDocx } from "@/components/TripDocxExport";
 import type { ScoutingTrip, ScoutingTripStatus } from "@/types/scouting";
 
 interface ScoutingTripDetailProps {
@@ -685,28 +692,41 @@ export function ScoutingTripDetail({
             Delete
           </Button>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={async () => {
-                setIsExporting(true);
-                try {
-                  await generateTripPdf(trip);
-                } finally {
-                  setIsExporting(false);
-                }
-              }}
-              disabled={isExporting}
-              title="Export as PDF"
-            >
-              {isExporting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <FileDown className="w-4 h-4" />
-              )}
-              <span className={isMobile ? "sr-only" : "ml-1.5"}>
-                {isExporting ? "Exporting..." : "PDF"}
-              </span>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={isExporting}>
+                  {isExporting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileDown className="w-4 h-4" />
+                  )}
+                  <span className={isMobile ? "sr-only" : "ml-1.5"}>
+                    {isExporting ? "Exporting..." : "Export"}
+                  </span>
+                  <ChevronDown className={`w-3 h-3 ${isMobile ? "ml-1" : "ml-1.5"}`} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setIsExporting(true);
+                    generateTripPdf(trip).finally(() => setIsExporting(false));
+                  }}
+                >
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Export as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setIsExporting(true);
+                    generateTripDocx(trip).finally(() => setIsExporting(false));
+                  }}
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export as Word
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>
