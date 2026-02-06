@@ -65,25 +65,29 @@ function formatCurrency(amount?: number): string {
   return `€${amount.toLocaleString()}`;
 }
 
-// Collapsible section component
+// Collapsible section component (accordion style - only one open at a time)
 function DetailSection({
+  id,
   title,
   icon: Icon,
   children,
-  defaultExpanded = true,
+  expandedSection,
+  onToggle,
 }: {
+  id: string;
   title: string;
   icon: React.ElementType;
   children: React.ReactNode;
-  defaultExpanded?: boolean;
+  expandedSection: string | null;
+  onToggle: (id: string) => void;
 }) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const isExpanded = expandedSection === id;
 
   return (
     <div className="border-t border-zinc-200">
       <button
         type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => onToggle(id)}
         className="w-full flex items-center justify-between px-6 py-3 hover:bg-zinc-50 transition-colors"
       >
         <div className="flex items-center gap-2">
@@ -247,6 +251,12 @@ export function ScoutingTripDetail({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const trips = getTrips();
   const trip = trips.find((t) => t.id === tripId);
+
+  // Accordion state - only one section expanded at a time
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const handleSectionToggle = (sectionId: string) => {
+    setExpandedSection(prev => prev === sectionId ? null : sectionId);
+  };
 
   // Handle delete confirmation
   const handleConfirmDelete = () => {
@@ -492,7 +502,7 @@ export function ScoutingTripDetail({
 
           {/* Checklist */}
           {trip.checklist && trip.checklist.length > 0 && (
-            <DetailSection title="Checklist" icon={ClipboardCheck} defaultExpanded={false}>
+            <DetailSection id="checklist" title="Checklist" icon={ClipboardCheck} expandedSection={expandedSection} onToggle={handleSectionToggle}>
               <TripChecklist
                 items={trip.checklist}
                 onChange={(items) => updateChecklist(trip.id, items)}
@@ -502,7 +512,7 @@ export function ScoutingTripDetail({
 
           {/* Attachments */}
           {trip.attachments && trip.attachments.length > 0 && (
-            <DetailSection title="Attachments" icon={Paperclip} defaultExpanded={true}>
+            <DetailSection id="attachments" title="Attachments" icon={Paperclip} expandedSection={expandedSection} onToggle={handleSectionToggle}>
               <AttachmentGallery
                 attachments={trip.attachments}
                 onUpload={async () => ({ success: false, error: 'Read only' })}
@@ -514,7 +524,7 @@ export function ScoutingTripDetail({
 
           {/* Location Section */}
           {hasLocationData && (
-            <DetailSection title="Location" icon={Building2} defaultExpanded={false}>
+            <DetailSection id="location" title="Location" icon={Building2} expandedSection={expandedSection} onToggle={handleSectionToggle}>
               <div className="space-y-0.5">
                 {trip.address && (
                   <DetailRow label="Address" value={trip.address} />
@@ -560,7 +570,7 @@ export function ScoutingTripDetail({
 
           {/* Financial Section */}
           {hasFinancialData && (
-            <DetailSection title="Financial" icon={DollarSign} defaultExpanded={false}>
+            <DetailSection id="financial" title="Financial" icon={DollarSign} expandedSection={expandedSection} onToggle={handleSectionToggle}>
               <div className="space-y-0.5">
                 {trip.monthlyRent && (
                   <DetailRow
@@ -613,7 +623,7 @@ export function ScoutingTripDetail({
 
           {/* Operational Section */}
           {hasOperationalData && (
-            <DetailSection title="Operational" icon={Settings} defaultExpanded={false}>
+            <DetailSection id="operational" title="Operational" icon={Settings} expandedSection={expandedSection} onToggle={handleSectionToggle}>
               <div className="space-y-0.5">
                 {trip.ventilation && (
                   <DetailRow label="Ventilation" value={trip.ventilation} />
@@ -648,7 +658,7 @@ export function ScoutingTripDetail({
 
           {/* Risks Section */}
           {trip.risks && (
-            <DetailSection title="Risks" icon={AlertTriangle} defaultExpanded={false}>
+            <DetailSection id="risks" title="Risks" icon={AlertTriangle} expandedSection={expandedSection} onToggle={handleSectionToggle}>
               <p className="text-xs text-zinc-700 whitespace-pre-wrap">
                 {trip.risks}
               </p>
@@ -656,7 +666,7 @@ export function ScoutingTripDetail({
           )}
 
           {/* Comments Section */}
-          <DetailSection title="Comments" icon={MessageSquare} defaultExpanded={false}>
+          <DetailSection id="comments" title="Comments" icon={MessageSquare} expandedSection={expandedSection} onToggle={handleSectionToggle}>
             <TripCommentsSection tripId={trip.id} />
           </DetailSection>
         </div>
