@@ -56,25 +56,29 @@ interface ScoutingTripFormProps {
   onStartLinking?: () => void; // Called when user wants to link POIs/areas
 }
 
-// Collapsible section component
+// Collapsible section component (accordion style - only one open at a time)
 function FormSection({
+  id,
   title,
   icon: Icon,
   children,
-  defaultExpanded = true,
+  expandedSection,
+  onToggle,
 }: {
+  id: string;
   title: string;
   icon: React.ElementType;
   children: React.ReactNode;
-  defaultExpanded?: boolean;
+  expandedSection: string | null;
+  onToggle: (id: string) => void;
 }) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const isExpanded = expandedSection === id;
 
   return (
     <div className="border-b border-zinc-200 last:border-0">
       <button
         type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => onToggle(id)}
         className="w-full p-4 flex items-center gap-3 hover:bg-zinc-50 transition-colors"
       >
         {isExpanded ? (
@@ -230,6 +234,12 @@ export function ScoutingTripForm({
   // Validation state
   const [showErrors, setShowErrors] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+
+  // Accordion state - only one section expanded at a time
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const handleSectionToggle = (sectionId: string) => {
+    setExpandedSection(prev => prev === sectionId ? null : sectionId);
+  };
 
   // Validation checks
   const errors = {
@@ -592,7 +602,7 @@ export function ScoutingTripForm({
           )}
 
           {/* Checklist Section */}
-          <FormSection title="Checklist" icon={ClipboardCheck} defaultExpanded={false}>
+          <FormSection id="checklist" title="Checklist" icon={ClipboardCheck} expandedSection={expandedSection} onToggle={handleSectionToggle}>
             <TripChecklist
               items={checklist}
               onChange={setChecklist}
@@ -600,7 +610,7 @@ export function ScoutingTripForm({
           </FormSection>
 
           {/* Attachments Section */}
-          <FormSection title="Attachments" icon={Paperclip} defaultExpanded={false}>
+          <FormSection id="attachments" title="Attachments" icon={Paperclip} expandedSection={expandedSection} onToggle={handleSectionToggle}>
             <AttachmentGallery
               attachments={attachments}
               onUpload={handleAddAttachment}
@@ -609,7 +619,7 @@ export function ScoutingTripForm({
           </FormSection>
 
           {/* Location Section */}
-          <FormSection title="Location" icon={MapPin} defaultExpanded={false}>
+          <FormSection id="location" title="Location" icon={MapPin} expandedSection={expandedSection} onToggle={handleSectionToggle}>
             <FormField label="Address" required error={showErrors && errors.address}>
               <Input
                 value={address}
@@ -680,7 +690,7 @@ export function ScoutingTripForm({
           </FormSection>
 
           {/* Financial Section */}
-          <FormSection title="Financial" icon={DollarSign} defaultExpanded={false}>
+          <FormSection id="financial" title="Financial" icon={DollarSign} expandedSection={expandedSection} onToggle={handleSectionToggle}>
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Monthly Rent (€)">
                 <Input
@@ -766,7 +776,7 @@ export function ScoutingTripForm({
           </FormSection>
 
           {/* Operational Section */}
-          <FormSection title="Operational" icon={Settings} defaultExpanded={false}>
+          <FormSection id="operational" title="Operational" icon={Settings} expandedSection={expandedSection} onToggle={handleSectionToggle}>
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Ventilation">
                 <Select
@@ -833,7 +843,7 @@ export function ScoutingTripForm({
           </FormSection>
 
           {/* Risks Section */}
-          <FormSection title="Risks & Notes" icon={AlertTriangle} defaultExpanded={false}>
+          <FormSection id="risks" title="Risks & Notes" icon={AlertTriangle} expandedSection={expandedSection} onToggle={handleSectionToggle}>
             <FormField label="Potential Risks">
               <textarea
                 value={risks}
