@@ -26,6 +26,7 @@ export function MobileBottomNav() {
     { id: "activity", label: "Activity", icon: Activity, sheet: activity },
   ];
 
+  // Design system: 56px height, glass background, 24px icons, 11px labels
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-t border-zinc-200 safe-area-pb">
       <div className="flex items-center justify-around h-14">
@@ -40,8 +41,8 @@ export function MobileBottomNav() {
                 : "text-zinc-500 active:text-zinc-900"
             )}
           >
-            <Icon className="w-5 h-5" />
-            <span className="text-[10px] font-medium">{label}</span>
+            <Icon className="w-6 h-6" />
+            <span className="text-[11px] font-medium">{label}</span>
           </button>
         ))}
       </div>

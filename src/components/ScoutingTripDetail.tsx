@@ -694,7 +694,11 @@ export function ScoutingTripDetail({
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={isExporting}>
+                <Button
+                  variant="outline"
+                  disabled={isExporting}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {isExporting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
@@ -706,9 +710,10 @@ export function ScoutingTripDetail({
                   <ChevronDown className={`w-3 h-3 ${isMobile ? "ml-1" : "ml-1.5"}`} />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenuItem
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setIsExporting(true);
                     generateTripPdf(trip).finally(() => setIsExporting(false));
                   }}
@@ -717,7 +722,8 @@ export function ScoutingTripDetail({
                   Export as PDF
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setIsExporting(true);
                     generateTripDocx(trip).finally(() => setIsExporting(false));
                   }}
