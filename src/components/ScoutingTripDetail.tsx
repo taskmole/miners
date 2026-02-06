@@ -15,11 +15,12 @@ import {
   Clock,
   Check,
   XCircle,
-  Download,
+  FileDown,
   MessageSquare,
   ClipboardCheck,
   Paperclip,
   Building,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +41,7 @@ import { Trash2 } from "lucide-react";
 import { statusLabels, statusColors } from "@/types/scouting";
 import { TripChecklist } from "@/components/TripChecklist";
 import { AttachmentGallery } from "@/components/attachments";
+import { generateTripPdf } from "@/components/TripPdfExport";
 import type { ScoutingTrip, ScoutingTripStatus } from "@/types/scouting";
 
 interface ScoutingTripDetailProps {
@@ -249,6 +251,7 @@ export function ScoutingTripDetail({
   const isMobile = useMobile();
   const { getTrips, deleteTrip, updateChecklist } = useScoutingTrips();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const trips = getTrips();
   const trip = trips.find((t) => t.id === tripId);
 
@@ -681,7 +684,29 @@ export function ScoutingTripDetail({
             <Trash2 className="w-4 h-4 mr-1.5" />
             Delete
           </Button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                setIsExporting(true);
+                try {
+                  await generateTripPdf(trip);
+                } finally {
+                  setIsExporting(false);
+                }
+              }}
+              disabled={isExporting}
+              title="Export as PDF"
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileDown className="w-4 h-4" />
+              )}
+              <span className={isMobile ? "sr-only" : "ml-1.5"}>
+                {isExporting ? "Exporting..." : "PDF"}
+              </span>
+            </Button>
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>
