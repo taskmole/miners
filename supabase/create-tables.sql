@@ -461,6 +461,42 @@ CREATE TABLE public.competitor_metrics (
 );
 
 -- ===========================================
+-- GRAVITY MODEL & LOCATION SCORING
+-- ===========================================
+
+-- Pre-calculated gravity scores for city grids
+-- Replaces large GeoJSON files with queryable database records
+CREATE TABLE public.gravity_scores (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  city_id text NOT NULL,
+  location geography(POINT) NOT NULL,
+  score numeric NOT NULL,              -- Raw weighted score
+  normalized_score numeric NOT NULL,   -- 0-1 normalized within city
+  resolution_meters integer NOT NULL,  -- Grid resolution used (e.g., 100)
+  params_version text NOT NULL,        -- Version string to track which weights were used
+  calculated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT gravity_scores_pkey PRIMARY KEY (id),
+  CONSTRAINT gravity_scores_city_id_fkey FOREIGN KEY (city_id) REFERENCES public.cities(id)
+);
+
+-- Gravity calculation batches - tracks when scores were generated
+CREATE TABLE public.gravity_batches (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  city_id text NOT NULL,
+  params_version text NOT NULL,
+  weights jsonb NOT NULL,              -- { population: 4, income: 3, metro: 6, traffic: 8, poi: 5 }
+  beta numeric NOT NULL,               -- Distance decay parameter
+  resolution_meters integer NOT NULL,
+  point_count integer NOT NULL,
+  min_score numeric,
+  max_score numeric,
+  calculated_by uuid,
+  calculated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT gravity_batches_pkey PRIMARY KEY (id),
+  CONSTRAINT gravity_batches_city_id_fkey FOREIGN KEY (city_id) REFERENCES public.cities(id)
+);
+
+-- ===========================================
 -- PROFITABILITY PREDICTION TABLES
 -- ===========================================
 
@@ -523,6 +559,9 @@ CREATE INDEX traffic_data_hour_idx ON public.traffic_data(city_id, hora);
 CREATE INDEX footfall_data_geo_idx ON public.footfall_data USING GIST(location);
 
 CREATE INDEX prospective_locations_geo_idx ON public.prospective_locations USING GIST(location);
+
+CREATE INDEX gravity_scores_geo_idx ON public.gravity_scores USING GIST(location);
+CREATE INDEX gravity_scores_city_idx ON public.gravity_scores(city_id, params_version);
 
 CREATE INDEX comments_entity_idx ON public.comments(entity_type, entity_id);
 CREATE INDEX mentions_user_unread_idx ON public.mentions(mentioned_user_id, is_read) WHERE is_read = false;

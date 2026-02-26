@@ -47,12 +47,12 @@ When the user types any of these, immediately execute the action — no question
 - **`.help`** → List all available quick commands with descriptions. Just print the table below, nothing else.
 - **`.3`** → Kill anything on port 3000, then run `npm run dev` in the background. Confirm it started.
 - **`.c`** → Run git status and diff, stage the changed files, write a fitting commit message, commit, and push. Confirm success.
-- **`.ui`** → Activate the UI fix workflow: read ALL component + style files first, trace the full style cascade, explain the root cause, then apply ONE targeted fix. Verify at mobile widths (375px, 390px, 428px). Run type check and lint.
+- **`.ui`** → Activate the UI fix workflow: First read `docs/design-system.md` for the correct values. Then read ALL component + style files, trace the full style cascade, explain the root cause, then apply ONE targeted fix following the design system rules. Verify at mobile widths (375px, 390px, 428px). Run the checklist at the end of the design system doc. Run type check and lint.
 - **`.audit`** → Run a parallel codebase audit: spawn multiple agents simultaneously — one for dead code, one for type safety, one for component complexity, one for CSS issues. Combine findings into a single prioritized summary.
 - **`.test`** → Run Playwright mobile viewport tests against localhost:3000 to verify no layout issues at 375px, 390px, and 428px widths.
 - **`.s`** → Run the code simplifier agent on recently modified code to make sure it's as efficient as it can be.
 - **`.sim`** → Re-explain the last thing you said in plain, simple English. Short sentences. No jargon. Like you're talking to a smart 15-year-old. Be concise — if it can be said in 3 sentences, don't use 10.
-- **`.kill`** → Kill the dev server running on port 3000. Confirm it's stopped.
+- **`.kill`** → Kill the local dev server. If port numbers are given (e.g. `.kill 3000 3001`), only kill those. If no port is given, kill all ports used by this project (3000, 3001, etc.). Confirm what was stopped.
 
 # Available Tools
 - Code simplifier plugin

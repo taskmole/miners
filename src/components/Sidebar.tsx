@@ -12,7 +12,6 @@ import {
     Home,
     ChevronRight,
     Funnel,
-    Info,
     X,
     Dumbbell,
 } from "lucide-react";
@@ -42,6 +41,7 @@ interface SidebarProps {
         dorm: number;
         university: number;
         gym: number;
+        newPois: number;
     };
     activeFilters: Set<string>;
     onFilterChange: (filters: Set<string>) => void;
@@ -65,6 +65,11 @@ interface SidebarProps {
     onTrafficHourChange?: (hour: number) => void;
     showHiddenPois?: boolean;
     onShowHiddenPoisToggle?: (show: boolean) => void;
+    showNewOnly?: boolean;
+    onShowNewOnlyToggle?: (show: boolean) => void;
+    // Gravity model / Location Score
+    gravityEnabled?: boolean;
+    onGravityToggle?: (enabled: boolean) => void;
 }
 
 const placeCategories = [
@@ -120,6 +125,10 @@ export function Sidebar({
     onTrafficHourChange,
     showHiddenPois = false,
     onShowHiddenPoisToggle,
+    showNewOnly = false,
+    onShowNewOnlyToggle,
+    gravityEnabled = false,
+    onGravityToggle,
 }: SidebarProps) {
     // Get hidden POIs count from context
     const { hiddenCount } = useHiddenPoisContext();
@@ -233,14 +242,16 @@ export function Sidebar({
             "regular_cafe"
         ]);
         onFilterChange(allFilters);
-        // Turn off "hidden only" mode when selecting all
+        // Turn off special modes when selecting all
         onShowHiddenPoisToggle?.(false);
+        onShowNewOnlyToggle?.(false);
     };
 
     const handleClearAll = () => {
         onFilterChange(new Set<string>());
-        // Turn off "hidden only" mode when clearing all
+        // Turn off special modes when clearing all
         onShowHiddenPoisToggle?.(false);
+        onShowNewOnlyToggle?.(false);
     };
 
     const toggleCategoryExpand = (id: string) => {
@@ -350,7 +361,7 @@ export function Sidebar({
                                                 onClick={handleSelectAll}
                                                 className={cn(
                                                     "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
-                                                    isAllSelected && !showHiddenPois
+                                                    isAllSelected && !showHiddenPois && !showNewOnly
                                                         ? "bg-white text-zinc-900 shadow-sm"
                                                         : "text-zinc-500 hover:text-zinc-700"
                                                 )}
@@ -361,18 +372,37 @@ export function Sidebar({
                                                 onClick={handleClearAll}
                                                 className={cn(
                                                     "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
-                                                    isNoneSelected && !showHiddenPois
+                                                    isNoneSelected && !showHiddenPois && !showNewOnly
                                                         ? "bg-white text-zinc-900 shadow-sm"
                                                         : "text-zinc-500 hover:text-zinc-700"
                                                 )}
                                             >
                                                 Clear All
                                             </button>
+                                            {/* New button - shows only recently-added POIs when clicked */}
+                                            {(counts?.newPois ?? 0) > 0 && (
+                                                <button
+                                                    onClick={() => {
+                                                        // Clear other special modes and enable new-only filter
+                                                        onShowHiddenPoisToggle?.(false);
+                                                        onShowNewOnlyToggle?.(!showNewOnly);
+                                                    }}
+                                                    className={cn(
+                                                        "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
+                                                        showNewOnly
+                                                            ? "bg-white text-zinc-900 shadow-sm"
+                                                            : "text-zinc-500 hover:text-zinc-700"
+                                                    )}
+                                                >
+                                                    New ({counts?.newPois})
+                                                </button>
+                                            )}
                                             {/* Hidden button - shows only hidden POIs when clicked */}
                                             {hiddenCount > 0 && (
                                                 <button
                                                     onClick={() => {
-                                                        // Clear all regular filters and show only hidden POIs
+                                                        // Clear other special modes and show only hidden POIs
+                                                        onShowNewOnlyToggle?.(false);
                                                         onFilterChange(new Set<string>());
                                                         onShowHiddenPoisToggle?.(true);
                                                     }}
@@ -789,6 +819,26 @@ export function Sidebar({
                                     />
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* ===== LOCATION SCORE SECTION ===== */}
+                    <div className="border-b border-white/10">
+                        <div
+                            onClick={() => onGravityToggle?.(!gravityEnabled)}
+                            className="w-full p-4 flex items-center justify-between hover:bg-white/20 transition-colors cursor-pointer"
+                        >
+                            <span className="text-sm font-bold text-zinc-900">Location Score</span>
+                            <span
+                                className={cn(
+                                    "px-2 py-0.5 text-[10px] font-bold rounded-full transition-colors",
+                                    gravityEnabled
+                                        ? "bg-green-100/50 text-green-700"
+                                        : "bg-white/30 text-zinc-400"
+                                )}
+                            >
+                                {gravityEnabled ? "On" : "Off"}
+                            </span>
                         </div>
                     </div>
             </ScrollArea>

@@ -116,7 +116,7 @@ export function AddToListButton({ place, shape }: AddToListButtonProps) {
           <Button
             variant="outline"
             size="sm"
-            className="h-auto py-1 px-2"
+            className="min-h-10 px-3"
           >
             {listsWithItem > 0 ? (
               <>

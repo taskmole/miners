@@ -319,7 +319,7 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
     const createTripWithProperty = (
         list: LocationList,
         selectedItem: ListItem | null,
-        selectedArea: { areaId: string; areaType: string; areaName: string } | null
+        selectedArea: { areaId: string; areaType: string; name: string } | null
     ) => {
         if (!cityId) return;
 
@@ -341,7 +341,7 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
             propertyLinkedItem = {
                 type: 'area',
                 id: selectedArea.areaId,
-                name: selectedArea.areaName,
+                name: selectedArea.name,
             };
         }
 
@@ -366,7 +366,7 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
             relatedPlaces.push({
                 type: 'area',
                 id: area.areaId,
-                name: area.areaName,
+                name: area.name,
             });
         }
 
@@ -388,7 +388,7 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
     };
 
     // Handle property selection from picker
-    const handlePropertySelected = (item: ListItem | null, area: { areaId: string; areaType: string; areaName: string } | null) => {
+    const handlePropertySelected = (item: ListItem | null, area: { areaId: string; areaType: string; name: string } | null) => {
         if (!selectedListForTrip) return;
         createTripWithProperty(selectedListForTrip, item, area);
     };
@@ -625,7 +625,7 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
                                     <Route className="w-4 h-4 text-zinc-600" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-zinc-900 truncate">{area.areaName}</p>
+                                    <p className="text-sm font-medium text-zinc-900 truncate">{area.name}</p>
                                     <p className="text-xs text-zinc-500">Custom area</p>
                                 </div>
                             </button>
