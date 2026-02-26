@@ -13,7 +13,8 @@
     "review": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/review.ts",
     "publish": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/publish.ts",
     "export:csv": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/export-csv.ts",
-    "fetch:gyms": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/fetch-google-gyms.ts"
+    "fetch:gyms": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/fetch-google-gyms.ts",
+    "generate-gravity": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/generate-gravity-scores.ts"
   },
   "dependencies": {
     "@mapbox/mapbox-gl-draw": "^1.5.1",

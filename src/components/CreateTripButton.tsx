@@ -79,7 +79,7 @@ export function CreateTripButton({ property, cityId, variant = 'default', onClos
       variant="outline"
       size="sm"
       onClick={handleClick}
-      className="h-auto py-1 px-2"
+      className="min-h-10 px-3"
     >
       <Route className="h-3.5 w-3.5" />
       <span>Create trip</span>

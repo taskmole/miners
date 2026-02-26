@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
+import fs from "fs";
+import path from "path";
 
 // Prevent static generation - this route needs to run at request time
 export const dynamic = "force-dynamic";
@@ -32,31 +34,23 @@ function parseCount(value: string | undefined): number {
   return parseFloat(clean) || 0;
 }
 
-// Helper to get the base URL for fetching public files
-function getBaseUrl(request: NextRequest): string {
-  const host = request.headers.get("host") || "localhost:3000";
-  const protocol = host.includes("localhost") ? "http" : "https";
-  return `${protocol}://${host}`;
-}
-
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const hour = searchParams.get("hour");
     const grouped = searchParams.get("grouped") === "true";
 
-    // Fetch from public folder instead of filesystem
-    const baseUrl = getBaseUrl(request);
-    const response = await fetch(`${baseUrl}/data/footfall_data.csv`);
+    // Read file directly from filesystem (more secure than self-fetch)
+    const filePath = path.join(process.cwd(), "public", "data", "footfall_data.csv");
 
-    if (!response.ok) {
+    if (!fs.existsSync(filePath)) {
       return NextResponse.json(
         { type: "FeatureCollection", features: [] },
         { status: 200 }
       );
     }
 
-    const fileContent = await response.text();
+    const fileContent = fs.readFileSync(filePath, "utf-8");
     const { data } = Papa.parse(fileContent, { header: true });
 
     // Filter out invalid rows
@@ -138,14 +132,16 @@ export async function GET(request: NextRequest) {
       { type: "FeatureCollection", features },
       {
         headers: {
-          // No cache to ensure fresh data after fixes
-          "Cache-Control": "no-store, must-revalidate",
+          // Cache for 30 minutes (traffic data doesn't change frequently)
+          "Cache-Control": "public, max-age=1800",
           "Content-Type": "application/json",
         },
       }
     );
   } catch (error) {
+    // Log detailed error server-side
     console.error("Error loading traffic data:", error);
+    // Return sanitized response
     return NextResponse.json(
       { type: "FeatureCollection", features: [] },
       { status: 200 }

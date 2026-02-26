@@ -16,6 +16,7 @@ import {
   Check,
   XCircle,
   FileDown,
+  Download,
   MessageSquare,
   ClipboardCheck,
   Paperclip,

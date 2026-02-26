@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { isRecentlyAdded } from "@/lib/dateUtils";
+import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
 
 // Types for all POI categories
 export interface CafeData {
@@ -23,6 +23,7 @@ export interface CafeData {
     facebook?: string;
     premium?: boolean;
     datePublished?: string;
+    fetchedAt?: string; // When the POI was first discovered (Google Places)
     city: "madrid" | "barcelona" | "prague"; // Which city this cafe belongs to
 }
 
@@ -53,6 +54,7 @@ export interface OtherPoiData {
     address: string;
     mapsUrl: string;
     website?: string;
+    fetchedAt?: string; // When the POI was first discovered
 }
 
 export type LocationData = CafeData | PropertyData | OtherPoiData;
@@ -245,6 +247,7 @@ export function useMapData(cityId?: string) {
                                 facebook: undefined,
                                 premium: false,
                                 datePublished: undefined,
+                                fetchedAt: c.fetchedAt || undefined,
                                 city: "madrid" as const,
                             }));
                     }
@@ -302,6 +305,7 @@ export function useMapData(cityId?: string) {
                                 address: g.address || "",
                                 mapsUrl: g.googleMapsUrl || "",
                                 website: g.website || undefined,
+                                fetchedAt: g.fetchedAt || undefined,
                             }));
                         parsedOther.push(...gyms);
                     }
@@ -380,6 +384,24 @@ export function useMapData(cityId?: string) {
             dorm: poiCounts["dorm"] || 0,
             university: poiCounts["university"] || 0,
             gym: poiCounts["gym"] || 0,
+            // Count new POIs (added in last 30 days) across all filterable types
+            newPois: (() => {
+                let count = 0;
+                // Count EUCT cafes with recent datePublished
+                for (const c of euctCafes) {
+                    if (isNewPoi(c.datePublished)) count++;
+                }
+                // Count Google Places cafes with recent fetchedAt
+                const googleCafes = cityCafes.filter(c => !c.link?.includes("europeancoffeetrip"));
+                for (const c of googleCafes) {
+                    if (isNewPoi(c.fetchedAt)) count++;
+                }
+                // Count gyms with recent fetchedAt
+                for (const p of otherPois) {
+                    if (p.type === "gym" && isNewPoi(p.fetchedAt)) count++;
+                }
+                return count;
+            })(),
         };
     }, [cafes, properties, otherPois, cityId]);
 

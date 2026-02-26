@@ -21,6 +21,10 @@ interface BottomSheetProps {
   showBackdrop?: boolean;
   // Snap point as percentage of viewport height (default: 65 for partial, 95 for full)
   snapPoint?: "partial" | "full";
+  // Whether to show the default close button (default: true)
+  showCloseButton?: boolean;
+  // Extra buttons to render next to close button (e.g., hide button)
+  headerButtons?: React.ReactNode;
 }
 
 // Threshold for swipe-to-dismiss (pixels)
@@ -34,6 +38,8 @@ export function BottomSheet({
   title,
   showBackdrop = true,
   snapPoint = "partial",
+  showCloseButton = true,
+  headerButtons,
 }: BottomSheetProps) {
   const { isMobile, isMobileLandscape } = useMobileDevice();
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -151,7 +157,7 @@ export function BottomSheet({
   if (!mounted) return null;
 
   // Calculate sheet height based on snap point
-  const sheetHeight = snapPoint === "full" ? "95vh" : "65vh";
+  const sheetHeight = snapPoint === "full" ? "95vh" : "75vh";
 
   // In landscape, use side sheet from left
   const isLandscapeMode = isMobileLandscape;
@@ -202,31 +208,49 @@ export function BottomSheet({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Close button - always visible, top-right, with safe area padding */}
-        <button
-          onClick={onClose}
-          className="absolute right-3 z-50 w-10 h-10 flex items-center justify-center rounded-full text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
-          style={{ top: "calc(8px + env(safe-area-inset-top, 0px))" }}
-          aria-label="Close"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* Drag handle - with safe area padding */}
-        <div className="flex justify-center pb-2" style={{ paddingTop: "calc(12px + env(safe-area-inset-top, 0px))" }}>
-          <div className="w-10 h-1 bg-zinc-300 rounded-full" />
-        </div>
-
-        {/* Title bar (optional) */}
-        {title && (
-          <div className="px-4 pb-3 pr-16 border-b border-zinc-100">
-            <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
+        {/* Header buttons - top-right, with safe area padding */}
+        {(showCloseButton || headerButtons) && (
+          <div
+            className="absolute right-3 z-50 flex items-center gap-2"
+            style={{ top: "calc(8px + env(safe-area-inset-top, 0px))" }}
+          >
+            {headerButtons}
+            {showCloseButton && (
+              <button
+                onClick={onClose}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/90 shadow-md text-zinc-500 hover:bg-gray-100 hover:scale-105 transition-all duration-200"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
         )}
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain">
-          {children}
+        {/* Drag handle - floats over content with semi-transparent background */}
+        <div
+          className="absolute left-0 right-0 flex justify-center pb-2 z-40 rounded-t-2xl"
+          style={{
+            paddingTop: "calc(12px + env(safe-area-inset-top, 0px))",
+            background: "linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 70%, transparent 100%)"
+          }}
+        >
+          <div className="w-10 h-1 bg-zinc-400 rounded-full shadow-sm" />
+        </div>
+
+        {/* Content wrapper - pt-10 creates space below the floating drag handle */}
+        <div className="flex-1 flex flex-col pt-10">
+          {/* Title bar (optional) */}
+          {title && (
+            <div className="px-4 pb-3 pr-16 border-b border-zinc-100">
+              <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
+            </div>
+          )}
+
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto overscroll-contain">
+            {children}
+          </div>
         </div>
       </div>
     </div>

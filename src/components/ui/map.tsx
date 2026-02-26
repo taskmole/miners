@@ -507,7 +507,7 @@ function MarkerPopup({
         <button
           type="button"
           onClick={handleClose}
-          className="absolute top-2.5 right-3 z-20 h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
+          className="absolute top-2.5 right-3 z-20 size-11 md:size-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
           aria-label="Close popup"
         >
           <X className="h-3.5 w-3.5 text-zinc-700" />
@@ -677,7 +677,8 @@ function ControlButton({
       aria-label={label}
       type="button"
       className={cn(
-        "flex items-center justify-center size-8 hover:bg-accent dark:hover:bg-accent/40 transition-colors",
+        // Mobile: 44px (size-11), Desktop: 32px (size-8)
+        "flex items-center justify-center size-11 md:size-8 hover:bg-accent dark:hover:bg-accent/40 transition-colors",
         disabled && "opacity-50 pointer-events-none cursor-not-allowed"
       )}
       disabled={disabled}
@@ -935,7 +936,7 @@ function MapPopup({
         <button
           type="button"
           onClick={handleClose}
-          className="absolute top-2.5 right-3 z-20 h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
+          className="absolute top-2.5 right-3 z-20 size-11 md:size-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
           aria-label="Close popup"
         >
           <X className="h-3.5 w-3.5 text-zinc-700" />

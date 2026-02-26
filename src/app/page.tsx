@@ -47,6 +47,11 @@ function HomeContent() {
   const [ratingFilter, setRatingFilter] = useState(0);
   const [euctFilter, setEuctFilter] = useState<EuctFilter>("all");
   const [showHiddenPois, setShowHiddenPois] = useState(false);
+  const [showNewOnly, setShowNewOnly] = useState(false);
+
+  // Location Score toggle state
+  const [gravityEnabled, setGravityEnabled] = useState(false);
+
   const [drawnFeatures, setDrawnFeatures] = useState<GeoJSON.FeatureCollection>({
     type: 'FeatureCollection',
     features: []
@@ -153,6 +158,8 @@ function HomeContent() {
           selectedCity={selectedCity}
           isLinkingMode={isLinking}
           showHiddenPois={showHiddenPois}
+          showNewOnly={showNewOnly}
+          gravityEnabled={gravityEnabled}
         />
       </div>
 
@@ -184,6 +191,10 @@ function HomeContent() {
             onTrafficHourChange={setTrafficHour}
             showHiddenPois={showHiddenPois}
             onShowHiddenPoisToggle={setShowHiddenPois}
+            showNewOnly={showNewOnly}
+            onShowNewOnlyToggle={setShowNewOnly}
+            gravityEnabled={gravityEnabled}
+            onGravityToggle={setGravityEnabled}
           />
           <ActivityLog />
           <ListsPanel

@@ -187,7 +187,7 @@ function isPoiFilterActive(poi: LocationData, activeFilters: Set<string>, rating
             if (euctFilter === "premium" && !cafe.premium) return false;
             if (euctFilter === "new" && !isRecentlyAdded(cafe.datePublished)) return false;
         }
-        const ratingMatch = !ratingFilter || (cafe.rating && cafe.rating >= ratingFilter);
+        const ratingMatch = ratingFilter === 0 || (cafe.rating !== undefined && cafe.rating >= ratingFilter);
         return categoryMatch && ratingMatch;
     } else if (poi.type === "property") {
         return activeFilters.has("property");
@@ -646,6 +646,67 @@ function removeIncomeLayers(map: any) {
     if (map.getSource("income-source")) map.removeSource("income-source");
 }
 
+// ===== GRAVITY / LOCATION SCORE LAYER =====
+function addGravityLayers(map: any, data: any) {
+    // Remove first if exists (handles re-add after style change)
+    removeGravityLayers(map);
+
+    map.addSource("gravity-source", {
+        type: "geojson",
+        data: data,
+    });
+
+    // Insert ABOVE buildings so it's visible
+    const insertBefore = getLayerAfterBuildings(map);
+
+    // Heatmap layer for location scores
+    map.addLayer({
+        id: "gravity-heatmap",
+        type: "heatmap",
+        source: "gravity-source",
+        paint: {
+            // Weight based on normalizedScore (0-1)
+            "heatmap-weight": ["get", "normalizedScore"],
+            // Intensity increases with zoom
+            "heatmap-intensity": [
+                "interpolate", ["linear"], ["zoom"],
+                10, 0.5,
+                14, 1.5,
+            ],
+            // Color ramp: blue (low) -> green -> yellow -> red (high)
+            "heatmap-color": [
+                "interpolate", ["linear"], ["heatmap-density"],
+                0, "rgba(0, 0, 255, 0)",
+                0.1, "rgba(65, 105, 225, 0.4)",   // royalblue
+                0.3, "rgba(50, 205, 50, 0.5)",    // limegreen
+                0.5, "rgba(255, 215, 0, 0.6)",    // gold
+                0.7, "rgba(255, 140, 0, 0.7)",    // darkorange
+                1, "rgba(220, 20, 60, 0.8)",      // crimson
+            ],
+            // Radius - small for district-level granularity
+            "heatmap-radius": [
+                "interpolate", ["linear"], ["zoom"],
+                10, 8,   // City overview - see major hotspots
+                12, 12,  // District level - see neighborhood differences
+                14, 18,  // Before fade-out
+            ],
+            // Fade out at street level - heatmap is for neighborhood overview only
+            "heatmap-opacity": [
+                "interpolate", ["linear"], ["zoom"],
+                11, 0.7,   // Full visibility at city level
+                13, 0.5,   // Start fading at neighborhood level
+                14.5, 0.15, // Nearly gone at street level
+                15.5, 0,   // Invisible - rely on POI markers
+            ],
+        },
+    }, insertBefore);
+}
+
+function removeGravityLayers(map: any) {
+    if (map.getLayer("gravity-heatmap")) map.removeLayer("gravity-heatmap");
+    if (map.getSource("gravity-source")) map.removeSource("gravity-source");
+}
+
 // Enhanced marker icon with all features
 function EnhancedMarkerIcon({
     type,
@@ -800,7 +861,7 @@ const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ pl
 });
 
 // EU Coffee Trip Popup - Uses universal popup base classes - memoized to prevent re-renders
-const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe }: { cafe: CafeData }) {
+const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose }: { cafe: CafeData; onClose?: () => void }) {
     const mapsUrl = cafe.googleMapsUrl || `https://www.google.com/maps?q=${cafe.lat},${cafe.lon}`;
     const recentlyAdded = isRecentlyAdded(cafe.datePublished);
     const commentCount = 0; // TODO: Get from data when available
@@ -808,13 +869,20 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe }: { cafe
 
     return (
         <div className="popup-base">
-            {/* Hide button - positioned next to close button */}
-            <HideButton placeId={placeId} className="absolute top-2.5 right-12 z-20" />
-
-            {/* Image with overlays */}
+            {/* Image with overlays and action buttons */}
             {cafe.image && (
                 <div className="popup-image tall">
                     <img src={cafe.image} alt={cafe.name} />
+
+                    {/* Action buttons floating on image */}
+                    <div className="popup-image-actions">
+                        <HideButton placeId={placeId} className="popup-image-btn" />
+                        {onClose && (
+                            <button onClick={onClose} className="popup-image-btn" aria-label="Close">
+                                <X size={20} />
+                            </button>
+                        )}
+                    </div>
 
                     {/* New ribbon */}
                     {recentlyAdded && (
@@ -877,12 +945,12 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe }: { cafe
             <div className="popup-footer">
                 <div className="popup-buttons">
                     {cafe.link && (
-                        <a href={cafe.link} target="_blank" rel="noopener noreferrer" className="popup-btn-icon">
+                        <a href={cafe.link} target="_blank" rel="noopener noreferrer" className="popup-btn-icon logo-fill">
                             <img src="/assets/eu_coffee_trip_logo.png" alt="EU Coffee Trip" />
                         </a>
                     )}
                     <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="popup-btn-icon has-bg">
-                        <img src="/assets/google-maps-logo-bare.png" alt="Maps" style={{ width: 19, height: 19, objectFit: 'contain' }} />
+                        <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
                     </a>
                     {cafe.instagram && (
                         <a href={cafe.instagram} target="_blank" rel="noopener noreferrer" className="popup-btn-icon social">
@@ -917,16 +985,15 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe }: { cafe
 });
 
 // Regular Cafe popup content (non-EU Coffee Trip) - Uses universal popup base - memoized
-const RegularCafePopup = React.memo(function RegularCafePopup({ cafe }: { cafe: CafeData }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }: { cafe: CafeData; onClose?: () => void }) {
     const mapsUrl = cafe.googleMapsUrl || `https://www.google.com/maps?q=${cafe.lat},${cafe.lon}`;
     const commentCount = 0; // TODO: Get from data when available
     const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
+    // Note: onClose not used here - regular cafes have no image, so BottomSheet shows its own close button
 
     return (
         <div className="popup-base">
-            {/* Hide button - positioned next to close button */}
-            <HideButton placeId={placeId} className="absolute top-2.5 right-12 z-20" />
-
             {/* Header */}
             <div className="popup-header">
                 <span className="popup-name">{cafe.name}</span>
@@ -972,7 +1039,7 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe }: { cafe: 
             <div className="popup-footer">
                 <div className="popup-buttons">
                     <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="popup-btn-icon has-bg">
-                        <img src="/assets/google-maps-logo-bare.png" alt="Maps" style={{ width: 19, height: 19, objectFit: 'contain' }} />
+                        <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
                     </a>
                 </div>
                 {/* Hide "Add to list" for Miners' own cafes */}
@@ -992,14 +1059,14 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe }: { cafe: 
 });
 
 // Cafe popup dispatcher - renders appropriate popup based on cafe type
-function CafePopupContent({ cafe }: { cafe: CafeData }) {
+function CafePopupContent({ cafe, onClose }: { cafe: CafeData; onClose?: () => void }) {
     const isEuCoffeeTrip = cafe.link?.includes("europeancoffeetrip");
 
     if (isEuCoffeeTrip) {
-        return <EuCoffeeTripPopup cafe={cafe} />;
+        return <EuCoffeeTripPopup cafe={cafe} onClose={onClose} />;
     }
 
-    return <RegularCafePopup cafe={cafe} />;
+    return <RegularCafePopup cafe={cafe} onClose={onClose} />;
 }
 
 // Helper to capitalize first letter of address
@@ -1021,9 +1088,6 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
 
     return (
         <div className="popup-base">
-            {/* Hide button - positioned next to close button */}
-            <HideButton placeId={placeId} className="absolute top-2.5 right-12 z-20" />
-
             {/* Header - Title */}
             <div className="popup-header">
                 <span className="popup-name">{capitalizeFirst(property.title)}</span>
@@ -1078,11 +1142,11 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             {/* Footer */}
             <div className="popup-footer">
                 <div className="popup-buttons">
-                    <a href={property.url} target="_blank" rel="noopener noreferrer" className="popup-btn-icon">
-                        <img src="/assets/idealista-logo.png" alt="Idealista" style={{ width: 34, height: 34, objectFit: 'contain' }} />
+                    <a href={property.url} target="_blank" rel="noopener noreferrer" className="popup-btn-icon logo-fill">
+                        <img src="/assets/idealista-logo.png" alt="Idealista" />
                     </a>
                     <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="popup-btn-icon has-bg">
-                        <img src="/assets/google-maps-logo-bare.png" alt="Maps" style={{ width: 19, height: 19, objectFit: 'contain' }} />
+                        <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
                     </a>
                 </div>
                 <div className="flex gap-1.5 flex-shrink-0">
@@ -1119,9 +1183,6 @@ const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi }: {
 
     return (
         <div className="popup-base">
-            {/* Hide button - positioned next to close button */}
-            <HideButton placeId={placeId} className="absolute top-2.5 right-12 z-20" />
-
             {/* Header with name, type chip, and comment bubble */}
             <div className="popup-header">
                 <span className="popup-name">{poi.name}</span>
@@ -1147,7 +1208,7 @@ const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi }: {
             <div className="popup-footer">
                 <div className="popup-buttons">
                     <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="popup-btn-icon has-bg">
-                        <img src="/assets/google-maps-logo-bare.png" alt="Maps" style={{ width: 19, height: 19, objectFit: 'contain' }} />
+                        <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
                     </a>
                     {poi.website && (
                         <a href={poi.website} target="_blank" rel="noopener noreferrer" className="popup-btn-icon social">
@@ -1175,9 +1236,11 @@ function OverlayLayerManager({
     populationDensityFilter,
     incomeEnabled,
     incomeWealthyFilter,
+    gravityEnabled,
     trafficData,
     populationData,
     incomeData,
+    gravityData,
     styleKey,
 }: {
     trafficEnabled: boolean;
@@ -1185,9 +1248,11 @@ function OverlayLayerManager({
     populationDensityFilter: number;
     incomeEnabled: boolean;
     incomeWealthyFilter: number;
+    gravityEnabled: boolean;
     trafficData: any;
     populationData: any;
     incomeData: any;
+    gravityData: any;
     styleKey: number;
 }) {
     const { map, isLoaded } = useMap();
@@ -1217,12 +1282,20 @@ function OverlayLayerManager({
             removeIncomeLayers(map);
         }
 
+        // Gravity/Location Score layers
+        if (gravityEnabled && gravityData) {
+            addGravityLayers(map, gravityData);
+        } else {
+            removeGravityLayers(map);
+        }
+
         return () => {
             removeTrafficLayers(map);
             removePopulationLayers(map);
             removeIncomeLayers(map);
+            removeGravityLayers(map);
         };
-    }, [map, isLoaded, trafficEnabled, populationEnabled, populationDensityFilter, incomeEnabled, incomeWealthyFilter, trafficData, populationData, incomeData, styleKey]);
+    }, [map, isLoaded, trafficEnabled, populationEnabled, populationDensityFilter, incomeEnabled, incomeWealthyFilter, gravityEnabled, trafficData, populationData, incomeData, gravityData, styleKey]);
 
     return null; // This component doesn't render anything
 }
@@ -1450,6 +1523,8 @@ interface EnhancedMapContainerProps {
     selectedCity?: City;
     isLinkingMode?: boolean;
     showHiddenPois?: boolean;
+    showNewOnly?: boolean;
+    gravityEnabled?: boolean;
 }
 
 export function EnhancedMapContainer({
@@ -1467,6 +1542,8 @@ export function EnhancedMapContainer({
     selectedCity,
     isLinkingMode = false,
     showHiddenPois = false,
+    showNewOnly = false,
+    gravityEnabled = false,
 }: EnhancedMapContainerProps) {
     const { cafes, properties, otherPois, isLoading, error } = useMapData();
     const {
@@ -1482,6 +1559,28 @@ export function EnhancedMapContainer({
         loadPopulationData,
         loadIncomeData,
     } = useOverlayData();
+
+    // Gravity/Location Score data state
+    const [gravityData, setGravityData] = React.useState<any>(null);
+    const [isLoadingGravity, setIsLoadingGravity] = React.useState(false);
+
+    // Load gravity data when enabled
+    const loadGravityData = React.useCallback(async () => {
+        if (gravityData || isLoadingGravity) return;
+        setIsLoadingGravity(true);
+        try {
+            const cityId = selectedCity?.id || "madrid";
+            const response = await fetch(`/data/gravity_${cityId}.geojson`);
+            if (response.ok) {
+                const data = await response.json();
+                setGravityData(data);
+            }
+        } catch (error) {
+            console.error("Failed to load gravity data:", error);
+        } finally {
+            setIsLoadingGravity(false);
+        }
+    }, [gravityData, isLoadingGravity, selectedCity?.id]);
 
     // Linking context for adding POIs to scouting trips
     const { addItem: addLinkingItem } = useLinking();
@@ -1713,7 +1812,7 @@ export function EnhancedMapContainer({
 
     // Mobile detection for bottom sheet POI display
     const isMobile = useMobile();
-    const { openSheet: openPOISheet, closeSheet: closePOISheet, isSheetOpen: isPOISheetOpen } = useSheetState("poi-details");
+    const { open: openPOISheet, close: closePOISheet, isOpen: isPOISheetOpen } = useSheetState("poi-details");
 
     // State for disambiguation popup (when multiple POIs share same coordinates)
     const [disambiguationData, setDisambiguationData] = useState<{
@@ -1889,6 +1988,13 @@ export function EnhancedMapContainer({
         }
     }, [incomeEnabled, loadIncomeData]);
 
+    // Load gravity data when enabled
+    useEffect(() => {
+        if (gravityEnabled) {
+            loadGravityData();
+        }
+    }, [gravityEnabled, loadGravityData]);
+
     if (error) {
         return (
             <div className="w-full h-full flex items-center justify-center bg-zinc-100">
@@ -1927,9 +2033,11 @@ export function EnhancedMapContainer({
                     populationDensityFilter={populationDensityFilter}
                     incomeEnabled={incomeEnabled ?? false}
                     incomeWealthyFilter={incomeWealthyFilter}
+                    gravityEnabled={gravityEnabled}
                     trafficData={trafficData}
                     populationData={populationData}
                     incomeData={incomeData}
+                    gravityData={gravityData}
                     styleKey={mapStyleKey}
                 />
 
@@ -1982,7 +2090,7 @@ export function EnhancedMapContainer({
                 {/* MINERS CAFES - Always visible with nice icons */}
                 {minersCafes.map((cafe, i) => {
                     const markerKey = `miners-${cafe.lat}-${cafe.lon}-${i}`;
-                    const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon, cafe.name);
+                    const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon);
                     const hidden = isHidden(placeId);
                     // In "Hidden" mode, only show hidden POIs
                     if (showHiddenPois && !hidden) return null;
@@ -2038,7 +2146,7 @@ export function EnhancedMapContainer({
                         {visibleCafes.map((cafe, i) => {
                             const isEuCoffeeTrip = cafe.link?.includes("europeancoffeetrip");
                             const markerKey = `cafe-icon-${cafe.lat}-${cafe.lon}-${i}`;
-                            const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon, cafe.name);
+                            const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon);
                             const hidden = isHidden(placeId);
                             // In "Hidden" mode, only show hidden POIs
                             if (showHiddenPois && !hidden) return null;
@@ -2106,7 +2214,7 @@ export function EnhancedMapContainer({
                                     if (isLinkingMode) {
                                         handleLinkingClick({
                                             type: 'place',
-                                            id: generatePlaceId('cafe', cafe.lat, cafe.lon, cafe.name),
+                                            id: generatePlaceId('cafe', cafe.lat, cafe.lon),
                                             name: cafe.name,
                                             address: cafe.address,
                                             data: cafe,
@@ -2130,7 +2238,7 @@ export function EnhancedMapContainer({
                                     if (isLinkingMode) {
                                         handleLinkingClick({
                                             type: 'place',
-                                            id: generatePlaceId('cafe', cafe.lat, cafe.lon, cafe.name),
+                                            id: generatePlaceId('cafe', cafe.lat, cafe.lon),
                                             name: cafe.name,
                                             address: cafe.address,
                                             data: cafe,
@@ -2150,7 +2258,7 @@ export function EnhancedMapContainer({
                         {/* Zoomed in: Show icon markers */}
                         {visibleProperties.map((property, i) => {
                             const markerKey = `property-icon-${property.latitude}-${property.longitude}-${i}`;
-                            const placeId = generatePlaceId('property', property.latitude, property.longitude, property.title);
+                            const placeId = generatePlaceId('property', property.latitude, property.longitude);
                             const hidden = isHidden(placeId);
                             // In "Hidden" mode, only show hidden POIs
                             if (showHiddenPois && !hidden) return null;
@@ -2164,6 +2272,7 @@ export function EnhancedMapContainer({
                                     latitude={property.latitude}
                                     longitude={property.longitude}
                                     onClick={() => {
+                                        console.log('[Property Click] Icon marker clicked', { property: property.title, isMobile, hasMultiplePois, isLinkingMode });
                                         if (isLinkingMode) {
                                             handleLinkingClick({
                                                 type: 'place',
@@ -2178,6 +2287,7 @@ export function EnhancedMapContainer({
                                                 coordinates: [property.longitude, property.latitude]
                                             });
                                         } else if (isMobile) {
+                                            console.log('[Property Click] Setting selectedProperty via icon marker', property.title);
                                             setSelectedProperty({ property, coordinates: [property.longitude, property.latitude] });
                                         } else {
                                             setActiveMarkerKey(markerKey);
@@ -2208,16 +2318,18 @@ export function EnhancedMapContainer({
                                 pointColor="#78C500"
                                 styleKey={mapStyleKey}
                                 onPointClick={(feature, coordinates) => {
+                                    console.log('[Property Click] Cluster point clicked', { feature, coordinates, isMobile });
                                     const property = feature.properties as unknown as PropertyData;
                                     if (isLinkingMode) {
                                         handleLinkingClick({
                                             type: 'place',
-                                            id: generatePlaceId('property', property.latitude, property.longitude, property.title),
+                                            id: generatePlaceId('property', property.latitude, property.longitude),
                                             name: property.title,
                                             address: property.address,
                                             data: property,
                                         });
                                     } else {
+                                        console.log('[Property Click] Setting selectedProperty', property.title);
                                         setSelectedProperty({ property, coordinates });
                                     }
                                 }}
@@ -2244,7 +2356,7 @@ export function EnhancedMapContainer({
                                 gym: "bg-red-700",
                             };
                             const markerKey = `poi-icon-${poi.lat}-${poi.lon}-${i}`;
-                            const placeId = generatePlaceId(poi.type, poi.lat, poi.lon, poi.name);
+                            const placeId = generatePlaceId(poi.type, poi.lat, poi.lon);
                             const hidden = isHidden(placeId);
                             // In "Hidden" mode, only show hidden POIs
                             if (showHiddenPois && !hidden) return null;
@@ -2308,7 +2420,7 @@ export function EnhancedMapContainer({
                                         if (isLinkingMode) {
                                             handleLinkingClick({
                                                 type: 'place',
-                                                id: generatePlaceId(poi.type, poi.lat, poi.lon, poi.name),
+                                                id: generatePlaceId(poi.type, poi.lat, poi.lon),
                                                 name: poi.name,
                                                 address: poi.address,
                                                 data: poi,
@@ -2367,20 +2479,54 @@ export function EnhancedMapContainer({
 
             {/* Mobile POI Popups - BottomSheet must be outside Map */}
             {isMobile && selectedCafe && (
-                <BottomSheet isOpen={true} onClose={() => setSelectedCafe(null)} snapPoint="partial">
-                    <div className="p-4"><CafePopupContent cafe={selectedCafe.cafe} /></div>
+                <BottomSheet
+                    isOpen={true}
+                    onClose={() => setSelectedCafe(null)}
+                    snapPoint="partial"
+                    showCloseButton={!selectedCafe.cafe.image}
+                    headerButtons={!selectedCafe.cafe.image ? (
+                        <HideButton
+                            placeId={`cafe-${selectedCafe.cafe.lat.toFixed(5)}-${selectedCafe.cafe.lon.toFixed(5)}`}
+                            className="w-10 h-10"
+                        />
+                    ) : undefined}
+                >
+                    <CafePopupContent cafe={selectedCafe.cafe} onClose={() => setSelectedCafe(null)} />
                 </BottomSheet>
             )}
 
             {isMobile && selectedProperty && (
-                <BottomSheet isOpen={true} onClose={() => setSelectedProperty(null)} snapPoint="partial">
-                    <div className="p-4"><PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={() => setSelectedProperty(null)} /></div>
-                </BottomSheet>
+                <>
+                    {console.log('[Property Popup] Rendering BottomSheet for', selectedProperty.property.title)}
+                    <BottomSheet
+                        isOpen={true}
+                        onClose={() => setSelectedProperty(null)}
+                        snapPoint="partial"
+                        headerButtons={
+                            <HideButton
+                                placeId={`property-${selectedProperty.property.latitude.toFixed(5)}-${selectedProperty.property.longitude.toFixed(5)}`}
+                                className="w-10 h-10"
+                            />
+                        }
+                    >
+                        <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={() => setSelectedProperty(null)} />
+                    </BottomSheet>
+                </>
             )}
 
             {isMobile && selectedPoi && (
-                <BottomSheet isOpen={true} onClose={() => setSelectedPoi(null)} snapPoint="partial">
-                    <div className="p-4"><OtherPoiPopupContent poi={selectedPoi.poi} /></div>
+                <BottomSheet
+                    isOpen={true}
+                    onClose={() => setSelectedPoi(null)}
+                    snapPoint="partial"
+                    headerButtons={
+                        <HideButton
+                            placeId={`${selectedPoi.poi.type}-${selectedPoi.poi.lat.toFixed(5)}-${selectedPoi.poi.lon.toFixed(5)}`}
+                            className="w-10 h-10"
+                        />
+                    }
+                >
+                    <OtherPoiPopupContent poi={selectedPoi.poi} />
                 </BottomSheet>
             )}
 
