@@ -847,6 +847,50 @@ ON public.prospective_locations FOR DELETE
 USING (user_id = auth.uid());
 
 -- ===========================================
+-- 31. GRAVITY_SCORES - Public read, admin write
+-- ===========================================
+
+ALTER TABLE public.gravity_scores ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view gravity_scores"
+ON public.gravity_scores FOR SELECT
+USING (true);
+
+CREATE POLICY "Only admins can insert gravity_scores"
+ON public.gravity_scores FOR INSERT
+WITH CHECK (public.is_admin());
+
+CREATE POLICY "Only admins can update gravity_scores"
+ON public.gravity_scores FOR UPDATE
+USING (public.is_admin());
+
+CREATE POLICY "Only admins can delete gravity_scores"
+ON public.gravity_scores FOR DELETE
+USING (public.is_admin());
+
+-- ===========================================
+-- 32. GRAVITY_BATCHES - Public read, admin write
+-- ===========================================
+
+ALTER TABLE public.gravity_batches ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view gravity_batches"
+ON public.gravity_batches FOR SELECT
+USING (true);
+
+CREATE POLICY "Only admins can insert gravity_batches"
+ON public.gravity_batches FOR INSERT
+WITH CHECK (public.is_admin());
+
+CREATE POLICY "Only admins can update gravity_batches"
+ON public.gravity_batches FOR UPDATE
+USING (public.is_admin());
+
+CREATE POLICY "Only admins can delete gravity_batches"
+ON public.gravity_batches FOR DELETE
+USING (public.is_admin());
+
+-- ===========================================
 -- DONE!
 -- ===========================================
 --
