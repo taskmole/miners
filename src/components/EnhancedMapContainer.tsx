@@ -2131,8 +2131,8 @@ export function EnhancedMapContainer({
                                 <IconMarker color="bg-black" icon={Coffee} isMiners isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
                             </MarkerContent>
                             {!isLinkingMode && !hasMultiplePois && !isMobile && (
-                                <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
-                                    <CafePopupContent cafe={cafe} />
+                                <MarkerPopup closeButton={!cafe.image} onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
+                                    <CafePopupContent cafe={cafe} onClose={handlePopupClose} />
                                 </MarkerPopup>
                             )}
                         </MapMarker>
@@ -2190,8 +2190,8 @@ export function EnhancedMapContainer({
                                         />
                                     </MarkerContent>
                                     {!isLinkingMode && !hasMultiplePois && !isMobile && (
-                                        <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
-                                            <CafePopupContent cafe={cafe} />
+                                        <MarkerPopup closeButton={!cafe.image} onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
+                                            <CafePopupContent cafe={cafe} onClose={handlePopupClose} />
                                         </MarkerPopup>
                                     )}
                                 </MapMarker>
