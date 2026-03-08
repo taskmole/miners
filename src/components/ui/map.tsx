@@ -507,10 +507,10 @@ function MarkerPopup({
         <button
           type="button"
           onClick={handleClose}
-          className="absolute top-2.5 right-3 z-20 size-11 md:size-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
+          className="absolute top-2.5 right-3 z-20 size-11 md:size-10 rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
           aria-label="Close popup"
         >
-          <X className="h-3.5 w-3.5 text-zinc-700" />
+          <X className="h-3.5 w-3.5 md:h-5 md:w-5 text-zinc-700" />
           <span className="sr-only">Close</span>
         </button>
       )}
@@ -936,10 +936,10 @@ function MapPopup({
         <button
           type="button"
           onClick={handleClose}
-          className="absolute top-2.5 right-3 z-20 size-11 md:size-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
+          className="absolute top-2.5 right-3 z-20 size-11 md:size-10 rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
           aria-label="Close popup"
         >
-          <X className="h-3.5 w-3.5 text-zinc-700" />
+          <X className="h-3.5 w-3.5 md:h-5 md:w-5 text-zinc-700" />
           <span className="sr-only">Close</span>
         </button>
       )}

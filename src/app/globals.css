@@ -362,8 +362,8 @@
 }
 
 .popup-image-btn {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.9);
   border: none;
@@ -381,8 +381,8 @@
 }
 
 .popup-image-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   color: #222;
 }
 
@@ -650,8 +650,8 @@
 
 /* Icon button (social links, maps, source logos) */
 .popup-btn-icon {
-  width: 33px;
-  height: 33px;
+  width: 40px;
+  height: 40px;
   border-radius: 4px;
   border: none;
   background: transparent;
@@ -678,13 +678,14 @@
 .popup-btn-icon img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 4px;
+  padding: 4px;
 }
 
 .popup-btn-icon svg {
-  width: 19px;
-  height: 19px;
+  width: 20px;
+  height: 20px;
   opacity: 0.5;
   transition: opacity 0.2s ease;
 }
