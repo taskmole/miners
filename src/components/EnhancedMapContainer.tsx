@@ -862,7 +862,7 @@ const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ pl
 
 // EU Coffee Trip Popup - Uses universal popup base classes - memoized to prevent re-renders
 const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose }: { cafe: CafeData; onClose?: () => void }) {
-    const mapsUrl = cafe.googleMapsUrl || `https://www.google.com/maps?q=${cafe.lat},${cafe.lon}`;
+    const mapsUrl = buildGoogleMapsUrl(cafe.name, cafe.googleMapsUrl, cafe.lat, cafe.lon, cafe.address);
     const recentlyAdded = isRecentlyAdded(cafe.datePublished);
     const commentCount = 0; // TODO: Get from data when available
     const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
@@ -987,7 +987,7 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
 // Regular Cafe popup content (non-EU Coffee Trip) - Uses universal popup base - memoized
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }: { cafe: CafeData; onClose?: () => void }) {
-    const mapsUrl = cafe.googleMapsUrl || `https://www.google.com/maps?q=${cafe.lat},${cafe.lon}`;
+    const mapsUrl = buildGoogleMapsUrl(cafe.name, cafe.googleMapsUrl, cafe.lat, cafe.lon, cafe.address);
     const commentCount = 0; // TODO: Get from data when available
     const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
     // Note: onClose not used here - regular cafes have no image, so BottomSheet shows its own close button
@@ -1069,6 +1069,26 @@ function CafePopupContent({ cafe, onClose }: { cafe: CafeData; onClose?: () => v
     return <RegularCafePopup cafe={cafe} onClose={onClose} />;
 }
 
+// Build a Google Maps URL that works reliably on mobile + desktop.
+// Stored URLs use `?q=place_id:X` which breaks on mobile Safari — convert to the official Maps URLs API.
+function buildGoogleMapsUrl(name: string, storedUrl: string | undefined, lat: number, lon: number, address?: string): string {
+    // Try to extract a Place ID from the stored URL (format: place_id:ChIJ...)
+    if (storedUrl) {
+        const match = storedUrl.match(/place_id:([A-Za-z0-9_-]+)/);
+        if (match) {
+            const query = encodeURIComponent(name);
+            return `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${match[1]}`;
+        }
+        // If the stored URL doesn't contain a Place ID, use it as-is (e.g. address-based search URLs)
+        return storedUrl;
+    }
+    // No stored URL — search by name + address for better context than bare coordinates
+    const query = address
+        ? encodeURIComponent(`${name}, ${address}`)
+        : encodeURIComponent(`${name} ${lat},${lon}`);
+    return `https://www.google.com/maps/search/?api=1&query=${query}`;
+}
+
 // Helper to capitalize first letter of address
 function capitalizeFirst(str: string): string {
     if (!str) return str;
@@ -1077,7 +1097,7 @@ function capitalizeFirst(str: string): string {
 
 // Property popup content - Uses universal popup base - memoized
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
-    const mapsUrl = `https://www.google.com/maps?q=${property.latitude},${property.longitude}`;
+    const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address);
     const placeId = `property-${property.latitude.toFixed(5)}-${property.longitude.toFixed(5)}`;
 
     // Build features array
@@ -1177,7 +1197,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
 
 // Other POI popup content - Uses universal popup base - memoized
 const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi }: { poi: OtherPoiData }) {
-    const mapsUrl = poi.mapsUrl || `https://www.google.com/maps?q=${poi.lat},${poi.lon}`;
+    const mapsUrl = buildGoogleMapsUrl(poi.name, poi.mapsUrl || undefined, poi.lat, poi.lon, poi.address);
     const commentCount = 0; // TODO: Get from data when available
     const placeId = `${poi.type}-${poi.lat.toFixed(5)}-${poi.lon.toFixed(5)}`;
 
