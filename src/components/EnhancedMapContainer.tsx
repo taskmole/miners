@@ -727,9 +727,9 @@ function EnhancedMarkerIcon({
     const Icon = config.icon;
 
     const sizeClasses = {
-        small: "w-7 h-7",
-        default: "w-9 h-9",
-        large: "w-11 h-11"
+        small: "w-9 h-9 md:w-7 md:h-7",
+        default: "w-11 h-11 md:w-9 md:h-9",
+        large: "w-12 h-12 md:w-11 md:h-11"
     };
 
     const iconSizes = {
@@ -754,8 +754,8 @@ function EnhancedMarkerIcon({
                     "border-2 border-white",
                     "transition-all duration-200",
                     sizeClasses[size],
-                    // State-based styling
-                    state === "default" && "hover:scale-125 hover:shadow-xl hover:z-50",
+                    // State-based styling (hover only on desktop, active:scale-90 for mobile tap feedback)
+                    state === "default" && "md:hover:scale-125 md:hover:shadow-xl md:hover:z-50 active:scale-90",
                     state === "hovered" && "scale-125 shadow-xl z-50",
                     state === "selected" && "ring-4 ring-blue-500 scale-110 shadow-xl",
                     state === "dimmed" && "opacity-30 grayscale",
