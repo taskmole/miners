@@ -66,7 +66,7 @@ export function CreateTripButton({ property, cityId, variant = 'default', onClos
         variant="ghost"
         size="sm"
         onClick={handleClick}
-        className="h-auto py-1 px-2 text-xs"
+        className="h-10 md:h-auto py-2 md:py-1 px-2 text-xs"
       >
         <Route className="h-3.5 w-3.5 mr-1" />
         Scout
@@ -77,9 +77,9 @@ export function CreateTripButton({ property, cityId, variant = 'default', onClos
   return (
     <Button
       variant="outline"
-      size="sm"
+      size="lg"
       onClick={handleClick}
-      className="min-h-10 px-3"
+      className="md:h-8 md:text-sm px-3"
     >
       <Route className="h-3.5 w-3.5" />
       <span>Create trip</span>

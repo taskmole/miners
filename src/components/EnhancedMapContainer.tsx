@@ -1169,7 +1169,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                         <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
                     </a>
                 </div>
-                <div className="flex gap-1.5 flex-shrink-0">
+                <div className="flex gap-3 md:gap-1.5 flex-shrink-0">
                     <CreateTripButton
                         property={{
                             id: `property-${property.latitude}-${property.longitude}`,
