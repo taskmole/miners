@@ -2,10 +2,11 @@
  * Browser Session Utility
  *
  * Provides a unique identifier for each browser to track shape ownership.
- * When Supabase auth is added, getCurrentUserId() will return the real user ID.
+ * Uses Supabase user ID when logged in, falls back to browser session for demo mode.
  */
 
 const SESSION_STORAGE_KEY = 'miners-browser-session-id';
+const AUTH_USER_ID_KEY = 'miners-auth-user-id';
 
 /**
  * Get or create a unique browser session ID
@@ -25,14 +26,34 @@ export function getBrowserSessionId(): string {
 }
 
 /**
+ * Set the authenticated user ID (called when user signs in)
+ */
+export function setAuthUserId(userId: string | null): void {
+  if (userId) {
+    localStorage.setItem(AUTH_USER_ID_KEY, userId);
+  } else {
+    localStorage.removeItem(AUTH_USER_ID_KEY);
+  }
+}
+
+/**
+ * Get the authenticated user ID (if logged in)
+ */
+export function getAuthUserId(): string | null {
+  return localStorage.getItem(AUTH_USER_ID_KEY);
+}
+
+/**
  * Get the current user ID
- * Returns browser session ID for now.
- * After Supabase migration: return actual user ID from auth
+ * Returns Supabase user ID if logged in, otherwise browser session ID
  */
 export function getCurrentUserId(): string {
-  // TODO: After Supabase auth is added, replace with:
-  // const { data: { user } } = await supabase.auth.getUser();
-  // return user?.id ?? getBrowserSessionId();
+  // Check for authenticated user first
+  const authUserId = getAuthUserId();
+  if (authUserId) {
+    return authUserId;
+  }
+  // Fall back to browser session for demo mode
   return getBrowserSessionId();
 }
 
