@@ -75,7 +75,7 @@ function formatOpeningHours(hours?: string[]): string {
  * Build official Google Maps URL from a Google Place ID
  */
 function googleMapsUrl(placeId: string): string {
-  return `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+  return `https://www.google.com/maps/search/?api=1&query=place&query_place_id=${placeId}`;
 }
 
 /**
