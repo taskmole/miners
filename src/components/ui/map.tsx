@@ -1190,7 +1190,7 @@ function MapClusterLayer<
         "circle-radius": [
           "step",
           ["get", "point_count"],
-          20,
+          24,
           clusterThresholds[0],
           30,
           clusterThresholds[1],
@@ -1214,7 +1214,7 @@ function MapClusterLayer<
       },
     });
 
-    // Add unclustered point layer
+    // Add unclustered point layer (10px radius with invisible 16px stroke for 44px touch target)
     map.addLayer({
       id: unclusteredLayerId,
       type: "circle",
@@ -1222,7 +1222,10 @@ function MapClusterLayer<
       filter: ["!", ["has", "point_count"]],
       paint: {
         "circle-color": pointColor,
-        "circle-radius": 6,
+        "circle-radius": 10,
+        "circle-stroke-width": 12,
+        "circle-stroke-color": pointColor,
+        "circle-stroke-opacity": 0,
       },
     });
 
@@ -1274,7 +1277,7 @@ function MapClusterLayer<
       map.setPaintProperty(clusterLayerId, "circle-radius", [
         "step",
         ["get", "point_count"],
-        20,
+        24,
         clusterThresholds[0],
         30,
         clusterThresholds[1],

@@ -360,7 +360,7 @@ export function Sidebar({
                                             <button
                                                 onClick={handleSelectAll}
                                                 className={cn(
-                                                    "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
+                                                    "flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all",
                                                     isAllSelected && !showHiddenPois && !showNewOnly
                                                         ? "bg-white text-zinc-900 shadow-sm"
                                                         : "text-zinc-500 hover:text-zinc-700"
@@ -371,7 +371,7 @@ export function Sidebar({
                                             <button
                                                 onClick={handleClearAll}
                                                 className={cn(
-                                                    "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
+                                                    "flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all",
                                                     isNoneSelected && !showHiddenPois && !showNewOnly
                                                         ? "bg-white text-zinc-900 shadow-sm"
                                                         : "text-zinc-500 hover:text-zinc-700"
@@ -388,7 +388,7 @@ export function Sidebar({
                                                         onShowNewOnlyToggle?.(!showNewOnly);
                                                     }}
                                                     className={cn(
-                                                        "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
+                                                        "flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all",
                                                         showNewOnly
                                                             ? "bg-white text-zinc-900 shadow-sm"
                                                             : "text-zinc-500 hover:text-zinc-700"
@@ -407,7 +407,7 @@ export function Sidebar({
                                                         onShowHiddenPoisToggle?.(true);
                                                     }}
                                                     className={cn(
-                                                        "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
+                                                        "flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all",
                                                         showHiddenPois
                                                             ? "bg-white text-zinc-900 shadow-sm"
                                                             : "text-zinc-500 hover:text-zinc-700"
@@ -420,7 +420,7 @@ export function Sidebar({
                                     </div>
 
                                     {/* Category List */}
-                                    <div className="p-3 space-y-1">
+                                    <div className="p-3 space-y-2 md:space-y-1">
                                         {placeCategories.map((cat) => {
                                             // For categories with subcategories, derive checked state from children
                                             const isActive = cat.hasSubcategories && cat.subcategories
@@ -434,7 +434,7 @@ export function Sidebar({
                                             return (
                                                 <div key={cat.id}>
                                                     <div
-                                                        className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-black/10 transition-colors cursor-pointer group"
+                                                        className="flex items-center justify-between py-3 md:py-1.5 px-2 rounded-lg hover:bg-black/10 transition-colors cursor-pointer group"
                                                         onClick={() => {
                                                         if (cat.hasSubcategories) {
                                                             // Only expand/collapse - checkbox handles toggling
@@ -466,7 +466,7 @@ export function Sidebar({
                                                                     }
                                                                 }}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                className="w-4 h-4 border-zinc-300 data-[state=checked]:bg-zinc-800 data-[state=checked]:border-zinc-800"
+                                                                className="size-[22px] md:size-4 border-zinc-300 data-[state=checked]:bg-zinc-800 data-[state=checked]:border-zinc-800"
                                                             />
                                                             <cat.icon className={cn(
                                                                 "w-4 h-4",
@@ -499,7 +499,7 @@ export function Sidebar({
                                                             style={{ gridTemplateRows: isCatExpanded ? '1fr' : '0fr' }}
                                                         >
                                                             <div className="overflow-hidden">
-                                                                <div className="ml-6 pl-3 border-l border-zinc-200/50 mt-1 mb-2 space-y-1">
+                                                                <div className="ml-6 pl-3 border-l border-zinc-200/50 mt-1 mb-2 space-y-2 md:space-y-1">
                                                                     {/* Rating slider for cafes */}
                                                                     <div className="py-2 pr-3">
                                                                         <div className="flex justify-between text-[10px] font-medium text-zinc-500 mb-2">
@@ -530,14 +530,14 @@ export function Sidebar({
                                                                         return (
                                                                             <React.Fragment key={sub.id}>
                                                                                 <div
-                                                                                    className="flex items-center justify-between py-1 px-2 rounded hover:bg-black/10"
+                                                                                    className="flex items-center justify-between py-2.5 md:py-1 px-2 rounded hover:bg-black/10"
                                                                                 >
                                                                                     <div className="flex items-center gap-2">
                                                                                         <Checkbox
                                                                                             id={sub.id}
                                                                                             checked={subActive}
                                                                                             onCheckedChange={(checked) => handleToggle(sub.id, !!checked)}
-                                                                                            className="w-3.5 h-3.5"
+                                                                                            className="size-5 md:size-3.5"
                                                                                         />
                                                                                         <label htmlFor={sub.id} className="text-[11px] font-medium text-zinc-900/70 cursor-pointer">
                                                                                             {sub.label}
@@ -560,7 +560,7 @@ export function Sidebar({
                                                                                                         key={opt.value}
                                                                                                         onClick={() => onEuctFilterChange?.(opt.value)}
                                                                                                         className={cn(
-                                                                                                            "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
+                                                                                                            "flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all",
                                                                                                             euctFilter === opt.value
                                                                                                                 ? "bg-white text-zinc-900 shadow-sm"
                                                                                                                 : "text-zinc-500 hover:text-zinc-700"
@@ -661,14 +661,14 @@ export function Sidebar({
                                         <button
                                             onClick={() => onTrafficValuesToggle?.(!trafficValuesEnabled)}
                                             className={cn(
-                                                "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                                                "relative inline-flex h-7 w-12 md:h-5 md:w-9 items-center rounded-full transition-colors",
                                                 trafficValuesEnabled ? "bg-green-500" : "bg-zinc-300"
                                             )}
                                         >
                                             <span
                                                 className={cn(
-                                                    "inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform",
-                                                    trafficValuesEnabled ? "translate-x-4" : "translate-x-0.5"
+                                                    "inline-block h-6 w-6 md:h-4 md:w-4 transform rounded-full bg-white shadow-sm transition-transform",
+                                                    trafficValuesEnabled ? "translate-x-5 md:translate-x-4" : "translate-x-0.5"
                                                 )}
                                             />
                                         </button>
