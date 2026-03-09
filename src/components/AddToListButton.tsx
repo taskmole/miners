@@ -115,8 +115,8 @@ export function AddToListButton({ place, shape }: AddToListButtonProps) {
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            size="sm"
-            className="min-h-10 px-3"
+            size="lg"
+            className="md:h-8 md:text-sm px-3"
           >
             {listsWithItem > 0 ? (
               <>
