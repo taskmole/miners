@@ -187,8 +187,8 @@ export function FootfallTimePicker({
     <div
       className={cn(
         "fixed left-4 right-4 z-40 transition-all duration-200 ease-out",
-        // Position above MobileBottomNav (56px + safe area)
-        "bottom-[calc(56px+env(safe-area-inset-bottom))]"
+        // Position above MobileBottomNav (56px + 12px gap + safe area)
+        "bottom-[calc(68px+env(safe-area-inset-bottom))]"
       )}
     >
       {/* Tooltip */}
