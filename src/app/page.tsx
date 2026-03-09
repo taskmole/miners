@@ -21,6 +21,9 @@ import { ScoutingTripsProvider } from "@/contexts/ScoutingTripsContext";
 import { PointCategoriesProvider } from "@/contexts/PointCategoriesContext";
 import { SheetProvider } from "@/contexts/SheetContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
+import { supabase } from "@/lib/supabase";
+import { setAuthUserId } from "@/lib/browser-session";
+import type { User } from "@supabase/supabase-js";
 import type { ScoutingTrip, LinkedItem } from "@/types/scouting";
 import type { EuctFilter } from "@/types/filters";
 
@@ -33,8 +36,54 @@ function HomeContent() {
   const { counts } = useMapData(selectedCity.id);
   const { startLinking, isLinking } = useLinking();
 
-  // Landing page state - shows on first load
+  // Auth state
+  const [user, setUser] = useState<User | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Landing page state - shows on first load (unless already logged in)
   const [showLanding, setShowLanding] = useState(true);
+
+  // Check for auth session on mount and listen for changes
+  useEffect(() => {
+    if (!supabase) {
+      setAuthChecked(true);
+      return;
+    }
+
+    // Check for auth error in URL params
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("auth_error");
+    if (error) {
+      setAuthError(decodeURIComponent(error));
+      // Clean up URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        setAuthUserId(session.user.id); // Store user ID for sync access
+        setShowLanding(false); // Skip landing if already logged in
+      }
+      setAuthChecked(true);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+        setAuthUserId(session?.user?.id ?? null); // Update stored user ID
+        if (session?.user) {
+          setShowLanding(false);
+          setAuthError(null);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const [activeFilters, setActiveFilters] = useState<Set<string>>(DEFAULT_FILTERS);
   const [trafficEnabled, setTrafficEnabled] = useState(false);
@@ -264,8 +313,9 @@ function HomeContent() {
 
       {/* Landing Page Overlay */}
       <LandingPage
-        isVisible={showLanding}
+        isVisible={showLanding && authChecked}
         onEnterDemo={() => setShowLanding(false)}
+        authError={authError}
       />
     </main>
   );
