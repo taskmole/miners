@@ -841,6 +841,8 @@ export function Sidebar({
                             </span>
                         </div>
                     </div>
+                    {/* Bottom spacer for mobile scroll */}
+                    <div className="h-24 md:h-0" />
             </ScrollArea>
         </MobilePanel>
     );
