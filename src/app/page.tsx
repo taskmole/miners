@@ -10,6 +10,7 @@ import { ScoutingTripForm } from "@/components/ScoutingTripForm";
 import { ScoutingTripUpload } from "@/components/ScoutingTripUpload";
 import { ScoutingTripDetail } from "@/components/ScoutingTripDetail";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { FootfallTimePicker } from "@/components/FootfallTimePicker";
 import { EnhancedMapContainer } from "@/components/EnhancedMapContainer";
 import { LandingPage } from "@/components/LandingPage";
 import { useMapData } from "@/hooks/useMapData";
@@ -261,6 +262,11 @@ function HomeContent() {
               setSelectedTripId(trip.id);
               setIsScoutingDetailOpen(true);
             }}
+          />
+          <FootfallTimePicker
+            trafficEnabled={trafficEnabled}
+            trafficHour={trafficHour}
+            onTrafficHourChange={setTrafficHour}
           />
           <MobileBottomNav />
         </>
