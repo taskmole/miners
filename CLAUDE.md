@@ -17,6 +17,7 @@ I'm not technical - I don't read or understand code.
 - Check existing components before choosing a styling method
 
 # UI & Styling Rules
+- Always follow the current design system and refer to `docs/design-system.md` for correct values
 - When fixing UI/layout issues, ALWAYS read the FULL component file and ALL related CSS/style files BEFORE making any edits
 - Trace the full style cascade including parent containers, media queries, and conditional classes
 - Explain the root cause of any layout issue before proposing a fix
@@ -33,6 +34,7 @@ I'm not technical - I don't read or understand code.
 - When the user says something "still doesn't work", re-read the full component from scratch — don't just tweak your last edit
 
 # Workflow Rules
+- Always create a git branch before fixing bugs or adding features
 - For multi-file changes, create a TodoWrite checklist first
 - Complete each item and mark it done immediately
 - Do NOT report a task as done until every single todo item is checked off
@@ -54,7 +56,12 @@ When the user types any of these, immediately execute the action — no question
 - **`.sim`** → Re-explain the last thing you said in plain, simple English. Short sentences. No jargon. Like you're talking to a smart 15-year-old. Be concise — if it can be said in 3 sentences, don't use 10.
 - **`.kill`** → Kill the local dev server. If port numbers are given (e.g. `.kill 3000 3001`), only kill those. If no port is given, kill all ports used by this project (3000, 3001, etc.). Confirm what was stopped.
 
-# Available Tools
+# Available Tools & Skills
 - Code simplifier plugin
 - Feature development plugin
 - Frontend design plugin
+
+**REQUIRED: Use these skills EVERY time they apply — no exceptions:**
+- `react-best-practices` — MUST use when writing, editing, or reviewing any React/Next.js code
+- `web-design-guidelines` — MUST use when creating, editing, or reviewing any UI component
+- `vercel-deploy-claimable` — MUST use when deploying the app
