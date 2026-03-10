@@ -342,7 +342,7 @@ export function Sidebar({
                                 )} />
                                 <span className="text-sm font-bold text-zinc-900">Places</span>
                             </div>
-                            <span className="px-2 py-0.5 bg-green-100/50 text-green-700 text-[10px] font-bold rounded-full">
+                            <span className="px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] bg-green-100/50 text-green-700 font-bold rounded-full">
                                 {activeCount} active
                             </span>
                         </button>
@@ -627,10 +627,10 @@ export function Sidebar({
                                     onTrafficToggle?.(!trafficEnabled);
                                 }}
                                 className={cn(
-                                    "px-2 py-0.5 text-[10px] font-bold rounded-full cursor-pointer transition-colors",
+                                    "px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full cursor-pointer transition-colors",
                                     trafficEnabled
                                         ? "bg-green-100/50 text-green-700 hover:bg-green-200/50"
-                                        : "bg-white/30 text-zinc-400 hover:bg-white/20"
+                                        : "bg-zinc-200/60 text-zinc-500 hover:bg-zinc-200"
                                 )}
                             >
                                 {trafficEnabled ? "On" : "Off"}
@@ -708,10 +708,10 @@ export function Sidebar({
                                     onPopulationToggle?.(!populationEnabled);
                                 }}
                                 className={cn(
-                                    "px-2 py-0.5 text-[10px] font-bold rounded-full cursor-pointer transition-colors",
+                                    "px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full cursor-pointer transition-colors",
                                     populationEnabled
                                         ? "bg-green-100/50 text-green-700 hover:bg-green-200/50"
-                                        : "bg-white/30 text-zinc-400 hover:bg-white/20"
+                                        : "bg-zinc-200/60 text-zinc-500 hover:bg-zinc-200"
                                 )}
                             >
                                 {populationEnabled ? "On" : "Off"}
@@ -789,10 +789,10 @@ export function Sidebar({
                                     onIncomeToggle?.(!incomeEnabled);
                                 }}
                                 className={cn(
-                                    "px-2 py-0.5 text-[10px] font-bold rounded-full cursor-pointer transition-colors",
+                                    "px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full cursor-pointer transition-colors",
                                     incomeEnabled
                                         ? "bg-green-100/50 text-green-700 hover:bg-green-200/50"
-                                        : "bg-white/30 text-zinc-400 hover:bg-white/20"
+                                        : "bg-zinc-200/60 text-zinc-500 hover:bg-zinc-200"
                                 )}
                             >
                                 {incomeEnabled ? "On" : "Off"}
@@ -831,10 +831,10 @@ export function Sidebar({
                             <span className="text-sm font-bold text-zinc-900">Location Score</span>
                             <span
                                 className={cn(
-                                    "px-2 py-0.5 text-[10px] font-bold rounded-full transition-colors",
+                                    "px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full transition-colors",
                                     gravityEnabled
                                         ? "bg-green-100/50 text-green-700"
-                                        : "bg-white/30 text-zinc-400"
+                                        : "bg-zinc-200/60 text-zinc-500"
                                 )}
                             >
                                 {gravityEnabled ? "On" : "Off"}

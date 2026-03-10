@@ -813,9 +813,10 @@
     min-height: 44px;
   }
 
-  /* Footer: same layout as desktop with safe area padding */
+  /* Footer: safe area padding + spacing between icon and action groups */
   .popup-footer {
     padding: 16px 20px calc(16px + env(safe-area-inset-bottom, 0px)) 20px;
+    gap: 8px;
   }
 
   /* Attachment viewer mobile adjustments */
