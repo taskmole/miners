@@ -1169,7 +1169,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                         <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
                     </a>
                 </div>
-                <div className="flex gap-3 md:gap-1.5 flex-shrink-0">
+                <div className="flex gap-2 min-w-0">
                     <CreateTripButton
                         property={{
                             id: `property-${property.latitude}-${property.longitude}`,
@@ -2034,7 +2034,7 @@ export function EnhancedMapContainer({
                 className="w-full h-full"
             >
                 <MapControls position="bottom-right" showZoom showLocate showCompass />
-                <MapStyleSwitcher onStyleChange={() => setMapStyleKey(k => k + 1)} />
+                <MapStyleSwitcher onStyleChange={() => setMapStyleKey(k => k + 1)} trafficEnabled={trafficEnabled} />
 
                 {/* Navigation event listener for ActivityLog and ListsPanel clicks */}
                 <NavigationEventListener

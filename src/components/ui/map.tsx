@@ -292,6 +292,17 @@ function MapMarker({
 }: MapMarkerProps) {
   const { map } = useMap();
 
+  // Keep refs to the latest callbacks so event listeners never go stale.
+  // The useMemo below runs once (empty deps) and closes over the initial
+  // prop values. Without refs, mobile taps would use the mount-time
+  // onClick which captured isMobile=false.
+  const onClickRef = useRef(onClick);
+  const onMouseEnterRef = useRef(onMouseEnter);
+  const onMouseLeaveRef = useRef(onMouseLeave);
+  useEffect(() => { onClickRef.current = onClick; }, [onClick]);
+  useEffect(() => { onMouseEnterRef.current = onMouseEnter; }, [onMouseEnter]);
+  useEffect(() => { onMouseLeaveRef.current = onMouseLeave; }, [onMouseLeave]);
+
   const marker = useMemo(() => {
     const markerInstance = new MapLibreGL.Marker({
       ...markerOptions,
@@ -299,9 +310,9 @@ function MapMarker({
       draggable,
     }).setLngLat([longitude, latitude]);
 
-    const handleClick = (e: MouseEvent) => onClick?.(e);
-    const handleMouseEnter = (e: MouseEvent) => onMouseEnter?.(e);
-    const handleMouseLeave = (e: MouseEvent) => onMouseLeave?.(e);
+    const handleClick = (e: MouseEvent) => onClickRef.current?.(e);
+    const handleMouseEnter = (e: MouseEvent) => onMouseEnterRef.current?.(e);
+    const handleMouseLeave = (e: MouseEvent) => onMouseLeaveRef.current?.(e);
 
     // Touch support for mobile - track touch start position to distinguish tap from drag
     let touchStartX = 0;
@@ -317,7 +328,7 @@ function MapMarker({
       // Only trigger click if finger didn't move much (it's a tap, not a drag)
       if (dx < 10 && dy < 10) {
         e.preventDefault();
-        onClick?.(e as unknown as MouseEvent);
+        onClickRef.current?.(e as unknown as MouseEvent);
       }
     };
 
