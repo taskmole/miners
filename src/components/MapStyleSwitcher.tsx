@@ -36,8 +36,8 @@ export function MapStyleSwitcher({ onStyleChange, trafficEnabled }: { onStyleCha
     return (
         <div className={cn(
             "absolute left-6 z-10 transition-all duration-200",
-            "bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-6",
-            trafficEnabled && "bottom-[calc(136px+env(safe-area-inset-bottom))] md:bottom-6"
+            "hidden md:block md:bottom-6",
+            trafficEnabled && "md:bottom-6"
         )}>
             {/* Horizontal toggle with glassmorphism */}
             <div className="glass relative flex gap-1.5 p-1 rounded-xl border border-white/40 shadow-[0_0_0_1.5px_rgba(0,0,0,0.3),0_8px_32px_rgba(31,38,135,0.15),inset_0_4px_20px_rgba(255,255,255,0.4)]">
