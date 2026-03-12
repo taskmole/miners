@@ -320,7 +320,6 @@ function HomeContent() {
       {/* Landing Page Overlay */}
       <LandingPage
         isVisible={showLanding && authChecked}
-        onEnterDemo={() => setShowLanding(false)}
         authError={authError}
       />
     </main>
