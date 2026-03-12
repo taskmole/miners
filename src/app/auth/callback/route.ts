@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { isEmailAllowed } from '@/lib/auth-config';
 
 /**
  * OAuth Callback Route
  *
  * Google redirects here after user signs in.
- * Exchanges the auth code for a session, then redirects to home.
+ * Exchanges the auth code for a session, validates the email, then redirects to home.
  */
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
     });
 
     // Exchange the code for a session
-    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (exchangeError) {
       console.error('Session exchange error:', exchangeError.message);
@@ -48,6 +49,19 @@ export async function GET(request: Request) {
 
       return NextResponse.redirect(
         new URL(`/?auth_error=${encodeURIComponent(errorMessage)}`, requestUrl.origin)
+      );
+    }
+
+    // Validate email is in the allowlist
+    const userEmail = sessionData?.session?.user?.email;
+    if (!isEmailAllowed(userEmail)) {
+      console.log('Unauthorized email attempted login:', userEmail);
+
+      // Sign out the unauthorized user immediately
+      await supabase.auth.signOut();
+
+      return NextResponse.redirect(
+        new URL(`/?auth_error=${encodeURIComponent('Access restricted to authorized accounts only')}`, requestUrl.origin)
       );
     }
   }

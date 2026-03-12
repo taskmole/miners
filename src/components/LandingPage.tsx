@@ -2,17 +2,15 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
 interface LandingPageProps {
   isVisible: boolean;
-  onEnterDemo: () => void;
   authError?: string | null;
 }
 
-export function LandingPage({ isVisible, onEnterDemo, authError }: LandingPageProps) {
+export function LandingPage({ isVisible, authError }: LandingPageProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
@@ -126,15 +124,6 @@ export function LandingPage({ isVisible, onEnterDemo, authError }: LandingPagePr
                 {isLoading ? "Signing in..." : "Continue with Google"}
               </span>
             </button>
-
-            {/* Demo Button */}
-            <Button
-              variant="ghost"
-              onClick={onEnterDemo}
-              className="text-zinc-400 hover:text-white hover:bg-zinc-800/50 text-sm"
-            >
-              Go to Demo
-            </Button>
           </motion.div>
         </motion.div>
       )}
