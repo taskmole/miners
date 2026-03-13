@@ -11,17 +11,82 @@ import {
   validateFile,
   getFileCategory,
 } from '@/types/attachments';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { getAnonymousUserId } from '@/lib/supabaseHelpers';
 
-// NOTE: Supabase Storage integration is pending.
-// When ready:
-// 1. Create 'place-attachments' bucket in Supabase
-// 2. Upload files to Storage instead of base64 in localStorage
-// 3. Store metadata in place_attachments table
-// 4. Generate signed URLs for display
+const BUCKET_NAME = 'attachments';
 
 // Generate unique ID
 function generateId(): string {
   return crypto.randomUUID();
+}
+
+/**
+ * Upload file to Supabase Storage
+ * Returns the storage path if successful, null if failed
+ */
+async function uploadToStorage(placeId: string, file: File, attachmentId: string): Promise<string | null> {
+  if (!isSupabaseConfigured() || !supabase) return null;
+
+  const userId = getAnonymousUserId();
+  // Create path: userId/placeId/attachmentId-filename
+  const ext = file.name.split('.').pop() || 'bin';
+  const storagePath = `${userId}/${placeId}/${attachmentId}.${ext}`;
+
+  try {
+    const { error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(storagePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (error) {
+      console.error('Error uploading to storage:', error);
+      return null;
+    }
+
+    return storagePath;
+  } catch (error) {
+    console.error('Error uploading to storage:', error);
+    return null;
+  }
+}
+
+/**
+ * Get a signed URL for a private file (valid for 1 hour)
+ */
+async function getSignedUrl(storagePath: string): Promise<string | null> {
+  if (!isSupabaseConfigured() || !supabase) return null;
+
+  try {
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .createSignedUrl(storagePath, 3600); // 1 hour
+
+    if (error) {
+      console.error('Error getting signed URL:', error);
+      return null;
+    }
+
+    return data.signedUrl;
+  } catch (error) {
+    console.error('Error getting signed URL:', error);
+    return null;
+  }
+}
+
+/**
+ * Delete file from Supabase Storage
+ */
+async function deleteFromStorage(storagePath: string): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    await supabase.storage.from(BUCKET_NAME).remove([storagePath]);
+  } catch (error) {
+    console.error('Error deleting from storage:', error);
+  }
 }
 
 // Get initial state from localStorage
@@ -140,10 +205,11 @@ async function readFileAsBase64(file: File): Promise<string> {
 }
 
 /**
- * Hook for managing POI attachments with localStorage persistence
+ * Hook for managing POI attachments with Supabase Storage + localStorage fallback
  *
- * Current: localStorage only (base64 encoded files)
- * Future: Supabase Storage + place_attachments table
+ * Files are uploaded to Supabase Storage bucket.
+ * Metadata stored in localStorage for quick access.
+ * Signed URLs are generated for viewing private files.
  */
 export function useAttachments() {
   const [state, setState] = useState<PoiAttachmentsState>({ version: POI_ATTACHMENTS_VERSION, attachments: {} });
@@ -210,36 +276,50 @@ export function useAttachments() {
       return { success: false, error: validation.error };
     }
 
-    // Check storage limit
-    const currentUsage = getTotalStorageUsed();
-    if (currentUsage >= MAX_TOTAL_STORAGE) {
-      return { success: false, error: 'Storage full - delete some attachments first' };
-    }
-
     try {
       const category = getFileCategory(file.type);
-      let data: string;
+      const attachmentId = generateId();
       let thumbnailData: string | undefined;
 
-      // Process based on file type
+      // Generate thumbnail for images
       if (category === 'image') {
-        // Compress image and generate thumbnail
-        data = await compressImage(file);
         thumbnailData = await generateThumbnail(file);
+      }
+
+      // Try uploading to Supabase Storage first
+      const storagePath = await uploadToStorage(placeId, file, attachmentId);
+
+      let data = '';
+      let signedUrl: string | undefined;
+
+      if (storagePath) {
+        // Successfully uploaded to cloud - get signed URL for display
+        signedUrl = (await getSignedUrl(storagePath)) || undefined;
       } else {
-        // Read as-is for other file types
-        data = await readFileAsBase64(file);
+        // Fallback to base64 in localStorage
+        const currentUsage = getTotalStorageUsed();
+        if (currentUsage >= MAX_TOTAL_STORAGE) {
+          return { success: false, error: 'Storage full - delete some attachments first' };
+        }
+
+        if (category === 'image') {
+          data = await compressImage(file);
+        } else {
+          data = await readFileAsBase64(file);
+        }
       }
 
       const attachment: Attachment = {
-        id: generateId(),
+        id: attachmentId,
         name: file.name,
         type: file.type,
         data,
+        storagePath: storagePath || undefined,
+        signedUrl,
         thumbnailData,
         size: file.size,
         addedAt: new Date().toISOString(),
-        uploadedByName: 'Guest', // Will be replaced with actual user name when auth is added
+        uploadedByName: 'Guest',
       };
 
       setState(prev => ({
@@ -250,10 +330,6 @@ export function useAttachments() {
         },
       }));
 
-      // TODO: When Supabase Storage is ready:
-      // 1. Upload file to Storage bucket
-      // 2. Insert metadata to place_attachments table
-
       return { success: true };
     } catch (error) {
       console.error('Error adding attachment:', error);
@@ -263,6 +339,15 @@ export function useAttachments() {
 
   // Remove an attachment from a POI
   const removePoiAttachment = useCallback((placeId: string, attachmentId: string): void => {
+    // Find the attachment to get its storage path (if any)
+    const attachments = state.attachments[placeId] || [];
+    const attachment = attachments.find(att => att.id === attachmentId);
+
+    // Delete from Supabase Storage if it has a storage path
+    if (attachment?.storagePath) {
+      deleteFromStorage(attachment.storagePath);
+    }
+
     setState(prev => ({
       ...prev,
       attachments: {
@@ -270,16 +355,23 @@ export function useAttachments() {
         [placeId]: (prev.attachments[placeId] || []).filter(att => att.id !== attachmentId),
       },
     }));
-
-    // TODO: When Supabase Storage is ready:
-    // 1. Delete file from Storage bucket
-    // 2. Delete row from place_attachments table
-  }, []);
+  }, [state.attachments]);
 
   // Get attachment count for a POI
   const getAttachmentCount = useCallback((placeId: string): number => {
     return (state.attachments[placeId] || []).length;
   }, [state.attachments]);
+
+  // Get display URL for an attachment (refreshes signed URL if needed)
+  const getAttachmentUrl = useCallback(async (attachment: Attachment): Promise<string> => {
+    // If it has a storage path, get a fresh signed URL
+    if (attachment.storagePath) {
+      const url = await getSignedUrl(attachment.storagePath);
+      if (url) return url;
+    }
+    // Fall back to base64 data
+    return attachment.data;
+  }, []);
 
   return {
     isLoaded,
@@ -287,6 +379,7 @@ export function useAttachments() {
     addPoiAttachment,
     removePoiAttachment,
     getAttachmentCount,
+    getAttachmentUrl,
     getTotalStorageUsed,
     getStorageWarning,
   };
