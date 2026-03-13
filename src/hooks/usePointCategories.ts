@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   PointCategory,
   POINT_CATEGORIES_STORAGE_KEY,
   DEFAULT_CATEGORIES
 } from '@/types/point-categories';
 import type { ShapeMetadata } from '@/types/draw';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
 
 // Storage key for shape metadata (to count points using a category)
 const METADATA_STORAGE_KEY = 'miners-shape-metadata';
@@ -62,18 +64,126 @@ function loadShapeMetadata(): Record<string, ShapeMetadata> {
 }
 
 /**
- * Hook for managing point categories with localStorage persistence
+ * Fetch categories from Supabase
+ */
+async function fetchFromSupabase(): Promise<PointCategory[]> {
+  if (!isSupabaseConfigured() || !supabase) return [];
+
+  const userId = getAnonymousUserId();
+
+  // Fetch both system categories and user's custom categories
+  const { data, error } = await supabase
+    .from('categories')
+    .select('id, name, is_system, created_at')
+    .or(`is_system.eq.true,created_by.eq.${userId}`);
+
+  if (error) {
+    console.error('Error fetching categories from Supabase:', error);
+    return [];
+  }
+
+  return data?.map((row) => ({
+    id: row.id,
+    name: row.name,
+    isSystem: row.is_system,
+    createdAt: row.created_at,
+  })) || [];
+}
+
+/**
+ * Sync a category create to Supabase
+ */
+async function syncCreateToSupabase(category: PointCategory): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  const userId = getAnonymousUserId();
+
+  try {
+    await supabase.from('categories').upsert({
+      id: category.id,
+      name: category.name,
+      is_system: category.isSystem,
+      created_by: userId,
+      created_at: category.createdAt,
+    }, { onConflict: 'id' });
+  } catch (error) {
+    console.error('Error syncing category to Supabase:', error);
+  }
+}
+
+/**
+ * Sync a category delete to Supabase
+ */
+async function syncDeleteToSupabase(categoryId: string): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    await supabase
+      .from('categories')
+      .delete()
+      .eq('id', categoryId);
+  } catch (error) {
+    console.error('Error deleting category from Supabase:', error);
+  }
+}
+
+/**
+ * Hook for managing point categories with Supabase + localStorage persistence
+ *
+ * Dual-write pattern:
+ * - On load: Fetch from Supabase, merge with localStorage (Supabase wins)
+ * - On change: Write to localStorage first (instant), then Supabase (async)
+ *
  * Categories can be assigned to custom drawn points (not areas/polygons)
  */
 export function usePointCategories() {
   const [categories, setCategories] = useState<PointCategory[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const initialLoadDone = useRef(false);
 
-  // Load from localStorage on mount
+  // Load from Supabase + localStorage on mount
   useEffect(() => {
-    const initialState = getInitialState();
-    setCategories(initialState.categories);
-    setIsLoaded(true);
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+
+    async function loadCategories() {
+      // Start with localStorage (instant)
+      const localState = getInitialState();
+      const localCats = localState.categories;
+
+      // Fetch from Supabase (async)
+      const supabaseCats = await withSupabase(
+        () => fetchFromSupabase(),
+        [],
+        'fetch categories'
+      );
+
+      // Merge: Supabase wins for existing IDs, but include local-only categories
+      const supabaseIds = new Set(supabaseCats.map(c => c.id));
+      const localOnlyCats = localCats.filter(c => !supabaseIds.has(c.id));
+
+      // Also ensure DEFAULT_CATEGORIES are always present
+      const mergedIds = new Set([...supabaseCats.map(c => c.id), ...localOnlyCats.map(c => c.id)]);
+      const missingDefaults = DEFAULT_CATEGORIES.filter(d => !mergedIds.has(d.id));
+
+      const mergedCats = [...supabaseCats, ...localOnlyCats, ...missingDefaults];
+
+      setCategories(mergedCats);
+      setIsLoaded(true);
+
+      // Save merged state back to localStorage
+      try {
+        const state: CategoriesState = {
+          version: CURRENT_VERSION,
+          categories: mergedCats,
+        };
+        localStorage.setItem(POINT_CATEGORIES_STORAGE_KEY, JSON.stringify(state));
+      } catch (error) {
+        console.error('Error saving merged categories to localStorage:', error);
+      }
+    }
+
+    loadCategories();
   }, []);
 
   // Save to localStorage whenever categories change (after initial load)
@@ -150,6 +260,10 @@ export function usePointCategories() {
     };
 
     setCategories(prev => [...prev, newCategory]);
+
+    // Sync to Supabase in background
+    syncCreateToSupabase(newCategory);
+
     return newCategory;
   }, [categories]);
 
@@ -162,6 +276,10 @@ export function usePointCategories() {
     }
 
     setCategories(prev => prev.filter(c => c.id !== categoryId));
+
+    // Sync to Supabase in background
+    syncDeleteToSupabase(categoryId);
+
     return true;
   }, [canDeleteCategory]);
 

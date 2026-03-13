@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { LocationList, ListItem, ListsState, PlaceInfo, VisitLog, DrawnAreaItem } from '@/types/lists';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
 
 // localStorage key for lists data
 const STORAGE_KEY = 'miners-location-lists';
@@ -35,18 +37,153 @@ function getInitialState(): ListsState {
 }
 
 /**
- * Hook for managing location lists with localStorage persistence
+ * Fetch lists from Supabase (list metadata only, items stay in localStorage)
+ */
+async function fetchListsFromSupabase(): Promise<{ id: string; name: string; createdAt: string }[]> {
+  if (!isSupabaseConfigured() || !supabase) return [];
+
+  const userId = getAnonymousUserId();
+
+  const { data, error } = await supabase
+    .from('lists')
+    .select('id, name, created_at')
+    .eq('created_by', userId);
+
+  if (error) {
+    console.error('Error fetching lists from Supabase:', error);
+    return [];
+  }
+
+  return data?.map((row) => ({
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at,
+  })) || [];
+}
+
+/**
+ * Sync list create to Supabase
+ */
+async function syncCreateToSupabase(list: LocationList): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  const userId = getAnonymousUserId();
+
+  try {
+    await supabase.from('lists').upsert({
+      id: list.id,
+      name: list.name,
+      created_by: userId,
+      created_at: list.createdAt,
+    }, { onConflict: 'id' });
+  } catch (error) {
+    console.error('Error syncing list to Supabase:', error);
+  }
+}
+
+/**
+ * Sync list rename to Supabase
+ */
+async function syncRenameToSupabase(listId: string, newName: string): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    await supabase
+      .from('lists')
+      .update({ name: newName })
+      .eq('id', listId);
+  } catch (error) {
+    console.error('Error renaming list in Supabase:', error);
+  }
+}
+
+/**
+ * Sync list delete to Supabase
+ */
+async function syncDeleteToSupabase(listId: string): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    // Delete list items first (if any in Supabase)
+    await supabase
+      .from('list_items')
+      .delete()
+      .eq('list_id', listId);
+
+    // Then delete the list
+    await supabase
+      .from('lists')
+      .delete()
+      .eq('id', listId);
+  } catch (error) {
+    console.error('Error deleting list from Supabase:', error);
+  }
+}
+
+/**
+ * Hook for managing location lists with Supabase + localStorage persistence
+ *
+ * Dual-write pattern:
+ * - Lists metadata: synced to Supabase
+ * - List items: stored in localStorage only (rich metadata not in Supabase schema)
+ *
  * Provides methods to create lists, add/remove places, and update visit logs
  */
 export function useLists() {
   const [lists, setLists] = useState<LocationList[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const initialLoadDone = useRef(false);
 
-  // Load from localStorage on mount
+  // Load from Supabase + localStorage on mount
   useEffect(() => {
-    const initialState = getInitialState();
-    setLists(initialState.lists);
-    setIsLoaded(true);
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+
+    async function loadLists() {
+      // Start with localStorage (has full data including items)
+      const localState = getInitialState();
+      const localLists = localState.lists;
+
+      // Fetch list metadata from Supabase
+      const supabaseLists = await withSupabase(
+        () => fetchListsFromSupabase(),
+        [],
+        'fetch lists'
+      );
+
+      // Merge: use localStorage items, but ensure Supabase lists exist
+      const localListIds = new Set(localLists.map(l => l.id));
+
+      // Lists that exist in Supabase but not localStorage (sync them with empty items)
+      const supabaseOnlyLists: LocationList[] = supabaseLists
+        .filter(sl => !localListIds.has(sl.id))
+        .map(sl => ({
+          id: sl.id,
+          name: sl.name,
+          createdAt: sl.createdAt,
+          items: [],
+          drawnAreas: [],
+        }));
+
+      // Merge: keep local lists (they have items), add any Supabase-only lists
+      const mergedLists = [...localLists, ...supabaseOnlyLists];
+
+      setLists(mergedLists);
+      setIsLoaded(true);
+
+      // Save merged state back to localStorage
+      try {
+        const state: ListsState = {
+          version: CURRENT_VERSION,
+          lists: mergedLists,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (error) {
+        console.error('Error saving merged lists to localStorage:', error);
+      }
+    }
+
+    loadLists();
   }, []);
 
   // Save to localStorage whenever lists change (after initial load)
@@ -75,6 +212,10 @@ export function useLists() {
     };
 
     setLists(prev => [...prev, newList]);
+
+    // Sync to Supabase in background
+    syncCreateToSupabase(newList);
+
     return newList;
   }, []);
 
@@ -204,6 +345,9 @@ export function useLists() {
   // Delete a list
   const deleteList = useCallback((listId: string): void => {
     setLists(prev => prev.filter(list => list.id !== listId));
+
+    // Sync to Supabase in background
+    syncDeleteToSupabase(listId);
   }, []);
 
   // Rename a list
@@ -212,6 +356,9 @@ export function useLists() {
       if (list.id !== listId) return list;
       return { ...list, name: newName };
     }));
+
+    // Sync to Supabase in background
+    syncRenameToSupabase(listId, newName);
   }, []);
 
   // Add a drawn area to a list
