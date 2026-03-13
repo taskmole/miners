@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { PoiComment, PoiCommentsState } from '@/types/comments';
 import {
   POI_COMMENTS_STORAGE_KEY,
   POI_COMMENTS_VERSION,
 } from '@/types/comments';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
 
 /**
  * Generate unique ID for comments
@@ -40,17 +42,84 @@ function getInitialState(): PoiCommentsState {
 }
 
 /**
- * Hook for managing POI comments with localStorage persistence
+ * Fetch comments for a POI from Supabase
+ */
+async function fetchCommentsFromSupabase(placeId: string): Promise<PoiComment[]> {
+  if (!isSupabaseConfigured() || !supabase) return [];
+
+  const { data, error } = await supabase
+    .from('comments')
+    .select('id, entity_type, entity_id, content, created_by, created_at')
+    .eq('entity_type', 'place')
+    .eq('entity_id', placeId);
+
+  if (error) {
+    console.error('Error fetching comments from Supabase:', error);
+    return [];
+  }
+
+  return data?.map((row) => ({
+    id: row.id,
+    entityType: row.entity_type as 'place',
+    entityId: row.entity_id,
+    content: row.content,
+    createdBy: row.created_by || 'guest',
+    authorName: 'Guest',
+    createdAt: row.created_at,
+  })) || [];
+}
+
+/**
+ * Sync comment add to Supabase
+ */
+async function syncAddToSupabase(comment: PoiComment): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  const userId = getAnonymousUserId();
+
+  try {
+    await supabase.from('comments').upsert({
+      id: comment.id,
+      entity_type: comment.entityType,
+      entity_id: comment.entityId,
+      content: comment.content,
+      created_by: userId,
+      created_at: comment.createdAt,
+    }, { onConflict: 'id' });
+  } catch (error) {
+    console.error('Error syncing comment to Supabase:', error);
+  }
+}
+
+/**
+ * Sync comment delete to Supabase
+ */
+async function syncDeleteToSupabase(commentId: string): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    await supabase
+      .from('comments')
+      .delete()
+      .eq('id', commentId);
+  } catch (error) {
+    console.error('Error deleting comment from Supabase:', error);
+  }
+}
+
+/**
+ * Hook for managing POI comments with Supabase + localStorage persistence
  *
- * Supabase migration:
- * - Replace localStorage with supabase.from('comments')
- * - getComments: .select().eq('entity_type', 'place').eq('entity_id', placeId)
- * - addComment: .insert({ entity_type: 'place', entity_id, content, created_by })
- * - removeComment: .delete().eq('id', commentId)
+ * Dual-write pattern:
+ * - On load: localStorage first, then lazy-load from Supabase per POI
+ * - On add: Write to localStorage first (instant), then Supabase (async)
+ *
+ * Comments are loaded lazily per-POI to avoid loading all comments at once.
  */
 export function usePoiComments() {
   const [state, setState] = useState<PoiCommentsState>({ version: POI_COMMENTS_VERSION, comments: {} });
   const [isLoaded, setIsLoaded] = useState(false);
+  const fetchedFromSupabase = useRef<Set<string>>(new Set());
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -70,8 +139,39 @@ export function usePoiComments() {
     }
   }, [state, isLoaded]);
 
-  // Get comments for a specific POI
+  // Get comments for a specific POI (with lazy Supabase fetch)
   const getComments = useCallback((placeId: string): PoiComment[] => {
+    // Lazy fetch from Supabase if not already done for this POI
+    if (!fetchedFromSupabase.current.has(placeId)) {
+      fetchedFromSupabase.current.add(placeId);
+
+      // Async fetch and merge
+      withSupabase(
+        () => fetchCommentsFromSupabase(placeId),
+        [],
+        `fetch comments for ${placeId}`
+      ).then((supabaseComments) => {
+        if (supabaseComments.length > 0) {
+          setState(prev => {
+            const localComments = prev.comments[placeId] || [];
+            const localIds = new Set(localComments.map(c => c.id));
+            const newComments = supabaseComments.filter(c => !localIds.has(c.id));
+
+            if (newComments.length > 0) {
+              return {
+                ...prev,
+                comments: {
+                  ...prev.comments,
+                  [placeId]: [...localComments, ...newComments],
+                },
+              };
+            }
+            return prev;
+          });
+        }
+      });
+    }
+
     return state.comments[placeId] || [];
   }, [state.comments]);
 
@@ -96,6 +196,9 @@ export function usePoiComments() {
         [placeId]: [...(prev.comments[placeId] || []), comment],
       },
     }));
+
+    // Sync to Supabase in background
+    syncAddToSupabase(comment);
   }, []);
 
   // Remove a comment from a POI
@@ -107,6 +210,9 @@ export function usePoiComments() {
         [placeId]: (prev.comments[placeId] || []).filter(c => c.id !== commentId),
       },
     }));
+
+    // Sync to Supabase in background
+    syncDeleteToSupabase(commentId);
   }, []);
 
   // Get comment count for a POI

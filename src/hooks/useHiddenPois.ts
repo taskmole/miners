@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
 
 // localStorage key for hidden POIs
 const STORAGE_KEY = 'miners-hidden-pois';
@@ -35,20 +37,107 @@ function getInitialState(): HiddenPoisState {
 }
 
 /**
- * Hook for managing hidden POIs with localStorage persistence
- * Users can hide POIs they don't want to see on the map
- * Hidden POIs appear faded (40% opacity) when "Show Hidden" is enabled
+ * Sync a hidden POI change to Supabase (background, non-blocking)
+ */
+async function syncToSupabase(placeId: string, isHidden: boolean): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  const userId = getAnonymousUserId();
+
+  try {
+    if (isHidden) {
+      // Add to hidden_pois table
+      await supabase.from('hidden_pois').upsert(
+        { user_id: userId, place_id: placeId },
+        { onConflict: 'user_id,place_id' }
+      );
+    } else {
+      // Remove from hidden_pois table
+      await supabase
+        .from('hidden_pois')
+        .delete()
+        .eq('user_id', userId)
+        .eq('place_id', placeId);
+    }
+  } catch (error) {
+    console.error('Error syncing hidden POI to Supabase:', error);
+  }
+}
+
+/**
+ * Fetch hidden POIs from Supabase
+ */
+async function fetchFromSupabase(): Promise<string[]> {
+  if (!isSupabaseConfigured() || !supabase) return [];
+
+  const userId = getAnonymousUserId();
+
+  const { data, error } = await supabase
+    .from('hidden_pois')
+    .select('place_id')
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error fetching hidden POIs from Supabase:', error);
+    return [];
+  }
+
+  return data?.map((row) => row.place_id) || [];
+}
+
+/**
+ * Hook for managing hidden POIs with Supabase + localStorage persistence
+ *
+ * Dual-write pattern:
+ * - On load: Fetch from Supabase, merge with localStorage (Supabase wins)
+ * - On change: Write to localStorage first (instant), then Supabase (async)
+ *
+ * Users can hide POIs they don't want to see on the map.
+ * Hidden POIs appear faded (40% opacity) when "Show Hidden" is enabled.
  */
 export function useHiddenPois() {
   // Use Set for fast O(1) lookups
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
+  const initialLoadDone = useRef(false);
 
-  // Load from localStorage on mount
+  // Load from Supabase + localStorage on mount
   useEffect(() => {
-    const initialState = getInitialState();
-    setHiddenIds(new Set(initialState.hiddenIds));
-    setIsLoaded(true);
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+
+    async function loadHiddenPois() {
+      // Start with localStorage (instant)
+      const localState = getInitialState();
+      const localIds = new Set(localState.hiddenIds);
+
+      // Fetch from Supabase (async)
+      const supabaseIds = await withSupabase(
+        () => fetchFromSupabase(),
+        [],
+        'fetch hidden POIs'
+      );
+
+      // Merge: Supabase wins (it's the source of truth)
+      // But also include any localStorage-only items (sync them up later)
+      const mergedIds = new Set([...localIds, ...supabaseIds]);
+
+      setHiddenIds(mergedIds);
+      setIsLoaded(true);
+
+      // Save merged state back to localStorage
+      try {
+        const state: HiddenPoisState = {
+          version: CURRENT_VERSION,
+          hiddenIds: Array.from(mergedIds),
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (error) {
+        console.error('Error saving merged hidden POIs to localStorage:', error);
+      }
+    }
+
+    loadHiddenPois();
   }, []);
 
   // Save to localStorage whenever hiddenIds changes (after initial load)
@@ -86,6 +175,10 @@ export function useHiddenPois() {
         newSet.add(placeId);
         wasHidden = false;
       }
+
+      // Sync to Supabase in background (non-blocking)
+      syncToSupabase(placeId, !wasHidden);
+
       return newSet;
     });
 
@@ -99,6 +192,9 @@ export function useHiddenPois() {
       newSet.add(placeId);
       return newSet;
     });
+
+    // Sync to Supabase in background
+    syncToSupabase(placeId, true);
   }, []);
 
   // Unhide a POI (remove from hidden set)
@@ -108,6 +204,9 @@ export function useHiddenPois() {
       newSet.delete(placeId);
       return newSet;
     });
+
+    // Sync to Supabase in background
+    syncToSupabase(placeId, false);
   }, []);
 
   // Get count of hidden POIs

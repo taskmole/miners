@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Attachment, PoiAttachmentsState } from '@/types/attachments';
 import {
   POI_ATTACHMENTS_STORAGE_KEY,
@@ -11,6 +11,13 @@ import {
   validateFile,
   getFileCategory,
 } from '@/types/attachments';
+
+// NOTE: Supabase Storage integration is pending.
+// When ready:
+// 1. Create 'place-attachments' bucket in Supabase
+// 2. Upload files to Storage instead of base64 in localStorage
+// 3. Store metadata in place_attachments table
+// 4. Generate signed URLs for display
 
 // Generate unique ID
 function generateId(): string {
@@ -134,13 +141,20 @@ async function readFileAsBase64(file: File): Promise<string> {
 
 /**
  * Hook for managing POI attachments with localStorage persistence
+ *
+ * Current: localStorage only (base64 encoded files)
+ * Future: Supabase Storage + place_attachments table
  */
 export function useAttachments() {
   const [state, setState] = useState<PoiAttachmentsState>({ version: POI_ATTACHMENTS_VERSION, attachments: {} });
   const [isLoaded, setIsLoaded] = useState(false);
+  const initialLoadDone = useRef(false);
 
   // Load from localStorage on mount
   useEffect(() => {
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+
     const initialState = getInitialState();
     setState(initialState);
     setIsLoaded(true);
@@ -236,6 +250,10 @@ export function useAttachments() {
         },
       }));
 
+      // TODO: When Supabase Storage is ready:
+      // 1. Upload file to Storage bucket
+      // 2. Insert metadata to place_attachments table
+
       return { success: true };
     } catch (error) {
       console.error('Error adding attachment:', error);
@@ -252,6 +270,10 @@ export function useAttachments() {
         [placeId]: (prev.attachments[placeId] || []).filter(att => att.id !== attachmentId),
       },
     }));
+
+    // TODO: When Supabase Storage is ready:
+    // 1. Delete file from Storage bucket
+    // 2. Delete row from place_attachments table
   }, []);
 
   // Get attachment count for a POI

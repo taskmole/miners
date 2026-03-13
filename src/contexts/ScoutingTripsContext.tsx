@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type {
   ScoutingTrip,
   ScoutingTripsState,
@@ -18,6 +18,8 @@ import {
   createEmptyTrip,
   migrateTrip,
 } from '@/types/scouting';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
 
 /**
  * Get initial state from localStorage with migration for old trips
@@ -43,6 +45,93 @@ function getInitialState(): ScoutingTripsState {
   }
 
   return { version: SCOUTING_TRIPS_VERSION, trips: [] };
+}
+
+/**
+ * Fetch trip metadata from Supabase
+ */
+async function fetchTripsFromSupabase(): Promise<Partial<ScoutingTrip>[]> {
+  if (!isSupabaseConfigured() || !supabase) return [];
+
+  const userId = getAnonymousUserId();
+
+  const { data, error } = await supabase
+    .from('pitches')
+    .select('id, city_id, status, address, condition_notes, created_at')
+    .eq('created_by', userId);
+
+  if (error) {
+    console.error('Error fetching pitches from Supabase:', error);
+    return [];
+  }
+
+  return data?.map((row) => ({
+    id: row.id,
+    cityId: row.city_id || 'madrid',
+    status: row.status as ScoutingTripStatus,
+    address: row.address || '',
+    notes: row.condition_notes || '',
+    createdAt: row.created_at,
+  })) || [];
+}
+
+/**
+ * Sync trip create to Supabase
+ */
+async function syncCreateToSupabase(trip: ScoutingTrip): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  const userId = getAnonymousUserId();
+
+  try {
+    await supabase.from('pitches').upsert({
+      id: trip.id,
+      city_id: trip.cityId,
+      created_by: userId,
+      status: trip.status,
+      address: trip.address || trip.property?.address,
+      condition_notes: trip.notes,
+      created_at: trip.createdAt,
+    }, { onConflict: 'id' });
+  } catch (error) {
+    console.error('Error syncing trip to Supabase:', error);
+  }
+}
+
+/**
+ * Sync trip update to Supabase
+ */
+async function syncUpdateToSupabase(trip: ScoutingTrip): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    await supabase
+      .from('pitches')
+      .update({
+        status: trip.status,
+        address: trip.address || trip.property?.address,
+        condition_notes: trip.notes,
+      })
+      .eq('id', trip.id);
+  } catch (error) {
+    console.error('Error updating trip in Supabase:', error);
+  }
+}
+
+/**
+ * Sync trip delete to Supabase
+ */
+async function syncDeleteToSupabase(tripId: string): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    await supabase
+      .from('pitches')
+      .delete()
+      .eq('id', tripId);
+  } catch (error) {
+    console.error('Error deleting trip from Supabase:', error);
+  }
 }
 
 // Context value type
@@ -91,12 +180,61 @@ const ScoutingTripsContext = createContext<ScoutingTripsContextValue | undefined
 export function ScoutingTripsProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<ScoutingTripsState>({ version: SCOUTING_TRIPS_VERSION, trips: [] });
   const [isLoaded, setIsLoaded] = useState(false);
+  const initialLoadDone = useRef(false);
 
-  // Load from localStorage on mount
+  // Load from Supabase + localStorage on mount
   useEffect(() => {
-    const initialState = getInitialState();
-    setState(initialState);
-    setIsLoaded(true);
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+
+    async function loadTrips() {
+      // Start with localStorage (has full data)
+      const localState = getInitialState();
+      const localTrips = localState.trips;
+
+      // Fetch trip metadata from Supabase
+      const supabaseTrips = await withSupabase(
+        () => fetchTripsFromSupabase(),
+        [],
+        'fetch trips'
+      );
+
+      // Merge: localStorage has full data, Supabase has metadata
+      const localTripIds = new Set(localTrips.map(t => t.id));
+
+      // Trips that exist in Supabase but not localStorage (create stubs)
+      const supabaseOnlyTrips: ScoutingTrip[] = supabaseTrips
+        .filter(st => !localTripIds.has(st.id!))
+        .map(st => ({
+          ...createEmptyTrip(st.cityId || 'madrid', 'Guest'),
+          id: st.id!,
+          status: st.status || 'draft',
+          address: st.address || '',
+          notes: st.notes || '',
+          createdAt: st.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }));
+
+      const mergedTrips = [...localTrips, ...supabaseOnlyTrips];
+
+      setState({
+        version: SCOUTING_TRIPS_VERSION,
+        trips: mergedTrips,
+      });
+      setIsLoaded(true);
+
+      // Save merged state back to localStorage
+      try {
+        localStorage.setItem(SCOUTING_TRIPS_STORAGE_KEY, JSON.stringify({
+          version: SCOUTING_TRIPS_VERSION,
+          trips: mergedTrips,
+        }));
+      } catch (error) {
+        console.error('Error saving merged trips to localStorage:', error);
+      }
+    }
+
+    loadTrips();
   }, []);
 
   // Save to localStorage whenever state changes (after initial load)
@@ -141,6 +279,9 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       trips: [newTrip, ...prev.trips],
     }));
 
+    // Sync to Supabase in background
+    syncCreateToSupabase(newTrip);
+
     return newTrip;
   }, []);
 
@@ -167,19 +308,29 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       trips: [newTrip, ...prev.trips],
     }));
 
+    // Sync to Supabase in background
+    syncCreateToSupabase(newTrip);
+
     return newTrip;
   }, []);
 
   // Update a trip
   const updateTrip = useCallback((tripId: string, updates: Partial<ScoutingTrip>): void => {
-    setState(prev => ({
-      ...prev,
-      trips: prev.trips.map(t =>
+    setState(prev => {
+      const newTrips = prev.trips.map(t =>
         t.id === tripId
           ? { ...t, ...updates, updatedAt: new Date().toISOString() }
           : t
-      ),
-    }));
+      );
+
+      // Find updated trip and sync to Supabase
+      const updatedTrip = newTrips.find(t => t.id === tripId);
+      if (updatedTrip) {
+        syncUpdateToSupabase(updatedTrip);
+      }
+
+      return { ...prev, trips: newTrips };
+    });
   }, []);
 
   // Delete a trip
@@ -188,27 +339,35 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       ...prev,
       trips: prev.trips.filter(t => t.id !== tripId),
     }));
+
+    // Sync to Supabase in background
+    syncDeleteToSupabase(tripId);
   }, []);
 
   // Submit a trip for review
   const submitTrip = useCallback((tripId: string): void => {
     const now = new Date().toISOString();
-    setState(prev => ({
-      ...prev,
-      trips: prev.trips.map(t =>
+    setState(prev => {
+      const newTrips = prev.trips.map(t =>
         t.id === tripId
           ? { ...t, status: 'submitted' as ScoutingTripStatus, submittedAt: now, updatedAt: now }
           : t
-      ),
-    }));
+      );
+
+      const updatedTrip = newTrips.find(t => t.id === tripId);
+      if (updatedTrip) {
+        syncUpdateToSupabase(updatedTrip);
+      }
+
+      return { ...prev, trips: newTrips };
+    });
   }, []);
 
   // Approve a trip (admin action)
   const approveTrip = useCallback((tripId: string, reviewerName: string = 'Admin'): void => {
     const now = new Date().toISOString();
-    setState(prev => ({
-      ...prev,
-      trips: prev.trips.map(t =>
+    setState(prev => {
+      const newTrips = prev.trips.map(t =>
         t.id === tripId
           ? {
               ...t,
@@ -218,16 +377,22 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
               updatedAt: now,
             }
           : t
-      ),
-    }));
+      );
+
+      const updatedTrip = newTrips.find(t => t.id === tripId);
+      if (updatedTrip) {
+        syncUpdateToSupabase(updatedTrip);
+      }
+
+      return { ...prev, trips: newTrips };
+    });
   }, []);
 
   // Reject a trip (admin action)
   const rejectTrip = useCallback((tripId: string, rejectionNotes: string, reviewerName: string = 'Admin'): void => {
     const now = new Date().toISOString();
-    setState(prev => ({
-      ...prev,
-      trips: prev.trips.map(t =>
+    setState(prev => {
+      const newTrips = prev.trips.map(t =>
         t.id === tripId
           ? {
               ...t,
@@ -238,8 +403,15 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
               updatedAt: now,
             }
           : t
-      ),
-    }));
+      );
+
+      const updatedTrip = newTrips.find(t => t.id === tripId);
+      if (updatedTrip) {
+        syncUpdateToSupabase(updatedTrip);
+      }
+
+      return { ...prev, trips: newTrips };
+    });
   }, []);
 
   // ===== PROPERTY & RELATED PLACES MANAGEMENT =====
