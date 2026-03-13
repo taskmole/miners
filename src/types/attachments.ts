@@ -1,11 +1,13 @@
 // Types and constants for POI and shape attachments
 
-// Attachment stored as base64 (localStorage now, Supabase Storage later)
+// Attachment stored in Supabase Storage (with localStorage fallback)
 export interface Attachment {
   id: string;                   // UUID
   name: string;                 // Original filename (e.g., "floor-plan.pdf")
   type: string;                 // MIME type (image/jpeg, application/pdf, etc.)
-  data: string;                 // Base64-encoded file content
+  data: string;                 // Base64-encoded file content (fallback) or empty if in cloud
+  storagePath?: string;         // Supabase Storage path (if uploaded to cloud)
+  signedUrl?: string;           // Temporary signed URL for display (refreshed on load)
   thumbnailData?: string;       // Base64-encoded thumbnail (200x200 for images)
   size: number;                 // Original file size in bytes
   addedAt: string;              // ISO timestamp
