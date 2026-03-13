@@ -37,28 +37,62 @@ function getInitialState(): ListsState {
 }
 
 /**
- * Fetch lists from Supabase (list metadata only, items stay in localStorage)
+ * Fetch lists from Supabase (including items)
  */
-async function fetchListsFromSupabase(): Promise<{ id: string; name: string; createdAt: string }[]> {
+async function fetchListsFromSupabase(): Promise<LocationList[]> {
   if (!isSupabaseConfigured() || !supabase) return [];
 
   const userId = getAnonymousUserId();
 
-  const { data, error } = await supabase
+  // Fetch lists
+  const { data: listsData, error: listsError } = await supabase
     .from('lists')
     .select('id, name, created_at')
     .eq('created_by', userId);
 
-  if (error) {
-    console.error('Error fetching lists from Supabase:', error);
+  if (listsError) {
+    console.error('Error fetching lists from Supabase:', listsError);
     return [];
   }
 
-  return data?.map((row) => ({
+  if (!listsData || listsData.length === 0) return [];
+
+  // Fetch all items for these lists
+  const listIds = listsData.map(l => l.id);
+  const { data: itemsData, error: itemsError } = await supabase
+    .from('list_items')
+    .select('id, list_id, place_id, place_type, place_name, place_address, lat, lon, added_at')
+    .in('list_id', listIds);
+
+  if (itemsError) {
+    console.error('Error fetching list items from Supabase:', itemsError);
+  }
+
+  // Group items by list_id
+  const itemsByList: Record<string, ListItem[]> = {};
+  (itemsData || []).forEach((row) => {
+    if (!itemsByList[row.list_id]) {
+      itemsByList[row.list_id] = [];
+    }
+    itemsByList[row.list_id].push({
+      id: row.id,
+      placeId: row.place_id,
+      placeType: row.place_type || 'cafe',
+      placeName: row.place_name || '',
+      placeAddress: row.place_address || '',
+      lat: row.lat || 0,
+      lon: row.lon || 0,
+      addedAt: row.added_at || new Date().toISOString(),
+    });
+  });
+
+  return listsData.map((row) => ({
     id: row.id,
     name: row.name,
     createdAt: row.created_at,
-  })) || [];
+    items: itemsByList[row.id] || [],
+    drawnAreas: [],
+  }));
 }
 
 /**
@@ -121,6 +155,62 @@ async function syncDeleteToSupabase(listId: string): Promise<void> {
 }
 
 /**
+ * Sync list item add to Supabase
+ */
+async function syncAddItemToSupabase(listId: string, item: ListItem): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    await supabase.from('list_items').upsert({
+      id: item.id,
+      list_id: listId,
+      place_id: item.placeId,
+      place_type: item.placeType,
+      place_name: item.placeName,
+      place_address: item.placeAddress,
+      lat: item.lat,
+      lon: item.lon,
+      added_at: item.addedAt,
+    }, { onConflict: 'id' });
+  } catch (error) {
+    console.error('Error syncing list item to Supabase:', error);
+  }
+}
+
+/**
+ * Sync list item remove to Supabase
+ */
+async function syncRemoveItemToSupabase(itemId: string): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    await supabase
+      .from('list_items')
+      .delete()
+      .eq('id', itemId);
+  } catch (error) {
+    console.error('Error removing list item from Supabase:', error);
+  }
+}
+
+/**
+ * Sync list item remove by place_id to Supabase
+ */
+async function syncRemoveItemByPlaceIdToSupabase(listId: string, placeId: string): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    await supabase
+      .from('list_items')
+      .delete()
+      .eq('list_id', listId)
+      .eq('place_id', placeId);
+  } catch (error) {
+    console.error('Error removing list item from Supabase:', error);
+  }
+}
+
+/**
  * Hook for managing location lists with Supabase + localStorage persistence
  *
  * Dual-write pattern:
@@ -140,33 +230,44 @@ export function useLists() {
     initialLoadDone.current = true;
 
     async function loadLists() {
-      // Start with localStorage (has full data including items)
+      // Start with localStorage (has full data including items and drawnAreas)
       const localState = getInitialState();
       const localLists = localState.lists;
 
-      // Fetch list metadata from Supabase
+      // Fetch lists with items from Supabase
       const supabaseLists = await withSupabase(
         () => fetchListsFromSupabase(),
         [],
         'fetch lists'
       );
 
-      // Merge: use localStorage items, but ensure Supabase lists exist
-      const localListIds = new Set(localLists.map(l => l.id));
+      // Build a map of local lists for merging
+      const localListsMap = new Map(localLists.map(l => [l.id, l]));
+      const supabaseListsMap = new Map(supabaseLists.map(l => [l.id, l]));
 
-      // Lists that exist in Supabase but not localStorage (sync them with empty items)
-      const supabaseOnlyLists: LocationList[] = supabaseLists
-        .filter(sl => !localListIds.has(sl.id))
-        .map(sl => ({
-          id: sl.id,
-          name: sl.name,
-          createdAt: sl.createdAt,
-          items: [],
-          drawnAreas: [],
-        }));
+      // Merge strategy: Supabase wins for lists and items, keep local drawnAreas
+      const mergedLists: LocationList[] = [];
 
-      // Merge: keep local lists (they have items), add any Supabase-only lists
-      const mergedLists = [...localLists, ...supabaseOnlyLists];
+      // Add all Supabase lists (with their items), preserving local drawnAreas
+      supabaseLists.forEach(supabaseList => {
+        const localList = localListsMap.get(supabaseList.id);
+        mergedLists.push({
+          ...supabaseList,
+          drawnAreas: localList?.drawnAreas || [],
+        });
+      });
+
+      // Add local-only lists that don't exist in Supabase
+      localLists.forEach(localList => {
+        if (!supabaseListsMap.has(localList.id)) {
+          mergedLists.push(localList);
+          // Sync this local-only list to Supabase
+          syncCreateToSupabase(localList);
+          localList.items.forEach(item => {
+            syncAddItemToSupabase(localList.id, item);
+          });
+        }
+      });
 
       setLists(mergedLists);
       setIsLoaded(true);
@@ -221,29 +322,33 @@ export function useLists() {
 
   // Add a place to a list
   const addToList = useCallback((listId: string, place: PlaceInfo): void => {
-    setLists(prev => prev.map(list => {
-      if (list.id !== listId) return list;
+    const newItem: ListItem = {
+      id: generateId(),
+      placeId: place.placeId,
+      placeType: place.placeType,
+      placeName: place.placeName,
+      placeAddress: place.placeAddress,
+      lat: place.lat,
+      lon: place.lon,
+      addedAt: new Date().toISOString(),
+    };
+
+    setLists(prev => {
+      const list = prev.find(l => l.id === listId);
+      if (!list) return prev;
 
       // Check if place already exists in this list
       const exists = list.items.some(item => item.placeId === place.placeId);
-      if (exists) return list;
+      if (exists) return prev;
 
-      const newItem: ListItem = {
-        id: generateId(),
-        placeId: place.placeId,
-        placeType: place.placeType,
-        placeName: place.placeName,
-        placeAddress: place.placeAddress,
-        lat: place.lat,
-        lon: place.lon,
-        addedAt: new Date().toISOString(),
-      };
+      // Sync to Supabase in background
+      syncAddItemToSupabase(listId, newItem);
 
-      return {
-        ...list,
-        items: [...list.items, newItem],
-      };
-    }));
+      return prev.map(l => {
+        if (l.id !== listId) return l;
+        return { ...l, items: [...l.items, newItem] };
+      });
+    });
   }, []);
 
   // Remove a place from a list
@@ -256,28 +361,34 @@ export function useLists() {
         items: list.items.filter(item => item.placeId !== placeId),
       };
     }));
+
+    // Sync to Supabase in background
+    syncRemoveItemByPlaceIdToSupabase(listId, placeId);
   }, []);
 
   // Toggle a place in a list (add if not present, remove if present)
   const toggleInList = useCallback((listId: string, place: PlaceInfo): boolean => {
     let wasAdded = false;
+    let removedItemId: string | null = null;
+    let addedItem: ListItem | null = null;
 
     setLists(prev => prev.map(list => {
       if (list.id !== listId) return list;
 
-      const existingIndex = list.items.findIndex(item => item.placeId === place.placeId);
+      const existingItem = list.items.find(item => item.placeId === place.placeId);
 
-      if (existingIndex >= 0) {
+      if (existingItem) {
         // Remove from list
         wasAdded = false;
+        removedItemId = existingItem.id;
         return {
           ...list,
-          items: list.items.filter((_, i) => i !== existingIndex),
+          items: list.items.filter(item => item.id !== existingItem.id),
         };
       } else {
         // Add to list
         wasAdded = true;
-        const newItem: ListItem = {
+        addedItem = {
           id: generateId(),
           placeId: place.placeId,
           placeType: place.placeType,
@@ -290,10 +401,17 @@ export function useLists() {
 
         return {
           ...list,
-          items: [...list.items, newItem],
+          items: [...list.items, addedItem],
         };
       }
     }));
+
+    // Sync to Supabase in background
+    if (addedItem) {
+      syncAddItemToSupabase(listId, addedItem);
+    } else if (removedItemId) {
+      syncRemoveItemToSupabase(removedItemId);
+    }
 
     return wasAdded;
   }, []);
@@ -407,6 +525,9 @@ export function useLists() {
         items: list.items.filter(item => item.id !== itemId),
       };
     }));
+
+    // Sync to Supabase in background
+    syncRemoveItemToSupabase(itemId);
   }, []);
 
   return {
