@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import {
     FolderOpen,
-    Plus,
     MoreVertical,
     Trash2,
     Pencil,
@@ -442,13 +441,6 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
                     <span className="text-sm font-bold text-zinc-900">Lists</span>
                     <div className="flex items-center gap-2">
                         <button
-                            onClick={() => setIsCreateDialogOpen(true)}
-                            className="w-7 h-7 rounded-md border border-zinc-300 text-zinc-500 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
-                            title="Create new list"
-                        >
-                            <Plus className="w-4 h-4" />
-                        </button>
-                        <button
                             onClick={close}
                             className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
                         >
@@ -458,18 +450,6 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
                 </div>
             )}
 
-            {/* Mobile header actions */}
-            {isMobile && (
-                <div className="p-4 flex items-center justify-end gap-2 border-b border-zinc-100">
-                    <button
-                        onClick={() => setIsCreateDialogOpen(true)}
-                        className="w-9 h-9 rounded-lg border border-zinc-300 text-zinc-500 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
-                        title="Create new list"
-                    >
-                        <Plus className="w-5 h-5" />
-                    </button>
-                </div>
-            )}
 
             {/* Lists - scrollable */}
             <div className={cn("overflow-y-auto", isMobile ? "flex-1" : "max-h-[400px]")}>
@@ -715,8 +695,6 @@ function ListSection({
                     {hasVisitPlan && (
                         <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                     )}
-
-                    <span className="text-xs text-zinc-500 shrink-0">({totalCount})</span>
                 </div>
 
                 {/* Menu - OUTSIDE the clickable area, with controlled state */}
