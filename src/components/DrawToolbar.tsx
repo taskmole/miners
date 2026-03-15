@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMapDraw } from '@/hooks/useMapDraw';
 import {
   Scan,
@@ -67,7 +68,8 @@ export function DrawToolbar() {
     </button>
   );
 
-  return (
+  // Render via portal to escape the z-0 stacking context in page.tsx
+  const panel = (
     <MobilePanel
       isOpen={isExpanded}
       onClose={close}
@@ -75,7 +77,7 @@ export function DrawToolbar() {
       title="Draw"
       collapsedButton={collapsedButton}
       desktopWidth="w-72"
-      zIndex={55}
+      zIndex={40}
       snapPoint="partial"
     >
       {/* Header - only on desktop */}
@@ -157,4 +159,10 @@ export function DrawToolbar() {
         </div>
     </MobilePanel>
   );
+
+  // Portal to document.body to escape z-0 stacking context
+  if (typeof document !== 'undefined') {
+    return createPortal(panel, document.body);
+  }
+  return null;
 }
