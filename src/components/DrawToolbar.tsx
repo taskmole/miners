@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { useMapDraw } from '@/hooks/useMapDraw';
 import {
   Scan,
   MapPin,
   Pencil,
-  ChevronRight,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -31,7 +30,6 @@ const DRAW_BUTTONS: ToolbarButton[] = [
 export function DrawToolbar() {
   const { isOpen: isExpanded, open, close } = useSheetState("draw");
   const isMobile = useMobile();
-  const [isDrawSectionExpanded, setIsDrawSectionExpanded] = useState(true);
 
   const {
     mode,
@@ -93,69 +91,41 @@ export function DrawToolbar() {
         </div>
       )}
 
-        {/* ===== DRAW SECTION ===== */}
-        <div className="border-b border-white/10">
-          {/* Header row - matches Sidebar section headers */}
-          <button
-            onClick={() => setIsDrawSectionExpanded(!isDrawSectionExpanded)}
-            className="w-full p-4 flex items-center hover:bg-white/20 active:bg-white/30 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <ChevronRight className={cn(
-                "w-4 h-4 text-zinc-500 transition-transform duration-200 ease-out",
-                isDrawSectionExpanded && "rotate-90"
-              )} />
-              <Pencil className="w-4 h-4 text-zinc-700" />
-              <span className="text-sm font-bold text-zinc-900">Add new</span>
-            </div>
-          </button>
-
-          {/* Expandable content */}
-          <div
-            className="grid transition-[grid-template-rows] duration-200 ease-out"
-            style={{ gridTemplateRows: isDrawSectionExpanded ? '1fr' : '0fr' }}
-          >
-            <div className="overflow-hidden">
-              <div className="border-t border-white/10">
-                {/* Draw mode buttons - 2 column grid */}
-                <div className="p-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    {DRAW_BUTTONS.map((button) => {
-                      const isActive = isButtonActive(button);
-                      return (
-                        <button
-                          key={button.label}
-                          onClick={() => handleButtonClick(button)}
-                          className={cn(
-                            "flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl transition-colors cursor-pointer",
-                            isActive
-                              ? "bg-teal-500/20 text-teal-700"
-                              : "hover:bg-white/30 text-zinc-700"
-                          )}
-                        >
-                          <button.icon className={cn(
-                            "w-5 h-5",
-                            isActive ? "text-teal-600" : "text-zinc-400"
-                          )} />
-                          <span className={cn(
-                            "text-xs font-medium",
-                            isActive ? "text-teal-700" : "text-zinc-700"
-                          )}>
-                            {button.label}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
+        {/* Draw mode buttons */}
+        <div className="p-3">
+          <div className="grid grid-cols-2 gap-2">
+            {DRAW_BUTTONS.map((button) => {
+              const isActive = isButtonActive(button);
+              return (
+                <button
+                  key={button.label}
+                  onClick={() => handleButtonClick(button)}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl transition-colors cursor-pointer",
+                    isActive
+                      ? "bg-teal-500/20 text-teal-700"
+                      : "hover:bg-white/30 text-zinc-700"
+                  )}
+                >
+                  <button.icon className={cn(
+                    "w-5 h-5",
+                    isActive ? "text-teal-600" : "text-zinc-400"
+                  )} />
+                  <span className={cn(
+                    "text-xs font-medium",
+                    isActive ? "text-teal-700" : "text-zinc-700"
+                  )}>
+                    {button.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Hint text at bottom */}
         <div className="px-4 py-2.5 text-[10px] text-zinc-500">
-          Click to draw. Double-click to finish.
+          Click to start drawing. Double-click to finish. Right-click to adjust borders.
         </div>
     </MobilePanel>
   );
