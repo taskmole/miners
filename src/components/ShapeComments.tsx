@@ -4,13 +4,15 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import { MapPopup } from '@/components/ui/map';
 import { useMapDraw } from '@/hooks/useMapDraw';
-import { Pencil, X, Trash2, Users, Scan, Link, ExternalLink, Paperclip, ChevronDown, MessageSquare, Banknote, ListPlus, FolderOpen, Plus, Check, ChevronsUpDown, MapPin } from 'lucide-react';
+import { Pencil, X, Trash2, Users, Scan, Link, ExternalLink, Paperclip, ChevronDown, MessageSquare, Banknote, ListPlus, FolderOpen, Plus, Check, ChevronsUpDown, MapPin, Footprints } from 'lucide-react';
 import { AddToListButton } from '@/components/AddToListButton';
 import { CreateTripButton } from '@/components/CreateTripButton';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/contexts/ToastContext';
 import { AttachmentGallery } from '@/components/attachments';
 import type { Attachment } from '@/types/attachments';
@@ -21,8 +23,11 @@ import { getCachedStats, invalidateStatsCache, formatArea, formatPopulation, for
 import { useGeoData } from '@/contexts/GeoDataContext';
 import { useLinking } from '@/contexts/LinkingContext';
 import { usePointCategoriesContext } from '@/contexts/PointCategoriesContext';
+import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
 import { reverseGeocode, formatShortAddress } from '@/lib/geocoding';
 import { getCurrentUserId, canEditShape } from '@/lib/browser-session';
+import { useMobile } from '@/hooks/useMobile';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 
 // Storage keys
 const COMMENTS_STORAGE_KEY = 'miners-drawn-comments';
@@ -294,6 +299,22 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
   const { isLinking, addItem: addLinkingItem } = useLinking();
   const [allComments, setAllComments] = useState<Record<string, ShapeComment[]>>(loadComments);
   const [allMetadata, setAllMetadata] = useState<Record<string, ShapeMetadata>>(loadMetadata);
+
+  // Mobile detection for BottomSheet
+  const isMobile = useMobile();
+
+  // Walking radius context for Points
+  const {
+    activePointId,
+    radiusPolygon,
+    walkingMinutes,
+    radiusEnabled,
+    isPopupOpen,
+    setWalkingMinutes,
+    toggleRadiusEnabled,
+    closePopup,
+    deactivateRadius,
+  } = useWalkingRadius();
 
   // Track active popup independently from MapboxDraw selection
   // This prevents the popup from closing when MapboxDraw deselects
@@ -676,6 +697,16 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     return { areaKm2: stats.area, population: stats.population, avgIncome: stats.income };
   }, [selectedFeature, selectedId, densityData, incomeData]);
 
+  // Calculate stats for walking radius (Points only)
+  // Uses the radiusPolygon from context which is generated from the circle
+  const radiusStats = useMemo(() => {
+    if (!radiusPolygon || !selectedId || selectedFeature?.geometry.type !== 'Point') return null;
+    // Use a cache key that includes the walking minutes to properly invalidate
+    const cacheKey = `${selectedId}-radius-${walkingMinutes}`;
+    const stats = getCachedStats(cacheKey, radiusPolygon, densityData, incomeData);
+    return { areaKm2: stats.area, population: stats.population, avgIncome: stats.income };
+  }, [radiusPolygon, selectedId, selectedFeature, walkingMinutes, densityData, incomeData]);
+
   // Don't render if nothing selected
   if (!selectedFeature || !selectedId) {
     return null;
@@ -687,43 +718,51 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
   const metadata = allMetadata[selectedId] || {};
   const comments = allComments[selectedId] || [];
   const isPolygon = selectedFeature.geometry.type === 'Polygon';
+  const isPoint = selectedFeature.geometry.type === 'Point';
   const placeholderName = isPolygon ? 'Untitled Area' : 'Untitled Point';
+
+  // For Points: show radius controls when radius feature is enabled
+  const showRadiusControls = isPoint && radiusEnabled && activePointId === selectedId;
+  // For Points: only show full popup on 2nd click (isPopupOpen = true)
+  // For Polygons: always show full popup
+  const showFullPopup = isPolygon || isPopupOpen;
 
   // Check if current user can edit this shape
   const canEdit = canEditShape(metadata.createdBy);
 
-  return (
-    <MapPopup
-      longitude={center[0]}
-      latitude={center[1]}
-      closeButton={false}
-      offset={16}
-      anchor="top"
-      onClose={handleClosePopup}
-    >
-      <div className="popup-base" style={{ width: '320px' }}>
+  // Handle closing the popup - also deactivate radius for Points
+  const handleCloseWithRadius = useCallback((e?: React.MouseEvent) => {
+    handleClosePopup(e);
+    if (isPoint) {
+      deactivateRadius();
+    }
+  }, [handleClosePopup, isPoint, deactivateRadius]);
 
-          {/* Header - Name with action buttons */}
-          <div className="popup-header" style={{ padding: '16px 20px 12px' }}>
-            {/* Action buttons - top right (matching POI popup style) */}
-            <div className="absolute top-2.5 right-3 z-20 flex items-center gap-1.5">
-              {canEdit && (
-                <button
-                  onClick={handleDeleteShape}
-                  className="h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
-                  title="Delete shape"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-zinc-500" />
-                </button>
-              )}
+  // Popup content - shared between MapPopup and BottomSheet
+  const popupContent = (
+    <div className="popup-base" style={{ width: isMobile ? '100%' : '320px' }}>
+
+        {/* Header - Name with action buttons */}
+        <div className="popup-header" style={{ padding: '16px 20px 12px' }}>
+          {/* Action buttons - top right (matching POI popup style) */}
+          <div className="absolute top-2.5 right-3 z-20 flex items-center gap-1.5">
+            {canEdit && (
               <button
-                onClick={handleClosePopup}
+                onClick={handleDeleteShape}
                 className="h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
-                aria-label="Close popup"
+                title="Delete shape"
               >
-                <X className="w-3.5 h-3.5 text-zinc-700" />
+                <Trash2 className="w-3.5 h-3.5 text-zinc-500" />
               </button>
-            </div>
+            )}
+            <button
+              onClick={handleCloseWithRadius}
+              className="h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
+              aria-label="Close popup"
+            >
+              <X className="w-3.5 h-3.5 text-zinc-700" />
+            </button>
+          </div>
             <div className="w-full">
               {/* Name - editable only for authors */}
               {editingName && canEdit ? (
@@ -1057,6 +1096,62 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
             </div>
           )}
 
+          {/* Walking Radius section (Points only) */}
+          {showRadiusControls && (
+            <div className="border-t border-zinc-100" style={{ padding: '12px 20px' }}>
+              {/* Header with toggle */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Footprints className="w-4 h-4 text-green-600" />
+                  <span className="text-sm font-medium text-zinc-700">Walking Radius</span>
+                </div>
+                <Switch
+                  checked={radiusEnabled}
+                  onCheckedChange={toggleRadiusEnabled}
+                  className="data-[state=checked]:bg-green-500"
+                />
+              </div>
+
+              {/* Slider for walking time */}
+              <div className="flex items-center gap-3 mb-3">
+                <Slider
+                  value={[walkingMinutes]}
+                  onValueChange={([value]) => setWalkingMinutes(value)}
+                  min={1}
+                  max={15}
+                  step={1}
+                  className="flex-1"
+                />
+                <span className="text-sm font-medium text-zinc-600 w-12 text-right">
+                  {walkingMinutes} min
+                </span>
+              </div>
+
+              {/* Radius stats */}
+              {radiusStats && (
+                <div className="flex items-center gap-4 pt-2 border-t border-zinc-100">
+                  <div className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-zinc-400" />
+                    <span className="text-sm text-zinc-600">
+                      {formatPopulation(radiusStats.population)}
+                    </span>
+                  </div>
+                  {radiusStats.avgIncome > 0 && (
+                    <>
+                      <div className="w-px h-4 bg-zinc-200" />
+                      <div className="flex items-center gap-1.5">
+                        <Banknote className="w-3.5 h-3.5 text-zinc-400" />
+                        <span className="text-sm text-zinc-600">
+                          {formatIncome(radiusStats.avgIncome)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Stats section - Area, Population, and Income (only for polygons) */}
           {areaStats && (
             <div className="border-t border-zinc-100" style={{ padding: '12px 20px' }}>
@@ -1286,6 +1381,31 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
           </div>
 
         </div>
+  );
+
+  // Render: BottomSheet on mobile, MapPopup on desktop
+  if (isMobile) {
+    return (
+      <BottomSheet
+        isOpen={true}
+        onClose={handleCloseWithRadius}
+        snapPoint="partial"
+      >
+        {popupContent}
+      </BottomSheet>
+    );
+  }
+
+  return (
+    <MapPopup
+      longitude={center[0]}
+      latitude={center[1]}
+      closeButton={false}
+      offset={16}
+      anchor="top"
+      onClose={handleCloseWithRadius}
+    >
+      {popupContent}
     </MapPopup>
   );
 }

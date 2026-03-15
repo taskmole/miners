@@ -32,6 +32,9 @@ import { isRecentlyAdded } from "@/lib/dateUtils";
 import { useMapData, CafeData, PropertyData, OtherPoiData, LocationData } from "@/hooks/useMapData";
 import { useOverlayData } from "@/hooks/useOverlayData";
 import { useAttachments } from "@/hooks/useAttachments";
+import { useWalkingRadius } from "@/contexts/WalkingRadiusContext";
+import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
+import { point as turfPoint } from "@turf/helpers";
 import { AttachmentGallery } from "@/components/attachments";
 import { PopupCommentsSection } from "@/components/PopupCommentsSection";
 import { DisambiguationPopup } from "@/components/DisambiguationPopup";
@@ -1320,6 +1323,65 @@ function OverlayLayerManager({
     return null; // This component doesn't render anything
 }
 
+// Walking radius circle layer component (must be inside Map component)
+function RadiusCircleLayer() {
+    const { map, isLoaded } = useMap();
+    const { radiusPolygon } = useWalkingRadius();
+
+    useEffect(() => {
+        if (!map || !isLoaded) return;
+
+        const sourceId = 'walking-radius-source';
+        const fillLayerId = 'walking-radius-fill';
+        const strokeLayerId = 'walking-radius-stroke';
+
+        // Clean up existing layers/source
+        if (map.getLayer(fillLayerId)) map.removeLayer(fillLayerId);
+        if (map.getLayer(strokeLayerId)) map.removeLayer(strokeLayerId);
+        if (map.getSource(sourceId)) map.removeSource(sourceId);
+
+        // If no radius polygon, we're done
+        if (!radiusPolygon) return;
+
+        // Add the source with the polygon
+        map.addSource(sourceId, {
+            type: 'geojson',
+            data: radiusPolygon
+        });
+
+        // Add fill layer (green tint, semi-transparent)
+        map.addLayer({
+            id: fillLayerId,
+            type: 'fill',
+            source: sourceId,
+            paint: {
+                'fill-color': '#22c55e', // green-500
+                'fill-opacity': 0.15
+            }
+        });
+
+        // Add stroke layer (green, dashed)
+        map.addLayer({
+            id: strokeLayerId,
+            type: 'line',
+            source: sourceId,
+            paint: {
+                'line-color': '#22c55e', // green-500
+                'line-width': 2,
+                'line-dasharray': [4, 2]
+            }
+        });
+
+        return () => {
+            if (map.getLayer(fillLayerId)) map.removeLayer(fillLayerId);
+            if (map.getLayer(strokeLayerId)) map.removeLayer(strokeLayerId);
+            if (map.getSource(sourceId)) map.removeSource(sourceId);
+        };
+    }, [map, isLoaded, radiusPolygon]);
+
+    return null;
+}
+
 // Zoom threshold for switching between clusters and icon markers
 const ICON_ZOOM_THRESHOLD = 14;
 
@@ -1608,6 +1670,20 @@ export function EnhancedMapContainer({
     // Hidden POIs context
     const { isHidden } = useHiddenPoisContext();
 
+    // Walking radius context for filtering POIs by distance
+    const { radiusPolygon, activePointId } = useWalkingRadius();
+
+    // Helper to check if a POI is within the active walking radius
+    const isInsideRadius = React.useCallback((lon: number, lat: number): boolean => {
+        if (!radiusPolygon) return true; // No radius active, show all
+        try {
+            const pt = turfPoint([lon, lat]);
+            return booleanPointInPolygon(pt, radiusPolygon);
+        } catch {
+            return true; // On error, don't filter out
+        }
+    }, [radiusPolygon]);
+
     // Handler for marker click in linking mode
     const handleLinkingClick = React.useCallback((item: {
         type: 'place' | 'area';
@@ -1621,10 +1697,12 @@ export function EnhancedMapContainer({
         }
     }, [isLinkingMode, addLinkingItem]);
 
-    // Miners cafes - ALWAYS visible regardless of filters (filtered by city)
+    // Miners cafes - ALWAYS visible regardless of filters (filtered by city and walking radius)
     const minersCafes = useMemo(
-        () => cafes.filter(c => c.franchisePartner && c.city === selectedCity?.id),
-        [cafes, selectedCity]
+        () => cafes
+            .filter(c => c.franchisePartner && c.city === selectedCity?.id)
+            .filter(c => isInsideRadius(c.lon, c.lat)),
+        [cafes, selectedCity, isInsideRadius]
     );
 
     // Filter visible markers based on active filters, rating, and city (excluding Miners cafes)
@@ -1658,6 +1736,7 @@ export function EnhancedMapContainer({
 
     // Convert cafes to GeoJSON for cluster layers (split by type for different colors)
     // When showHiddenPois is true, only include hidden POIs
+    // When walking radius is active, filter to only POIs inside the radius
     const euCoffeeTripGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
         type: "FeatureCollection",
         features: visibleCafes
@@ -1667,12 +1746,13 @@ export function EnhancedMapContainer({
                 const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon);
                 return isHidden(placeId);
             })
+            .filter(cafe => isInsideRadius(cafe.lon, cafe.lat))
             .map(cafe => ({
                 type: "Feature" as const,
                 geometry: { type: "Point" as const, coordinates: [cafe.lon, cafe.lat] },
                 properties: { ...cafe }
             }))
-    }), [visibleCafes, showHiddenPois, isHidden]);
+    }), [visibleCafes, showHiddenPois, isHidden, isInsideRadius]);
 
     const regularCafeGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
         type: "FeatureCollection",
@@ -1683,15 +1763,17 @@ export function EnhancedMapContainer({
                 const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon);
                 return isHidden(placeId);
             })
+            .filter(cafe => isInsideRadius(cafe.lon, cafe.lat))
             .map(cafe => ({
                 type: "Feature" as const,
                 geometry: { type: "Point" as const, coordinates: [cafe.lon, cafe.lat] },
                 properties: { ...cafe }
             }))
-    }), [visibleCafes, showHiddenPois, isHidden]);
+    }), [visibleCafes, showHiddenPois, isHidden, isInsideRadius]);
 
     // Convert properties to GeoJSON
     // When showHiddenPois is true, only include hidden POIs
+    // When walking radius is active, filter to only POIs inside the radius
     const propertyGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
         type: "FeatureCollection",
         features: visibleProperties
@@ -1700,15 +1782,17 @@ export function EnhancedMapContainer({
                 const placeId = generatePlaceId('property', property.latitude, property.longitude);
                 return isHidden(placeId);
             })
+            .filter(property => isInsideRadius(property.longitude, property.latitude))
             .map(p => ({
                 type: "Feature" as const,
                 geometry: { type: "Point" as const, coordinates: [p.longitude, p.latitude] },
                 properties: { ...p }
             }))
-    }), [visibleProperties, showHiddenPois, isHidden]);
+    }), [visibleProperties, showHiddenPois, isHidden, isInsideRadius]);
 
     // Convert other POIs to GeoJSON by type
     // When showHiddenPois is true, only include hidden POIs
+    // When walking radius is active, filter to only POIs inside the radius
     const poiGeoJSONByType = useMemo(() => {
         const types = ["transit", "metro", "office", "shopping", "high_street", "dorm", "university", "gym"] as const;
         const byType: Record<string, GeoJSON.FeatureCollection<GeoJSON.Point>> = {};
@@ -1722,6 +1806,7 @@ export function EnhancedMapContainer({
                         const placeId = generatePlaceId(poi.type, poi.lat, poi.lon);
                         return isHidden(placeId);
                     })
+                    .filter(poi => isInsideRadius(poi.lon, poi.lat))
                     .map(poi => ({
                         type: "Feature" as const,
                         geometry: { type: "Point" as const, coordinates: [poi.lon, poi.lat] },
@@ -1730,7 +1815,7 @@ export function EnhancedMapContainer({
             };
         });
         return byType;
-    }, [visibleOtherPois, showHiddenPois, isHidden]);
+    }, [visibleOtherPois, showHiddenPois, isHidden, isInsideRadius]);
 
     // Cluster colors by POI type (matching iconConfig)
     const clusterColorsByType: Record<string, [string, string, string]> = {
@@ -2060,6 +2145,9 @@ export function EnhancedMapContainer({
                     gravityData={gravityData}
                     styleKey={mapStyleKey}
                 />
+
+                {/* Walking radius circle layer */}
+                <RadiusCircleLayer />
 
                 {/* Drawing functionality - DrawToolbar uses portal to escape z-0 stacking context */}
                 <MapDraw

@@ -14,7 +14,9 @@ import {
     Funnel,
     X,
     Dumbbell,
+    Shield,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import { useSheetState } from "@/contexts/SheetContext";
 import { Slider } from "@/components/ui/slider";
@@ -22,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MobilePanel } from "@/components/ui/mobile-panel";
 import { useMobile } from "@/hooks/useMobile";
+import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { cn } from "@/lib/utils";
 import type { EuctFilter } from "@/types/filters";
 
@@ -135,6 +138,9 @@ export function Sidebar({
     // Use SheetContext for coordinated open/close
     const { isOpen, open, close } = useSheetState("filters");
     const isMobile = useMobile();
+    const router = useRouter();
+    // Admin access check
+    const { isAdmin } = useUserProfiles();
     // Which main sections are expanded (places, traffic)
     const [expandedSections, setExpandedSections] = React.useState<Set<string>>(new Set());
     // Which place categories are expanded (for cafe subcategories)
@@ -841,6 +847,18 @@ export function Sidebar({
                             </span>
                         </div>
                     </div>
+                    {/* Admin button - only visible to admins */}
+                    {isAdmin && (
+                        <div className="border-t border-white/10 p-4">
+                            <button
+                                onClick={() => router.push('/admin')}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-zinc-900 text-white text-sm font-semibold rounded-lg hover:bg-zinc-800 transition-colors"
+                            >
+                                <Shield className="w-4 h-4" />
+                                Admin Dashboard
+                            </button>
+                        </div>
+                    )}
                     {/* Bottom spacer for mobile scroll */}
                     <div className="h-24 md:h-0" />
             </ScrollArea>
