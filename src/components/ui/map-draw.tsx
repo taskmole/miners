@@ -1,11 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, type ReactNode } from 'react';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import { useMap } from './map';
 import { convertToMapboxDrawStyles } from '@/lib/draw-styles';
 import type { DrawMode, ShapeMetadata } from '@/types/draw';
 import { canEditShape } from '@/lib/browser-session';
+import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
 
 // Load shape metadata from localStorage
 function loadMetadata(): Record<string, ShapeMetadata> {
@@ -53,6 +54,9 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
     features: [],
   });
   const [selectedFeatureIds, setSelectedFeatureIds] = useState<string[]>([]);
+
+  // Walking radius context for 1st-click/2nd-click behavior on points
+  const walkingRadius = useWalkingRadius();
 
   // Initialize MapboxDraw control
   useEffect(() => {
@@ -164,6 +168,9 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       setSelectedFeatureIds([]); // Clear selection after delete
       onFeaturesChange?.(allFeatures);
 
+      // Deactivate walking radius if the deleted point had it active
+      walkingRadius.deactivateRadius();
+
       // Save to localStorage
       try {
         localStorage.setItem('miners-drawn-features', JSON.stringify(allFeatures));
@@ -175,6 +182,34 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
     const handleSelectionChange = (e: any) => {
       const selectedIds = e.features.map((f: any) => f.id);
       setSelectedFeatureIds(selectedIds);
+
+      // Handle walking radius 1st-click/2nd-click behavior for Points
+      if (e.features.length === 1) {
+        const feature = e.features[0];
+        const featureId = feature.id as string;
+
+        if (feature.geometry.type === 'Point') {
+          const coords = feature.geometry.coordinates as [number, number];
+
+          // Check if radius feature is enabled
+          if (walkingRadius.radiusEnabled) {
+            // If clicking the same point that already has radius active
+            if (walkingRadius.activePointId === featureId) {
+              // 2nd click - open popup
+              walkingRadius.openPopup();
+            } else {
+              // 1st click on a new point - activate radius
+              walkingRadius.activateRadius(featureId, coords);
+            }
+          }
+        } else {
+          // Non-point selected - deactivate radius
+          walkingRadius.deactivateRadius();
+        }
+      } else if (e.features.length === 0) {
+        // Nothing selected - deactivate radius
+        walkingRadius.deactivateRadius();
+      }
     };
 
     const handleModeChange = (e: any) => {
@@ -194,7 +229,7 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       map.off('draw.selectionchange', handleSelectionChange);
       map.off('draw.modechange', handleModeChange);
     };
-  }, [map, draw, onFeaturesChange, onShapeCreated, onShapeUpdated]);
+  }, [map, draw, onFeaturesChange, onShapeCreated, onShapeUpdated, walkingRadius]);
 
   // Delete feature programmatically (MapboxDraw doesn't fire events for programmatic deletions)
   const deleteFeature = (featureId: string) => {

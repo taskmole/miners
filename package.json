@@ -29,6 +29,8 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@supabase/supabase-js": "^2.49.4",
     "@turf/area": "^7.3.2",
+    "@turf/boolean-point-in-polygon": "^7.3.4",
+    "@turf/circle": "^7.3.4",
     "@turf/helpers": "^7.3.2",
     "@turf/intersect": "^7.3.2",
     "class-variance-authority": "^0.7.1",

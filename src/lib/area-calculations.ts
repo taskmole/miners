@@ -5,6 +5,7 @@
 
 import turfArea from '@turf/area';
 import turfIntersect from '@turf/intersect';
+import turfCircle from '@turf/circle';
 import { polygon as turfPolygon, featureCollection } from '@turf/helpers';
 import type { Feature, Polygon, FeatureCollection } from 'geojson';
 
@@ -18,6 +19,54 @@ export function calculateAreaKm2(feature: Feature<Polygon>): number {
     return areaM2 / 1_000_000; // Convert m² to km²
   } catch {
     return 0;
+  }
+}
+
+/**
+ * Generate a circular polygon for walking radius
+ * Used to calculate population/income within walking distance of a point
+ *
+ * @param center - [longitude, latitude] coordinates
+ * @param radiusMeters - Radius in meters
+ * @returns A polygon feature representing the circle, or null if invalid input
+ */
+export function generateWalkingCircle(
+  center: [number, number],
+  radiusMeters: number
+): Feature<Polygon> | null {
+  try {
+    // Validate center coordinates
+    if (!center || center.length !== 2) {
+      console.warn('[generateWalkingCircle] Invalid center:', center);
+      return null;
+    }
+
+    const [lon, lat] = center;
+
+    // Check for NaN or infinite values
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+      console.warn('[generateWalkingCircle] Non-finite coordinates:', { lon, lat });
+      return null;
+    }
+
+    // Check valid lat/lon ranges
+    if (lon < -180 || lon > 180 || lat < -90 || lat > 90) {
+      console.warn('[generateWalkingCircle] Coordinates out of range:', { lon, lat });
+      return null;
+    }
+
+    // Clamp radius to reasonable range (minimum 80m = 1 min walk, maximum 1200m = 15 min walk)
+    const clampedRadius = Math.max(80, Math.min(1200, radiusMeters));
+
+    // Generate circle with 64 points for smooth rendering
+    // turfCircle expects radius in kilometers
+    const radiusKm = clampedRadius / 1000;
+    const circle = turfCircle(center, radiusKm, { steps: 64, units: 'kilometers' });
+
+    return circle as Feature<Polygon>;
+  } catch (error) {
+    console.error('[generateWalkingCircle] Error generating circle:', error);
+    return null;
   }
 }
 

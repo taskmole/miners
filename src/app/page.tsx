@@ -21,6 +21,7 @@ import { LinkingProvider, useLinking } from "@/contexts/LinkingContext";
 import { ScoutingTripsProvider } from "@/contexts/ScoutingTripsContext";
 import { PointCategoriesProvider } from "@/contexts/PointCategoriesContext";
 import { SheetProvider } from "@/contexts/SheetContext";
+import { WalkingRadiusProvider } from "@/contexts/WalkingRadiusContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
 import { supabase } from "@/lib/supabase";
 import { setAuthUserId } from "@/lib/browser-session";
@@ -329,20 +330,22 @@ function HomeContent() {
 // Main component with providers
 export default function Home() {
   return (
-    <GeoDataProvider>
-      <PointCategoriesProvider>
-        <ListsProvider>
-          <HiddenPoisProvider>
-            <ScoutingTripsProvider>
-              <LinkingProvider>
-                <SheetProvider>
-                  <HomeContent />
-                </SheetProvider>
-              </LinkingProvider>
-            </ScoutingTripsProvider>
-          </HiddenPoisProvider>
-        </ListsProvider>
-      </PointCategoriesProvider>
-    </GeoDataProvider>
+    <WalkingRadiusProvider>
+      <GeoDataProvider>
+        <PointCategoriesProvider>
+          <ListsProvider>
+            <HiddenPoisProvider>
+              <ScoutingTripsProvider>
+                <LinkingProvider>
+                  <SheetProvider>
+                    <HomeContent />
+                  </SheetProvider>
+                </LinkingProvider>
+              </ScoutingTripsProvider>
+            </HiddenPoisProvider>
+          </ListsProvider>
+        </PointCategoriesProvider>
+      </GeoDataProvider>
+    </WalkingRadiusProvider>
   );
 }

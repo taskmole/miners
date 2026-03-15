@@ -76,7 +76,7 @@ async function fetchTripsFromSupabase(): Promise<Partial<ScoutingTrip>[]> {
 }
 
 /**
- * Sync trip create to Supabase
+ * Sync trip create to Supabase - includes ALL form fields
  */
 async function syncCreateToSupabase(trip: ScoutingTrip): Promise<void> {
   if (!isSupabaseConfigured() || !supabase) return;
@@ -85,13 +85,53 @@ async function syncCreateToSupabase(trip: ScoutingTrip): Promise<void> {
 
   try {
     await supabase.from('pitches').upsert({
+      // Identity
       id: trip.id,
       city_id: trip.cityId,
       created_by: userId,
+      created_at: trip.createdAt,
+
+      // Status
       status: trip.status,
+
+      // Basic info
+      trip_name: trip.name,
+      author_name: trip.authorName,
       address: trip.address || trip.property?.address,
       condition_notes: trip.notes,
-      created_at: trip.createdAt,
+
+      // Location fields
+      area_sqm: trip.areaSqm,
+      storage_sqm: trip.storageSqm,
+      property_type: trip.propertyType,
+      footfall_estimate: trip.footfallEstimate,
+      neighbourhood_profile: trip.neighbourhoodProfile,
+      nearby_competitors: trip.nearbyCompetitors,
+
+      // Financial fields
+      monthly_rent: trip.monthlyRent,
+      service_fees: trip.serviceFees,
+      deposit: trip.deposit,
+      transfer_fee: trip.transferFee,
+      fitout_cost: trip.fitoutCost,
+      opening_investment: trip.openingInvestment,
+      expected_daily_revenue: trip.expectedDailyRevenue,
+      monthly_revenue_range: trip.monthlyRevenueRange,
+      payback_months: trip.paybackMonths,
+
+      // Operational fields
+      ventilation: trip.ventilation,
+      water_waste: trip.waterWaste,
+      power_capacity: trip.powerCapacity,
+      visibility: trip.visibility,
+      delivery_access: trip.deliveryAccess,
+      seating_capacity: trip.seatingCapacity,
+      outdoor_seating: trip.outdoorSeating,
+
+      // Other
+      risks: trip.risks ? [trip.risks] : null,
+      checklist: trip.checklist,
+      attachment_paths: trip.attachments?.map(a => a.storagePath).filter(Boolean) || [],
     }, { onConflict: 'id' });
   } catch (error) {
     console.error('Error syncing trip to Supabase:', error);
@@ -99,7 +139,7 @@ async function syncCreateToSupabase(trip: ScoutingTrip): Promise<void> {
 }
 
 /**
- * Sync trip update to Supabase
+ * Sync trip update to Supabase - includes ALL form fields
  */
 async function syncUpdateToSupabase(trip: ScoutingTrip): Promise<void> {
   if (!isSupabaseConfigured() || !supabase) return;
@@ -108,9 +148,53 @@ async function syncUpdateToSupabase(trip: ScoutingTrip): Promise<void> {
     await supabase
       .from('pitches')
       .update({
+        // Status
         status: trip.status,
+        submitted_at: trip.submittedAt,
+
+        // Basic info
+        trip_name: trip.name,
+        author_name: trip.authorName,
         address: trip.address || trip.property?.address,
         condition_notes: trip.notes,
+
+        // Location fields
+        area_sqm: trip.areaSqm,
+        storage_sqm: trip.storageSqm,
+        property_type: trip.propertyType,
+        footfall_estimate: trip.footfallEstimate,
+        neighbourhood_profile: trip.neighbourhoodProfile,
+        nearby_competitors: trip.nearbyCompetitors,
+
+        // Financial fields
+        monthly_rent: trip.monthlyRent,
+        service_fees: trip.serviceFees,
+        deposit: trip.deposit,
+        transfer_fee: trip.transferFee,
+        fitout_cost: trip.fitoutCost,
+        opening_investment: trip.openingInvestment,
+        expected_daily_revenue: trip.expectedDailyRevenue,
+        monthly_revenue_range: trip.monthlyRevenueRange,
+        payback_months: trip.paybackMonths,
+
+        // Operational fields
+        ventilation: trip.ventilation,
+        water_waste: trip.waterWaste,
+        power_capacity: trip.powerCapacity,
+        visibility: trip.visibility,
+        delivery_access: trip.deliveryAccess,
+        seating_capacity: trip.seatingCapacity,
+        outdoor_seating: trip.outdoorSeating,
+
+        // Other
+        risks: trip.risks ? [trip.risks] : null,
+        checklist: trip.checklist,
+        attachment_paths: trip.attachments?.map(a => a.storagePath).filter(Boolean) || [],
+
+        // Review info
+        rejection_notes: trip.rejectionNotes,
+        reviewed_by: trip.reviewedBy,
+        final_reviewed_at: trip.reviewedAt,
       })
       .eq('id', trip.id);
   } catch (error) {
