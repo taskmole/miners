@@ -185,7 +185,7 @@ export function BottomSheet({
       <div
         ref={sheetRef}
         className={cn(
-          "relative bg-white rounded-t-2xl shadow-2xl",
+          "relative flex flex-col bg-white rounded-t-2xl shadow-2xl",
           "transition-transform duration-200 ease-out",
           isLandscapeMode
             ? "rounded-t-none rounded-r-2xl h-full w-[80vw] max-w-md"
@@ -248,7 +248,7 @@ export function BottomSheet({
           )}
 
           {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
+          <div className="flex-1 h-0 overflow-y-auto overscroll-contain">
             {children}
           </div>
         </div>
