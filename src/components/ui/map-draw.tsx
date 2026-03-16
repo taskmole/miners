@@ -2,11 +2,13 @@
 
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, type ReactNode } from 'react';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
-import { useMap } from './map';
+import type mapboxgl from 'mapbox-gl';
+import { useMap, safeMapCleanup } from './map';
 import { convertToMapboxDrawStyles } from '@/lib/draw-styles';
 import type { DrawMode, ShapeMetadata } from '@/types/draw';
 import { canEditShape } from '@/lib/browser-session';
 import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
+import { useMobile } from '@/hooks/useMobile';
 
 // Load shape metadata from localStorage
 function loadMetadata(): Record<string, ShapeMetadata> {
@@ -55,8 +57,20 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
   });
   const [selectedFeatureIds, setSelectedFeatureIds] = useState<string[]>([]);
 
-  // Walking radius context for 1st-click/2nd-click behavior on points
-  const walkingRadius = useWalkingRadius();
+  // Walking radius context for hover behavior
+  const { setHoveredPoint, clearHoveredPoint, setDrawnPoints } = useWalkingRadius();
+  const isMobile = useMobile();
+
+  // Helper to sync all points to context (for mobile multi-circle rendering)
+  const syncPointsToContext = useCallback((allFeatures: GeoJSON.FeatureCollection) => {
+    const points = allFeatures.features
+      .filter(f => f.geometry.type === 'Point')
+      .map(f => ({
+        id: f.id as string,
+        center: (f.geometry as GeoJSON.Point).coordinates as [number, number]
+      }));
+    setDrawnPoints(points);
+  }, [setDrawnPoints]);
 
   // Initialize MapboxDraw control
   useEffect(() => {
@@ -78,16 +92,20 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
         const savedFeatures = JSON.parse(saved);
         drawInstance.set(savedFeatures);
         setFeatures(savedFeatures);
+        // Sync points to context for mobile
+        syncPointsToContext(savedFeatures);
       }
     } catch (error) {
       console.error('Error loading saved features:', error);
     }
 
     return () => {
-      map.removeControl(drawInstance);
+      safeMapCleanup(map, (m) => {
+        m.removeControl(drawInstance);
+      });
       setDraw(null);
     };
-  }, [map, isLoaded]);
+  }, [map, isLoaded, syncPointsToContext]);
 
   // Handle draw events
   useEffect(() => {
@@ -98,6 +116,9 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       setFeatures(allFeatures);
       onFeaturesChange?.(allFeatures);
       onShapeCreated?.();
+
+      // Sync points to context for mobile
+      syncPointsToContext(allFeatures);
 
       // Save to localStorage
       try {
@@ -154,6 +175,9 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       onFeaturesChange?.(allFeatures);
       onShapeUpdated?.();
 
+      // Sync points to context for mobile
+      syncPointsToContext(allFeatures);
+
       // Save to localStorage
       try {
         localStorage.setItem('miners-drawn-features', JSON.stringify(allFeatures));
@@ -166,10 +190,9 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       const allFeatures = draw.getAll();
       setFeatures(allFeatures);
       setSelectedFeatureIds([]); // Clear selection after delete
-      onFeaturesChange?.(allFeatures);
 
-      // Deactivate walking radius if the deleted point had it active
-      walkingRadius.deactivateRadius();
+      // Sync points to context for mobile
+      syncPointsToContext(allFeatures);
 
       // Save to localStorage
       try {
@@ -179,40 +202,17 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       }
     };
 
-    const handleSelectionChange = (e: any) => {
-      const selectedIds = e.features.map((f: any) => f.id);
+    const handleSelectionChange = (e: { features: GeoJSON.Feature[] }) => {
+      const selectedIds = e.features.map((f) => f.id as string);
       setSelectedFeatureIds(selectedIds);
 
-      // Handle walking radius 1st-click/2nd-click behavior for Points
-      if (e.features.length === 1) {
-        const feature = e.features[0];
-        const featureId = feature.id as string;
-
-        if (feature.geometry.type === 'Point') {
-          const coords = feature.geometry.coordinates as [number, number];
-
-          // Check if radius feature is enabled
-          if (walkingRadius.radiusEnabled) {
-            // If clicking the same point that already has radius active
-            if (walkingRadius.activePointId === featureId) {
-              // 2nd click - open popup
-              walkingRadius.openPopup();
-            } else {
-              // 1st click on a new point - activate radius
-              walkingRadius.activateRadius(featureId, coords);
-            }
-          }
-        } else {
-          // Non-point selected - deactivate radius
-          walkingRadius.deactivateRadius();
-        }
-      } else if (e.features.length === 0) {
-        // Nothing selected - deactivate radius
-        walkingRadius.deactivateRadius();
+      // On selection change, clear hover state (popup takes over)
+      if (e.features.length > 0) {
+        clearHoveredPoint();
       }
     };
 
-    const handleModeChange = (e: any) => {
+    const handleModeChange = (e: { mode: string }) => {
       setMode(e.mode as DrawMode);
     };
 
@@ -223,16 +223,72 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
     map.on('draw.modechange', handleModeChange);
 
     return () => {
-      map.off('draw.create', handleCreate);
-      map.off('draw.update', handleUpdate);
-      map.off('draw.delete', handleDelete);
-      map.off('draw.selectionchange', handleSelectionChange);
-      map.off('draw.modechange', handleModeChange);
+      safeMapCleanup(map, (m) => {
+        m.off('draw.create', handleCreate);
+        m.off('draw.update', handleUpdate);
+        m.off('draw.delete', handleDelete);
+        m.off('draw.selectionchange', handleSelectionChange);
+        m.off('draw.modechange', handleModeChange);
+      });
     };
-  }, [map, draw, onFeaturesChange, onShapeCreated, onShapeUpdated, walkingRadius]);
+  }, [map, draw, features, onFeaturesChange, onShapeCreated, onShapeUpdated, syncPointsToContext, clearHoveredPoint]);
+
+  // Desktop hover listeners for walking radius circle
+  useEffect(() => {
+    if (!map || !draw || isMobile) return;
+
+    // Handler for mouse entering a draw point
+    const handleMouseEnter = (e: mapboxgl.MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
+      const feature = e.features?.[0];
+      if (!feature || feature.geometry.type !== 'Point') return;
+
+      const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
+      const featureId = feature.id as string;
+
+      // Don't show hover circle if this point is already selected (popup is open)
+      const selectedIds = draw.getSelectedIds();
+      if (selectedIds.includes(featureId)) return;
+
+      setHoveredPoint(featureId, coords);
+    };
+
+    // Handler for mouse leaving a draw point
+    const handleMouseLeave = () => {
+      clearHoveredPoint();
+    };
+
+    // Listen on multiple draw point layers
+    const pointLayers = [
+      'gl-draw-point-inactive',
+      'gl-draw-point-active',
+      'gl-draw-point-point-stroke-inactive',
+    ];
+
+    for (const layer of pointLayers) {
+      try {
+        map.on('mouseenter', layer, handleMouseEnter);
+        map.on('mouseleave', layer, handleMouseLeave);
+      } catch {
+        // Layer might not exist yet
+      }
+    }
+
+    return () => {
+      safeMapCleanup(map, (m) => {
+        for (const layer of pointLayers) {
+          try {
+            m.off('mouseenter', layer, handleMouseEnter);
+            m.off('mouseleave', layer, handleMouseLeave);
+          } catch {
+            // Layer might not exist
+          }
+        }
+      });
+    };
+  }, [map, draw, isMobile, setHoveredPoint, clearHoveredPoint]);
 
   // Delete feature programmatically (MapboxDraw doesn't fire events for programmatic deletions)
-  const deleteFeature = (featureId: string) => {
+  const deleteFeature = useCallback((featureId: string) => {
     if (!draw || !featureId) return;
     try {
       draw.delete(featureId);
@@ -240,15 +296,18 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       setFeatures(allFeatures);
       setSelectedFeatureIds([]);
 
+      // Sync points to context for mobile
+      syncPointsToContext(allFeatures);
+
       // Save to localStorage
       localStorage.setItem('miners-drawn-features', JSON.stringify(allFeatures));
     } catch (error) {
       console.error('Error deleting feature:', error);
     }
-  };
+  }, [draw, syncPointsToContext]);
 
   // Clear selection (allows hover tooltip to show again)
-  const clearSelection = () => {
+  const clearSelection = useCallback(() => {
     // First deselect in MapboxDraw (this fires selectionchange with empty array)
     if (draw) {
       try {
@@ -259,7 +318,7 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
     }
     // Then explicitly clear our state (in case the event doesn't fire)
     setSelectedFeatureIds([]);
-  };
+  }, [draw]);
 
   const contextValue = useMemo(
     () => ({
@@ -270,7 +329,7 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       deleteFeature,
       clearSelection,
     }),
-    [draw, mode, features, selectedFeatureIds]
+    [draw, mode, features, selectedFeatureIds, deleteFeature, clearSelection]
   );
 
   return (

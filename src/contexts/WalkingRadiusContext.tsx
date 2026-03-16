@@ -7,48 +7,79 @@ import { generateWalkingCircle } from '@/lib/area-calculations';
 // Walking speed: 80 meters per minute (standard pedestrian pace)
 const WALKING_SPEED_M_PER_MIN = 80;
 
+// Point data for tracking all drawn points
+type DrawnPoint = {
+  id: string;
+  center: [number, number];
+};
+
 type WalkingRadiusContextType = {
-  // State
-  activePointId: string | null;
+  // Hover state (desktop only)
+  hoveredPointId: string | null;
+  setHoveredPoint: (pointId: string, center: [number, number]) => void;
+  clearHoveredPoint: () => void;
+
+  // All drawn points (for mobile to render all circles)
+  drawnPoints: DrawnPoint[];
+  setDrawnPoints: (points: DrawnPoint[]) => void;
+
+  // Single circle for hovered point (desktop)
   radiusPolygon: Feature<Polygon> | null;
+
+  // All circles for all points (mobile)
+  allPointsCircles: Feature<Polygon>[];
+
+  // Settings
   walkingMinutes: number;
-  radiusEnabled: boolean;
-  isPopupOpen: boolean;
-
-  // Actions
-  activateRadius: (pointId: string, center: [number, number]) => void;
-  deactivateRadius: () => void;
   setWalkingMinutes: (minutes: number) => void;
+  radiusEnabled: boolean;
   toggleRadiusEnabled: () => void;
-  openPopup: () => void;
-  closePopup: () => void;
-
-  // Computed
   radiusMeters: number;
 };
 
 const WalkingRadiusContext = createContext<WalkingRadiusContextType | null>(null);
 
 export function WalkingRadiusProvider({ children }: { children: ReactNode }) {
-  const [activePointId, setActivePointId] = useState<string | null>(null);
-  const [activeCenter, setActiveCenter] = useState<[number, number] | null>(null);
+  // Hover state (for desktop)
+  const [hoveredPointId, setHoveredPointId] = useState<string | null>(null);
+  const [hoveredCenter, setHoveredCenter] = useState<[number, number] | null>(null);
+
+  // All drawn points (for mobile)
+  const [drawnPoints, setDrawnPointsState] = useState<DrawnPoint[]>([]);
+
+  // Settings
   const [walkingMinutes, setWalkingMinutesState] = useState(5);
   const [radiusEnabled, setRadiusEnabled] = useState(true);
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
 
   // Convert walking minutes to meters
   const radiusMeters = useMemo(() => {
     return walkingMinutes * WALKING_SPEED_M_PER_MIN;
   }, [walkingMinutes]);
 
-  // Generate circle polygon when center or radius changes
+  // Generate single circle for hovered point (desktop)
   const radiusPolygon = useMemo(() => {
-    if (!activeCenter || !radiusEnabled) return null;
-    return generateWalkingCircle(activeCenter, radiusMeters);
-  }, [activeCenter, radiusMeters, radiusEnabled]);
+    if (!hoveredCenter || !radiusEnabled) return null;
+    return generateWalkingCircle(hoveredCenter, radiusMeters);
+  }, [hoveredCenter, radiusMeters, radiusEnabled]);
 
-  // Activate radius for a point
-  const activateRadius = useCallback((pointId: string, center: [number, number]) => {
+  // Generate circles for ALL points (mobile)
+  const allPointsCircles = useMemo(() => {
+    if (!radiusEnabled || drawnPoints.length === 0) return [];
+
+    const circles: Feature<Polygon>[] = [];
+    for (const point of drawnPoints) {
+      const circle = generateWalkingCircle(point.center, radiusMeters);
+      if (circle) {
+        // Add point ID to properties for identification
+        circle.properties = { pointId: point.id };
+        circles.push(circle);
+      }
+    }
+    return circles;
+  }, [drawnPoints, radiusMeters, radiusEnabled]);
+
+  // Set hovered point (desktop hover)
+  const setHoveredPoint = useCallback((pointId: string, center: [number, number]) => {
     // Validate coordinates
     if (!center || center.length !== 2 ||
         !Number.isFinite(center[0]) || !Number.isFinite(center[1])) {
@@ -56,16 +87,19 @@ export function WalkingRadiusProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setActivePointId(pointId);
-    setActiveCenter(center);
-    setIsPopupOpen(false);
+    setHoveredPointId(pointId);
+    setHoveredCenter(center);
   }, []);
 
-  // Deactivate radius
-  const deactivateRadius = useCallback(() => {
-    setActivePointId(null);
-    setActiveCenter(null);
-    setIsPopupOpen(false);
+  // Clear hovered point
+  const clearHoveredPoint = useCallback(() => {
+    setHoveredPointId(null);
+    setHoveredCenter(null);
+  }, []);
+
+  // Set all drawn points (for mobile)
+  const setDrawnPoints = useCallback((points: DrawnPoint[]) => {
+    setDrawnPointsState(points);
   }, []);
 
   // Update walking minutes (clamped to 1-15)
@@ -79,40 +113,38 @@ export function WalkingRadiusProvider({ children }: { children: ReactNode }) {
     setRadiusEnabled(prev => !prev);
   }, []);
 
-  // Open/close popup (for 2nd click behavior)
-  const openPopup = useCallback(() => {
-    setIsPopupOpen(true);
-  }, []);
-
-  const closePopup = useCallback(() => {
-    setIsPopupOpen(false);
-  }, []);
-
   const value = useMemo(() => ({
-    activePointId,
+    // Hover state
+    hoveredPointId,
+    setHoveredPoint,
+    clearHoveredPoint,
+
+    // All points (for mobile)
+    drawnPoints,
+    setDrawnPoints,
+
+    // Circles
     radiusPolygon,
+    allPointsCircles,
+
+    // Settings
     walkingMinutes,
-    radiusEnabled,
-    isPopupOpen,
-    activateRadius,
-    deactivateRadius,
     setWalkingMinutes,
+    radiusEnabled,
     toggleRadiusEnabled,
-    openPopup,
-    closePopup,
     radiusMeters,
   }), [
-    activePointId,
+    hoveredPointId,
+    setHoveredPoint,
+    clearHoveredPoint,
+    drawnPoints,
+    setDrawnPoints,
     radiusPolygon,
+    allPointsCircles,
     walkingMinutes,
-    radiusEnabled,
-    isPopupOpen,
-    activateRadius,
-    deactivateRadius,
     setWalkingMinutes,
+    radiusEnabled,
     toggleRadiusEnabled,
-    openPopup,
-    closePopup,
     radiusMeters,
   ]);
 

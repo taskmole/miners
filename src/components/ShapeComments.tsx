@@ -305,15 +305,11 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
 
   // Walking radius context for Points
   const {
-    activePointId,
     radiusPolygon,
     walkingMinutes,
     radiusEnabled,
-    isPopupOpen,
     setWalkingMinutes,
     toggleRadiusEnabled,
-    closePopup,
-    deactivateRadius,
   } = useWalkingRadius();
 
   // Track active popup independently from MapboxDraw selection
@@ -707,6 +703,12 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     return { areaKm2: stats.area, population: stats.population, avgIncome: stats.income };
   }, [radiusPolygon, selectedId, selectedFeature, walkingMinutes, densityData, incomeData]);
 
+  // Handle closing the popup
+  // Defined before early return to satisfy Rules of Hooks
+  const handleCloseWithRadius = useCallback((e?: React.MouseEvent) => {
+    handleClosePopup(e);
+  }, [handleClosePopup]);
+
   // Don't render if nothing selected
   if (!selectedFeature || !selectedId) {
     return null;
@@ -721,22 +723,11 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
   const isPoint = selectedFeature.geometry.type === 'Point';
   const placeholderName = isPolygon ? 'Untitled Area' : 'Untitled Point';
 
-  // For Points: show radius controls when radius feature is enabled
-  const showRadiusControls = isPoint && radiusEnabled && activePointId === selectedId;
-  // For Points: only show full popup on 2nd click (isPopupOpen = true)
-  // For Polygons: always show full popup
-  const showFullPopup = isPolygon || isPopupOpen;
+  // For Points: always show radius controls so user can toggle on/off
+  const showRadiusControls = isPoint;
 
   // Check if current user can edit this shape
   const canEdit = canEditShape(metadata.createdBy);
-
-  // Handle closing the popup - also deactivate radius for Points
-  const handleCloseWithRadius = useCallback((e?: React.MouseEvent) => {
-    handleClosePopup(e);
-    if (isPoint) {
-      deactivateRadius();
-    }
-  }, [handleClosePopup, isPoint, deactivateRadius]);
 
   // Popup content - shared between MapPopup and BottomSheet
   const popupContent = (
@@ -755,13 +746,16 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                 <Trash2 className="w-3.5 h-3.5 text-zinc-500" />
               </button>
             )}
-            <button
-              onClick={handleCloseWithRadius}
-              className="h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
-              aria-label="Close popup"
-            >
-              <X className="w-3.5 h-3.5 text-zinc-700" />
-            </button>
+            {/* Hide close X on mobile - BottomSheet has its own */}
+            {!isMobile && (
+              <button
+                onClick={handleCloseWithRadius}
+                className="h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
+                aria-label="Close popup"
+              >
+                <X className="w-3.5 h-3.5 text-zinc-700" />
+              </button>
+            )}
           </div>
             <div className="w-full">
               {/* Name - editable only for authors */}

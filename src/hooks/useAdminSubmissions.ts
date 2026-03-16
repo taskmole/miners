@@ -83,16 +83,10 @@ export function useAdminSubmissions() {
     try {
       setLoading(true);
 
-      // Fetch all pitches with user profile info
+      // Fetch all pitches (author_name is stored directly in pitches table)
       const { data, error: fetchError } = await supabase
         .from('pitches')
-        .select(`
-          *,
-          user_profiles:created_by (
-            display_name,
-            email
-          )
-        `)
+        .select('*')
         .in('status', ['submitted', 'approved', 'rejected'])
         .order('submitted_at', { ascending: false, nullsFirst: false });
 
@@ -107,9 +101,9 @@ export function useAdminSubmissions() {
         submittedAt: row.submitted_at,
         reviewedAt: row.final_reviewed_at,
 
-        // Author info - try user_profiles first, fall back to stored author_name
-        authorName: row.user_profiles?.display_name || row.author_name || 'Unknown',
-        authorEmail: row.user_profiles?.email,
+        // Author info (stored directly in pitches table)
+        authorName: row.author_name || 'Unknown',
+        authorEmail: undefined, // Not stored in pitches table
         createdBy: row.created_by,
 
         // Basic info

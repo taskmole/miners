@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useMap } from '@/components/ui/map';
+import { useMap, safeMapCleanup } from '@/components/ui/map';
 import { useMapDraw } from '@/hooks/useMapDraw';
 import { MessageCircle, Scan, Users, Banknote } from 'lucide-react';
 import type { Feature, Polygon } from 'geojson';
@@ -191,8 +191,10 @@ export function ShapeHoverTooltip() {
     map.on('mouseleave', handleMouseLeave);
 
     return () => {
-      map.off('mousemove', handleMouseMove);
-      map.off('mouseleave', handleMouseLeave);
+      safeMapCleanup(map, (m) => {
+        m.off('mousemove', handleMouseMove);
+        m.off('mouseleave', handleMouseLeave);
+      });
     };
   }, [map, isLoaded, handleMouseMove, handleMouseLeave]);
 

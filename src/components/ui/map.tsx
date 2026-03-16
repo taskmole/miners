@@ -116,6 +116,21 @@ function useMap() {
   return context;
 }
 
+/**
+ * Safely run map cleanup code. Use this in useEffect cleanup functions
+ * to prevent crashes when navigating away from the map page.
+ *
+ * The map can become null before cleanup runs because the map provider
+ * unmounts before child components.
+ */
+function safeMapCleanup(map: MapLibreGL.Map | null, fn: (map: MapLibreGL.Map) => void) {
+  try {
+    if (map) fn(map);
+  } catch {
+    // Map was destroyed during navigation - safe to ignore
+  }
+}
+
 const defaultStyles = {
   dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
   light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
@@ -192,9 +207,11 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     setMapInstance(map);
 
     return () => {
-      map.off("load", loadHandler);
-      map.off("styledata", styleDataHandler);
-      map.remove();
+      safeMapCleanup(map, (m) => {
+        m.off("load", loadHandler);
+        m.off("styledata", styleDataHandler);
+        m.remove();
+      });
       setIsLoaded(false);
       setIsStyleLoaded(false);
       setMapInstance(null);
@@ -829,8 +846,10 @@ function CompassButton({ onClick }: { onClick: () => void }) {
     updateRotation();
 
     return () => {
-      map.off("rotate", updateRotation);
-      map.off("pitch", updateRotation);
+      safeMapCleanup(map, (m) => {
+        m.off("rotate", updateRotation);
+        m.off("pitch", updateRotation);
+      });
     };
   }, [isLoaded, map]);
 
@@ -1084,9 +1103,11 @@ function MapRoute({
     map.on("mouseleave", layerId, handleMouseLeave);
 
     return () => {
-      map.off("click", layerId, handleClick);
-      map.off("mouseenter", layerId, handleMouseEnter);
-      map.off("mouseleave", layerId, handleMouseLeave);
+      safeMapCleanup(map, (m) => {
+        m.off("click", layerId, handleClick);
+        m.off("mouseenter", layerId, handleMouseEnter);
+        m.off("mouseleave", layerId, handleMouseLeave);
+      });
     };
   }, [
     isLoaded,
@@ -1396,12 +1417,14 @@ function MapClusterLayer<
     map.on("mouseleave", unclusteredLayerId, handleMouseLeavePoint);
 
     return () => {
-      map.off("click", clusterLayerId, handleClusterClick);
-      map.off("click", unclusteredLayerId, handlePointClick);
-      map.off("mouseenter", clusterLayerId, handleMouseEnterCluster);
-      map.off("mouseleave", clusterLayerId, handleMouseLeaveCluster);
-      map.off("mouseenter", unclusteredLayerId, handleMouseEnterPoint);
-      map.off("mouseleave", unclusteredLayerId, handleMouseLeavePoint);
+      safeMapCleanup(map, (m) => {
+        m.off("click", clusterLayerId, handleClusterClick);
+        m.off("click", unclusteredLayerId, handlePointClick);
+        m.off("mouseenter", clusterLayerId, handleMouseEnterCluster);
+        m.off("mouseleave", clusterLayerId, handleMouseLeaveCluster);
+        m.off("mouseenter", unclusteredLayerId, handleMouseEnterPoint);
+        m.off("mouseleave", unclusteredLayerId, handleMouseLeavePoint);
+      });
     };
   }, [
     isLoaded,
@@ -1419,6 +1442,7 @@ function MapClusterLayer<
 export {
   Map,
   useMap,
+  safeMapCleanup,
   MapMarker,
   MarkerContent,
   MarkerPopup,
