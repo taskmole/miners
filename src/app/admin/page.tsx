@@ -3,10 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, Download } from 'lucide-react';
-import { useUserProfiles, ADMIN_ROLES } from '@/hooks/useUserProfiles';
+import { useUserProfiles } from '@/hooks/useUserProfiles';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
-import { useScoutingTripsContext } from '@/contexts/ScoutingTripsContext';
-import { ScoutingTripsProvider } from '@/contexts/ScoutingTripsContext';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -358,9 +357,6 @@ function AdminContent() {
     refetch: refetchSubmissions,
   } = useAdminSubmissions();
 
-  // Still use context for approve/reject actions (syncs to Supabase)
-  const { approveTrip, rejectTrip } = useScoutingTripsContext();
-
   // Auth check - redirect non-admins
   useEffect(() => {
     if (!usersLoading && currentUserRole && !isAdmin) {
@@ -387,10 +383,22 @@ function AdminContent() {
 
   const handleApprove = async (pitchId: string) => {
     setActionError(null);
+    if (!isSupabaseConfigured() || !supabase) {
+      setActionError('Database not configured');
+      return;
+    }
     try {
-      approveTrip(pitchId, 'Admin');
-      // Refetch to update the list
-      setTimeout(() => refetchSubmissions(), 500);
+      const { error } = await supabase
+        .from('pitches')
+        .update({
+          status: 'approved',
+          reviewed_by: 'Admin',
+          final_reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', pitchId);
+
+      if (error) throw error;
+      refetchSubmissions();
     } catch {
       setActionError('Failed to approve');
     }
@@ -402,12 +410,25 @@ function AdminContent() {
       setActionError('Please enter rejection notes');
       return;
     }
+    if (!isSupabaseConfigured() || !supabase) {
+      setActionError('Database not configured');
+      return;
+    }
     try {
-      rejectTrip(pitchId, rejectNotes, 'Admin');
+      const { error } = await supabase
+        .from('pitches')
+        .update({
+          status: 'rejected',
+          rejection_notes: rejectNotes,
+          reviewed_by: 'Admin',
+          final_reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', pitchId);
+
+      if (error) throw error;
       setRejectingId(null);
       setRejectNotes('');
-      // Refetch to update the list
-      setTimeout(() => refetchSubmissions(), 500);
+      refetchSubmissions();
     } catch {
       setActionError('Failed to reject');
     }
@@ -589,15 +610,7 @@ function AdminContent() {
                             </div>
                           </div>
                         ) : (
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={() => downloadPitchAsPdf(pitch)}
-                              variant="outline"
-                              className="border-zinc-300 text-zinc-600 hover:bg-zinc-50 h-12"
-                            >
-                              <Download className="w-4 h-4 mr-2" />
-                              PDF
-                            </Button>
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <Button
                               onClick={() => handleApprove(pitch.id)}
                               className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-white h-12"
@@ -612,6 +625,14 @@ function AdminContent() {
                             >
                               <X className="w-4 h-4 mr-2" />
                               Reject
+                            </Button>
+                            <Button
+                              onClick={() => downloadPitchAsPdf(pitch)}
+                              variant="outline"
+                              className="border-zinc-300 text-zinc-600 hover:bg-zinc-50 h-12 sm:flex-none"
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              PDF
                             </Button>
                           </div>
                         )}
@@ -766,11 +787,7 @@ function AdminContent() {
   );
 }
 
-// Wrap with ScoutingTripsProvider for approve/reject actions
+// Export directly - admin actions now call Supabase directly
 export default function AdminPage() {
-  return (
-    <ScoutingTripsProvider>
-      <AdminContent />
-    </ScoutingTripsProvider>
-  );
+  return <AdminContent />;
 }

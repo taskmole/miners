@@ -1347,9 +1347,12 @@ function OverlayLayerManager({
 }
 
 // Walking radius circle layer component (must be inside Map component)
+// Desktop: shows single circle on hover
+// Mobile: shows circles around ALL points
 function RadiusCircleLayer() {
     const { map, isLoaded } = useMap();
-    const { radiusPolygon } = useWalkingRadius();
+    const { radiusPolygon, allPointsCircles, radiusEnabled } = useWalkingRadius();
+    const isMobile = useMobile();
 
     useEffect(() => {
         if (!map || !isLoaded) return;
@@ -1363,13 +1366,29 @@ function RadiusCircleLayer() {
         if (map.getLayer(strokeLayerId)) map.removeLayer(strokeLayerId);
         if (map.getSource(sourceId)) map.removeSource(sourceId);
 
-        // If no radius polygon, we're done
-        if (!radiusPolygon) return;
+        // Determine what data to render
+        // Mobile: all circles for all points
+        // Desktop: single circle for hovered point
+        let sourceData: GeoJSON.Feature | GeoJSON.FeatureCollection | null = null;
 
-        // Add the source with the polygon
+        if (isMobile && allPointsCircles.length > 0 && radiusEnabled) {
+            // Mobile: render all circles as a FeatureCollection
+            sourceData = {
+                type: 'FeatureCollection',
+                features: allPointsCircles
+            };
+        } else if (!isMobile && radiusPolygon) {
+            // Desktop: render single hovered circle
+            sourceData = radiusPolygon;
+        }
+
+        // If no data, we're done
+        if (!sourceData) return;
+
+        // Add the source with the polygon(s)
         map.addSource(sourceId, {
             type: 'geojson',
-            data: radiusPolygon
+            data: sourceData
         });
 
         // Add fill layer (green tint, semi-transparent)
@@ -1402,7 +1421,7 @@ function RadiusCircleLayer() {
                 if (m.getSource(sourceId)) m.removeSource(sourceId);
             });
         };
-    }, [map, isLoaded, radiusPolygon]);
+    }, [map, isLoaded, radiusPolygon, allPointsCircles, isMobile, radiusEnabled]);
 
     return null;
 }
