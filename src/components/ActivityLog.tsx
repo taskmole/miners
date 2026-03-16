@@ -8,26 +8,32 @@ import { MobilePanel } from "@/components/ui/mobile-panel";
 import { useMobile } from "@/hooks/useMobile";
 import { useActivities, type ActivityType, type ActivityItem } from "@/hooks/useActivities";
 
-// Icon for each activity type
-const ActivityIcon = ({ type }: { type: ActivityType }) => {
-    const iconClass = "w-3.5 h-3.5";
-    switch (type) {
-        case "added":
-            return <Plus className={cn(iconClass, "text-emerald-600")} />;
-        case "updated":
-            return <Pencil className={cn(iconClass, "text-blue-600")} />;
-        case "commented":
-            return <MessageSquare className={cn(iconClass, "text-purple-600")} />;
-        case "visited":
-            return <Eye className={cn(iconClass, "text-cyan-600")} />;
-        case "rated":
-            return <Star className={cn(iconClass, "text-amber-600")} />;
-        case "created":
-            return <MapPin className={cn(iconClass, "text-pink-600")} />;
-        default:
-            return <History className={cn(iconClass, "text-zinc-500")} />;
-    }
+// Icon config by activity type
+const ACTIVITY_ICONS: Record<ActivityType | 'default', { icon: typeof Plus; color: string }> = {
+    added: { icon: Plus, color: "text-emerald-600" },
+    updated: { icon: Pencil, color: "text-blue-600" },
+    commented: { icon: MessageSquare, color: "text-purple-600" },
+    visited: { icon: Eye, color: "text-cyan-600" },
+    rated: { icon: Star, color: "text-amber-600" },
+    created: { icon: MapPin, color: "text-pink-600" },
+    default: { icon: History, color: "text-zinc-500" },
 };
+
+const ActivityIcon = ({ type }: { type: ActivityType }) => {
+    const { icon: Icon, color } = ACTIVITY_ICONS[type] || ACTIVITY_ICONS.default;
+    return <Icon className={cn("w-3.5 h-3.5", color)} />;
+};
+
+// Reusable mark as read button
+const MarkAsReadButton = ({ onClick }: { onClick: () => void }) => (
+    <button
+        onClick={onClick}
+        className="px-2 py-1 rounded-md text-zinc-500 text-[10px] font-medium flex items-center gap-1 hover:bg-emerald-100 hover:text-emerald-600 active:bg-emerald-200 transition-colors"
+    >
+        <Check className="w-3.5 h-3.5" />
+        Mark all as read
+    </button>
+);
 
 // Custom event for map navigation
 export const navigateToLocation = (lat: number, lon: number) => {
@@ -74,15 +80,7 @@ export function ActivityLog() {
                         <span className="text-sm font-bold text-zinc-900">Activity Log</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        {unreadCount > 0 && (
-                            <button
-                                onClick={markAllAsRead}
-                                className="px-2 py-1 rounded-md text-zinc-500 text-[10px] font-medium flex items-center gap-1 hover:bg-emerald-100 hover:text-emerald-600 active:bg-emerald-200 transition-colors"
-                            >
-                                <Check className="w-3.5 h-3.5" />
-                                Mark all as read
-                            </button>
-                        )}
+                        {unreadCount > 0 && <MarkAsReadButton onClick={markAllAsRead} />}
                         <button
                             onClick={close}
                             className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
@@ -96,13 +94,7 @@ export function ActivityLog() {
             {/* Mobile header with mark as read button - only shows when there are unreads */}
             {isMobile && unreadCount > 0 && (
                 <div className="p-4 flex items-center justify-end">
-                    <button
-                        onClick={markAllAsRead}
-                        className="px-2 py-1 rounded-md text-zinc-500 text-[10px] font-medium flex items-center gap-1 hover:bg-emerald-100 hover:text-emerald-600 active:bg-emerald-200 transition-colors"
-                    >
-                        <Check className="w-3.5 h-3.5" />
-                        Mark all as read
-                    </button>
+                    <MarkAsReadButton onClick={markAllAsRead} />
                 </div>
             )}
 

@@ -62,14 +62,23 @@ export function BottomSheet({
   }, [isOpen]);
 
   // Body scroll lock when sheet is open
+  // Uses position: fixed approach (not overflow: hidden) for iOS Safari compatibility.
+  // overflow: hidden on body can suppress nested scrolling on iOS.
   useEffect(() => {
     if (!isMobile) return;
 
     if (isOpen) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
       return () => {
-        document.body.style.overflow = originalOverflow;
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        window.scrollTo(0, scrollY);
       };
     }
   }, [isOpen, isMobile]);
@@ -247,8 +256,8 @@ export function BottomSheet({
             </div>
           )}
 
-          {/* Scrollable content */}
-          <div className="flex-1 h-0 overflow-y-auto">
+          {/* Scrollable content — touch-pan-y + webkit hint for iOS momentum scroll */}
+          <div className="flex-1 h-0 overflow-y-auto touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
             {children}
           </div>
         </div>
