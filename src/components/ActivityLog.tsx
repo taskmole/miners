@@ -1,96 +1,12 @@
 "use client";
 
 import React from "react";
-import { History, MapPin, Star, MessageSquare, Pencil, Plus, Eye, X, Activity } from "lucide-react";
+import { History, MapPin, Star, MessageSquare, Pencil, Plus, Eye, X, Activity, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSheetState } from "@/contexts/SheetContext";
 import { MobilePanel } from "@/components/ui/mobile-panel";
 import { useMobile } from "@/hooks/useMobile";
-
-// Activity types for different actions
-type ActivityType = "added" | "updated" | "commented" | "visited" | "rated" | "created";
-
-interface ActivityItem {
-    id: number;
-    type: ActivityType;
-    userName: string;
-    action: string;
-    target: {
-        name: string;
-        type: "cafe" | "property" | "area" | "poi";
-        lat?: number;
-        lon?: number;
-    };
-    time: string;
-}
-
-// Dummy data with Spanish names and clickable targets
-const logs: ActivityItem[] = [
-    {
-        id: 1,
-        type: "added",
-        userName: "María García",
-        action: "added new cafe",
-        target: { name: "Café Comercial", type: "cafe", lat: 40.4268, lon: -3.7025 },
-        time: "2m ago"
-    },
-    {
-        id: 2,
-        type: "visited",
-        userName: "Carlos Rodríguez",
-        action: "visited",
-        target: { name: "Local Gran Vía 45", type: "property", lat: 40.4203, lon: -3.7058 },
-        time: "15m ago"
-    },
-    {
-        id: 3,
-        type: "commented",
-        userName: "Ana Martínez",
-        action: "commented on",
-        target: { name: "Toma Café", type: "cafe", lat: 40.4245, lon: -3.7067 },
-        time: "32m ago"
-    },
-    {
-        id: 4,
-        type: "rated",
-        userName: "Pablo Sánchez",
-        action: "rated",
-        target: { name: "HanSo Café", type: "cafe", lat: 40.4198, lon: -3.7012 },
-        time: "1h ago"
-    },
-    {
-        id: 5,
-        type: "created",
-        userName: "Lucía Fernández",
-        action: "created area",
-        target: { name: "Zona Malasaña Norte", type: "area", lat: 40.4280, lon: -3.7045 },
-        time: "2h ago"
-    },
-    {
-        id: 6,
-        type: "updated",
-        userName: "Diego López",
-        action: "updated price for",
-        target: { name: "Calle Fuencarral 78", type: "property", lat: 40.4256, lon: -3.7012 },
-        time: "3h ago"
-    },
-    {
-        id: 7,
-        type: "visited",
-        userName: "Elena Torres",
-        action: "visited",
-        target: { name: "Federal Café", type: "cafe", lat: 40.4231, lon: -3.7089 },
-        time: "4h ago"
-    },
-    {
-        id: 8,
-        type: "commented",
-        userName: "Javier Ruiz",
-        action: "left feedback on",
-        target: { name: "Misión Café", type: "cafe", lat: 40.4215, lon: -3.6998 },
-        time: "5h ago"
-    },
-];
+import { useActivities, type ActivityType, type ActivityItem } from "@/hooks/useActivities";
 
 // Icon for each activity type
 const ActivityIcon = ({ type }: { type: ActivityType }) => {
@@ -123,14 +39,7 @@ export const navigateToLocation = (lat: number, lon: number) => {
 export function ActivityLog() {
     const { isOpen: isExpanded, open, close } = useSheetState("activity");
     const isMobile = useMobile();
-
-    // Handle clicking on an activity row - navigates to location on map
-    const handleActivityClick = (item: ActivityItem) => {
-        if (item.target.lat && item.target.lon) {
-            navigateToLocation(item.target.lat, item.target.lon);
-            close();
-        }
-    };
+    const { activities, isLoading, error, refetch, unreadCount, markAllAsRead } = useActivities();
 
     // Collapsed button
     const collapsedButton = (
@@ -140,9 +49,9 @@ export function ActivityLog() {
             title="Activity log"
         >
             <Activity className="w-5 h-5 text-zinc-500" />
-            {logs.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-zinc-900 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {logs.length}
+            {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
             )}
         </button>
@@ -165,9 +74,15 @@ export function ActivityLog() {
                         <span className="text-sm font-bold text-zinc-900">Activity Log</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 bg-zinc-100/50 text-zinc-600 text-[10px] font-bold rounded-full">
-                            {logs.length} updates
-                        </span>
+                        {unreadCount > 0 && (
+                            <button
+                                onClick={markAllAsRead}
+                                className="px-2 py-1 rounded-md text-zinc-500 text-[10px] font-medium flex items-center gap-1 hover:bg-emerald-100 hover:text-emerald-600 active:bg-emerald-200 transition-colors"
+                            >
+                                <Check className="w-3.5 h-3.5" />
+                                Mark all as read
+                            </button>
+                        )}
                         <button
                             onClick={close}
                             className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
@@ -178,24 +93,67 @@ export function ActivityLog() {
                 </div>
             )}
 
-            {/* Mobile header with count badge */}
+            {/* Mobile header with mark as read button */}
             {isMobile && (
                 <div className="p-4 flex items-center justify-end border-b border-zinc-100">
-                    <span className="px-2 py-0.5 bg-zinc-100/50 text-zinc-600 text-[10px] font-bold rounded-full">
-                        {logs.length} updates
-                    </span>
+                    {unreadCount > 0 && (
+                        <button
+                            onClick={markAllAsRead}
+                            className="px-2 py-1 rounded-md text-zinc-500 text-[10px] font-medium flex items-center gap-1 hover:bg-emerald-100 hover:text-emerald-600 active:bg-emerald-200 transition-colors"
+                        >
+                            <Check className="w-3.5 h-3.5" />
+                            Mark all as read
+                        </button>
+                    )}
                 </div>
             )}
 
-                {/* Log entries - scrollable */}
+            {/* Loading state */}
+            {isLoading && (
+                <div className="p-8 flex flex-col items-center justify-center text-zinc-400">
+                    <Loader2 className="w-5 h-5 animate-spin mb-2" />
+                    <span className="text-xs">Loading activities...</span>
+                </div>
+            )}
+
+            {/* Error state */}
+            {error && !isLoading && (
+                <div className="p-8 flex flex-col items-center justify-center text-zinc-400">
+                    <span className="text-xs text-red-500 mb-2">{error}</span>
+                    <button onClick={refetch} className="text-xs text-blue-500 hover:underline">
+                        Try again
+                    </button>
+                </div>
+            )}
+
+            {/* Empty state */}
+            {!isLoading && !error && activities.length === 0 && (
+                <div className="p-8 flex flex-col items-center justify-center text-zinc-400">
+                    <Activity className="w-8 h-8 mb-2 opacity-50" />
+                    <span className="text-xs">No activities yet</span>
+                    <span className="text-[10px] mt-1">Comments and lists will appear here</span>
+                </div>
+            )}
+
+            {/* Log entries - scrollable */}
+            {!isLoading && !error && activities.length > 0 && (
                 <div className="max-h-[400px] overflow-y-auto">
-                    {logs.map((item) => (
+                    {activities.map((item) => (
                         <div
                             key={item.id}
-                            onClick={() => handleActivityClick(item)}
-                            className="p-3 border-b border-white/10 hover:bg-white/30 transition-colors cursor-pointer group"
+                            className={cn(
+                                "p-3 border-b border-white/10 transition-colors group",
+                                item.isRead
+                                    ? "hover:bg-white/30"
+                                    : "bg-red-50/50 hover:bg-red-50"
+                            )}
                         >
                             <div className="flex items-start gap-2.5">
+                                {/* Unread indicator */}
+                                {!item.isRead && (
+                                    <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 shrink-0" />
+                                )}
+
                                 {/* Activity icon */}
                                 <div className="mt-0.5">
                                     <ActivityIcon type={item.type} />
@@ -206,7 +164,7 @@ export function ActivityLog() {
                                     <p className="text-[12px] text-zinc-600">
                                         <span className="font-semibold text-zinc-900">{item.userName}</span>
                                         {" "}{item.action}{" "}
-                                        <span className="font-medium text-zinc-800 group-hover:text-blue-600 transition-colors">
+                                        <span className="font-medium text-zinc-800">
                                             {item.target.name}
                                         </span>
                                     </p>
@@ -214,15 +172,11 @@ export function ActivityLog() {
                                         {item.time}
                                     </span>
                                 </div>
-
-                                {/* Location indicator */}
-                                {item.target.lat && (
-                                    <MapPin className="w-3.5 h-3.5 text-zinc-300 group-hover:text-blue-500 transition-colors shrink-0 mt-0.5" />
-                                )}
                             </div>
                         </div>
                     ))}
                 </div>
+            )}
         </MobilePanel>
     );
 }

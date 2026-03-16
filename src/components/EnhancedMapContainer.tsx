@@ -11,6 +11,7 @@ import {
     MapPopup,
     MapClusterLayer,
     useMap,
+    safeMapCleanup,
 } from "@/components/ui/map";
 import { MapDraw } from "@/components/ui/map-draw";
 import { DrawToolbar } from "@/components/DrawToolbar";
@@ -288,18 +289,23 @@ function addTrafficLayers(map: any, data: any) {
 }
 
 function removeTrafficLayers(map: any) {
-    // Remove heatmap layer
-    if (map.getLayer("traffic-heatmap")) {
-        map.removeLayer("traffic-heatmap");
-    }
-    // Backwards compatibility - remove old circle layer if exists
-    if (map.getLayer("traffic-circles")) {
-        map.off("mouseenter", "traffic-circles");
-        map.off("mouseleave", "traffic-circles");
-        map.removeLayer("traffic-circles");
-    }
-    if (map.getSource("traffic-source")) {
-        map.removeSource("traffic-source");
+    try {
+        if (!map || typeof map.getLayer !== 'function') return;
+        // Remove heatmap layer
+        if (map.getLayer("traffic-heatmap")) {
+            map.removeLayer("traffic-heatmap");
+        }
+        // Backwards compatibility - remove old circle layer if exists
+        if (map.getLayer("traffic-circles")) {
+            map.off("mouseenter", "traffic-circles");
+            map.off("mouseleave", "traffic-circles");
+            map.removeLayer("traffic-circles");
+        }
+        if (map.getSource("traffic-source")) {
+            map.removeSource("traffic-source");
+        }
+    } catch {
+        // Map was destroyed during navigation - safe to ignore
     }
 }
 
@@ -454,21 +460,26 @@ function addPopulationLayers(map: any, data: any, densityFilter: number = 0) {
 }
 
 function removePopulationLayers(map: any) {
-    // Remove event handlers
-    map.off("mousemove", "population-fill");
-    map.off("mouseleave", "population-fill");
+    try {
+        if (!map || typeof map.getLayer !== 'function') return;
+        // Remove event handlers
+        map.off("mousemove", "population-fill");
+        map.off("mouseleave", "population-fill");
 
-    // Remove popup
-    if (populationPopup) {
-        populationPopup.remove();
-        populationPopup = null;
+        // Remove popup
+        if (populationPopup) {
+            populationPopup.remove();
+            populationPopup = null;
+        }
+        hoveredBarrioId = null;
+
+        // Remove layers and source
+        if (map.getLayer("population-borders")) map.removeLayer("population-borders");
+        if (map.getLayer("population-fill")) map.removeLayer("population-fill");
+        if (map.getSource("population-source")) map.removeSource("population-source");
+    } catch {
+        // Map was destroyed during navigation - safe to ignore
     }
-    hoveredBarrioId = null;
-
-    // Remove layers and source
-    if (map.getLayer("population-borders")) map.removeLayer("population-borders");
-    if (map.getLayer("population-fill")) map.removeLayer("population-fill");
-    if (map.getSource("population-source")) map.removeSource("population-source");
 }
 
 // Store popup reference for cleanup (income)
@@ -632,21 +643,26 @@ function addIncomeLayers(map: any, data: any, wealthyFilter: number = 0) {
 }
 
 function removeIncomeLayers(map: any) {
-    // Remove event handlers
-    map.off("mousemove", "income-fill");
-    map.off("mouseleave", "income-fill");
+    try {
+        if (!map || typeof map.getLayer !== 'function') return;
+        // Remove event handlers
+        map.off("mousemove", "income-fill");
+        map.off("mouseleave", "income-fill");
 
-    // Remove popup
-    if (incomePopup) {
-        incomePopup.remove();
-        incomePopup = null;
+        // Remove popup
+        if (incomePopup) {
+            incomePopup.remove();
+            incomePopup = null;
+        }
+        hoveredIncomeId = null;
+
+        // Remove layers and source
+        if (map.getLayer("income-borders")) map.removeLayer("income-borders");
+        if (map.getLayer("income-fill")) map.removeLayer("income-fill");
+        if (map.getSource("income-source")) map.removeSource("income-source");
+    } catch {
+        // Map was destroyed during navigation - safe to ignore
     }
-    hoveredIncomeId = null;
-
-    // Remove layers and source
-    if (map.getLayer("income-borders")) map.removeLayer("income-borders");
-    if (map.getLayer("income-fill")) map.removeLayer("income-fill");
-    if (map.getSource("income-source")) map.removeSource("income-source");
 }
 
 // ===== GRAVITY / LOCATION SCORE LAYER =====
@@ -706,8 +722,13 @@ function addGravityLayers(map: any, data: any) {
 }
 
 function removeGravityLayers(map: any) {
-    if (map.getLayer("gravity-heatmap")) map.removeLayer("gravity-heatmap");
-    if (map.getSource("gravity-source")) map.removeSource("gravity-source");
+    try {
+        if (!map || typeof map.getLayer !== 'function') return;
+        if (map.getLayer("gravity-heatmap")) map.removeLayer("gravity-heatmap");
+        if (map.getSource("gravity-source")) map.removeSource("gravity-source");
+    } catch {
+        // Map was destroyed during navigation - safe to ignore
+    }
 }
 
 // Enhanced marker icon with all features
@@ -942,7 +963,7 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
             <PopupAttachmentsSection placeId={placeId} />
 
             {/* Comments section */}
-            <PopupCommentsSection placeId={placeId} />
+            <PopupCommentsSection placeId={placeId} placeName={cafe.name} />
 
             {/* Footer */}
             <div className="popup-footer">
@@ -1036,7 +1057,7 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }:
             <PopupAttachmentsSection placeId={placeId} />
 
             {/* Comments section */}
-            <PopupCommentsSection placeId={placeId} />
+            <PopupCommentsSection placeId={placeId} placeName={cafe.name} />
 
             {/* Footer */}
             <div className="popup-footer">
@@ -1160,7 +1181,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             <PopupAttachmentsSection placeId={placeId} />
 
             {/* Comments section */}
-            <PopupCommentsSection placeId={placeId} />
+            <PopupCommentsSection placeId={placeId} placeName={property.title} />
 
             {/* Footer */}
             <div className="popup-footer">
@@ -1225,7 +1246,7 @@ const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi }: {
             <PopupAttachmentsSection placeId={placeId} />
 
             {/* Comments section */}
-            <PopupCommentsSection placeId={placeId} />
+            <PopupCommentsSection placeId={placeId} placeName={poi.name} />
 
             {/* Footer */}
             <div className="popup-footer">
@@ -1313,10 +1334,12 @@ function OverlayLayerManager({
         }
 
         return () => {
-            removeTrafficLayers(map);
-            removePopulationLayers(map);
-            removeIncomeLayers(map);
-            removeGravityLayers(map);
+            safeMapCleanup(map, () => {
+                removeTrafficLayers(map);
+                removePopulationLayers(map);
+                removeIncomeLayers(map);
+                removeGravityLayers(map);
+            });
         };
     }, [map, isLoaded, trafficEnabled, populationEnabled, populationDensityFilter, incomeEnabled, incomeWealthyFilter, gravityEnabled, trafficData, populationData, incomeData, gravityData, styleKey]);
 
@@ -1373,9 +1396,11 @@ function RadiusCircleLayer() {
         });
 
         return () => {
-            if (map.getLayer(fillLayerId)) map.removeLayer(fillLayerId);
-            if (map.getLayer(strokeLayerId)) map.removeLayer(strokeLayerId);
-            if (map.getSource(sourceId)) map.removeSource(sourceId);
+            safeMapCleanup(map, (m) => {
+                if (m.getLayer(fillLayerId)) m.removeLayer(fillLayerId);
+                if (m.getLayer(strokeLayerId)) m.removeLayer(strokeLayerId);
+                if (m.getSource(sourceId)) m.removeSource(sourceId);
+            });
         };
     }, [map, isLoaded, radiusPolygon]);
 
@@ -1492,7 +1517,9 @@ function ZoomTracker({ onShowIconsChange }: { onShowIconsChange: (showIcons: boo
 
         map.on('zoom', handleZoom);
         return () => {
-            map.off('zoom', handleZoom);
+            safeMapCleanup(map, (m) => {
+                m.off('zoom', handleZoom);
+            });
         };
     }, [map, isLoaded, onShowIconsChange]);
 
@@ -1678,8 +1705,10 @@ export function EnhancedMapContainer({
         if (!radiusPolygon) return true; // No radius active, show all
         try {
             const pt = turfPoint([lon, lat]);
-            return booleanPointInPolygon(pt, radiusPolygon);
-        } catch {
+            const inside = booleanPointInPolygon(pt, radiusPolygon);
+            return inside;
+        } catch (e) {
+            console.error('[RadiusFilter] Error:', e);
             return true; // On error, don't filter out
         }
     }, [radiusPolygon]);
@@ -1702,7 +1731,7 @@ export function EnhancedMapContainer({
         () => cafes
             .filter(c => c.franchisePartner && c.city === selectedCity?.id)
             .filter(c => isInsideRadius(c.lon, c.lat)),
-        [cafes, selectedCity, isInsideRadius]
+        [cafes, selectedCity, isInsideRadius, radiusPolygon]
     );
 
     // Filter visible markers based on active filters, rating, and city (excluding Miners cafes)
@@ -1752,7 +1781,7 @@ export function EnhancedMapContainer({
                 geometry: { type: "Point" as const, coordinates: [cafe.lon, cafe.lat] },
                 properties: { ...cafe }
             }))
-    }), [visibleCafes, showHiddenPois, isHidden, isInsideRadius]);
+    }), [visibleCafes, showHiddenPois, isHidden, isInsideRadius, radiusPolygon]);
 
     const regularCafeGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
         type: "FeatureCollection",
@@ -1769,7 +1798,7 @@ export function EnhancedMapContainer({
                 geometry: { type: "Point" as const, coordinates: [cafe.lon, cafe.lat] },
                 properties: { ...cafe }
             }))
-    }), [visibleCafes, showHiddenPois, isHidden, isInsideRadius]);
+    }), [visibleCafes, showHiddenPois, isHidden, isInsideRadius, radiusPolygon]);
 
     // Convert properties to GeoJSON
     // When showHiddenPois is true, only include hidden POIs
@@ -1788,7 +1817,7 @@ export function EnhancedMapContainer({
                 geometry: { type: "Point" as const, coordinates: [p.longitude, p.latitude] },
                 properties: { ...p }
             }))
-    }), [visibleProperties, showHiddenPois, isHidden, isInsideRadius]);
+    }), [visibleProperties, showHiddenPois, isHidden, isInsideRadius, radiusPolygon]);
 
     // Convert other POIs to GeoJSON by type
     // When showHiddenPois is true, only include hidden POIs
@@ -1815,7 +1844,7 @@ export function EnhancedMapContainer({
             };
         });
         return byType;
-    }, [visibleOtherPois, showHiddenPois, isHidden, isInsideRadius]);
+    }, [visibleOtherPois, showHiddenPois, isHidden, isInsideRadius, radiusPolygon]);
 
     // Cluster colors by POI type (matching iconConfig)
     const clusterColorsByType: Record<string, [string, string, string]> = {

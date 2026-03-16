@@ -7,7 +7,7 @@ import type { Database } from '@/lib/supabase';
 type UserProfile = Database['public']['Tables']['user_profiles']['Row'];
 type UserRole = 'super_admin' | 'head_office_exec' | 'finance_reviewer' | 'area_coordinator' | 'franchisee';
 
-const ADMIN_ROLES: UserRole[] = ['super_admin', 'head_office_exec'];
+const ADMIN_ROLES: UserRole[] = ['super_admin'];
 
 export function useUserProfiles() {
   const [users, setUsers] = useState<UserProfile[]>([]);
