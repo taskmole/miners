@@ -735,19 +735,18 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
 
         {/* Header - Name with action buttons */}
         <div className="popup-header" style={{ padding: '16px 20px 12px' }}>
-          {/* Action buttons - top right (matching POI popup style) */}
-          <div className="absolute top-2.5 right-3 z-20 flex items-center gap-1.5">
-            {canEdit && (
-              <button
-                onClick={handleDeleteShape}
-                className="h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
-                title="Delete shape"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-zinc-500" />
-              </button>
-            )}
-            {/* Hide close X on mobile - BottomSheet has its own */}
-            {!isMobile && (
+          {/* Action buttons - top right. On mobile, BottomSheet handles close + delete buttons */}
+          {!isMobile && (
+            <div className="absolute top-2.5 right-3 z-20 flex items-center gap-1.5">
+              {canEdit && (
+                <button
+                  onClick={handleDeleteShape}
+                  className="h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
+                  title="Delete shape"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-zinc-500" />
+                </button>
+              )}
               <button
                 onClick={handleCloseWithRadius}
                 className="h-[27px] w-[27px] rounded-full bg-white/90 hover:bg-gray-100 hover:scale-110 shadow-md flex items-center justify-center transition-all duration-200"
@@ -755,8 +754,8 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
               >
                 <X className="w-3.5 h-3.5 text-zinc-700" />
               </button>
-            )}
-          </div>
+            </div>
+          )}
             <div className="w-full">
               {/* Name - editable only for authors */}
               {editingName && canEdit ? (
@@ -1377,6 +1376,17 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
         </div>
   );
 
+  // Mobile header: delete button next to BottomSheet's close button
+  const mobileHeaderButtons = canEdit ? (
+    <button
+      onClick={handleDeleteShape}
+      className="w-10 h-10 flex items-center justify-center rounded-full bg-white/90 shadow-md text-zinc-500 hover:bg-gray-100 hover:scale-105 transition-all duration-200"
+      title="Delete shape"
+    >
+      <Trash2 className="w-5 h-5" />
+    </button>
+  ) : undefined;
+
   // Render: BottomSheet on mobile, MapPopup on desktop
   if (isMobile) {
     return (
@@ -1384,6 +1394,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
         isOpen={true}
         onClose={handleCloseWithRadius}
         snapPoint="partial"
+        headerButtons={mobileHeaderButtons}
       >
         {popupContent}
       </BottomSheet>

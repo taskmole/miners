@@ -492,6 +492,13 @@ function MarkerPopup({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, onClose]);
 
+  // Listen for custom closePopup event from internal close buttons (e.g., in image overlays)
+  useEffect(() => {
+    const handleCloseEvent = () => popup.remove();
+    container.addEventListener('closePopup', handleCloseEvent);
+    return () => container.removeEventListener('closePopup', handleCloseEvent);
+  }, [popup, container]);
+
   if (popup.isOpen()) {
     const prev = prevPopupOptions.current;
 

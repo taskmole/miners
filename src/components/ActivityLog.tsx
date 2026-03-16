@@ -93,18 +93,16 @@ export function ActivityLog() {
                 </div>
             )}
 
-            {/* Mobile header with mark as read button */}
-            {isMobile && (
-                <div className="p-4 flex items-center justify-end border-b border-zinc-100">
-                    {unreadCount > 0 && (
-                        <button
-                            onClick={markAllAsRead}
-                            className="px-2 py-1 rounded-md text-zinc-500 text-[10px] font-medium flex items-center gap-1 hover:bg-emerald-100 hover:text-emerald-600 active:bg-emerald-200 transition-colors"
-                        >
-                            <Check className="w-3.5 h-3.5" />
-                            Mark all as read
-                        </button>
-                    )}
+            {/* Mobile header with mark as read button - only shows when there are unreads */}
+            {isMobile && unreadCount > 0 && (
+                <div className="p-4 flex items-center justify-end">
+                    <button
+                        onClick={markAllAsRead}
+                        className="px-2 py-1 rounded-md text-zinc-500 text-[10px] font-medium flex items-center gap-1 hover:bg-emerald-100 hover:text-emerald-600 active:bg-emerald-200 transition-colors"
+                    >
+                        <Check className="w-3.5 h-3.5" />
+                        Mark all as read
+                    </button>
                 </div>
             )}
 

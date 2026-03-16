@@ -157,7 +157,7 @@ export function BottomSheet({
   if (!mounted) return null;
 
   // Calculate sheet height based on snap point
-  const sheetHeight = snapPoint === "full" ? "95vh" : "75vh";
+  const sheetHeight = snapPoint === "full" ? "95vh" : "85vh";
 
   // In landscape, use side sheet from left
   const isLandscapeMode = isMobileLandscape;
@@ -248,7 +248,7 @@ export function BottomSheet({
           )}
 
           {/* Scrollable content */}
-          <div className="flex-1 h-0 overflow-y-auto overscroll-contain">
+          <div className="flex-1 h-0 overflow-y-auto">
             {children}
           </div>
         </div>
