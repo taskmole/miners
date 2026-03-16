@@ -136,7 +136,7 @@ export function useAdminSubmissions() {
         .from('pitches')
         .select('*')
         .in('status', ['submitted', 'approved', 'rejected'])
-        .order('submitted_at', { ascending: false, nullsFirst: false });
+        .order('submitted_at', { ascending: false, nullsLast: true });
 
       if (fetchError) {
         console.error('[useAdminSubmissions] Supabase error:', fetchError);

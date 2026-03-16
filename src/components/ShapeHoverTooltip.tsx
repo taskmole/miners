@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useMap, safeMapCleanup } from '@/components/ui/map';
+import { useMap } from '@/components/ui/map';
+import { safeMapCleanup } from '@/lib/safe-map-cleanup';
 import { useMapDraw } from '@/hooks/useMapDraw';
 import { MessageCircle, Scan, Users, Banknote } from 'lucide-react';
 import type { Feature, Polygon } from 'geojson';

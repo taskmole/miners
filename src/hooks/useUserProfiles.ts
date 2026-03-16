@@ -35,8 +35,6 @@ export function useUserProfiles() {
     } catch (err) {
       console.error('Error fetching users:', err);
       setError('Failed to load users');
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -114,10 +112,9 @@ export function useUserProfiles() {
   // Check if current user is admin
   const isAdmin = currentUserRole ? ADMIN_ROLES.includes(currentUserRole) : false;
 
-  // Initial fetch
+  // Initial fetch — Promise.all guarantees loading = false after both complete
   useEffect(() => {
-    fetchCurrentUserRole();
-    fetchUsers();
+    Promise.all([fetchCurrentUserRole(), fetchUsers()]).finally(() => setLoading(false));
   }, [fetchCurrentUserRole, fetchUsers]);
 
   return {

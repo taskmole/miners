@@ -496,6 +496,27 @@ function AdminContent() {
     );
   }
 
+  // Not authenticated — show sign-in prompt
+  if (!currentUserRole) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg border border-zinc-200 p-6 max-w-sm w-full text-center">
+          <h2 className="text-lg font-bold text-zinc-900 mb-2">Admin Access</h2>
+          <p className="text-sm text-zinc-600 mb-4">
+            Please sign in with an admin account to access this page.
+          </p>
+          <button
+            onClick={() => router.push('/')}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Go to App
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Not admin - will redirect
   if (!isAdmin) {
     return (
