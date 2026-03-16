@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { ScoutingTripStatus, ChecklistItem } from '@/types/scouting';
+import type { User } from '@supabase/supabase-js';
 
 /**
  * Pitch data from Supabase for admin view
@@ -72,6 +73,41 @@ export function useAdminSubmissions() {
   const [submissions, setSubmissions] = useState<AdminPitch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const fetchAttempted = useRef(false);
+
+  // Wait for auth to be ready before fetching
+  useEffect(() => {
+    if (!isSupabaseConfigured() || !supabase) {
+      setError('Supabase not configured');
+      setLoading(false);
+      return;
+    }
+
+    // Check current auth state
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setAuthReady(true);
+      }
+    };
+
+    checkAuth();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setAuthReady(true);
+      } else if (event === 'SIGNED_OUT') {
+        setAuthReady(false);
+        setSubmissions([]);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const fetchSubmissions = useCallback(async () => {
     if (!isSupabaseConfigured() || !supabase) {
@@ -80,8 +116,20 @@ export function useAdminSubmissions() {
       return;
     }
 
+    // Check if user is authenticated first
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.log('[useAdminSubmissions] No authenticated user, skipping fetch');
+      setError('Please sign in to view submissions');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
+      setError(null);
+
+      console.log('[useAdminSubmissions] Fetching submissions...');
 
       // Fetch all pitches (author_name is stored directly in pitches table)
       const { data, error: fetchError } = await supabase
@@ -90,7 +138,12 @@ export function useAdminSubmissions() {
         .in('status', ['submitted', 'approved', 'rejected'])
         .order('submitted_at', { ascending: false, nullsFirst: false });
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('[useAdminSubmissions] Supabase error:', fetchError);
+        throw fetchError;
+      }
+
+      console.log('[useAdminSubmissions] Fetched', data?.length || 0, 'submissions');
 
       // Transform to AdminPitch format
       const pitches: AdminPitch[] = (data || []).map((row: any) => ({
@@ -151,9 +204,18 @@ export function useAdminSubmissions() {
 
       setSubmissions(pitches);
       setError(null);
-    } catch (err) {
-      console.error('Error fetching submissions:', err);
-      setError('Failed to load submissions');
+    } catch (err: unknown) {
+      console.error('[useAdminSubmissions] Error fetching submissions:', err);
+
+      // Provide more specific error messages
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      if (errorMessage.includes('JWT') || errorMessage.includes('auth')) {
+        setError('Authentication error - please try signing in again');
+      } else if (errorMessage.includes('permission') || errorMessage.includes('RLS')) {
+        setError('Permission denied - admin access required');
+      } else {
+        setError(`Failed to load submissions: ${errorMessage}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -170,10 +232,13 @@ export function useAdminSubmissions() {
   // Get processed (approved + rejected) submissions
   const processed = submissions.filter(s => s.status === 'approved' || s.status === 'rejected');
 
-  // Initial fetch
+  // Fetch when auth is ready (only once)
   useEffect(() => {
-    fetchSubmissions();
-  }, [fetchSubmissions]);
+    if (authReady && !fetchAttempted.current) {
+      fetchAttempted.current = true;
+      fetchSubmissions();
+    }
+  }, [authReady, fetchSubmissions]);
 
   return {
     submissions,
