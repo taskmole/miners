@@ -60,12 +60,7 @@ function autoPanForPopup(map: MapLibreGL.Map, popup: MapLibreGL.Popup) {
     dy = popupRect.top - mapRect.top - AUTOPAN_PADDING;
   }
 
-  if (Math.abs(dy) > AUTOPAN_THRESHOLD) {
-    const popupCenterX = (popupRect.left + popupRect.right) / 2;
-    const mapCenterX = (mapRect.left + mapRect.right) / 2;
-    dx = popupCenterX - mapCenterX;
-  }
-
+  // Only pan if needed (removed buggy horizontal centering that overwrote dx)
   if (Math.abs(dx) > AUTOPAN_THRESHOLD || Math.abs(dy) > AUTOPAN_THRESHOLD) {
     map.panBy([dx, dy], { duration: 600, easing: easeOutCubic });
   }
