@@ -72,7 +72,7 @@ async function fetchCommentsFromSupabase(placeId: string): Promise<PoiComment[]>
 /**
  * Sync comment add to Supabase
  */
-async function syncAddToSupabase(comment: PoiComment): Promise<void> {
+async function syncAddToSupabase(comment: PoiComment, entityName?: string): Promise<void> {
   if (!isSupabaseConfigured() || !supabase) return;
 
   const userId = getAnonymousUserId();
@@ -85,6 +85,7 @@ async function syncAddToSupabase(comment: PoiComment): Promise<void> {
       content: comment.content,
       created_by: userId,
       created_at: comment.createdAt,
+      entity_name: entityName || null, // POI name for activity feed display
     }, { onConflict: 'id' });
   } catch (error) {
     console.error('Error syncing comment to Supabase:', error);
@@ -176,7 +177,8 @@ export function usePoiComments() {
   }, [state.comments]);
 
   // Add a comment to a POI
-  const addComment = useCallback((placeId: string, text: string): void => {
+  // entityName is optional - used for activity feed display (e.g., "Café Comercial")
+  const addComment = useCallback((placeId: string, text: string, entityName?: string): void => {
     if (!text.trim()) return;
 
     const comment: PoiComment = {
@@ -197,8 +199,8 @@ export function usePoiComments() {
       },
     }));
 
-    // Sync to Supabase in background
-    syncAddToSupabase(comment);
+    // Sync to Supabase in background (includes entity_name for activity feed)
+    syncAddToSupabase(comment, entityName);
   }, []);
 
   // Remove a comment from a POI

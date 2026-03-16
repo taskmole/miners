@@ -8,6 +8,7 @@ import { useToast } from '@/contexts/ToastContext';
 
 interface PopupCommentsSectionProps {
   placeId: string;
+  placeName?: string; // Optional: used for activity feed display (e.g., "Café Comercial")
 }
 
 /**
@@ -15,7 +16,7 @@ interface PopupCommentsSectionProps {
  * Uses same Tailwind classes as ShapeComments.tsx for consistency
  * Memoized to prevent unnecessary re-renders
  */
-export const PopupCommentsSection = React.memo(function PopupCommentsSection({ placeId }: PopupCommentsSectionProps) {
+export const PopupCommentsSection = React.memo(function PopupCommentsSection({ placeId, placeName }: PopupCommentsSectionProps) {
   const { getComments, addComment, removeComment } = usePoiComments();
   const { showToast } = useToast();
   const [newComment, setNewComment] = useState('');
@@ -26,10 +27,10 @@ export const PopupCommentsSection = React.memo(function PopupCommentsSection({ p
   // Handle adding a new comment
   const handleAddComment = useCallback(() => {
     if (!newComment.trim()) return;
-    addComment(placeId, newComment);
+    addComment(placeId, newComment, placeName); // Pass placeName for activity feed
     setNewComment('');
     showToast('Comment added');
-  }, [placeId, newComment, addComment, showToast]);
+  }, [placeId, newComment, addComment, showToast, placeName]);
 
   // Handle deleting a comment
   const handleDeleteComment = useCallback((commentId: string) => {
