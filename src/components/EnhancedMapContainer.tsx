@@ -1717,7 +1717,7 @@ export function EnhancedMapContainer({
     const { isHidden } = useHiddenPoisContext();
 
     // Walking radius context for filtering POIs by distance
-    const { radiusPolygon, activePointId } = useWalkingRadius();
+    const { radiusPolygon } = useWalkingRadius();
 
     // Helper to check if a POI is within the active walking radius
     const isInsideRadius = React.useCallback((lon: number, lat: number): boolean => {

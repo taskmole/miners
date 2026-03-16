@@ -206,10 +206,17 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       const selectedIds = e.features.map((f) => f.id as string);
       setSelectedFeatureIds(selectedIds);
 
-      // On selection change, clear hover state (popup takes over)
-      if (e.features.length > 0) {
+      // When a single Point is selected, set it as the active point for radius display
+      // This ensures the circle shows when clicking (not just hovering)
+      if (e.features.length === 1 && e.features[0].geometry.type === 'Point') {
+        const feature = e.features[0];
+        const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
+        setHoveredPoint(feature.id as string, coords);
+      } else if (e.features.length === 0) {
+        // Nothing selected - clear the hover
         clearHoveredPoint();
       }
+      // For multiple selections or non-point selections, keep existing hover state
     };
 
     const handleModeChange = (e: { mode: string }) => {
@@ -254,14 +261,24 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
 
     // Handler for mouse leaving a draw point
     const handleMouseLeave = () => {
+      // Don't clear if a point is selected (keep circle visible while popup is open)
+      const selectedIds = draw.getSelectedIds();
+      if (selectedIds.length > 0) return;
       clearHoveredPoint();
     };
 
-    // Listen on multiple draw point layers
+    // Listen on multiple draw point layers (including glow and static layers)
     const pointLayers = [
       'gl-draw-point-inactive',
       'gl-draw-point-active',
       'gl-draw-point-point-stroke-inactive',
+      'gl-draw-point-glow-outer-inactive',
+      'gl-draw-point-glow-inner-inactive',
+      'gl-draw-point-glow-outer-active',
+      'gl-draw-point-glow-inner-active',
+      'gl-draw-point-static',
+      'gl-draw-point-glow-outer-static',
+      'gl-draw-point-glow-inner-static',
     ];
 
     for (const layer of pointLayers) {
