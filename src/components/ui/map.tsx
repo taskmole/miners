@@ -20,6 +20,7 @@ import { createPortal } from "react-dom";
 import { X, Minus, Plus, Locate, Maximize, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { safeMapCleanup } from "@/lib/safe-map-cleanup";
 import React from "react";
 
 const AUTOPAN_PADDING = 20;
@@ -111,20 +112,7 @@ function useMap() {
   return context;
 }
 
-/**
- * Safely run map cleanup code. Use this in useEffect cleanup functions
- * to prevent crashes when navigating away from the map page.
- *
- * The map can become null before cleanup runs because the map provider
- * unmounts before child components.
- */
-function safeMapCleanup(map: MapLibreGL.Map | null, fn: (map: MapLibreGL.Map) => void) {
-  try {
-    if (map) fn(map);
-  } catch {
-    // Map was destroyed during navigation - safe to ignore
-  }
-}
+// safeMapCleanup is imported from @/lib/safe-map-cleanup and re-exported below
 
 const defaultStyles = {
   dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",

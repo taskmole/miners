@@ -3,7 +3,8 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, type ReactNode } from 'react';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import type mapboxgl from 'mapbox-gl';
-import { useMap, safeMapCleanup } from './map';
+import { useMap } from './map';
+import { safeMapCleanup } from '@/lib/safe-map-cleanup';
 import { convertToMapboxDrawStyles } from '@/lib/draw-styles';
 import type { DrawMode, ShapeMetadata } from '@/types/draw';
 import { canEditShape } from '@/lib/browser-session';

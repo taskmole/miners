@@ -11,8 +11,8 @@ import {
     MapPopup,
     MapClusterLayer,
     useMap,
-    safeMapCleanup,
 } from "@/components/ui/map";
+import { safeMapCleanup } from "@/lib/safe-map-cleanup";
 import { MapDraw } from "@/components/ui/map-draw";
 import { DrawToolbar } from "@/components/DrawToolbar";
 import { ShapeComments } from "@/components/ShapeComments";
