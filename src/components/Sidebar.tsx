@@ -834,7 +834,10 @@ export function Sidebar({
                             onClick={() => onGravityToggle?.(!gravityEnabled)}
                             className="w-full p-4 flex items-center justify-between hover:bg-white/20 transition-colors cursor-pointer"
                         >
-                            <span className="text-sm font-bold text-zinc-900">Location Score</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-zinc-900">Location Score</span>
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-amber-100 text-amber-700 uppercase">Beta</span>
+                            </div>
                             <span
                                 className={cn(
                                     "px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full transition-colors",
