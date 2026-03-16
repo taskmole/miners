@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, Download, RefreshCw } from 'lucide-react';
 import { useUserProfiles } from '@/hooks/useUserProfiles';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -18,6 +18,55 @@ import {
 } from '@/types/scouting';
 
 type Tab = 'submissions' | 'users';
+
+// Error Boundary to catch crashes and show a friendly error
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class AdminErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('[AdminErrorBoundary] Caught error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg border border-zinc-200 p-6 max-w-md w-full text-center">
+            <div className="text-red-500 text-4xl mb-4">⚠️</div>
+            <h2 className="text-lg font-bold text-zinc-900 mb-2">Something went wrong</h2>
+            <p className="text-sm text-zinc-600 mb-4">
+              The admin dashboard encountered an error. This is usually temporary.
+            </p>
+            <p className="text-xs text-zinc-400 mb-4 font-mono bg-zinc-50 p-2 rounded">
+              {this.state.error?.message || 'Unknown error'}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
@@ -787,7 +836,11 @@ function AdminContent() {
   );
 }
 
-// Export directly - admin actions now call Supabase directly
+// Export with error boundary wrapper
 export default function AdminPage() {
-  return <AdminContent />;
+  return (
+    <AdminErrorBoundary>
+      <AdminContent />
+    </AdminErrorBoundary>
+  );
 }
