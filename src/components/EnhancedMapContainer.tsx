@@ -902,7 +902,15 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
                     <div className="popup-image-actions">
                         <HideButton placeId={placeId} className="popup-image-btn" />
                         {onClose && (
-                            <button onClick={onClose} className="popup-image-btn" aria-label="Close">
+                            <button
+                                onClick={(e) => {
+                                    // Dispatch custom event that MarkerPopup can listen for to close the MapLibre popup
+                                    e.currentTarget.dispatchEvent(new CustomEvent('closePopup', { bubbles: true }));
+                                    onClose();
+                                }}
+                                className="popup-image-btn"
+                                aria-label="Close"
+                            >
                                 <X size={20} />
                             </button>
                         )}
