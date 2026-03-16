@@ -165,8 +165,9 @@ export function BottomSheet({
   // Don't render on server or before mount
   if (!mounted) return null;
 
-  // Calculate sheet height based on snap point
-  const sheetHeight = snapPoint === "full" ? "95vh" : "85vh";
+  // Sheet height class — uses dvh (dynamic viewport height) with vh fallback.
+  // dvh accounts for iOS Safari browser chrome so the sheet always fits the visible area.
+  const sheetHeightClass = snapPoint === "full" ? "sheet-height-full" : "sheet-height-partial";
 
   // In landscape, use side sheet from left
   const isLandscapeMode = isMobileLandscape;
@@ -199,11 +200,11 @@ export function BottomSheet({
           isLandscapeMode
             ? "rounded-t-none rounded-r-2xl h-full w-[80vw] max-w-md"
             : "w-full",
+          !isLandscapeMode && sheetHeightClass,
           isDragging && "transition-none",
           className
         )}
         style={{
-          height: isLandscapeMode ? "100%" : sheetHeight,
           transform: isLandscapeMode
             ? isOpen
               ? "translateX(0)"
@@ -213,9 +214,6 @@ export function BottomSheet({
             : "translateY(100%)",
           willChange: "transform",
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
         {/* Header buttons - top-right, with safe area padding */}
         {(showCloseButton || headerButtons) && (
@@ -237,12 +235,18 @@ export function BottomSheet({
         )}
 
         {/* Drag handle - floats over content with semi-transparent background */}
+        {/* Touch handlers are ONLY on the drag handle, not the entire sheet.
+            React's onTouchStart/onTouchMove register as non-passive listeners,
+            which blocks native scroll on the entire parent element. */}
         <div
           className="absolute left-0 right-0 flex justify-center pb-2 z-40 rounded-t-2xl"
           style={{
             paddingTop: "calc(12px + env(safe-area-inset-top, 0px))",
             background: "linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 70%, transparent 100%)"
           }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           <div className="w-10 h-1 bg-zinc-400 rounded-full shadow-sm" />
         </div>

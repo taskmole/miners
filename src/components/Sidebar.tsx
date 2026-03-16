@@ -320,7 +320,7 @@ export function Sidebar({
             zIndex={60}
             snapPoint="full"
         >
-            <ScrollArea className={cn("overflow-y-auto", isMobile ? "h-[calc(95vh-100px)]" : "max-h-[calc(100vh-48px)]")}>
+            <ScrollArea className={cn("overflow-y-auto", isMobile ? "sidebar-scroll-height" : "max-h-[calc(100vh-48px)]")}>
                 {/* Header - only on desktop */}
                 {!isMobile && (
                     <div className="p-4 flex items-center justify-between border-b border-white/10">

@@ -844,6 +844,25 @@
 }
 
 /* ===========================================
+   BOTTOM SHEET HEIGHT — dvh with vh fallback
+   dvh = actual visible viewport (accounts for iOS Safari browser chrome)
+   vh = largest possible viewport (fallback for older browsers)
+   =========================================== */
+.sheet-height-partial {
+  height: 85vh;
+  height: 85dvh;
+}
+.sheet-height-full {
+  height: 95vh;
+  height: 95dvh;
+}
+/* Must stay in sync with sheet-height-full (95vh/dvh minus ~100px for drag handle + title) */
+.sidebar-scroll-height {
+  height: calc(95vh - 100px);
+  height: calc(95dvh - 100px);
+}
+
+/* ===========================================
    EU COFFEE TRIP SPECIFIC
    =========================================== */
 
