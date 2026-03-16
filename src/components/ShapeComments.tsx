@@ -735,9 +735,10 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
 
         {/* Header - Name with action buttons */}
         <div className="popup-header" style={{ padding: '16px 20px 12px' }}>
-          {/* Action buttons - top right. On mobile, BottomSheet handles close + delete buttons */}
+          {/* Action buttons - top right. On mobile, BottomSheet handles close + delete buttons.
+              Uses CSS hiding (hidden md:flex) to avoid hydration flash from useMobile() delay. */}
           {!isMobile && (
-            <div className="absolute top-2.5 right-3 z-20 flex items-center gap-1.5">
+            <div className="hidden md:flex absolute top-2.5 right-3 z-20 items-center gap-1.5">
               {canEdit && (
                 <button
                   onClick={handleDeleteShape}
