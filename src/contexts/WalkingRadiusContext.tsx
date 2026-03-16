@@ -52,9 +52,7 @@ export function WalkingRadiusProvider({ children }: { children: ReactNode }) {
   const [radiusEnabled, setRadiusEnabled] = useState(true);
 
   // Convert walking minutes to meters
-  const radiusMeters = useMemo(() => {
-    return walkingMinutes * WALKING_SPEED_M_PER_MIN;
-  }, [walkingMinutes]);
+  const radiusMeters = walkingMinutes * WALKING_SPEED_M_PER_MIN;
 
   // Generate single circle for hovered point (desktop)
   const radiusPolygon = useMemo(() => {
@@ -66,27 +64,22 @@ export function WalkingRadiusProvider({ children }: { children: ReactNode }) {
   const allPointsCircles = useMemo(() => {
     if (!radiusEnabled || drawnPoints.length === 0) return [];
 
-    const circles: Feature<Polygon>[] = [];
-    for (const point of drawnPoints) {
-      const circle = generateWalkingCircle(point.center, radiusMeters);
-      if (circle) {
-        // Add point ID to properties for identification
-        circle.properties = { pointId: point.id };
-        circles.push(circle);
-      }
-    }
-    return circles;
+    return drawnPoints
+      .map(point => {
+        const circle = generateWalkingCircle(point.center, radiusMeters);
+        if (circle) circle.properties = { pointId: point.id };
+        return circle;
+      })
+      .filter((c): c is Feature<Polygon> => c !== null);
   }, [drawnPoints, radiusMeters, radiusEnabled]);
 
   // Set hovered point (desktop hover)
   const setHoveredPoint = useCallback((pointId: string, center: [number, number]) => {
-    // Validate coordinates
-    if (!center || center.length !== 2 ||
-        !Number.isFinite(center[0]) || !Number.isFinite(center[1])) {
+    // Validate coordinates are finite numbers
+    if (!center?.every(Number.isFinite)) {
       console.warn('[WalkingRadius] Invalid center coordinates:', center);
       return;
     }
-
     setHoveredPointId(pointId);
     setHoveredCenter(center);
   }, []);
@@ -97,10 +90,8 @@ export function WalkingRadiusProvider({ children }: { children: ReactNode }) {
     setHoveredCenter(null);
   }, []);
 
-  // Set all drawn points (for mobile)
-  const setDrawnPoints = useCallback((points: DrawnPoint[]) => {
-    setDrawnPointsState(points);
-  }, []);
+  // Set all drawn points (for mobile) - direct setter, no wrapper needed
+  const setDrawnPoints = setDrawnPointsState;
 
   // Update walking minutes (clamped to 1-15)
   const setWalkingMinutes = useCallback((minutes: number) => {

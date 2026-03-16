@@ -62,8 +62,9 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
   const { setHoveredPoint, clearHoveredPoint, setDrawnPoints } = useWalkingRadius();
   const isMobile = useMobile();
 
-  // Helper to sync all points to context (for mobile multi-circle rendering)
-  const syncPointsToContext = useCallback((allFeatures: GeoJSON.FeatureCollection) => {
+  // Helper to sync points and persist features (used by create, update, delete handlers)
+  const syncAndPersist = useCallback((allFeatures: GeoJSON.FeatureCollection) => {
+    // Sync points to context for mobile multi-circle rendering
     const points = allFeatures.features
       .filter(f => f.geometry.type === 'Point')
       .map(f => ({
@@ -71,6 +72,13 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
         center: (f.geometry as GeoJSON.Point).coordinates as [number, number]
       }));
     setDrawnPoints(points);
+
+    // Save to localStorage
+    try {
+      localStorage.setItem('miners-drawn-features', JSON.stringify(allFeatures));
+    } catch (error) {
+      console.error('Error saving features:', error);
+    }
   }, [setDrawnPoints]);
 
   // Initialize MapboxDraw control
@@ -93,8 +101,14 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
         const savedFeatures = JSON.parse(saved);
         drawInstance.set(savedFeatures);
         setFeatures(savedFeatures);
-        // Sync points to context for mobile
-        syncPointsToContext(savedFeatures);
+        // Sync points to context for mobile (don't re-persist, just sync)
+        const points = savedFeatures.features
+          .filter((f: GeoJSON.Feature) => f.geometry.type === 'Point')
+          .map((f: GeoJSON.Feature) => ({
+            id: f.id as string,
+            center: (f.geometry as GeoJSON.Point).coordinates as [number, number]
+          }));
+        setDrawnPoints(points);
       }
     } catch (error) {
       console.error('Error loading saved features:', error);
@@ -106,7 +120,7 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       });
       setDraw(null);
     };
-  }, [map, isLoaded, syncPointsToContext]);
+  }, [map, isLoaded, setDrawnPoints]);
 
   // Handle draw events
   useEffect(() => {
@@ -117,16 +131,7 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       setFeatures(allFeatures);
       onFeaturesChange?.(allFeatures);
       onShapeCreated?.();
-
-      // Sync points to context for mobile
-      syncPointsToContext(allFeatures);
-
-      // Save to localStorage
-      try {
-        localStorage.setItem('miners-drawn-features', JSON.stringify(allFeatures));
-      } catch (error) {
-        console.error('Error saving features:', error);
-      }
+      syncAndPersist(allFeatures);
     };
 
     const handleUpdate = () => {
@@ -175,32 +180,14 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       setFeatures(allFeatures);
       onFeaturesChange?.(allFeatures);
       onShapeUpdated?.();
-
-      // Sync points to context for mobile
-      syncPointsToContext(allFeatures);
-
-      // Save to localStorage
-      try {
-        localStorage.setItem('miners-drawn-features', JSON.stringify(allFeatures));
-      } catch (error) {
-        console.error('Error saving features:', error);
-      }
+      syncAndPersist(allFeatures);
     };
 
     const handleDelete = () => {
       const allFeatures = draw.getAll();
       setFeatures(allFeatures);
       setSelectedFeatureIds([]); // Clear selection after delete
-
-      // Sync points to context for mobile
-      syncPointsToContext(allFeatures);
-
-      // Save to localStorage
-      try {
-        localStorage.setItem('miners-drawn-features', JSON.stringify(allFeatures));
-      } catch (error) {
-        console.error('Error saving features:', error);
-      }
+      syncAndPersist(allFeatures);
     };
 
     const handleSelectionChange = (e: { features: GeoJSON.Feature[] }) => {
@@ -239,7 +226,7 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
         m.off('draw.modechange', handleModeChange);
       });
     };
-  }, [map, draw, features, onFeaturesChange, onShapeCreated, onShapeUpdated, syncPointsToContext, clearHoveredPoint]);
+  }, [map, draw, features, onFeaturesChange, onShapeCreated, onShapeUpdated, syncAndPersist, clearHoveredPoint, setHoveredPoint]);
 
   // Desktop hover listeners for walking radius circle
   useEffect(() => {
@@ -313,16 +300,11 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       const allFeatures = draw.getAll();
       setFeatures(allFeatures);
       setSelectedFeatureIds([]);
-
-      // Sync points to context for mobile
-      syncPointsToContext(allFeatures);
-
-      // Save to localStorage
-      localStorage.setItem('miners-drawn-features', JSON.stringify(allFeatures));
+      syncAndPersist(allFeatures);
     } catch (error) {
       console.error('Error deleting feature:', error);
     }
-  }, [draw, syncPointsToContext]);
+  }, [draw, syncAndPersist]);
 
   // Clear selection (allows hover tooltip to show again)
   const clearSelection = useCallback(() => {
