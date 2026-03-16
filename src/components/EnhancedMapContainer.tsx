@@ -1351,7 +1351,7 @@ function OverlayLayerManager({
 // Mobile: shows circles around ALL points
 function RadiusCircleLayer() {
     const { map, isLoaded } = useMap();
-    const { radiusPolygon, allPointsCircles, radiusEnabled } = useWalkingRadius();
+    const { radiusPolygon, allPointsCircles } = useWalkingRadius();
     const isMobile = useMobile();
 
     useEffect(() => {
@@ -1361,67 +1361,44 @@ function RadiusCircleLayer() {
         const fillLayerId = 'walking-radius-fill';
         const strokeLayerId = 'walking-radius-stroke';
 
-        // Clean up existing layers/source
-        if (map.getLayer(fillLayerId)) map.removeLayer(fillLayerId);
-        if (map.getLayer(strokeLayerId)) map.removeLayer(strokeLayerId);
-        if (map.getSource(sourceId)) map.removeSource(sourceId);
+        // Helper to remove existing layers/source
+        const cleanup = (m: typeof map) => {
+            if (m.getLayer(fillLayerId)) m.removeLayer(fillLayerId);
+            if (m.getLayer(strokeLayerId)) m.removeLayer(strokeLayerId);
+            if (m.getSource(sourceId)) m.removeSource(sourceId);
+        };
 
-        // Determine what data to render
-        // Mobile: all circles for all points
-        // Desktop: single circle for hovered point
-        let sourceData: GeoJSON.Feature | GeoJSON.FeatureCollection | null = null;
+        // Clean up before re-adding
+        cleanup(map);
 
-        if (isMobile && allPointsCircles.length > 0 && radiusEnabled) {
-            // Mobile: render all circles as a FeatureCollection
-            sourceData = {
-                type: 'FeatureCollection',
-                features: allPointsCircles
-            };
-        } else if (!isMobile && radiusPolygon) {
-            // Desktop: render single hovered circle
-            sourceData = radiusPolygon;
-        }
+        // Determine data: mobile shows all circles, desktop shows hovered circle
+        // (radiusEnabled check already handled in context - returns null/empty when disabled)
+        const sourceData: GeoJSON.Feature | GeoJSON.FeatureCollection | null =
+            isMobile && allPointsCircles.length > 0
+                ? { type: 'FeatureCollection', features: allPointsCircles }
+                : radiusPolygon;
 
-        // If no data, we're done
         if (!sourceData) return;
 
-        // Add the source with the polygon(s)
-        map.addSource(sourceId, {
-            type: 'geojson',
-            data: sourceData
-        });
+        // Add source and layers
+        map.addSource(sourceId, { type: 'geojson', data: sourceData });
 
-        // Add fill layer (green tint, semi-transparent)
         map.addLayer({
             id: fillLayerId,
             type: 'fill',
             source: sourceId,
-            paint: {
-                'fill-color': '#22c55e', // green-500
-                'fill-opacity': 0.15
-            }
+            paint: { 'fill-color': '#22c55e', 'fill-opacity': 0.15 }
         });
 
-        // Add stroke layer (green, dashed)
         map.addLayer({
             id: strokeLayerId,
             type: 'line',
             source: sourceId,
-            paint: {
-                'line-color': '#22c55e', // green-500
-                'line-width': 2,
-                'line-dasharray': [4, 2]
-            }
+            paint: { 'line-color': '#22c55e', 'line-width': 2, 'line-dasharray': [4, 2] }
         });
 
-        return () => {
-            safeMapCleanup(map, (m) => {
-                if (m.getLayer(fillLayerId)) m.removeLayer(fillLayerId);
-                if (m.getLayer(strokeLayerId)) m.removeLayer(strokeLayerId);
-                if (m.getSource(sourceId)) m.removeSource(sourceId);
-            });
-        };
-    }, [map, isLoaded, radiusPolygon, allPointsCircles, isMobile, radiusEnabled]);
+        return () => safeMapCleanup(map, cleanup);
+    }, [map, isLoaded, radiusPolygon, allPointsCircles, isMobile]);
 
     return null;
 }
