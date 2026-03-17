@@ -5,6 +5,8 @@ import { Trash2, MessageSquare, ChevronDown } from 'lucide-react';
 import { usePoiComments } from '@/hooks/usePoiComments';
 import { formatRelativeTime } from '@/types/comments';
 import { useToast } from '@/contexts/ToastContext';
+import { useMobileDevice } from '@/hooks/useMobile';
+import { cn } from '@/lib/utils';
 
 interface PopupCommentsSectionProps {
   placeId: string;
@@ -17,6 +19,7 @@ interface PopupCommentsSectionProps {
  * Memoized to prevent unnecessary re-renders
  */
 export const PopupCommentsSection = React.memo(function PopupCommentsSection({ placeId, placeName }: PopupCommentsSectionProps) {
+  const { isMobile } = useMobileDevice();
   const { getComments, addComment, removeComment } = usePoiComments();
   const { showToast } = useToast();
   const [newComment, setNewComment] = useState('');
@@ -69,7 +72,7 @@ export const PopupCommentsSection = React.memo(function PopupCommentsSection({ p
       {isExpanded && (
         <div className="mt-3" onClick={(e) => e.stopPropagation()}>
           {/* Comments list */}
-          <div className="max-h-40 overflow-y-auto space-y-2">
+          <div className={cn("space-y-2", !isMobile && "max-h-40 overflow-y-auto")}>
             {comments.length > 0 && (
               [...comments].reverse().map((comment) => (
                 <div key={comment.id} className="bg-zinc-100 rounded-lg p-2 group relative">

@@ -195,7 +195,7 @@ export function BottomSheet({
       <div
         ref={sheetRef}
         className={cn(
-          "relative flex flex-col bg-white rounded-t-2xl shadow-2xl",
+          "relative z-10 flex flex-col bg-white rounded-t-2xl shadow-2xl",
           "transition-transform duration-200 ease-out",
           isLandscapeMode
             ? "rounded-t-none rounded-r-2xl h-full w-[80vw] max-w-md"
