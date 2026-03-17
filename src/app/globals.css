@@ -748,6 +748,7 @@
     max-width: 100%;
     border-radius: 16px 16px 0 0;
     box-shadow: none;
+    overflow: visible;
   }
 
   /* Pull image up to extend behind the drag handle (content area has pt-10 = 40px) */
