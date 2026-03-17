@@ -1,29 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 
 // Prevent static generation - this route needs to run at request time
 export const dynamic = "force-dynamic";
 
-// Helper to get the base URL for fetching public files
-function getBaseUrl(request: NextRequest): string {
-  const host = request.headers.get("host") || "localhost:3000";
-  const protocol = host.includes("localhost") ? "http" : "https";
-  return `${protocol}://${host}`;
-}
-
 export async function GET(request: NextRequest) {
   try {
-    // Fetch from public folder instead of filesystem
-    const baseUrl = getBaseUrl(request);
-    const response = await fetch(`${baseUrl}/data/madrid_income_2023.geojson`);
+    // Read directly from filesystem (secure — no Host header dependency)
+    const filePath = path.join(process.cwd(), "public", "data", "madrid_income_2023.geojson");
 
-    if (!response.ok) {
+    if (!fs.existsSync(filePath)) {
       return NextResponse.json(
         { type: "FeatureCollection", features: [] },
         { status: 200 }
       );
     }
 
-    const geojson = await response.json();
+    const fileContent = fs.readFileSync(filePath, "utf-8");
+    const geojson = JSON.parse(fileContent);
 
     return NextResponse.json(geojson, {
       headers: {
