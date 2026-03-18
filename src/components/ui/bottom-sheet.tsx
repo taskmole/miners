@@ -229,19 +229,21 @@ export function BottomSheet({
           <div className="w-10 h-1 bg-zinc-400 rounded-full shadow-sm" />
         </div>
 
-        {/* Content wrapper - pt-10 creates space below the floating drag handle */}
-        <div className="flex-1 flex flex-col pt-10">
-          {/* Title bar (optional) */}
+        {/* Scrollable content — absolute for explicit height (iOS Safari can't compute
+            scroll regions from nested flex). All siblings are absolute too. */}
+        <div
+          className="absolute inset-0 overflow-y-auto touch-pan-y overscroll-contain rounded-t-2xl"
+          style={{
+            paddingTop: "calc(40px + env(safe-area-inset-top, 0px))",
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
           {title && (
-            <div className="px-4 pb-3 pr-16 border-b border-zinc-100">
+            <div className="px-4 pb-3 pr-16 border-b border-zinc-100 sticky top-0 bg-white z-[5]">
               <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
             </div>
           )}
-
-          {/* Scrollable content — touch-pan-y + webkit hint for iOS momentum scroll */}
-          <div className="flex-1 h-0 overflow-y-auto touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
-            {children}
-          </div>
+          {children}
         </div>
       </div>
     </div>
