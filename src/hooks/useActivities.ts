@@ -201,8 +201,10 @@ export function useActivities() {
       const currentLastRead = getLastReadTimestamp();
       const lastReadTime = currentLastRead ? new Date(currentLastRead).getTime() : 0;
 
-      // Map comments to activities
-      const commentActivities: ActivityItem[] = comments.map(comment => ({
+      // Map comments to activities (only from users with profiles — excludes anonymous/"Guest")
+      const commentActivities: ActivityItem[] = comments
+        .filter(comment => comment.created_by && profiles.has(comment.created_by))
+        .map(comment => ({
         id: `comment-${comment.id}`,
         type: 'commented' as ActivityType,
         userName: getDisplayName(profiles.get(comment.created_by || '') || null),
@@ -216,8 +218,10 @@ export function useActivities() {
         isRead: new Date(comment.created_at).getTime() <= lastReadTime,
       }));
 
-      // Map lists to activities
-      const listActivities: ActivityItem[] = lists.map(list => ({
+      // Map lists to activities (only from users with profiles — excludes anonymous/"Guest")
+      const listActivities: ActivityItem[] = lists
+        .filter(list => list.created_by && profiles.has(list.created_by))
+        .map(list => ({
         id: `list-${list.id}`,
         type: 'created' as ActivityType,
         userName: getDisplayName(profiles.get(list.created_by || '') || null),
