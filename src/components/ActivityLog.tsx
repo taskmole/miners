@@ -177,11 +177,6 @@ export function ActivityLog() {
                                     <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 shrink-0" />
                                 )}
 
-                                {/* Activity icon */}
-                                <div className="mt-0.5">
-                                    <ActivityIcon type={item.type} />
-                                </div>
-
                                 {/* Content */}
                                 <div className="flex-1 min-w-0">
                                     <p className="text-[12px] text-zinc-600">
