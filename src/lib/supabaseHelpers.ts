@@ -6,6 +6,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from './supabase';
+import { getAuthUserId } from './browser-session';
 
 // localStorage key for anonymous user ID
 const ANON_USER_KEY = 'miners-anonymous-user-id';
@@ -60,6 +61,31 @@ export async function withSupabase<T>(
     console.error(`Supabase error${context ? ` (${context})` : ''}:`, error);
     return fallback;
   }
+}
+
+/**
+ * Log an activity to the activity_log table.
+ * Only writes for authenticated users (skips anonymous).
+ * Fire-and-forget — does not block the calling action.
+ */
+export function logActivity(
+  actionType: string,
+  summary: Record<string, unknown>
+): void {
+  const userId = getAuthUserId();
+  if (!userId || !isSupabaseConfigured() || !supabase) return;
+
+  supabase
+    .from('activity_log')
+    .insert({
+      user_id: userId,
+      action_type: actionType,
+      summary: JSON.stringify(summary),
+      created_at: new Date().toISOString(),
+    })
+    .then(({ error }) => {
+      if (error) console.error('[activity_log] insert error:', error);
+    });
 }
 
 /**

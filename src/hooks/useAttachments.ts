@@ -12,7 +12,7 @@ import {
   getFileCategory,
 } from '@/types/attachments';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { getAnonymousUserId } from '@/lib/supabaseHelpers';
+import { getAnonymousUserId, logActivity } from '@/lib/supabaseHelpers';
 
 const BUCKET_NAME = 'attachments';
 
@@ -329,6 +329,9 @@ export function useAttachments() {
           [placeId]: [...(prev.attachments[placeId] || []), attachment],
         },
       }));
+
+      // Log to activity feed
+      logActivity('added_attachment', { placeId, name: file.name });
 
       return { success: true };
     } catch (error) {

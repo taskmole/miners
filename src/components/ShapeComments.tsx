@@ -26,6 +26,7 @@ import { usePointCategoriesContext } from '@/contexts/PointCategoriesContext';
 import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
 import { reverseGeocode, formatShortAddress } from '@/lib/geocoding';
 import { getCurrentUserId, canEditShape } from '@/lib/browser-session';
+import { logActivity } from '@/lib/supabaseHelpers';
 import { useMobile } from '@/hooks/useMobile';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 
@@ -593,7 +594,22 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     saveComments(updated);
     setNewComment('');
     showToast('Saved');
-  }, [selectedId, newComment, allComments, showToast]);
+
+    // Log to activity feed with shape name and coordinates
+    const shapeName = allMetadata[selectedId]?.name || 'a shape';
+    const geom = selectedFeature?.geometry;
+    let lat = 0, lon = 0;
+    if (geom?.type === 'Point') {
+      [lon, lat] = geom.coordinates as [number, number];
+    } else if (geom?.type === 'Polygon') {
+      const ring = (geom.coordinates as number[][][])[0];
+      if (ring?.length > 0) { [lon, lat] = ring[0]; }
+    } else if (geom?.type === 'LineString') {
+      const coords = geom.coordinates as number[][];
+      if (coords.length > 0) { [lon, lat] = coords[0]; }
+    }
+    logActivity('commented_on_shape', { shapeName, lat, lon });
+  }, [selectedId, newComment, allComments, showToast, allMetadata, selectedFeature]);
 
   const handleDeleteComment = useCallback((commentId: string) => {
     if (!selectedId) return;

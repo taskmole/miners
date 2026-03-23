@@ -27,6 +27,9 @@ export interface ActivityItem {
   time: string;
   createdAt: string; // ISO timestamp for sorting
   isRead: boolean; // Whether user has seen this activity
+  entityId?: string; // placeId, listId, or shapeId for click-to-navigate
+  lat?: number; // For map navigation
+  lon?: number; // For map navigation
 }
 
 /**
@@ -131,6 +134,54 @@ async function fetchRecentLists(): Promise<Array<{
 }
 
 /**
+ * Fetch recent activity_log entries from Supabase
+ * (list item additions, attachments, shapes, shape comments)
+ */
+async function fetchRecentActivityLog(): Promise<Array<{
+  id: string;
+  user_id: string | null;
+  action_type: string;
+  summary: string | null;
+  created_at: string;
+}>> {
+  if (!isSupabaseConfigured() || !supabase) return [];
+
+  const { data, error } = await supabase
+    .from('activity_log')
+    .select('id, user_id, action_type, summary, created_at')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.error('Error fetching activity_log:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+// Map action_type to ActivityType and display text
+const ACTION_TYPE_MAP: Record<string, { type: ActivityType; action: string; targetType: ActivityItem['target']['type'] }> = {
+  added_to_list: { type: 'added', action: 'added', targetType: 'list' },
+  added_attachment: { type: 'added', action: 'added attachment to', targetType: 'poi' },
+  created_point: { type: 'created', action: 'created point', targetType: 'poi' },
+  created_area: { type: 'created', action: 'created area', targetType: 'area' },
+  commented_on_shape: { type: 'commented', action: 'commented on', targetType: 'area' },
+};
+
+/**
+ * Safely parse JSON summary from activity_log
+ */
+function parseSummary(summary: string | null): Record<string, unknown> {
+  if (!summary) return {};
+  try {
+    return JSON.parse(summary);
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Fetch user profiles by IDs
  */
 async function fetchUserProfiles(userIds: string[]): Promise<Map<string, { display_name: string | null; email: string | null }>> {
@@ -179,16 +230,18 @@ export function useActivities() {
     setError(null);
 
     try {
-      // Fetch comments and lists in parallel
-      const [comments, lists] = await Promise.all([
+      // Fetch comments, lists, and activity_log in parallel
+      const [comments, lists, activityLogEntries] = await Promise.all([
         withSupabase(() => fetchRecentComments(), [], 'fetch comments'),
         withSupabase(() => fetchRecentLists(), [], 'fetch lists'),
+        withSupabase(() => fetchRecentActivityLog(), [], 'fetch activity_log'),
       ]);
 
       // Collect unique user IDs
       const userIds = new Set<string>();
       comments.forEach(c => c.created_by && userIds.add(c.created_by));
       lists.forEach(l => l.created_by && userIds.add(l.created_by));
+      activityLogEntries.forEach(e => e.user_id && userIds.add(e.user_id));
 
       // Batch fetch user profiles
       const profiles = await withSupabase(
@@ -216,6 +269,7 @@ export function useActivities() {
         time: formatRelativeTime(comment.created_at),
         createdAt: comment.created_at,
         isRead: new Date(comment.created_at).getTime() <= lastReadTime,
+        entityId: comment.entity_id, // placeId for click-to-navigate
       }));
 
       // Map lists to activities (only from users with profiles — excludes anonymous/"Guest")
@@ -233,10 +287,42 @@ export function useActivities() {
         time: formatRelativeTime(list.created_at),
         createdAt: list.created_at,
         isRead: new Date(list.created_at).getTime() <= lastReadTime,
+        entityId: list.id, // list ID for click-to-navigate
       }));
 
+      // Map activity_log entries (list items, attachments, shapes, shape comments)
+      const activityLogActivities: ActivityItem[] = activityLogEntries
+        .filter(entry => entry.user_id && profiles.has(entry.user_id))
+        .map(entry => {
+          const summary = parseSummary(entry.summary);
+          const config = ACTION_TYPE_MAP[entry.action_type] || { type: 'added' as ActivityType, action: entry.action_type, targetType: 'poi' as const };
+          // Build target name from summary fields
+          let targetName = (summary.name as string) || (summary.placeName as string) || (summary.shapeName as string) || 'an item';
+          if (entry.action_type === 'added_to_list' && summary.listName) {
+            targetName = `${summary.placeName || 'a place'} to "${summary.listName}"`;
+          }
+          const lat = typeof summary.lat === 'number' && isFinite(summary.lat) ? summary.lat : undefined;
+          const lon = typeof summary.lon === 'number' && isFinite(summary.lon) ? summary.lon : undefined;
+          return {
+            id: `log-${entry.id}`,
+            type: config.type,
+            userName: getDisplayName(profiles.get(entry.user_id || '') || null),
+            action: config.action,
+            target: {
+              name: targetName,
+              type: config.targetType,
+            },
+            time: formatRelativeTime(entry.created_at),
+            createdAt: entry.created_at,
+            isRead: new Date(entry.created_at).getTime() <= lastReadTime,
+            entityId: (summary.placeId as string) || (summary.shapeId as string) || undefined,
+            lat,
+            lon,
+          };
+        });
+
       // Merge and sort by created_at (newest first)
-      const allActivities = [...commentActivities, ...listActivities]
+      const allActivities = [...commentActivities, ...listActivities, ...activityLogActivities]
         .sort((a, b) => {
           const dateA = new Date(a.createdAt || 0).getTime();
           const dateB = new Date(b.createdAt || 0).getTime();

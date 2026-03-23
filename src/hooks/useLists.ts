@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { LocationList, ListItem, ListsState, PlaceInfo, VisitLog, DrawnAreaItem } from '@/types/lists';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
+import { getAnonymousUserId, withSupabase, logActivity } from '@/lib/supabaseHelpers';
 import { getCurrentUserId } from '@/lib/browser-session';
 
 // localStorage key for lists data
@@ -346,6 +346,15 @@ export function useLists() {
 
       // Sync to Supabase in background
       syncAddItemToSupabase(listId, newItem);
+
+      // Log to activity feed
+      logActivity('added_to_list', {
+        placeName: place.placeName,
+        placeId: place.placeId,
+        listName: list.name,
+        lat: place.lat,
+        lon: place.lon,
+      });
 
       return prev.map(l => {
         if (l.id !== listId) return l;

@@ -1485,12 +1485,30 @@ function NavigationEventListener({
             }, 650); // Wait for 600ms animation to complete
         };
 
+        // Open POI popup by placeId only (from Activity Log — no lat/lon needed)
+        // Searches loaded POI data, gets coordinates, flies there, opens popup
+        const handleOpenPoiById = (e: CustomEvent<{ placeId: string }>) => {
+            const { placeId } = e.detail;
+            const type = placeId.split('-')[0];
+
+            // Search by type and call the appropriate open handler (which searches + opens)
+            if (type === 'cafe' || type === 'eu_coffee_trip' || type === 'regular_cafe') {
+                onOpenCafePopup?.(placeId);
+            } else if (type === 'property') {
+                onOpenPropertyPopup?.(placeId);
+            } else {
+                onOpenPoiPopup?.(placeId);
+            }
+        };
+
         window.addEventListener('navigate-to-location', handleNavigate as EventListener);
         window.addEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
+        window.addEventListener('open-poi-popup', handleOpenPoiById as EventListener);
 
         return () => {
             window.removeEventListener('navigate-to-location', handleNavigate as EventListener);
             window.removeEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
+            window.removeEventListener('open-poi-popup', handleOpenPoiById as EventListener);
         };
     }, [map, isLoaded, onOpenCafePopup, onOpenPropertyPopup, onOpenPoiPopup, setSelectedCafe, setSelectedProperty, setSelectedPoi]);
 

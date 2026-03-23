@@ -8,6 +8,7 @@ import { safeMapCleanup } from '@/lib/safe-map-cleanup';
 import { convertToMapboxDrawStyles } from '@/lib/draw-styles';
 import type { DrawMode, ShapeMetadata } from '@/types/draw';
 import { canEditShape } from '@/lib/browser-session';
+import { logActivity } from '@/lib/supabaseHelpers';
 import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
 import { useMobile } from '@/hooks/useMobile';
 
@@ -132,6 +133,24 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       onFeaturesChange?.(allFeatures);
       onShapeCreated?.();
       syncAndPersist(allFeatures);
+
+      // Log shape creation to activity feed
+      const newest = allFeatures.features[allFeatures.features.length - 1];
+      if (newest?.geometry) {
+        const geom = newest.geometry;
+        let lat = 0, lon = 0;
+        if (geom.type === 'Point') {
+          [lon, lat] = geom.coordinates as [number, number];
+        } else if (geom.type === 'Polygon' && (geom.coordinates as number[][][]).length > 0) {
+          // Use first vertex as approximate location
+          const ring = (geom.coordinates as number[][][])[0];
+          if (ring.length > 0) { [lon, lat] = ring[0]; }
+        } else if (geom.type === 'LineString' && (geom.coordinates as number[][]).length > 0) {
+          [lon, lat] = (geom.coordinates as number[][])[0];
+        }
+        const actionType = geom.type === 'Point' ? 'created_point' : 'created_area';
+        logActivity(actionType, { name: geom.type === 'Point' ? 'New point' : 'New area', lat, lon });
+      }
     };
 
     const handleUpdate = () => {
