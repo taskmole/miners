@@ -330,8 +330,8 @@ export function useAttachments() {
         },
       }));
 
-      // Log to activity feed
-      logActivity('added_attachment', { placeId, name: file.name });
+      // Log to activity feed (placeId only — place name not available here)
+      logActivity('added_attachment', { placeId });
 
       return { success: true };
     } catch (error) {

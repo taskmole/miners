@@ -165,9 +165,9 @@ export function ActivityLog() {
                             key={item.id}
                             onClick={() => handleActivityClick(item)}
                             className={cn(
-                                "p-3 border-b border-white/10 transition-colors group cursor-pointer",
+                                "px-3 py-2.5 border-b border-zinc-100 transition-colors group cursor-pointer",
                                 item.isRead
-                                    ? "hover:bg-white/30"
+                                    ? "hover:bg-zinc-50"
                                     : "bg-red-50/50 hover:bg-red-50"
                             )}
                         >
