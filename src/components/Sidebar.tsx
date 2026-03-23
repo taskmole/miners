@@ -140,7 +140,7 @@ export function Sidebar({
     const isMobile = useMobile();
     const router = useRouter();
     // Admin access check
-    const { isAdmin } = useUserProfiles();
+    const { canAccessDashboard } = useUserProfiles();
     // Which main sections are expanded (places, traffic)
     const [expandedSections, setExpandedSections] = React.useState<Set<string>>(new Set());
     // Which place categories are expanded (for cafe subcategories)
@@ -850,8 +850,8 @@ export function Sidebar({
                             </span>
                         </div>
                     </div>
-                    {/* Admin button - only visible to admins */}
-                    {isAdmin && (
+                    {/* Admin button - visible to all dashboard-eligible roles */}
+                    {canAccessDashboard && (
                         <div className="border-t border-white/10 p-4">
                             <button
                                 onClick={() => router.push('/admin')}
