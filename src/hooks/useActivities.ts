@@ -297,9 +297,12 @@ export function useActivities() {
           const summary = parseSummary(entry.summary);
           const config = ACTION_TYPE_MAP[entry.action_type] || { type: 'added' as ActivityType, action: entry.action_type, targetType: 'poi' as const };
           // Build target name from summary fields
-          let targetName = (summary.name as string) || (summary.placeName as string) || (summary.shapeName as string) || 'an item';
+          let targetName = (summary.placeName as string) || (summary.shapeName as string) || (summary.name as string) || 'a place';
           if (entry.action_type === 'added_to_list' && summary.listName) {
             targetName = `${summary.placeName || 'a place'} to "${summary.listName}"`;
+          }
+          if (entry.action_type === 'added_attachment') {
+            targetName = 'a place';
           }
           const lat = typeof summary.lat === 'number' && isFinite(summary.lat) ? summary.lat : undefined;
           const lon = typeof summary.lon === 'number' && isFinite(summary.lon) ? summary.lon : undefined;
