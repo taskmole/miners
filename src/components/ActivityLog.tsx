@@ -1,12 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useCallback } from "react";
 import { History, MapPin, Star, MessageSquare, Pencil, Plus, Eye, X, Activity, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSheetState } from "@/contexts/SheetContext";
+import { useSheetState, useSheet } from "@/contexts/SheetContext";
 import { MobilePanel } from "@/components/ui/mobile-panel";
 import { useMobile } from "@/hooks/useMobile";
 import { useActivities, type ActivityType, type ActivityItem } from "@/hooks/useActivities";
+import { navigateAndOpenPopup } from "@/components/ListsPanel";
 
 // Icon config by activity type
 const ACTIVITY_ICONS: Record<ActivityType | 'default', { icon: typeof Plus; color: string }> = {
@@ -44,8 +45,39 @@ export const navigateToLocation = (lat: number, lon: number) => {
 
 export function ActivityLog() {
     const { isOpen: isExpanded, open, close } = useSheetState("activity");
+    const { openSheet } = useSheet();
     const isMobile = useMobile();
     const { activities, isLoading, error, refetch, unreadCount, markAllAsRead } = useActivities();
+
+    // Handle clicking an activity entry — navigate to the relevant location or panel
+    const handleActivityClick = useCallback((item: ActivityItem) => {
+        // List created → open Lists panel
+        if (item.target.type === 'list' && item.type === 'created') {
+            close();
+            openSheet('lists');
+            return;
+        }
+
+        // POI comment → search map data by placeId (no lat/lon stored in comments)
+        if (item.type === 'commented' && item.entityId && !item.lat) {
+            close();
+            window.dispatchEvent(new CustomEvent('open-poi-popup', {
+                detail: { placeId: item.entityId }
+            }));
+            return;
+        }
+
+        // Activity with lat/lon (from activity_log: list items, attachments, shapes)
+        if (item.lat != null && item.lon != null) {
+            close();
+            if (item.entityId) {
+                navigateAndOpenPopup(item.lat, item.lon, item.entityId);
+            } else {
+                navigateToLocation(item.lat, item.lon);
+            }
+            return;
+        }
+    }, [close, openSheet]);
 
     // Collapsed button
     const collapsedButton = (
@@ -131,8 +163,9 @@ export function ActivityLog() {
                     {activities.map((item) => (
                         <div
                             key={item.id}
+                            onClick={() => handleActivityClick(item)}
                             className={cn(
-                                "p-3 border-b border-white/10 transition-colors group",
+                                "p-3 border-b border-white/10 transition-colors group cursor-pointer",
                                 item.isRead
                                     ? "hover:bg-white/30"
                                     : "bg-red-50/50 hover:bg-red-50"
