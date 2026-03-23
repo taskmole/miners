@@ -159,7 +159,7 @@ export function ActivityLog() {
 
             {/* Log entries - scrollable */}
             {!isLoading && !error && activities.length > 0 && (
-                <div className={cn("overflow-y-auto", isMobile ? "flex-1" : "max-h-[400px]")}>
+                <div className={cn("overflow-y-auto", isMobile ? "flex-1" : "max-h-[280px]")}>
                     {activities.map((item) => (
                         <div
                             key={item.id}

@@ -324,8 +324,9 @@ export function useActivities() {
           };
         });
 
-      // Merge and sort by created_at (newest first)
+      // Merge, filter out empty entries, and sort by created_at (newest first)
       const allActivities = [...commentActivities, ...listActivities, ...activityLogActivities]
+        .filter(a => a.userName && a.action && a.target.name)
         .sort((a, b) => {
           const dateA = new Date(a.createdAt || 0).getTime();
           const dateB = new Date(b.createdAt || 0).getTime();
