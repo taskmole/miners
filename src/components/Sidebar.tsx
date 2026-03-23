@@ -862,6 +862,15 @@ export function Sidebar({
                             </button>
                         </div>
                     )}
+                    {/* User Guide link - visible to all roles */}
+                    <div className="border-t border-white/10 px-4 py-3">
+                        <button
+                            onClick={() => router.push('/user-guide')}
+                            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                        >
+                            User Guide →
+                        </button>
+                    </div>
                     {/* Bottom spacer for mobile scroll */}
                     <div className="h-24 md:h-0" />
             </ScrollArea>
