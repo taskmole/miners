@@ -7,7 +7,8 @@ import {
   POI_COMMENTS_VERSION,
 } from '@/types/comments';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
+import { withSupabase } from '@/lib/supabaseHelpers';
+import { getCurrentUserId } from '@/lib/browser-session';
 
 /**
  * Generate unique ID for comments
@@ -75,7 +76,7 @@ async function fetchCommentsFromSupabase(placeId: string): Promise<PoiComment[]>
 async function syncAddToSupabase(comment: PoiComment, entityName?: string): Promise<void> {
   if (!isSupabaseConfigured() || !supabase) return;
 
-  const userId = getAnonymousUserId();
+  const userId = getCurrentUserId();
 
   try {
     await supabase.from('comments').upsert({
