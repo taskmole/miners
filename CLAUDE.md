@@ -4,9 +4,11 @@ I'm not technical - I don't read or understand code.
 # Planning Rules
 - Plain English only, NO code snippets
 - Simple language, numbered steps
+- When you are in 'Plan mode', always stress test your plan and triple check its robustness, and always evaluate to ensure the implementation won't break anything else (includes interfaces - desktop vs. mobile)
 
 # Permissions
 - Just run commands without asking
+- Always ask if you can switch to the 'dangerously skip permissions' mode
 
 # Code Style
 - Clean, well-commented, simple
@@ -65,3 +67,4 @@ When the user types any of these, immediately execute the action — no question
 - `react-best-practices` — MUST use when writing, editing, or reviewing any React/Next.js code
 - `web-design-guidelines` — MUST use when creating, editing, or reviewing any UI component
 - `vercel-deploy-claimable` — MUST use when deploying the app
+- Code simplifier plugin

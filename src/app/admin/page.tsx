@@ -391,6 +391,8 @@ function AdminContent() {
     users,
     currentUserRole,
     isAdmin,
+    canAccessDashboard,
+    canReviewSubmissions,
     loading: usersLoading,
     error: usersError,
     updateRole,
@@ -406,12 +408,12 @@ function AdminContent() {
     refetch: refetchSubmissions,
   } = useAdminSubmissions();
 
-  // Auth check - redirect non-admins
+  // Auth check - redirect users without dashboard access
   useEffect(() => {
-    if (!usersLoading && currentUserRole && !isAdmin) {
+    if (!usersLoading && currentUserRole && !canAccessDashboard) {
       router.replace('/');
     }
-  }, [usersLoading, currentUserRole, isAdmin, router]);
+  }, [usersLoading, currentUserRole, canAccessDashboard, router]);
 
   // Handlers
   const handleRoleChange = async (userId: string, newRole: string) => {
@@ -517,8 +519,8 @@ function AdminContent() {
     );
   }
 
-  // Not admin - will redirect
-  if (!isAdmin) {
+  // No dashboard access - will redirect
+  if (!canAccessDashboard) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
         <div className="text-zinc-500">Redirecting...</div>
@@ -562,18 +564,20 @@ function AdminContent() {
                 </span>
               )}
             </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={cn(
-                "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
-                activeTab === 'users'
-                  ? "border-zinc-900 text-zinc-900"
-                  : "border-transparent text-zinc-500 hover:text-zinc-700"
-              )}
-            >
-              <Users className="w-4 h-4" />
-              User Roles
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab('users')}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
+                  activeTab === 'users'
+                    ? "border-zinc-900 text-zinc-900"
+                    : "border-transparent text-zinc-500 hover:text-zinc-700"
+                )}
+              >
+                <Users className="w-4 h-4" />
+                User Roles
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -651,8 +655,8 @@ function AdminContent() {
                         {/* Expanded details */}
                         {expandedId === pitch.id && <SubmissionDetails pitch={pitch} />}
 
-                        {/* Reject dialog */}
-                        {rejectingId === pitch.id ? (
+                        {/* Reject dialog (reviewers only) */}
+                        {canReviewSubmissions && rejectingId === pitch.id && (
                           <div className="space-y-2">
                             <textarea
                               value={rejectNotes}
@@ -679,23 +683,30 @@ function AdminContent() {
                               </Button>
                             </div>
                           </div>
-                        ) : (
+                        )}
+
+                        {/* Action buttons */}
+                        {!(canReviewSubmissions && rejectingId === pitch.id) && (
                           <div className="flex flex-col sm:flex-row gap-2">
-                            <Button
-                              onClick={() => handleApprove(pitch.id)}
-                              className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-white h-12"
-                            >
-                              <Check className="w-4 h-4 mr-2" />
-                              Approve
-                            </Button>
-                            <Button
-                              onClick={() => setRejectingId(pitch.id)}
-                              variant="outline"
-                              className="flex-1 border-red-300 text-red-600 hover:bg-red-50 h-12"
-                            >
-                              <X className="w-4 h-4 mr-2" />
-                              Reject
-                            </Button>
+                            {canReviewSubmissions && (
+                              <>
+                                <Button
+                                  onClick={() => handleApprove(pitch.id)}
+                                  className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-white h-12"
+                                >
+                                  <Check className="w-4 h-4 mr-2" />
+                                  Approve
+                                </Button>
+                                <Button
+                                  onClick={() => setRejectingId(pitch.id)}
+                                  variant="outline"
+                                  className="flex-1 border-red-300 text-red-600 hover:bg-red-50 h-12"
+                                >
+                                  <X className="w-4 h-4 mr-2" />
+                                  Reject
+                                </Button>
+                              </>
+                            )}
                             <Button
                               onClick={() => downloadPitchAsPdf(pitch)}
                               variant="outline"
@@ -794,7 +805,7 @@ function AdminContent() {
           </div>
         )}
 
-        {activeTab === 'users' && (
+        {activeTab === 'users' && isAdmin && (
           <div className="space-y-3">
             {usersError && (
               <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
