@@ -2,7 +2,7 @@
 
 import MapLibreGL, { type PopupOptions, type MarkerOptions } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useTheme } from "next-themes";
+// import { useTheme } from "next-themes"; // Disabled - forcing light mode
 import {
   createContext,
   forwardRef,
@@ -152,7 +152,8 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   const [mapInstance, setMapInstance] = useState<MapLibreGL.Map | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
-  const { resolvedTheme } = useTheme();
+  // Force light mode - dark mode not ready yet
+  const resolvedTheme = "light";
   const currentStyleRef = useRef<MapStyleOption | null>(null);
 
   const mapStyles = useMemo(
