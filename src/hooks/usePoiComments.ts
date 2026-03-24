@@ -7,7 +7,7 @@ import {
   POI_COMMENTS_VERSION,
 } from '@/types/comments';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { withSupabase } from '@/lib/supabaseHelpers';
+import { withSupabase, logActivity } from '@/lib/supabaseHelpers';
 import { getCurrentUserId } from '@/lib/browser-session';
 
 /**
@@ -205,7 +205,7 @@ export function usePoiComments() {
   }, []);
 
   // Remove a comment from a POI
-  const removeComment = useCallback((placeId: string, commentId: string): void => {
+  const removeComment = useCallback((placeId: string, commentId: string, meta?: { placeName?: string }): void => {
     setState(prev => ({
       ...prev,
       comments: {
@@ -213,6 +213,9 @@ export function usePoiComments() {
         [placeId]: (prev.comments[placeId] || []).filter(c => c.id !== commentId),
       },
     }));
+
+    // Log to activity feed
+    logActivity('deleted_comment', { placeId, placeName: meta?.placeName });
 
     // Sync to Supabase in background
     syncDeleteToSupabase(commentId);

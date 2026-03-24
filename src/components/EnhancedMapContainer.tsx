@@ -833,14 +833,14 @@ function EnhancedMarkerIcon({
 // isRecentlyAdded imported from @/lib/dateUtils
 
 // Reusable attachments section for POI popups (collapsible) - memoized to prevent re-renders
-const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ placeId }: { placeId: string }) {
+const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ placeId, placeName, placeType, lat, lon }: { placeId: string; placeName?: string; placeType?: string; lat?: number; lon?: number }) {
     const { getPoiAttachments, addPoiAttachment, removePoiAttachment } = useAttachments();
     const { showToast } = useToast();
     const [isExpanded, setIsExpanded] = useState(false);
     const attachments = getPoiAttachments(placeId);
 
     const handleUpload = async (file: File) => {
-        const result = await addPoiAttachment(placeId, file);
+        const result = await addPoiAttachment(placeId, file, { placeName, placeType, lat, lon });
         if (result.success) {
             showToast('Saved');
         } else {
@@ -850,7 +850,7 @@ const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ pl
     };
 
     const handleRemove = (attachmentId: string) => {
-        removePoiAttachment(placeId, attachmentId);
+        removePoiAttachment(placeId, attachmentId, { placeName, placeType });
         showToast('Deleted');
     };
 
@@ -968,7 +968,7 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
             </div>
 
             {/* Attachments section */}
-            <PopupAttachmentsSection placeId={placeId} />
+            <PopupAttachmentsSection placeId={placeId} placeName={cafe.name} placeType="cafe" lat={cafe.lat} lon={cafe.lon} />
 
             {/* Comments section */}
             <PopupCommentsSection placeId={placeId} placeName={cafe.name} />
@@ -1062,7 +1062,7 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }:
             </div>
 
             {/* Attachments section */}
-            <PopupAttachmentsSection placeId={placeId} />
+            <PopupAttachmentsSection placeId={placeId} placeName={cafe.name} placeType="cafe" lat={cafe.lat} lon={cafe.lon} />
 
             {/* Comments section */}
             <PopupCommentsSection placeId={placeId} placeName={cafe.name} />
@@ -1186,7 +1186,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             )}
 
             {/* Attachments section */}
-            <PopupAttachmentsSection placeId={placeId} />
+            <PopupAttachmentsSection placeId={placeId} placeName={property.title} placeType="property" lat={property.latitude} lon={property.longitude} />
 
             {/* Comments section */}
             <PopupCommentsSection placeId={placeId} placeName={property.title} />
@@ -1251,7 +1251,7 @@ const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi }: {
             <div className="popup-address">{poi.address}</div>
 
             {/* Attachments section */}
-            <PopupAttachmentsSection placeId={placeId} />
+            <PopupAttachmentsSection placeId={placeId} placeName={poi.name} placeType={poi.type} lat={poi.lat} lon={poi.lon} />
 
             {/* Comments section */}
             <PopupCommentsSection placeId={placeId} placeName={poi.name} />

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback } from "react";
-import { History, MapPin, Star, MessageSquare, Pencil, Plus, Eye, X, Activity, Loader2, Check } from "lucide-react";
+import { History, MapPin, Star, MessageSquare, Pencil, Plus, Eye, X, Activity, Loader2, Check, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSheetState, useSheet } from "@/contexts/SheetContext";
 import { MobilePanel } from "@/components/ui/mobile-panel";
@@ -17,6 +17,7 @@ const ACTIVITY_ICONS: Record<ActivityType | 'default', { icon: typeof Plus; colo
     visited: { icon: Eye, color: "text-cyan-600" },
     rated: { icon: Star, color: "text-amber-600" },
     created: { icon: MapPin, color: "text-pink-600" },
+    deleted: { icon: Trash2, color: "text-red-600" },
     default: { icon: History, color: "text-zinc-500" },
 };
 
@@ -49,6 +50,14 @@ export function ActivityLog() {
     const isMobile = useMobile();
     const { activities, isLoading, error, refetch, unreadCount, markAllAsRead } = useActivities();
 
+    // Check if an activity entry has a navigable target
+    const isNavigable = useCallback((item: ActivityItem): boolean => {
+        if (item.target.type === 'list' && item.type === 'created') return true;
+        if (item.lat != null && item.lon != null) return true;
+        if (item.entityId) return true;
+        return false;
+    }, []);
+
     // Handle clicking an activity entry — navigate to the relevant location or panel
     const handleActivityClick = useCallback((item: ActivityItem) => {
         // List created → open Lists panel
@@ -71,10 +80,21 @@ export function ActivityLog() {
         if (item.lat != null && item.lon != null) {
             close();
             if (item.entityId) {
-                navigateAndOpenPopup(item.lat, item.lon, item.entityId);
+                // Extract placeType from entityId (format: "type-lat-lon") so the filter auto-enables
+                const placeType = item.entityId.split('-')[0];
+                navigateAndOpenPopup(item.lat, item.lon, item.entityId, placeType);
             } else {
                 navigateToLocation(item.lat, item.lon);
             }
+            return;
+        }
+
+        // Fallback: any item with a placeId-style entityId — try to find it on the map
+        if (item.entityId) {
+            close();
+            window.dispatchEvent(new CustomEvent('open-poi-popup', {
+                detail: { placeId: item.entityId }
+            }));
             return;
         }
     }, [close, openSheet]);
@@ -165,7 +185,8 @@ export function ActivityLog() {
                             key={item.id}
                             onClick={() => handleActivityClick(item)}
                             className={cn(
-                                "px-3 py-2.5 border-b border-zinc-100 transition-colors group cursor-pointer",
+                                "px-3 py-2.5 border-b border-zinc-100 transition-colors group",
+                                isNavigable(item) && "cursor-pointer",
                                 item.isRead
                                     ? "hover:bg-zinc-50"
                                     : "bg-red-50/50 hover:bg-red-50"

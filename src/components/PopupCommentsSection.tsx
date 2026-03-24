@@ -37,9 +37,9 @@ export const PopupCommentsSection = React.memo(function PopupCommentsSection({ p
 
   // Handle deleting a comment
   const handleDeleteComment = useCallback((commentId: string) => {
-    removeComment(placeId, commentId);
+    removeComment(placeId, commentId, { placeName });
     showToast('Comment deleted');
-  }, [placeId, removeComment, showToast]);
+  }, [placeId, placeName, removeComment, showToast]);
 
   // Handle keydown (Enter to submit)
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
