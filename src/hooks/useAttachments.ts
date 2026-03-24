@@ -269,7 +269,7 @@ export function useAttachments() {
   }, [state.attachments]);
 
   // Add an attachment to a POI
-  const addPoiAttachment = useCallback(async (placeId: string, file: File): Promise<{ success: boolean; error?: string }> => {
+  const addPoiAttachment = useCallback(async (placeId: string, file: File, meta?: { placeName?: string; placeType?: string; lat?: number; lon?: number }): Promise<{ success: boolean; error?: string }> => {
     // Validate file
     const validation = validateFile(file);
     if (!validation.valid) {
@@ -330,8 +330,14 @@ export function useAttachments() {
         },
       }));
 
-      // Log to activity feed (placeId only — place name not available here)
-      logActivity('added_attachment', { placeId });
+      // Log to activity feed
+      logActivity('added_attachment', {
+        placeId,
+        placeName: meta?.placeName,
+        placeType: meta?.placeType,
+        lat: meta?.lat,
+        lon: meta?.lon,
+      });
 
       return { success: true };
     } catch (error) {
@@ -341,7 +347,7 @@ export function useAttachments() {
   }, [getTotalStorageUsed]);
 
   // Remove an attachment from a POI
-  const removePoiAttachment = useCallback((placeId: string, attachmentId: string): void => {
+  const removePoiAttachment = useCallback((placeId: string, attachmentId: string, meta?: { placeName?: string; placeType?: string }): void => {
     // Find the attachment to get its storage path (if any)
     const attachments = state.attachments[placeId] || [];
     const attachment = attachments.find(att => att.id === attachmentId);
@@ -358,6 +364,9 @@ export function useAttachments() {
         [placeId]: (prev.attachments[placeId] || []).filter(att => att.id !== attachmentId),
       },
     }));
+
+    // Log to activity feed
+    logActivity('deleted_attachment', { placeId, placeName: meta?.placeName, placeType: meta?.placeType });
   }, [state.attachments]);
 
   // Get attachment count for a POI

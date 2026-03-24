@@ -150,13 +150,11 @@ function HomeContent() {
     });
   }, [startLinking]);
 
-  // Listen for navigate-and-open-popup events from ListsPanel
+  // Auto-enable a POI category filter when navigating to a place
+  // Handles events from ListsPanel, Activity Log, and any other navigation source
   useEffect(() => {
-    const handleNavigateAndOpenPopup = (e: CustomEvent) => {
-      const { placeType } = e.detail;
-      if (!placeType) return;
-
-      if (!activeFilters.has(placeType)) {
+    const enableFilterForType = (placeType: string) => {
+      if (placeType && !activeFilters.has(placeType)) {
         setActiveFilters(prev => {
           const newFilters = new Set(prev);
           newFilters.add(placeType);
@@ -165,9 +163,26 @@ function HomeContent() {
       }
     };
 
+    // From ListsPanel & Activity Log (has placeType in event detail)
+    const handleNavigateAndOpenPopup = (e: CustomEvent) => {
+      const { placeType } = e.detail;
+      if (placeType) enableFilterForType(placeType);
+    };
+
+    // From Activity Log fallback & comments (has placeId, extract type from prefix)
+    const handleOpenPoiPopup = (e: CustomEvent) => {
+      const { placeId } = e.detail;
+      if (placeId) {
+        const placeType = placeId.split('-')[0];
+        enableFilterForType(placeType);
+      }
+    };
+
     window.addEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
+    window.addEventListener('open-poi-popup', handleOpenPoiPopup as EventListener);
     return () => {
       window.removeEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
+      window.removeEventListener('open-poi-popup', handleOpenPoiPopup as EventListener);
     };
   }, [activeFilters]);
 

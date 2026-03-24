@@ -336,6 +336,9 @@ export function useLists() {
       addedAt: new Date().toISOString(),
     };
 
+    let didAdd = false;
+    let listName = '';
+
     setLists(prev => {
       const list = prev.find(l => l.id === listId);
       if (!list) return prev;
@@ -344,35 +347,59 @@ export function useLists() {
       const exists = list.items.some(item => item.placeId === place.placeId);
       if (exists) return prev;
 
-      // Sync to Supabase in background
-      syncAddItemToSupabase(listId, newItem);
-
-      // Log to activity feed
-      logActivity('added_to_list', {
-        placeName: place.placeName,
-        placeId: place.placeId,
-        listName: list.name,
-        lat: place.lat,
-        lon: place.lon,
-      });
+      didAdd = true;
+      listName = list.name;
 
       return prev.map(l => {
         if (l.id !== listId) return l;
         return { ...l, items: [...l.items, newItem] };
       });
     });
+
+    // Side effects outside the state updater
+    if (didAdd) {
+      syncAddItemToSupabase(listId, newItem);
+
+      logActivity('added_to_list', {
+        placeName: place.placeName,
+        placeType: place.placeType,
+        placeId: place.placeId,
+        listName,
+        lat: place.lat,
+        lon: place.lon,
+      });
+    }
   }, []);
 
   // Remove a place from a list
   const removeFromList = useCallback((listId: string, placeId: string): void => {
-    setLists(prev => prev.map(list => {
-      if (list.id !== listId) return list;
+    let removedInfo: { placeName?: string; placeType?: string; listName?: string; lat?: number; lon?: number } | null = null;
 
-      return {
-        ...list,
-        items: list.items.filter(item => item.placeId !== placeId),
-      };
-    }));
+    setLists(prev => {
+      const list = prev.find(l => l.id === listId);
+      if (list) {
+        const item = list.items.find(i => i.placeId === placeId);
+        if (item) {
+          removedInfo = { placeName: item.placeName, placeType: item.placeType, listName: list.name, lat: item.lat, lon: item.lon };
+        }
+      }
+      return prev.map(list => {
+        if (list.id !== listId) return list;
+        return { ...list, items: list.items.filter(item => item.placeId !== placeId) };
+      });
+    });
+
+    // Log to activity feed
+    if (removedInfo) {
+      logActivity('removed_from_list', {
+        placeName: removedInfo.placeName,
+        placeType: removedInfo.placeType,
+        placeId,
+        listName: removedInfo.listName,
+        lat: removedInfo.lat,
+        lon: removedInfo.lon,
+      });
+    }
 
     // Sync to Supabase in background
     syncRemoveItemByPlaceIdToSupabase(listId, placeId);
@@ -383,46 +410,70 @@ export function useLists() {
     let wasAdded = false;
     let removedItemId: string | null = null;
     let addedItem: ListItem | null = null;
+    let listName = '';
 
-    setLists(prev => prev.map(list => {
-      if (list.id !== listId) return list;
+    setLists(prev => {
+      const list = prev.find(l => l.id === listId);
+      if (list) listName = list.name;
 
-      const existingItem = list.items.find(item => item.placeId === place.placeId);
+      return prev.map(list => {
+        if (list.id !== listId) return list;
 
-      if (existingItem) {
-        // Remove from list
-        wasAdded = false;
-        removedItemId = existingItem.id;
-        return {
-          ...list,
-          items: list.items.filter(item => item.id !== existingItem.id),
-        };
-      } else {
-        // Add to list
-        wasAdded = true;
-        addedItem = {
-          id: generateId(),
-          placeId: place.placeId,
-          placeType: place.placeType,
-          placeName: place.placeName,
-          placeAddress: place.placeAddress,
-          lat: place.lat,
-          lon: place.lon,
-          addedAt: new Date().toISOString(),
-        };
+        const existingItem = list.items.find(item => item.placeId === place.placeId);
 
-        return {
-          ...list,
-          items: [...list.items, addedItem],
-        };
-      }
-    }));
+        if (existingItem) {
+          // Remove from list
+          wasAdded = false;
+          removedItemId = existingItem.id;
+          return {
+            ...list,
+            items: list.items.filter(item => item.id !== existingItem.id),
+          };
+        } else {
+          // Add to list
+          wasAdded = true;
+          addedItem = {
+            id: generateId(),
+            placeId: place.placeId,
+            placeType: place.placeType,
+            placeName: place.placeName,
+            placeAddress: place.placeAddress,
+            lat: place.lat,
+            lon: place.lon,
+            addedAt: new Date().toISOString(),
+          };
+
+          return {
+            ...list,
+            items: [...list.items, addedItem],
+          };
+        }
+      });
+    });
 
     // Sync to Supabase in background
     if (addedItem) {
       syncAddItemToSupabase(listId, addedItem);
+      // Log add to activity feed
+      logActivity('added_to_list', {
+        placeName: place.placeName,
+        placeType: place.placeType,
+        placeId: place.placeId,
+        listName,
+        lat: place.lat,
+        lon: place.lon,
+      });
     } else if (removedItemId) {
       syncRemoveItemToSupabase(removedItemId);
+      // Log removal to activity feed
+      logActivity('removed_from_list', {
+        placeName: place.placeName,
+        placeType: place.placeType,
+        placeId: place.placeId,
+        listName,
+        lat: place.lat,
+        lon: place.lon,
+      });
     }
 
     return wasAdded;
@@ -474,7 +525,18 @@ export function useLists() {
 
   // Delete a list
   const deleteList = useCallback((listId: string): void => {
-    setLists(prev => prev.filter(list => list.id !== listId));
+    let deletedListName = '';
+
+    setLists(prev => {
+      const list = prev.find(l => l.id === listId);
+      if (list) deletedListName = list.name;
+      return prev.filter(list => list.id !== listId);
+    });
+
+    // Log to activity feed
+    if (deletedListName) {
+      logActivity('deleted_list', { listName: deletedListName, listId });
+    }
 
     // Sync to Supabase in background
     syncDeleteToSupabase(listId);
@@ -530,13 +592,33 @@ export function useLists() {
 
   // Remove an item from a list by its item ID
   const removeItem = useCallback((listId: string, itemId: string): void => {
-    setLists(prev => prev.map(list => {
-      if (list.id !== listId) return list;
-      return {
-        ...list,
-        items: list.items.filter(item => item.id !== itemId),
-      };
-    }));
+    let removedInfo: { placeName?: string; placeType?: string; placeId?: string; listName?: string; lat?: number; lon?: number } | null = null;
+
+    setLists(prev => {
+      const list = prev.find(l => l.id === listId);
+      if (list) {
+        const item = list.items.find(i => i.id === itemId);
+        if (item) {
+          removedInfo = { placeName: item.placeName, placeType: item.placeType, placeId: item.placeId, listName: list.name, lat: item.lat, lon: item.lon };
+        }
+      }
+      return prev.map(list => {
+        if (list.id !== listId) return list;
+        return { ...list, items: list.items.filter(item => item.id !== itemId) };
+      });
+    });
+
+    // Log to activity feed
+    if (removedInfo) {
+      logActivity('removed_from_list', {
+        placeName: removedInfo.placeName,
+        placeType: removedInfo.placeType,
+        placeId: removedInfo.placeId,
+        listName: removedInfo.listName,
+        lat: removedInfo.lat,
+        lon: removedInfo.lon,
+      });
+    }
 
     // Sync to Supabase in background
     syncRemoveItemToSupabase(itemId);

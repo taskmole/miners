@@ -10,7 +10,7 @@ const LAST_READ_STORAGE_KEY = 'miners-activity-last-read';
 /**
  * Activity types matching the existing ActivityLog component
  */
-export type ActivityType = "added" | "updated" | "commented" | "visited" | "rated" | "created";
+export type ActivityType = "added" | "updated" | "commented" | "visited" | "rated" | "created" | "deleted";
 
 /**
  * Activity item for display in the activity feed
@@ -160,6 +160,27 @@ async function fetchRecentActivityLog(): Promise<Array<{
   return data || [];
 }
 
+// Convert internal placeType codes to readable labels
+const PLACE_TYPE_LABELS: Record<string, string> = {
+  cafe: 'cafe',
+  eu_coffee_trip: 'coffee trip cafe',
+  regular_cafe: 'cafe',
+  property: 'property',
+  transit: 'train station',
+  metro: 'metro station',
+  office: 'office',
+  shopping: 'shopping center',
+  high_street: 'high street shop',
+  dorm: 'dormitory',
+  university: 'university',
+  gym: 'gym',
+};
+
+function friendlyPlaceType(type?: string): string {
+  if (!type) return '';
+  return PLACE_TYPE_LABELS[type] || type.replace(/_/g, ' ');
+}
+
 // Map action_type to ActivityType and display text
 const ACTION_TYPE_MAP: Record<string, { type: ActivityType; action: string; targetType: ActivityItem['target']['type'] }> = {
   added_to_list: { type: 'added', action: 'added', targetType: 'list' },
@@ -167,6 +188,10 @@ const ACTION_TYPE_MAP: Record<string, { type: ActivityType; action: string; targ
   created_point: { type: 'created', action: 'created point', targetType: 'poi' },
   created_area: { type: 'created', action: 'created area', targetType: 'area' },
   commented_on_shape: { type: 'commented', action: 'commented on', targetType: 'area' },
+  removed_from_list: { type: 'deleted', action: 'removed', targetType: 'list' },
+  deleted_list: { type: 'deleted', action: 'deleted list', targetType: 'list' },
+  deleted_comment: { type: 'deleted', action: 'deleted comment on', targetType: 'poi' },
+  deleted_attachment: { type: 'deleted', action: 'deleted attachment from', targetType: 'poi' },
 };
 
 /**
@@ -297,12 +322,27 @@ export function useActivities() {
           const summary = parseSummary(entry.summary);
           const config = ACTION_TYPE_MAP[entry.action_type] || { type: 'added' as ActivityType, action: entry.action_type, targetType: 'poi' as const };
           // Build target name from summary fields
+          const typeLabel = friendlyPlaceType(summary.placeType as string);
           let targetName = (summary.placeName as string) || (summary.shapeName as string) || (summary.name as string) || 'a place';
           if (entry.action_type === 'added_to_list' && summary.listName) {
-            targetName = `${summary.placeName || 'a place'} to "${summary.listName}"`;
+            const nameWithType = typeLabel ? `${typeLabel} ${summary.placeName || 'a place'}` : (summary.placeName as string || 'a place');
+            targetName = `${nameWithType} to "${summary.listName}"`;
+          }
+          if (entry.action_type === 'removed_from_list' && summary.listName) {
+            const nameWithType = typeLabel ? `${typeLabel} ${summary.placeName || 'a place'}` : (summary.placeName as string || 'a place');
+            targetName = `${nameWithType} from "${summary.listName}"`;
           }
           if (entry.action_type === 'added_attachment') {
-            targetName = 'a place';
+            targetName = typeLabel ? `${typeLabel} ${summary.placeName || 'a place'}` : (summary.placeName as string || 'a place');
+          }
+          if (entry.action_type === 'deleted_attachment') {
+            targetName = typeLabel ? `${typeLabel} ${summary.placeName || 'a place'}` : (summary.placeName as string || 'a place');
+          }
+          if (entry.action_type === 'deleted_list') {
+            targetName = `"${summary.listName || 'a list'}"`;
+          }
+          if (entry.action_type === 'deleted_comment') {
+            targetName = typeLabel ? `${typeLabel} ${summary.placeName || 'a place'}` : (summary.placeName as string || 'a place');
           }
           const lat = typeof summary.lat === 'number' && isFinite(summary.lat) ? summary.lat : undefined;
           const lon = typeof summary.lon === 'number' && isFinite(summary.lon) ? summary.lon : undefined;
