@@ -55,8 +55,8 @@ export function generateWalkingCircle(
       return null;
     }
 
-    // Clamp radius to reasonable range (minimum 80m = 1 min walk, maximum 1200m = 15 min walk)
-    const clampedRadius = Math.max(80, Math.min(1200, radiusMeters));
+    // Clamp radius to reasonable range (minimum 80m = 1 min walk, maximum 1600m = 20 min walk)
+    const clampedRadius = Math.max(80, Math.min(1600, radiusMeters));
 
     // Generate circle with 64 points for smooth rendering
     // turfCircle expects radius in kilometers
