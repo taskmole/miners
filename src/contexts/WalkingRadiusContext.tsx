@@ -10,7 +10,6 @@ const WALKING_SPEED_M_PER_MIN = 80;
 // Allowed walking-time options (in minutes). The UI renders one pill per value.
 // Single source of truth: imported by ShapeComments to render the pill buttons.
 export const WALKING_MINUTES_OPTIONS = [5, 10, 15, 20] as const;
-export type WalkingMinutes = (typeof WALKING_MINUTES_OPTIONS)[number];
 
 // Point data for tracking all drawn points
 type DrawnPoint = {
@@ -101,7 +100,7 @@ export function WalkingRadiusProvider({ children }: { children: ReactNode }) {
   // Update walking minutes. Only accepts one of the allowed options (5/10/15/20);
   // anything else falls back to the default of 5.
   const setWalkingMinutes = useCallback((minutes: number) => {
-    const isAllowed = (WALKING_MINUTES_OPTIONS as readonly number[]).includes(minutes);
+    const isAllowed = WALKING_MINUTES_OPTIONS.some(option => option === minutes);
     setWalkingMinutesState(isAllowed ? minutes : 5);
   }, []);
 

@@ -1118,15 +1118,16 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                 />
               </div>
 
-              {/* Segmented control for walking time — 4 discrete options (5/10/15/20 min).
+              {/* Segmented control for walking time: 4 discrete options (5/10/15/20 min).
                   Sizing and style match the Select All / Clear All / Hidden toggle in Sidebar.tsx
                   so the app feels consistent. */}
               <div
                 role="radiogroup"
                 aria-label="Walking time in minutes"
-                className={`flex bg-zinc-300/60 rounded-lg p-1 mb-3 transition-opacity ${
-                  !radiusEnabled ? 'opacity-40' : ''
-                }`}
+                className={cn(
+                  'flex bg-zinc-300/60 rounded-lg p-1 mb-3 transition-opacity',
+                  !radiusEnabled && 'opacity-40'
+                )}
               >
                 {WALKING_MINUTES_OPTIONS.map((minutes) => {
                   const isActive = walkingMinutes === minutes;
@@ -1138,11 +1139,12 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                       aria-checked={isActive}
                       disabled={!radiusEnabled}
                       onClick={() => setWalkingMinutes(minutes)}
-                      className={`flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
+                      className={cn(
+                        'flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all disabled:cursor-not-allowed',
                         isActive
                           ? 'bg-white text-zinc-900 shadow-sm'
                           : 'text-zinc-500 hover:text-zinc-700'
-                      }`}
+                      )}
                     >
                       {minutes} min
                     </button>
