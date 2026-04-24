@@ -4,14 +4,13 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import { MapPopup } from '@/components/ui/map';
 import { useMapDraw } from '@/hooks/useMapDraw';
-import { Pencil, X, Trash2, Users, Scan, Link, ExternalLink, Paperclip, ChevronDown, MessageSquare, Banknote, ListPlus, FolderOpen, Plus, Check, ChevronsUpDown, MapPin, Footprints } from 'lucide-react';
+import { Pencil, X, Trash2, Users, Scan, Link, ExternalLink, Paperclip, ChevronDown, MessageSquare, Banknote, ListPlus, FolderOpen, Plus, Check, ChevronsUpDown, MapPin } from 'lucide-react';
 import { AddToListButton } from '@/components/AddToListButton';
 import { CreateTripButton } from '@/components/CreateTripButton';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/contexts/ToastContext';
 import { AttachmentGallery } from '@/components/attachments';
@@ -23,7 +22,7 @@ import { getCachedStats, invalidateStatsCache, formatArea, formatPopulation, for
 import { useGeoData } from '@/contexts/GeoDataContext';
 import { useLinking } from '@/contexts/LinkingContext';
 import { usePointCategoriesContext } from '@/contexts/PointCategoriesContext';
-import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
+import { useWalkingRadius, WALKING_MINUTES_OPTIONS } from '@/contexts/WalkingRadiusContext';
 import { reverseGeocode, formatShortAddress } from '@/lib/geocoding';
 import { getCurrentUserId, canEditShape } from '@/lib/browser-session';
 import { logActivity } from '@/lib/supabaseHelpers';
@@ -1111,10 +1110,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
             <div className="border-t border-zinc-100" style={{ padding: '12px 20px' }}>
               {/* Header with toggle */}
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Footprints className="w-4 h-4 text-green-600" />
-                  <span className="text-sm font-medium text-zinc-700">Walking Radius</span>
-                </div>
+                <span className="text-sm font-medium text-zinc-700">Walking Radius</span>
                 <Switch
                   checked={radiusEnabled}
                   onCheckedChange={toggleRadiusEnabled}
@@ -1122,19 +1118,36 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                 />
               </div>
 
-              {/* Slider for walking time */}
-              <div className="flex items-center gap-3 mb-3">
-                <Slider
-                  value={[walkingMinutes]}
-                  onValueChange={([value]) => setWalkingMinutes(value)}
-                  min={1}
-                  max={15}
-                  step={1}
-                  className="flex-1"
-                />
-                <span className="text-sm font-medium text-zinc-600 w-12 text-right">
-                  {walkingMinutes} min
-                </span>
+              {/* Segmented control for walking time — 4 discrete options (5/10/15/20 min).
+                  Sizing and style match the Select All / Clear All / Hidden toggle in Sidebar.tsx
+                  so the app feels consistent. */}
+              <div
+                role="radiogroup"
+                aria-label="Walking time in minutes"
+                className={`flex bg-zinc-300/60 rounded-lg p-1 mb-3 transition-opacity ${
+                  !radiusEnabled ? 'opacity-40' : ''
+                }`}
+              >
+                {WALKING_MINUTES_OPTIONS.map((minutes) => {
+                  const isActive = walkingMinutes === minutes;
+                  return (
+                    <button
+                      key={minutes}
+                      type="button"
+                      role="radio"
+                      aria-checked={isActive}
+                      disabled={!radiusEnabled}
+                      onClick={() => setWalkingMinutes(minutes)}
+                      className={`flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
+                        isActive
+                          ? 'bg-white text-zinc-900 shadow-sm'
+                          : 'text-zinc-500 hover:text-zinc-700'
+                      }`}
+                    >
+                      {minutes} min
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Radius stats */}
