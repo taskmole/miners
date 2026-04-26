@@ -400,7 +400,7 @@
 
 /* Header - name row (with optional chips and comments) */
 .popup-header {
-  padding: 20px 80px 0 24px;
+  padding: 20px 100px 0 24px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -425,6 +425,10 @@
   line-height: 1.3;
   letter-spacing: -0.01em;
   max-width: calc(100% - 10px);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Chips row - before footer */
@@ -777,7 +781,7 @@
   }
 
   /* Keep mobile padding at 20px (desktop uses 24px) */
-  .popup-header { padding: 20px 80px 0 20px; }
+  .popup-header { padding: 20px 100px 0 20px; }
   .popup-address { padding: 4px 20px 12px 20px; }
   .popup-body { padding: 0 20px 12px 20px; }
   .popup-chips-row { padding: 4px 20px 16px 20px; }
@@ -804,9 +808,10 @@
     height: min(160px, 24vh);
   }
 
-  /* Reposition image action buttons below the drag handle area on mobile */
+  /* Reposition image action buttons just below the drag handle on mobile */
   .popup-image-actions {
-    top: 50px; /* 40px (drag handle zone) + 10px (offset) */
+    top: 42px;
+    right: 12px;
   }
 
   /* Icon buttons: same style as desktop, slightly larger for touch */
