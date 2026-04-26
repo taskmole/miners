@@ -50,6 +50,8 @@ interface SidebarProps {
     onFilterChange: (filters: Set<string>) => void;
     ratingFilter?: number;
     onRatingChange?: (rating: number) => void;
+    scoreFilter?: number;
+    onScoreChange?: (score: number) => void;
     euctFilter?: EuctFilter;
     onEuctFilterChange?: (filter: EuctFilter) => void;
     trafficEnabled?: boolean;
@@ -86,7 +88,7 @@ const placeCategories = [
             { id: "regular_cafe", label: "Regular Cafe", countKey: "regularCafe" },
         ]
     },
-    { id: "property", label: "Places for rent", icon: Home, countKey: "property" },
+    { id: "property", label: "Places for rent", icon: Home, countKey: "property", hasScoreControls: true },
     { id: "transit", label: "Train Station", icon: Train, countKey: "transit" },
     { id: "metro", label: "Metro Station", icon: TrainFront, countKey: "metro" },
     { id: "office", label: "Office Center", icon: Building2, countKey: "office" },
@@ -110,6 +112,8 @@ export function Sidebar({
     onFilterChange,
     ratingFilter = 0,
     onRatingChange,
+    scoreFilter = 0,
+    onScoreChange,
     euctFilter = "all",
     onEuctFilterChange,
     trafficEnabled = false,
@@ -148,6 +152,7 @@ export function Sidebar({
 
     // Local state for debounced sliders
     const [localRating, setLocalRating] = useState(ratingFilter);
+    const [localScore, setLocalScore] = useState(scoreFilter);
     const [localTrafficHour, setLocalTrafficHour] = useState(trafficHour);
     const [localIncomeFilter, setLocalIncomeFilter] = useState(incomeWealthyFilter);
     const [localDensityFilter, setLocalDensityFilter] = useState(populationDensityFilter);
@@ -156,6 +161,10 @@ export function Sidebar({
     useEffect(() => {
         setLocalRating(ratingFilter);
     }, [ratingFilter]);
+
+    useEffect(() => {
+        setLocalScore(scoreFilter);
+    }, [scoreFilter]);
 
     useEffect(() => {
         setLocalTrafficHour(trafficHour);
@@ -178,6 +187,16 @@ export function Sidebar({
         }, 150);
         return () => clearTimeout(timer);
     }, [localRating, ratingFilter, onRatingChange]);
+
+    // Debounce score changes (150ms)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localScore !== scoreFilter) {
+                onScoreChange?.(localScore);
+            }
+        }, 150);
+        return () => clearTimeout(timer);
+    }, [localScore, scoreFilter, onScoreChange]);
 
     // Debounce traffic hour changes (150ms)
     useEffect(() => {
@@ -324,10 +343,10 @@ export function Sidebar({
                 {/* Header - only on desktop */}
                 {!isMobile && (
                     <div className="p-4 flex items-center justify-between border-b border-white/10">
-                        <span className="text-sm font-bold text-zinc-900">Filters</span>
+                        <span className="text-sm font-bold text-zinc-900 font-heading">Filters</span>
                         <button
                             onClick={close}
-                            className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+                            className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center bg-[rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.04)] hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -346,9 +365,9 @@ export function Sidebar({
                                     "w-4 h-4 text-zinc-500 transition-transform duration-200 ease-out",
                                     isPlacesExpanded && "rotate-90"
                                 )} />
-                                <span className="text-sm font-bold text-zinc-900">Places</span>
+                                <span className="text-sm font-bold text-zinc-900 font-heading">Places</span>
                             </div>
-                            <span className="px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] bg-green-100/50 text-green-700 font-bold rounded-full">
+                            <span className="px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] bg-zinc-900 text-white font-bold rounded-full">
                                 {activeCount} active
                             </span>
                         </button>
@@ -437,12 +456,13 @@ export function Sidebar({
                                                 ? getCount("cafe")
                                                 : getCount(cat.countKey || cat.id);
 
+                                            const isExpandable = cat.hasSubcategories || cat.hasScoreControls;
                                             return (
                                                 <div key={cat.id}>
                                                     <div
                                                         className="flex items-center justify-between py-3 md:py-1.5 px-2 rounded-lg hover:bg-black/10 transition-colors cursor-pointer group"
                                                         onClick={() => {
-                                                        if (cat.hasSubcategories) {
+                                                        if (isExpandable) {
                                                             // Only expand/collapse - checkbox handles toggling
                                                             toggleCategoryExpand(cat.id);
                                                         } else {
@@ -474,10 +494,6 @@ export function Sidebar({
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 className="size-[22px] md:size-4 border-zinc-300 data-[state=checked]:bg-zinc-800 data-[state=checked]:border-zinc-800"
                                                             />
-                                                            <cat.icon className={cn(
-                                                                "w-4 h-4",
-                                                                isActive ? "text-blue-500" : "text-zinc-400"
-                                                            )} />
                                                             <span className={cn(
                                                                 "text-sm font-medium",
                                                                 isActive ? "text-zinc-900" : "text-zinc-500"
@@ -486,10 +502,10 @@ export function Sidebar({
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-[10px] font-semibold text-zinc-400 bg-zinc-100/50 px-1.5 py-0.5 rounded">
+                                                            <span className="text-xs font-semibold text-zinc-400 bg-[rgba(0,0,0,0.04)] px-2 py-0.5 rounded-lg">
                                                                 {count}
                                                             </span>
-                                                            {cat.hasSubcategories && (
+                                                            {isExpandable && (
                                                                 <ChevronRight className={cn(
                                                                     "w-4 h-4 text-zinc-400 transition-transform duration-200 ease-out",
                                                                     isCatExpanded && "rotate-90"
@@ -594,6 +610,31 @@ export function Sidebar({
                                                             </div>
                                                         </div>
                                                     )}
+
+                                                    {/* Score slider sub-panel for Places for rent */}
+                                                    {cat.hasScoreControls && (
+                                                        <div
+                                                            className="grid transition-[grid-template-rows] duration-200 ease-out"
+                                                            style={{ gridTemplateRows: isCatExpanded ? '1fr' : '0fr' }}
+                                                        >
+                                                            <div className="overflow-hidden">
+                                                                <div className="ml-6 pl-3 border-l border-zinc-200/50 mt-1 mb-2 space-y-2 md:space-y-1">
+                                                                    <div className="py-2 pr-3">
+                                                                        <div className="flex justify-between text-[10px] font-medium text-zinc-500 mb-2">
+                                                                            <span>Min. Score</span>
+                                                                            <span>{localScore} / 100</span>
+                                                                        </div>
+                                                                        <Slider
+                                                                            value={[localScore]}
+                                                                            onValueChange={([v]) => setLocalScore(v)}
+                                                                            max={100}
+                                                                            step={5}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })}
@@ -625,7 +666,7 @@ export function Sidebar({
                                     "w-4 h-4 text-zinc-500 transition-transform duration-200 ease-out",
                                     isTrafficExpanded && "rotate-90"
                                 )} />
-                                <span className="text-sm font-bold text-zinc-900">Traffic</span>
+                                <span className="text-sm font-bold text-zinc-900 font-heading">Traffic</span>
                             </div>
                             <span
                                 onClick={(e) => {
@@ -706,7 +747,7 @@ export function Sidebar({
                                     "w-4 h-4 text-zinc-500 transition-transform duration-200 ease-out",
                                     isPopulationExpanded && "rotate-90"
                                 )} />
-                                <span className="text-sm font-bold text-zinc-900">Population</span>
+                                <span className="text-sm font-bold text-zinc-900 font-heading">Population</span>
                             </div>
                             <span
                                 onClick={(e) => {
@@ -769,7 +810,7 @@ export function Sidebar({
                                     "w-4 h-4 text-zinc-500 transition-transform duration-200 ease-out",
                                     isIncomeExpanded && "rotate-90"
                                 )} />
-                                <span className="text-sm font-bold text-zinc-900">Income</span>
+                                <span className="text-sm font-bold text-zinc-900 font-heading">Income</span>
                                 {/* Info tooltip - commented out for now, uncomment to restore
                                 <div className="relative group/info" onClick={(e) => e.stopPropagation()}>
                                     <Info className="w-3.5 h-3.5 text-zinc-400 cursor-help" />
@@ -835,7 +876,7 @@ export function Sidebar({
                             className="w-full p-4 flex items-center justify-between hover:bg-white/20 transition-colors cursor-pointer"
                         >
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-zinc-900">Location Score</span>
+                                <span className="text-sm font-bold text-zinc-900 font-heading">Location Score</span>
                                 <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-amber-100 text-amber-700 uppercase">Beta</span>
                             </div>
                             <span

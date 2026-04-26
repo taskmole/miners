@@ -16,7 +16,7 @@ dotenv.config({ path: path.join(__dirname, "../../.env.local") });
 
 import * as fs from "fs";
 import * as readline from "readline";
-import { getDevClient, getProdClient, checkConfig } from "./lib/supabase";
+import { getDevClient, getProdClient, checkConfig, markUnseenAsInactive } from "./lib/supabase";
 import { CATEGORIES, SOURCES } from "./lib/categories";
 import { getCity, getCityIds } from "./config/cities";
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -290,74 +290,6 @@ function getCityFromFilename(filename: string): string | null {
  */
 function isRefreshFile(filename: string): boolean {
   return filename.includes("-refresh-");
-}
-
-/**
- * Mark places not seen in this fetch as inactive
- * Only called for REFRESH imports - protects user data by not deleting
- */
-async function markUnseenAsInactive(
-  client: SupabaseClient,
-  cityId: string,
-  source: string,
-  seenSourceIds: Set<string>
-): Promise<number> {
-  console.log(`\nMarking unseen places as inactive...`);
-
-  // Get all active places for this city/source
-  const { data: existingPlaces, error } = await client
-    .from("places")
-    .select("id, source_id, name")
-    .eq("city_id", cityId)
-    .eq("source", source)
-    .eq("status", "active");
-
-  if (error) {
-    console.error(`  Error fetching existing places:`, error.message);
-    return 0;
-  }
-
-  if (!existingPlaces || existingPlaces.length === 0) {
-    console.log(`  No existing active places to check.`);
-    return 0;
-  }
-
-  // Find places not in the fetch results
-  const unseenPlaces = existingPlaces.filter(
-    (p) => !seenSourceIds.has(p.source_id)
-  );
-
-  if (unseenPlaces.length === 0) {
-    console.log(`  All ${existingPlaces.length} existing places were seen in fetch.`);
-    return 0;
-  }
-
-  console.log(`  Found ${unseenPlaces.length} places not in fetch results:`);
-  for (const p of unseenPlaces.slice(0, 5)) {
-    console.log(`    - ${p.name}`);
-  }
-  if (unseenPlaces.length > 5) {
-    console.log(`    ... and ${unseenPlaces.length - 5} more`);
-  }
-
-  // Mark them as inactive (not deleted - preserves user data)
-  let markedCount = 0;
-  for (const place of unseenPlaces) {
-    const { error: updateError } = await client
-      .from("places")
-      .update({
-        status: "inactive",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", place.id);
-
-    if (!updateError) {
-      markedCount++;
-    }
-  }
-
-  console.log(`  Marked ${markedCount} places as inactive.`);
-  return markedCount;
 }
 
 /**

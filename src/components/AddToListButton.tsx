@@ -116,7 +116,7 @@ export function AddToListButton({ place, shape }: AddToListButtonProps) {
           <Button
             variant="outline"
             size="lg"
-            className="md:h-8 md:text-sm px-3"
+            className="md:h-10 md:text-sm px-3"
           >
             {listsWithItem > 0 ? (
               <>
