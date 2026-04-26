@@ -362,31 +362,6 @@
   z-index: 20;
 }
 
-.popup-image-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  border: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.popup-image-btn:hover {
-  background: white;
-  transform: scale(1.05);
-}
-
-.popup-image-btn svg {
-  width: 20px;
-  height: 20px;
-  color: #222;
-}
-
 /* Unified action button - used by PopupActionBar for close/hide */
 .popup-action-btn {
   width: 40px;
@@ -832,16 +807,6 @@
   /* Reposition image action buttons below the drag handle area on mobile */
   .popup-image-actions {
     top: 56px; /* 40px (drag handle zone) + 16px (offset) */
-  }
-
-  /* Larger touch targets for image action buttons */
-  .popup-image-btn {
-    width: 40px;
-    height: 40px;
-  }
-  .popup-image-btn svg {
-    width: 20px;
-    height: 20px;
   }
 
   /* Icon buttons: same style as desktop, slightly larger for touch */
