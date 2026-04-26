@@ -5,6 +5,7 @@ I'm not technical - I don't read or understand code.
 - Plain English only, NO code snippets
 - Simple language, numbered steps
 - When you are in 'Plan mode', always stress test your plan and triple check its robustness, and always evaluate to ensure the implementation won't break anything else (includes interfaces - desktop vs. mobile)
+- Always explain plans and answers in plain, simple English. Short sentences. No jargon. Like talking to a smart 15-year-old. Be concise.
 
 # Permissions
 - Just run commands without asking
@@ -47,15 +48,27 @@ I'm not technical - I don't read or understand code.
 - Run build and fix any errors
 
 # Quick Commands
-When the user types any of these, immediately execute the action — no questions asked:
+When the user types any of these, immediately execute the action - no questions asked:
 - **`.help`** → List all available quick commands with descriptions. Just print the table below, nothing else.
 - **`.3`** → Kill anything on port 3000, then run `npm run dev` in the background. Confirm it started.
-- **`.c`** → Full ship-to-production flow. Run git status and diff, stage the changed files, write a fitting commit message, commit, and push the current branch. Then switch to `main`, pull latest, merge the current branch into main (using `--no-ff`), and push main to trigger the Vercel production deploy. Finally, check the Vercel deployment status and confirm the production build succeeded (or report any errors). If already on `main`, skip the merge step and just commit + push main directly. Always run the code simplifier agent on the changed files BEFORE committing.
+- **`.p`** → Prep for shipping. Run in this exact order:
+  1. Run `/simplify` on all changed files to clean up the code
+  2. Run `npm run build` to verify nothing broke
+  3. Run `/review` on the branch diff to catch logic errors or security issues
+  4. Check for sensitive files (`.env`, API keys, secrets, credentials) not in `.gitignore` and add them
+  5. List what changed and tell me what to test in the browser
+  6. Run `/fewer-permission-prompts` and suggest new permissions to add to my config
+- **`.c`** → Ship to production. Assumes `.p` already ran:
+  1. Delete any plan files or temporary MD files created during this feature that are no longer needed
+  2. Stage changed files, write a fitting commit message, commit, and push the current branch
+  3. Switch to `main`, pull latest, merge the feature branch into main (using `--no-ff`), and push main
+  4. Check the Vercel deployment status and confirm the production build succeeded (or report any errors)
+  If already on `main`, skip step 3 and just commit + push main directly.
+- **`.t`** → Deep testing. Run `/qa` (full QA with headless browser) and a parallel codebase audit (dead code, type safety, component complexity, CSS issues). Combine everything into one prioritized summary with a health score.
+- **`.ceo`** → Run `/plan-ceo-review` on the current plan. Challenge assumptions, push for a better product, ask if this is the best version of the idea.
 - **`.ui`** → Activate the UI fix workflow: First read `docs/design-system.md` for the correct values. Then read ALL component + style files, trace the full style cascade, explain the root cause, then apply ONE targeted fix following the design system rules. Verify at mobile widths (375px, 390px, 428px). Run the checklist at the end of the design system doc. Run type check and lint.
-- **`.audit`** → Run a parallel codebase audit: spawn multiple agents simultaneously — one for dead code, one for type safety, one for component complexity, one for CSS issues. Combine findings into a single prioritized summary.
-- **`.test`** → Run Playwright mobile viewport tests against localhost:3000 to verify no layout issues at 375px, 390px, and 428px widths.
 - **`.s`** → Run the code simplifier agent on recently modified code to make sure it's as efficient as it can be.
-- **`.sim`** → Re-explain the last thing you said in plain, simple English. Short sentences. No jargon. Like you're talking to a smart 15-year-old. Be concise — if it can be said in 3 sentences, don't use 10.
+- **`.sim`** → Re-explain the last thing you said in plain, simple English. Short sentences. No jargon. Like you're talking to a smart 15-year-old. Be concise - if it can be said in 3 sentences, don't use 10.
 - **`.kill`** → Kill the local dev server. If port numbers are given (e.g. `.kill 3000 3001`), only kill those. If no port is given, kill all ports used by this project (3000, 3001, etc.). Confirm what was stopped.
 
 # Available Tools & Skills
@@ -63,8 +76,52 @@ When the user types any of these, immediately execute the action — no question
 - Feature development plugin
 - Frontend design plugin
 
-**REQUIRED: Use these skills EVERY time they apply — no exceptions:**
-- `react-best-practices` — MUST use when writing, editing, or reviewing any React/Next.js code
-- `web-design-guidelines` — MUST use when creating, editing, or reviewing any UI component
-- `vercel-deploy-claimable` — MUST use when deploying the app
-- Code simplifier plugin
+**REQUIRED: Use these skills EVERY time they apply, no exceptions:**
+- `react-best-practices` - when writing, editing, or reviewing any React/Next.js code
+- `web-design-guidelines` - when creating, editing, or reviewing any UI component
+- `vercel-deploy-claimable` - when deploying the app
+- `feature-dev` - when building a new feature or doing guided feature development
+- `frontend-design` - when creating new frontend interfaces or pages
+- `supabase` - when doing anything involving Supabase (database, auth, edge functions, RLS)
+- `security-review` - when reviewing code changes for security issues
+- Code simplifier plugin - when cleaning up or refactoring code
+## Skill routing
+
+When the user's request matches an available skill, invoke it via the Skill tool. The
+skill has multi-step workflows, checklists, and quality gates that produce better
+results than an ad-hoc answer. When in doubt, invoke the skill. A false positive is
+cheaper than a false negative.
+
+Key routing rules:
+- Product ideas, "is this worth building", brainstorming → invoke /office-hours
+- Strategy, scope, "think bigger", "what should we build" → invoke /plan-ceo-review
+- Architecture, "does this design make sense" → invoke /plan-eng-review
+- Design system, brand, "how should this look" → invoke /design-consultation
+- Design review of a plan → invoke /plan-design-review
+- Developer experience of a plan → invoke /plan-devex-review
+- "Review everything", full review pipeline → invoke /autoplan
+- Bugs, errors, "why is this broken", "wtf", "this doesn't work" → invoke /investigate
+- Test the site, find bugs, "does this work" → invoke /qa (or /qa-only for report only)
+- Code review, check the diff, "look at my changes" → invoke /review
+- Visual polish, design audit, "this looks off" → invoke /design-review
+- Developer experience audit, try onboarding → invoke /devex-review
+- Ship, deploy, create a PR, "send it" → invoke /ship
+- Merge + deploy + verify → invoke /land-and-deploy
+- Configure deployment → invoke /setup-deploy
+- Post-deploy monitoring → invoke /canary
+- Update docs after shipping → invoke /document-release
+- Weekly retro, "how'd we do" → invoke /retro
+- Second opinion, codex review → invoke /codex
+- Safety mode, careful mode, lock it down → invoke /careful or /guard
+- Restrict edits to a directory → invoke /freeze or /unfreeze
+- Upgrade gstack → invoke /gstack-upgrade
+- Save progress, "save my work" → invoke /context-save
+- Resume, restore, "where was I" → invoke /context-restore
+- Security audit, OWASP, "is this secure" → invoke /cso
+- Make a PDF, document, publication → invoke /make-pdf
+- Launch real browser for QA → invoke /open-gstack-browser
+- Import cookies for authenticated testing → invoke /setup-browser-cookies
+- Performance regression, page speed, benchmarks → invoke /benchmark
+- Review what gstack has learned → invoke /learn
+- Tune question sensitivity → invoke /plan-tune
+- Code quality dashboard → invoke /health

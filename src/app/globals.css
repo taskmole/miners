@@ -44,6 +44,7 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+  --font-heading: var(--font-outfit);
 }
 
 :root {
@@ -185,8 +186,8 @@
   width: 411px;
   max-width: 90vw;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+  border-radius: 16px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 4px 6px rgba(0,0,0,0.03), 0 16px 48px rgba(0,0,0,0.08);
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -354,8 +355,8 @@
 /* Action buttons floating on image - top right */
 .popup-image-actions {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 16px;
+  right: 16px;
   display: flex;
   gap: 8px;
   z-index: 20;
@@ -386,6 +387,32 @@
   color: #222;
 }
 
+/* Unified action button - used by PopupActionBar for close/hide */
+.popup-action-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.popup-action-btn:hover {
+  background: white;
+  transform: scale(1.05);
+}
+
+.popup-action-btn svg {
+  width: 20px;
+  height: 20px;
+  color: #222;
+}
+
 /* Overlay chips - positioned on image */
 .popup-overlay-chips {
   position: absolute;
@@ -398,7 +425,7 @@
 
 /* Header - name row (with optional chips and comments) */
 .popup-header {
-  padding: 20px 80px 0 20px;  /* 80px right padding to clear hide + close buttons */
+  padding: 20px 80px 0 24px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -416,41 +443,48 @@
 }
 
 .popup-name {
-  font-size: 16px;
+  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 19px;
   font-weight: 600;
-  color: #222;
+  color: #1a1a1a;
   line-height: 1.3;
-  max-width: calc(100% - 10px);  /* Leave room for chip next to name */
+  letter-spacing: -0.01em;
+  max-width: calc(100% - 10px);
 }
 
 /* Chips row - before footer */
 .popup-chips-row {
   display: flex;
   gap: 6px;
-  padding: 4px 20px 16px 20px;
+  padding: 4px 24px 16px 24px;
 }
 
 /* Chips - badges */
 .popup-chip {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 6px;
-  border-radius: 4px;
+  gap: 4px;
+  padding: 5px 11px;
+  border-radius: 10px;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .popup-chip.premium {
-  background: linear-gradient(135deg, #FFD700 0%, #FFC107 100%);
-  color: #000;
-  box-shadow: 0 2px 6px rgba(255, 215, 0, 0.3);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  color: #b45309;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .popup-chip.new {
-  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-  color: white;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  color: #059669;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .popup-chip.ac {
@@ -498,15 +532,15 @@
 
 /* Address */
 .popup-address {
-  color: #9C9C9C;
-  font-size: 14px;
-  padding: 4px 20px 12px 20px;
+  color: #a3a3a3;
+  font-size: 13px;
+  padding: 4px 24px 12px 24px;
   line-height: 1.4;
 }
 
 /* Body - content area */
 .popup-body {
-  padding: 0 20px 12px 20px;
+  padding: 0 24px 12px 24px;
 }
 
 /* Rating row - with space-between for comments on right */
@@ -552,18 +586,24 @@
   color: #717171;
 }
 
-/* Price section with green accent bar */
-.popup-price-accent {
-  border-left: 3px solid #22C55E;
-  margin: 12px 20px;
-  padding: 10px 12px;
-  background: #DCFCE7;
+/* Price card (upgraded from accent bar) */
+.popup-price-card {
+  margin: 12px 24px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  border: 1px solid #bbf7d0;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .popup-price-main {
-  font-size: 18px;
-  font-weight: 600;
-  color: #18181B;
+  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.02em;
 }
 
 .popup-price-secondary {
@@ -579,20 +619,29 @@
   color: #D4D4D8;
 }
 
-/* Transfer row */
-.popup-transfer-row {
-  padding: 0 20px;
-  margin-bottom: 12px;
+/* Transfer chip (inside price card) */
+.popup-transfer-chip {
+  font-size: 12px;
+  font-weight: 700;
+  background: #f59e0b;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-/* Transfer chip - gold */
-.popup-price-transfer {
-  font-size: 11px;
+/* Feature pills */
+.popup-feature-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
   font-weight: 500;
-  background: #FEF3C7;
-  color: #92400E;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 5px 11px;
+  border-radius: 10px;
+  background: #f5f5f4;
+  border: 1px solid #e5e5e5;
+  color: #525252;
   white-space: nowrap;
 }
 
@@ -601,7 +650,8 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  padding: 0 20px;
+  gap: 6px;
+  padding: 0 24px;
   margin-bottom: 12px;
   font-size: 13px;
   color: #6B7280;
@@ -635,8 +685,8 @@
 
 /* Footer - always present */
 .popup-footer {
-  padding: 16px 20px;
-  border-top: 1px solid #EBEBEB;
+  padding: 16px 24px;
+  border-top: 1px solid #f0f0ef;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -746,16 +796,29 @@
   .popup-base {
     width: 100%;
     max-width: 100%;
-    border-radius: 16px 16px 0 0;
+    border-radius: 24px 24px 0 0;
     box-shadow: none;
     overflow: visible;
   }
+
+  /* Keep mobile padding at 20px (desktop uses 24px) */
+  .popup-header { padding: 20px 80px 0 20px; }
+  .popup-address { padding: 4px 20px 12px 20px; }
+  .popup-body { padding: 0 20px 12px 20px; }
+  .popup-chips-row { padding: 4px 20px 16px 20px; }
+  .popup-details-row { padding: 0 20px; }
+  .popup-price-card { margin: 12px 20px; }
 
   /* Pull image up to extend behind the drag handle (content area has pt-10 = 40px) */
   .popup-image {
     margin-top: -40px;
     padding-top: 40px;
-    border-radius: 0; /* Parent handles corners now */
+    border-radius: 0;
+  }
+
+  .popup-image > img {
+    position: absolute;
+    inset: 0;
   }
 
   /* Adjust image heights to account for the negative margin */
@@ -768,7 +831,7 @@
 
   /* Reposition image action buttons below the drag handle area on mobile */
   .popup-image-actions {
-    top: 52px; /* 40px (drag handle zone) + 12px (original offset) */
+    top: 56px; /* 40px (drag handle zone) + 16px (offset) */
   }
 
   /* Larger touch targets for image action buttons */
@@ -849,8 +912,12 @@
    vh = largest possible viewport (fallback for older browsers)
    =========================================== */
 .sheet-height-partial {
-  height: 85vh;
-  height: 85dvh;
+  max-height: 85vh;
+  max-height: 85dvh;
+}
+.sheet-height-auto {
+  max-height: 85vh;
+  max-height: 85dvh;
 }
 .sheet-height-full {
   height: 95vh;

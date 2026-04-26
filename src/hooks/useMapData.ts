@@ -2,6 +2,16 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
+import { preloadGravity, getScoreAt } from "@/lib/gravity-lookup";
+import { supabase } from "@/lib/supabase";
+
+function parseWkbPoint(hex: string): { lat: number; lon: number } | null {
+    if (!hex || hex.length < 50) return null;
+    const coordHex = hex.slice(18);
+    const bytes = new Uint8Array(coordHex.match(/../g)!.map(h => parseInt(h, 16)));
+    const view = new DataView(bytes.buffer);
+    return { lon: view.getFloat64(0, true), lat: view.getFloat64(8, true) };
+}
 
 // Types for all POI categories
 export interface CafeData {
@@ -43,6 +53,10 @@ export interface PropertyData {
     transfer?: number;          // traspaso amount
     hasBathroom?: boolean;
     hasStorefront?: boolean;
+    // Location score (0-100) derived from the gravity model grid.
+    // Undefined for cities without gravity data (e.g. Barcelona, Prague).
+    score?: number;
+    image_url?: string;
 }
 
 export interface OtherPoiData {
@@ -118,17 +132,21 @@ export function useMapData(cityId?: string) {
 
                 // Start new fetch
                 activePromise = (async () => {
-                    // Fetch all data sources in parallel (including Barcelona + Google Places)
-                    const [cafesRes, cafeInfoRes, barcelonaCafesRes, propsRes, otherRes, googleMadridRes, googleEnrichmentRes, gymsMadridRes] = await Promise.all([
+                    // Fetch all data sources in parallel (including Barcelona + Google Places + metro)
+                    const [cafesRes, cafeInfoRes, barcelonaCafesRes, propsResult, otherRes, googleMadridRes, googleEnrichmentRes, gymsMadridRes, metroRes] = await Promise.all([
                         fetch("/api/data?type=data"),
-                        fetch("/api/data?type=cafes"), // Fetch enriched info (images)
-                        fetch("/api/data?type=barcelona_cafes"), // Barcelona cafe data
-                        fetch("/api/data?type=properties"),
+                        fetch("/api/data?type=cafes"),
+                        fetch("/api/data?type=barcelona_cafes"),
+                        supabase!.from("places").select("name, address, location, metadata, photos").eq("source", "idealista").eq("status", "active"),
                         fetch("/api/data?type=other"),
-                        fetch("/api/data?type=google_madrid"), // Google Places regular cafes
-                        fetch("/api/data?type=google_enrichment"), // Google Places data for EUCT enrichment
-                        fetch("/api/data?type=gyms_madrid"), // Gyms (4+ stars)
+                        fetch("/api/data?type=google_madrid"),
+                        fetch("/api/data?type=google_enrichment"),
+                        fetch("/api/data?type=gyms_madrid"),
+                        fetch("/api/data?type=metro"),
                     ]);
+
+                    // Start gravity grid load early so it runs in parallel with cafe processing below
+                    const gravityReady = preloadGravity("madrid");
 
                     // Process Cafe Info (for images/socials) - Madrid enriched data
                     const cafeInfoRaw = await cafeInfoRes.json();
@@ -255,27 +273,35 @@ export function useMapData(cityId?: string) {
                     // Combine Madrid, Barcelona, and Google Places cafes
                     const parsedCafes: CafeData[] = [...madridCafes, ...barcelonaCafes, ...googleCafes];
 
-                    // Process Properties
-                    const propsRaw = await propsRes.json();
-                    const parsedProps: PropertyData[] = propsRaw
-                        .filter((p: any) => p.latitude && p.longitude)
-                        .map((p: any) => ({
-                            type: "property" as const,
-                            address: p.address || "",
-                            latitude: parseFloat(p.latitude),
-                            longitude: parseFloat(p.longitude),
-                            price: parseInt(p.price) || 0,
-                            size: parseInt(p.size) || 0,
-                            priceByArea: parseInt(p.priceByArea) || 0,
-                            district: p.district || "",
-                            hasAirConditioning: p["features/hasAirConditioning"] === "TRUE",
-                            url: p.url || "",
-                            title: p.title || p["suggestedTexts/title"] || "Property",
-                            // Optional enhanced fields
-                            transfer: p.transfer ? parseInt(p.transfer) : undefined,
-                            hasBathroom: p["features/hasBathroom"] === "TRUE" || p.hasBathroom === "TRUE" || (p.bathrooms && parseInt(p.bathrooms) > 0),
-                            hasStorefront: p["features/hasStorefront"] === "TRUE" || p.hasStorefront === "TRUE",
-                        }));
+                    // Wait for gravity grid (started above, before cafe processing)
+                    await gravityReady;
+
+                    // Process Properties (from Supabase places table)
+                    const parsedProps: PropertyData[] = (propsResult.data || [])
+                        .map((p: any) => {
+                            const coords = parseWkbPoint(p.location);
+                            if (!coords) return null;
+                            const meta = (p.metadata || {}) as Record<string, any>;
+                            return {
+                                type: "property" as const,
+                                address: p.address || "",
+                                latitude: coords.lat,
+                                longitude: coords.lon,
+                                price: meta.price || 0,
+                                size: meta.size || 0,
+                                priceByArea: meta.priceByArea || 0,
+                                district: meta.district || "",
+                                hasAirConditioning: meta.hasAirConditioning === true,
+                                url: meta.url || "",
+                                title: p.name || "Property",
+                                transfer: meta.transfer || undefined,
+                                hasBathroom: meta.bathrooms != null && meta.bathrooms > 0,
+                                hasStorefront: meta.hasStorefront === true,
+                                score: getScoreAt(coords.lat, coords.lon, "madrid"),
+                                image_url: p.photos?.[0] || undefined,
+                            };
+                        })
+                        .filter(Boolean) as PropertyData[];
 
                     // Process Other POIs
                     const otherRaw = await otherRes.json();
@@ -310,8 +336,7 @@ export function useMapData(cityId?: string) {
                         parsedOther.push(...gyms);
                     }
 
-                    // Fetch metro stations from GeoJSON
-                    const metroRes = await fetch("/api/data?type=metro");
+                    // Process metro stations (already fetched in parallel above)
                     if (metroRes.ok) {
                         const metroData = await metroRes.json();
                         const metroStations: OtherPoiData[] = metroData.features.map((feature: any) => ({
@@ -355,24 +380,35 @@ export function useMapData(cityId?: string) {
         const cityCafes = cityId ? cafes.filter(c => c.city === cityId) : cafes;
         const euctCafes = cityCafes.filter(c => c.link?.includes("europeancoffeetrip"));
 
-        // Count premium and new EUCT cafes in a single pass
+        // Count premium, new EUCT cafes, and new EUCT POIs in a single pass
         let premiumEuCoffeeTrip = 0;
         let newEuCoffeeTrip = 0;
+        let newPoisCount = 0;
         for (const c of euctCafes) {
             if (c.premium) premiumEuCoffeeTrip++;
             if (isRecentlyAdded(c.datePublished)) newEuCoffeeTrip++;
+            if (isNewPoi(c.datePublished)) newPoisCount++;
         }
 
-        // Count other POI types in a single pass
+        // Count new regular cafes (non-EUCT) in a single pass over the remainder
+        const regularCafeCount = cityCafes.length - euctCafes.length;
+        for (const c of cityCafes) {
+            if (!c.link?.includes("europeancoffeetrip") && isNewPoi(c.fetchedAt)) {
+                newPoisCount++;
+            }
+        }
+
+        // Count other POI types and new gyms in a single pass
         const poiCounts: Record<string, number> = {};
         for (const p of otherPois) {
             poiCounts[p.type] = (poiCounts[p.type] || 0) + 1;
+            if (p.type === "gym" && isNewPoi(p.fetchedAt)) newPoisCount++;
         }
 
         return {
             cafe: cityCafes.length,
             euCoffeeTrip: euctCafes.length,
-            regularCafe: cityCafes.length - euctCafes.length,
+            regularCafe: regularCafeCount,
             premiumEuCoffeeTrip,
             newEuCoffeeTrip,
             property: properties.length,
@@ -384,24 +420,7 @@ export function useMapData(cityId?: string) {
             dorm: poiCounts["dorm"] || 0,
             university: poiCounts["university"] || 0,
             gym: poiCounts["gym"] || 0,
-            // Count new POIs (added in last 30 days) across all filterable types
-            newPois: (() => {
-                let count = 0;
-                // Count EUCT cafes with recent datePublished
-                for (const c of euctCafes) {
-                    if (isNewPoi(c.datePublished)) count++;
-                }
-                // Count Google Places cafes with recent fetchedAt
-                const googleCafes = cityCafes.filter(c => !c.link?.includes("europeancoffeetrip"));
-                for (const c of googleCafes) {
-                    if (isNewPoi(c.fetchedAt)) count++;
-                }
-                // Count gyms with recent fetchedAt
-                for (const p of otherPois) {
-                    if (p.type === "gym" && isNewPoi(p.fetchedAt)) count++;
-                }
-                return count;
-            })(),
+            newPois: newPoisCount,
         };
     }, [cafes, properties, otherPois, cityId]);
 

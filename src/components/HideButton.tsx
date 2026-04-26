@@ -32,13 +32,9 @@ export function HideButton({ placeId, className, style }: HideButtonProps) {
     <button
       onClick={handleClick}
       className={cn(
-        // Base styles - white circular button with shadow (matches popup-image-btn)
-        "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200",
-        "bg-white/90 shadow-md",
-        // Normal state (not hidden) - gray icon
-        !hidden && "text-zinc-500 hover:bg-gray-100 hover:scale-105",
-        // Hidden state - rose tint to show this POI is hidden
-        hidden && "text-rose-500 hover:bg-rose-50 hover:scale-105",
+        "flex items-center justify-center",
+        !hidden && "text-zinc-500",
+        hidden && "text-rose-500",
         className
       )}
       title={hidden ? "Unhide this location" : "Hide this location"}

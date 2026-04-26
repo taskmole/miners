@@ -9,7 +9,6 @@ export const dynamic = "force-dynamic";
 // Allowed file types (whitelist for security)
 const FILE_MAP: Record<string, { fileName: string; delimiter?: string }> = {
     cafes: { fileName: "cafe_info.csv" },
-    properties: { fileName: "idealista.csv" },
     data: { fileName: "data.csv", delimiter: ";" },
     other: { fileName: "other.csv" },
     barcelona_cafes: { fileName: "barcelona_cafe_info.csv" },
