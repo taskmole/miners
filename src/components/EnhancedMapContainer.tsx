@@ -24,7 +24,7 @@ import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
 import { AddToListButton } from "@/components/AddToListButton";
 import { CreateTripButton } from "@/components/CreateTripButton";
-import { HideButton } from "@/components/HideButton";
+import { PopupActionBar } from "@/components/PopupActionBar";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import type { PlaceInfo } from "@/types/lists";
 import type { EuctFilter } from "@/types/filters";
@@ -69,6 +69,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCompactNumber } from "@/lib/format-numbers";
+import { scoreTier, SCORE_TIER_BG } from "@/lib/gravity-lookup";
 
 // Enhanced icon configuration with ring colors
 const iconConfig: Record<string, { icon: React.ElementType; color: string; bg: string; ring: string }> = {
@@ -168,7 +169,6 @@ function AdaptivePopup({ coordinates, onClose, children, isMobile }: AdaptivePop
             longitude={coordinates[0]}
             latitude={coordinates[1]}
             onClose={onClose}
-            closeButton
             anchor="top"
             className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
         >
@@ -863,7 +863,7 @@ const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ pl
             {/* Header row */}
             <div className="flex items-center gap-2">
                 <Paperclip className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Attachments</span>
+                <span className="text-[11px] font-medium text-[#c4c4c4] uppercase" style={{ letterSpacing: '0.03em' }}>Attachments</span>
                 <span className="w-4 h-4 flex items-center justify-center bg-zinc-100 group-hover/section:bg-zinc-200 text-zinc-500 text-[9px] font-medium rounded-full transition-colors duration-150">
                     {attachments.length}
                 </span>
@@ -898,23 +898,7 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
                 <div className="popup-image tall">
                     <img src={cafe.image} alt={cafe.name} />
 
-                    {/* Action buttons floating on image */}
-                    <div className="popup-image-actions">
-                        <HideButton placeId={placeId} className="popup-image-btn" />
-                        {onClose && (
-                            <button
-                                onClick={(e) => {
-                                    // Dispatch custom event that MarkerPopup can listen for to close the MapLibre popup
-                                    e.currentTarget.dispatchEvent(new CustomEvent('closePopup', { bubbles: true }));
-                                    onClose();
-                                }}
-                                className="popup-image-btn"
-                                aria-label="Close"
-                            >
-                                <X size={20} />
-                            </button>
-                        )}
-                    </div>
+                    <PopupActionBar position="image" placeId={placeId} onClose={onClose} />
 
                     {/* New ribbon */}
                     {recentlyAdded && (
@@ -935,6 +919,9 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
             {/* Header */}
             <div className="popup-header">
                 <span className="popup-name">{cafe.name}</span>
+                {!cafe.image && (
+                    <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
+                )}
             </div>
 
             {/* Address */}
@@ -949,11 +936,11 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
                                 <Star size={14} fill="#FFD700" color="#FFD700" />
                                 <span className="value">{cafe.rating.toFixed(1)}</span>
                                 {cafe.reviewCount && <span className="reviews">({cafe.reviewCount})</span>}
-                                <span className="separator">·</span>
+                                <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
                             </>
                         )}
                         <span className="price">€1-10</span>
-                        <span className="separator">·</span>
+                        <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
                         <span className="status-open">Open</span>
                     </div>
 
@@ -1022,13 +1009,13 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }:
     const mapsUrl = buildGoogleMapsUrl(cafe.name, cafe.googleMapsUrl, cafe.lat, cafe.lon, cafe.address);
     const commentCount = 0; // TODO: Get from data when available
     const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
-    // Note: onClose not used here - regular cafes have no image, so BottomSheet shows its own close button
 
     return (
         <div className="popup-base">
             {/* Header */}
             <div className="popup-header">
                 <span className="popup-name">{cafe.name}</span>
+                <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
             </div>
 
             {/* Address */}
@@ -1043,11 +1030,11 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }:
                                 <Star size={14} fill="#FFD700" color="#FFD700" />
                                 <span className="value">{cafe.rating.toFixed(1)}</span>
                                 {cafe.reviewCount && <span className="reviews">({cafe.reviewCount})</span>}
-                                <span className="separator">·</span>
+                                <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
                             </>
                         )}
                         <span className="price">€1-10</span>
-                        <span className="separator">·</span>
+                        <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
                         <span className="status-open">Open</span>
                     </div>
 
@@ -1140,45 +1127,53 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
 
     return (
         <div className="popup-base">
+            {/* Image section */}
+            {property.image_url && (
+                <div className="popup-image medium">
+                    <img src={property.image_url} alt={property.title} />
+                    <PopupActionBar position="image" placeId={placeId} onClose={onClose} />
+                </div>
+            )}
+
             {/* Header - Title */}
             <div className="popup-header">
                 <span className="popup-name">{capitalizeFirst(property.title)}</span>
+                {!property.image_url && (
+                    <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
+                )}
             </div>
 
             {/* Address */}
             <div className="popup-address">{capitalizeFirst(property.address)}</div>
 
-            {/* Price section with accent bar */}
-            <div className="popup-price-accent">
-                <div className="popup-price-main">
-                    €{property.price.toLocaleString()}/month
+            {/* Price card with optional transfer chip */}
+            <div className="popup-price-card">
+                <div>
+                    <div className="popup-price-main">
+                        €{property.price.toLocaleString()}/month
+                    </div>
+                    <div className="popup-price-secondary">
+                        {property.priceByArea > 0 && (
+                            <span>€{property.priceByArea.toLocaleString()}/m²</span>
+                        )}
+                        {property.priceByArea > 0 && property.size > 0 && (
+                            <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#86efac', margin: '0 6px', verticalAlign: 'middle' }} />
+                        )}
+                        <span>{property.size} m²</span>
+                    </div>
                 </div>
-                <div className="popup-price-secondary">
-                    {property.priceByArea > 0 && (
-                        <span>€{property.priceByArea.toLocaleString()}/m²</span>
-                    )}
-                    {property.priceByArea > 0 && property.size > 0 && (
-                        <span className="separator">·</span>
-                    )}
-                    <span>{property.size} m²</span>
-                </div>
+                {property.transfer && (
+                    <span className="popup-transfer-chip">
+                        €{property.transfer >= 1000 ? `${Math.round(property.transfer / 1000)}k` : property.transfer} transfer
+                    </span>
+                )}
             </div>
 
-            {/* Transfer chip - standalone if present */}
-            {property.transfer && (
-                <div className="popup-transfer-row">
-                    <span className="popup-price-transfer">
-                        Transfer: €{property.transfer.toLocaleString()}
-                    </span>
-                </div>
-            )}
-
-            {/* Features row */}
+            {/* Feature pills */}
             {features.length > 0 && (
                 <div className="popup-details-row">
-                    {features.map((feature, i) => (
-                        <span key={feature}>
-                            {i > 0 && <span className="separator">·</span>}
+                    {features.map((feature) => (
+                        <span key={feature} className="popup-feature-pill">
                             {feature}
                         </span>
                     ))}
@@ -1228,7 +1223,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
 });
 
 // Other POI popup content - Uses universal popup base - memoized
-const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi }: { poi: OtherPoiData }) {
+const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi, onClose }: { poi: OtherPoiData; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(poi.name, poi.mapsUrl || undefined, poi.lat, poi.lon, poi.address);
     const commentCount = 0; // TODO: Get from data when available
     const placeId = `${poi.type}-${poi.lat.toFixed(5)}-${poi.lon.toFixed(5)}`;
@@ -1245,6 +1240,7 @@ const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi }: {
                         {commentCount}
                     </button>
                 )}
+                <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
             </div>
 
             {/* Address */}
@@ -1580,6 +1576,41 @@ function CityNavigator({ city }: { city?: City }) {
 }
 
 // Simple icon marker component (mapcn style) - memoized to prevent re-renders
+// Small circular score badge used on the map pin, popup header, and bottom sheet.
+// `variant="chip"` is the small pill (22px) sitting next to the pin icon.
+// `variant="badge"` is the larger circle (36px) shown inside the property popup.
+function ScoreBadge({ score, variant = "chip" }: { score: number; variant?: "chip" | "badge" }) {
+    const bg = SCORE_TIER_BG[scoreTier(score)];
+    if (variant === "badge") {
+        return (
+            <div
+                className={cn(
+                    "flex items-center justify-center h-9 w-9 rounded-full",
+                    "text-[13px] font-bold text-white",
+                    "shadow-md ring-[2px] ring-white",
+                    bg,
+                )}
+                aria-label={`Location score ${score} of 100`}
+            >
+                {score}
+            </div>
+        );
+    }
+    return (
+        <div
+            className={cn(
+                "flex items-center justify-center h-[22px] min-w-[22px] px-1.5 rounded-full",
+                "text-[10px] font-bold text-white leading-none",
+                "shadow-md ring-2 ring-white",
+                bg,
+            )}
+            aria-label={`Location score ${score} of 100`}
+        >
+            {score}
+        </div>
+    );
+}
+
 const IconMarker = React.memo(function IconMarker({
     color,
     icon: Icon,
@@ -1642,6 +1673,7 @@ const IconMarker = React.memo(function IconMarker({
 interface EnhancedMapContainerProps {
     activeFilters: Set<string>;
     ratingFilter?: number;
+    scoreFilter?: number;
     euctFilter?: EuctFilter;
     trafficEnabled?: boolean;
     trafficValuesEnabled?: boolean;
@@ -1661,6 +1693,7 @@ interface EnhancedMapContainerProps {
 export function EnhancedMapContainer({
     activeFilters,
     ratingFilter = 0,
+    scoreFilter = 0,
     euctFilter = "all",
     trafficEnabled,
     trafficValuesEnabled,
@@ -1775,10 +1808,13 @@ export function EnhancedMapContainer({
         [cafes, activeFilters, ratingFilter, euctFilter, selectedCity, isLinkingMode, showHiddenPois]
     );
 
-    const visibleProperties = useMemo(
-        () => (isLinkingMode || showHiddenPois || activeFilters.has("property") ? properties : []),
-        [properties, activeFilters, isLinkingMode, showHiddenPois]
-    );
+    const visibleProperties = useMemo(() => {
+        const base = isLinkingMode || showHiddenPois || activeFilters.has("property") ? properties : [];
+        if (scoreFilter <= 0) return base;
+        // Keep properties without a score (no gravity data for this city) so the
+        // slider is a no-op there. Otherwise require score >= threshold.
+        return base.filter(p => p.score === undefined || p.score >= scoreFilter);
+    }, [properties, activeFilters, isLinkingMode, showHiddenPois, scoreFilter]);
 
     const visibleOtherPois = useMemo(
         () => (isLinkingMode || showHiddenPois) ? otherPois : otherPois.filter((poi) => activeFilters.has(poi.type)),
@@ -2290,7 +2326,7 @@ export function EnhancedMapContainer({
                                 <IconMarker color="bg-black" icon={Coffee} isMiners isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
                             </MarkerContent>
                             {!isLinkingMode && !hasMultiplePois && !isMobile && (
-                                <MarkerPopup closeButton={!cafe.image} onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
+                                <MarkerPopup onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
                                     <CafePopupContent cafe={cafe} onClose={handlePopupClose} />
                                 </MarkerPopup>
                             )}
@@ -2349,7 +2385,7 @@ export function EnhancedMapContainer({
                                         />
                                     </MarkerContent>
                                     {!isLinkingMode && !hasMultiplePois && !isMobile && (
-                                        <MarkerPopup closeButton={!cafe.image} onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
+                                        <MarkerPopup onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
                                             <CafePopupContent cafe={cafe} onClose={handlePopupClose} />
                                         </MarkerPopup>
                                     )}
@@ -2455,10 +2491,15 @@ export function EnhancedMapContainer({
                                 >
                                     <MarkerContent>
                                         <IconMarker color="bg-[#78C500]" icon={Home} isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
+                                        {typeof property.score === "number" && !hidden && (
+                                            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 pointer-events-none">
+                                                <ScoreBadge score={property.score} />
+                                            </div>
+                                        )}
                                     </MarkerContent>
                                     {!isLinkingMode && !hasMultiplePois && !isMobile && (
-                                        <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
-                                            <PropertyPopupContent property={property} cityId={selectedCity?.id || ''} />
+                                        <MarkerPopup onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
+                                            <PropertyPopupContent property={property} cityId={selectedCity?.id || ''} onClose={handlePopupClose} />
                                         </MarkerPopup>
                                     )}
                                 </MapMarker>
@@ -2553,8 +2594,8 @@ export function EnhancedMapContainer({
                                         <IconMarker color={bgColorMap[poi.type] || "bg-gray-500"} icon={Icon} isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
                                     </MarkerContent>
                                     {!isLinkingMode && !hasMultiplePois && !isMobile && (
-                                        <MarkerPopup closeButton onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
-                                            <OtherPoiPopupContent poi={poi} />
+                                        <MarkerPopup onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
+                                            <OtherPoiPopupContent poi={poi} onClose={handlePopupClose} />
                                         </MarkerPopup>
                                     )}
                                 </MapMarker>
@@ -2600,11 +2641,10 @@ export function EnhancedMapContainer({
                         longitude={selectedCafe.coordinates[0]}
                         latitude={selectedCafe.coordinates[1]}
                         onClose={() => setSelectedCafe(null)}
-                        closeButton
                         anchor="top"
                         className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
                     >
-                        <CafePopupContent cafe={selectedCafe.cafe} />
+                        <CafePopupContent cafe={selectedCafe.cafe} onClose={() => setSelectedCafe(null)} />
                     </MapPopup>
                 )}
 
@@ -2613,7 +2653,6 @@ export function EnhancedMapContainer({
                         longitude={selectedProperty.coordinates[0]}
                         latitude={selectedProperty.coordinates[1]}
                         onClose={() => setSelectedProperty(null)}
-                        closeButton
                         anchor="top"
                         className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
                     >
@@ -2626,11 +2665,10 @@ export function EnhancedMapContainer({
                         longitude={selectedPoi.coordinates[0]}
                         latitude={selectedPoi.coordinates[1]}
                         onClose={() => setSelectedPoi(null)}
-                        closeButton
                         anchor="top"
                         className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
                     >
-                        <OtherPoiPopupContent poi={selectedPoi.poi} />
+                        <OtherPoiPopupContent poi={selectedPoi.poi} onClose={() => setSelectedPoi(null)} />
                     </MapPopup>
                 )}
 
@@ -2642,35 +2680,21 @@ export function EnhancedMapContainer({
                     isOpen={true}
                     onClose={() => setSelectedCafe(null)}
                     snapPoint="partial"
-                    showCloseButton={!selectedCafe.cafe.image}
-                    headerButtons={!selectedCafe.cafe.image ? (
-                        <HideButton
-                            placeId={`cafe-${selectedCafe.cafe.lat.toFixed(5)}-${selectedCafe.cafe.lon.toFixed(5)}`}
-                            className="w-10 h-10"
-                        />
-                    ) : undefined}
+                    showCloseButton={false}
                 >
                     <CafePopupContent cafe={selectedCafe.cafe} onClose={() => setSelectedCafe(null)} />
                 </BottomSheet>
             )}
 
             {isMobile && selectedProperty && (
-                <>
-                    {console.log('[Property Popup] Rendering BottomSheet for', selectedProperty.property.title)}
-                    <BottomSheet
-                        isOpen={true}
-                        onClose={() => setSelectedProperty(null)}
-                        snapPoint="partial"
-                        headerButtons={
-                            <HideButton
-                                placeId={`property-${selectedProperty.property.latitude.toFixed(5)}-${selectedProperty.property.longitude.toFixed(5)}`}
-                                className="w-10 h-10"
-                            />
-                        }
-                    >
-                        <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={() => setSelectedProperty(null)} />
-                    </BottomSheet>
-                </>
+                <BottomSheet
+                    isOpen={true}
+                    onClose={() => setSelectedProperty(null)}
+                    snapPoint="partial"
+                    showCloseButton={false}
+                >
+                    <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={() => setSelectedProperty(null)} />
+                </BottomSheet>
             )}
 
             {isMobile && selectedPoi && (
@@ -2678,14 +2702,9 @@ export function EnhancedMapContainer({
                     isOpen={true}
                     onClose={() => setSelectedPoi(null)}
                     snapPoint="partial"
-                    headerButtons={
-                        <HideButton
-                            placeId={`${selectedPoi.poi.type}-${selectedPoi.poi.lat.toFixed(5)}-${selectedPoi.poi.lon.toFixed(5)}`}
-                            className="w-10 h-10"
-                        />
-                    }
+                    showCloseButton={false}
                 >
-                    <OtherPoiPopupContent poi={selectedPoi.poi} />
+                    <OtherPoiPopupContent poi={selectedPoi.poi} onClose={() => setSelectedPoi(null)} />
                 </BottomSheet>
             )}
 

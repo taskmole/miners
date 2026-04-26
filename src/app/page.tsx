@@ -96,6 +96,7 @@ function HomeContent() {
   const [incomeWealthyFilter, setIncomeWealthyFilter] = useState(0);
   const [trafficHour, setTrafficHour] = useState(12);
   const [ratingFilter, setRatingFilter] = useState(0);
+  const [scoreFilter, setScoreFilter] = useState(0);
   const [euctFilter, setEuctFilter] = useState<EuctFilter>("all");
   const [showHiddenPois, setShowHiddenPois] = useState(false);
   const [showNewOnly, setShowNewOnly] = useState(false);
@@ -212,6 +213,7 @@ function HomeContent() {
         <EnhancedMapContainer
           activeFilters={activeFilters}
           ratingFilter={ratingFilter}
+          scoreFilter={scoreFilter}
           euctFilter={euctFilter}
           trafficEnabled={trafficEnabled}
           trafficValuesEnabled={trafficValuesEnabled}
@@ -239,6 +241,8 @@ function HomeContent() {
             onFilterChange={handleFilterChange}
             ratingFilter={ratingFilter}
             onRatingChange={setRatingFilter}
+            scoreFilter={scoreFilter}
+            onScoreChange={setScoreFilter}
             euctFilter={euctFilter}
             onEuctFilterChange={setEuctFilter}
             trafficEnabled={trafficEnabled}

@@ -59,7 +59,7 @@ export const PopupCommentsSection = React.memo(function PopupCommentsSection({ p
       {/* Header row */}
       <div className="flex items-center gap-2">
         <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
-        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Comments</span>
+        <span className="text-[11px] font-medium text-[#c4c4c4] uppercase" style={{ letterSpacing: '0.03em' }}>Comments</span>
         <span className="w-4 h-4 flex items-center justify-center bg-zinc-100 group-hover/section:bg-zinc-200 text-zinc-500 text-[9px] font-medium rounded-full transition-colors duration-150">
           {comments.length}
         </span>

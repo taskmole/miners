@@ -12,7 +12,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 const DEV_URL = process.env.SUPABASE_DEV_URL;
 const DEV_KEY = process.env.SUPABASE_DEV_KEY;
 const PROD_URL = process.env.SUPABASE_PROD_URL;
-// Use service role key for prod (bypasses RLS — required for pipeline writes)
+// Use service role key for prod (bypasses RLS, required for pipeline writes)
 // Falls back to SUPABASE_PROD_KEY if service role key is not set
 const PROD_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_PROD_KEY;
@@ -81,6 +81,7 @@ export function checkConfig(): { dev: boolean; prod: boolean } {
  */
 export interface Place {
   id?: string;
+  city_id?: string;
   name: string;
   address: string;
   lat: number;
@@ -89,6 +90,9 @@ export interface Place {
   source: string;
   source_id: string;
   metadata?: Record<string, unknown>;
+  photos?: string[];
+  score?: number | null;
+  image_analysis?: Record<string, unknown> | null;
   status?: "active" | "removed";
   removed_at?: string;
   removed_reason?: string;
@@ -288,4 +292,72 @@ export async function getExistingSourceIds(
   }
 
   return new Set((data || []).map((row) => row.source_id));
+}
+
+/**
+ * Mark active places as inactive when they are no longer seen in a scrape.
+ *
+ * Shared by publish.ts (Google Places) and fetch-idealista.ts. Both scripts
+ * need the same "find unseen active rows, mark them inactive" logic.
+ *
+ * @param safetyRatio - Optional minimum ratio of (scraped / existing) below
+ *   which inactivation is skipped to protect data (e.g. 0.5 = skip if less
+ *   than half of existing places were scraped). Pass 0 to disable the guard.
+ */
+export async function markUnseenAsInactive(
+  client: SupabaseClient,
+  cityId: string,
+  source: string,
+  seenSourceIds: Set<string>,
+  safetyRatio = 0,
+): Promise<{ inactivated: number; safetyGuardTripped: boolean }> {
+  const { data: existingPlaces, error } = await client
+    .from("places")
+    .select("id, source_id, name")
+    .eq("city_id", cityId)
+    .eq("source", source)
+    .eq("status", "active");
+
+  if (error || !existingPlaces || existingPlaces.length === 0) {
+    return { inactivated: 0, safetyGuardTripped: false };
+  }
+
+  const unseen = existingPlaces.filter((p) => !seenSourceIds.has(p.source_id));
+  if (unseen.length === 0) {
+    console.log(`  All ${existingPlaces.length} existing places were seen in fetch.`);
+    return { inactivated: 0, safetyGuardTripped: false };
+  }
+
+  // Safety guard: if we scraped far fewer places than exist, something may
+  // have gone wrong (proxy blocked, partial failure). Skip inactivation.
+  if (safetyRatio > 0) {
+    const scrapedRatio = seenSourceIds.size / existingPlaces.length;
+    if (scrapedRatio < safetyRatio) {
+      console.log(
+        `\n  SAFETY GUARD: only scraped ${seenSourceIds.size} of ${existingPlaces.length} existing places (${Math.round(scrapedRatio * 100)}%).`
+      );
+      console.log(`  Skipping inactivation to protect existing data.`);
+      return { inactivated: 0, safetyGuardTripped: true };
+    }
+  }
+
+  console.log(`  Found ${unseen.length} places not in fetch results:`);
+  for (const p of unseen.slice(0, 5)) {
+    console.log(`    - ${p.name?.slice(0, 60)}`);
+  }
+  if (unseen.length > 5) {
+    console.log(`    ... and ${unseen.length - 5} more`);
+  }
+
+  // Batch update all unseen places in one query instead of one-by-one
+  const unseenIds = unseen.map((p) => p.id);
+  const { error: updateErr } = await client
+    .from("places")
+    .update({ status: "inactive", updated_at: new Date().toISOString() })
+    .in("id", unseenIds);
+
+  const count = updateErr ? 0 : unseen.length;
+
+  console.log(`  Marked ${count} places as inactive.`);
+  return { inactivated: count, safetyGuardTripped: false };
 }

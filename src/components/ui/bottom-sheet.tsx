@@ -20,7 +20,7 @@ interface BottomSheetProps {
   // Whether to show backdrop overlay (default: true)
   showBackdrop?: boolean;
   // Snap point as percentage of viewport height (default: 65 for partial, 95 for full)
-  snapPoint?: "partial" | "full";
+  snapPoint?: "partial" | "full" | "auto";
   // Whether to show the default close button (default: true)
   showCloseButton?: boolean;
   // Extra buttons to render next to close button (e.g., hide button)
@@ -145,7 +145,7 @@ export function BottomSheet({
 
   // Sheet height class — uses dvh (dynamic viewport height) with vh fallback.
   // dvh accounts for iOS Safari browser chrome so the sheet always fits the visible area.
-  const sheetHeightClass = snapPoint === "full" ? "sheet-height-full" : "sheet-height-partial";
+  const sheetHeightClass = snapPoint === "full" ? "sheet-height-full" : snapPoint === "auto" ? "sheet-height-auto" : "sheet-height-partial";
 
   // In landscape, use side sheet from left
   const isLandscapeMode = isMobileLandscape;
@@ -173,10 +173,10 @@ export function BottomSheet({
       <div
         ref={sheetRef}
         className={cn(
-          "relative z-10 flex flex-col bg-white rounded-t-2xl shadow-2xl",
+          "relative z-10 flex flex-col bg-white rounded-t-3xl shadow-2xl",
           "transition-transform duration-200 ease-out",
           isLandscapeMode
-            ? "rounded-t-none rounded-r-2xl h-full w-[80vw] max-w-md"
+            ? "rounded-t-none rounded-r-3xl h-full w-[80vw] max-w-md"
             : "w-full",
           !isLandscapeMode && sheetHeightClass,
           isDragging && "transition-none",
@@ -217,7 +217,7 @@ export function BottomSheet({
             React's onTouchStart/onTouchMove register as non-passive listeners,
             which blocks native scroll on the entire parent element. */}
         <div
-          className="absolute left-0 right-0 flex justify-center pb-2 z-40 rounded-t-2xl"
+          className="absolute left-0 right-0 flex justify-center pb-2 z-40 rounded-t-3xl"
           style={{
             paddingTop: "calc(12px + env(safe-area-inset-top, 0px))",
             background: "linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 70%, transparent 100%)"
@@ -229,10 +229,13 @@ export function BottomSheet({
           <div className="w-10 h-1 bg-zinc-400 rounded-full shadow-sm" />
         </div>
 
-        {/* Scrollable content — absolute for explicit height (iOS Safari can't compute
-            scroll regions from nested flex). All siblings are absolute too. */}
+        {/* Scrollable content — full sheets use absolute for explicit height,
+            partial sheets use flex so the sheet can shrink to fit content. */}
         <div
-          className="absolute inset-0 overflow-y-auto touch-pan-y overscroll-contain rounded-t-2xl"
+          className={cn(
+            "overflow-y-auto touch-pan-y overscroll-contain rounded-t-3xl",
+            (snapPoint === "full" || isLandscapeMode) ? "absolute inset-0" : "flex-1 min-h-0"
+          )}
           style={{
             paddingTop: "calc(40px + env(safe-area-inset-top, 0px))",
             WebkitOverflowScrolling: 'touch',
