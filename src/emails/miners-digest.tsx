@@ -50,7 +50,7 @@ function ListingRow({ listing }: { listing: Listing }) {
   const hasReason = listing.reason != null && listing.reason.length > 0;
 
   return (
-    <Row className="listing-row" style={{ paddingTop: "20px", paddingBottom: "8px" }}>
+    <Row className="listing-row" style={{ paddingTop: "30px", paddingBottom: "12px" }}>
       <Column className="listing-photo-col" style={{ width: "96px", verticalAlign: "top" }}>
         <Img
           className="listing-photo"
@@ -358,9 +358,6 @@ const reasonCallout: React.CSSProperties = {
   fontSize: "12px",
   lineHeight: "16px",
   color: "#15803d",
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
 };
 
 const listingListedAgo: React.CSSProperties = {
