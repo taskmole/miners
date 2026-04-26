@@ -1004,7 +1004,6 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
 });
 
 // Regular Cafe popup content (non-EU Coffee Trip) - Uses universal popup base - memoized
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }: { cafe: CafeData; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(cafe.name, cafe.googleMapsUrl, cafe.lat, cafe.lon, cafe.address);
     const commentCount = 0; // TODO: Get from data when available
