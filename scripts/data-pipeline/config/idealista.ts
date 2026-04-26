@@ -14,24 +14,26 @@ export interface IdealistaFilters {
   propertyType: string;       // "locales" = commercial premises
   streetLevel: boolean;       // "en-planta-calle"
   rentalOnly: boolean;        // "alquiler-solo-inmueble"
-  useType: string | null;     // "restauracion", "oficinas", etc. (null = any)
+  useTypes: string[];         // "restauracion", "tienda", etc. (empty = any)
 }
 
+const DEFAULT_FILTERS: IdealistaFilters = {
+  maxSqm: 500,
+  propertyType: "locales",
+  streetLevel: true,
+  rentalOnly: true,
+  useTypes: [
+    "locales-fiesta",
+    "restauracion",
+    "comercio-alimentacion",
+    "tienda",
+    "estetica-belleza",
+  ],
+};
+
 export const CITY_FILTERS: Record<string, IdealistaFilters> = {
-  madrid: {
-    maxSqm: 500,
-    propertyType: "locales",
-    streetLevel: true,
-    rentalOnly: true,
-    useType: "restauracion",
-  },
-  barcelona: {
-    maxSqm: 500,
-    propertyType: "locales",
-    streetLevel: true,
-    rentalOnly: true,
-    useType: "restauracion",
-  },
+  madrid: DEFAULT_FILTERS,
+  barcelona: DEFAULT_FILTERS,
 };
 
 // ---------------------------------------------------------------------------
@@ -44,7 +46,7 @@ function buildFilterSegment(filters: IdealistaFilters): string {
   parts.push(filters.propertyType);
   if (filters.streetLevel) parts.push("en-planta-calle");
   if (filters.rentalOnly) parts.push("alquiler-solo-inmueble");
-  if (filters.useType) parts.push(filters.useType);
+  if (filters.useTypes.length > 0) parts.push(...filters.useTypes);
   return parts.join(",");
 }
 
@@ -107,6 +109,17 @@ export function isValidCoordinate(
     lon > range.lon.min &&
     lon < range.lon.max
   );
+}
+
+// ---------------------------------------------------------------------------
+// Listing ID extraction (from Idealista detail page URL)
+// ---------------------------------------------------------------------------
+
+const LISTING_ID_REGEX = /\/inmueble\/(\d+)\/?/;
+
+export function extractListingId(url: string): string | null {
+  const match = url.match(LISTING_ID_REGEX);
+  return match ? match[1] : null;
 }
 
 // ---------------------------------------------------------------------------

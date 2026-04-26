@@ -24,6 +24,9 @@ interface MinersDigestProps {
 const LOGO_URL =
   "https://raw.githubusercontent.com/taskmole/miners/main/public/assets/miners-logo-cropped.png";
 
+const LOGO_WHITE_URL =
+  "https://raw.githubusercontent.com/taskmole/miners/main/public/assets/miners-logo-cropped-white.png";
+
 const ARROW_URL =
   "https://raw.githubusercontent.com/taskmole/miners/main/public/assets/arrow-right-white.png";
 
@@ -64,7 +67,7 @@ function ListingRow({ listing }: { listing: Listing }) {
         />
       </Column>
       <Column className="listing-text-col" style={{ verticalAlign: "top", paddingLeft: "12px" }}>
-        <div style={listingTitle}>
+        <div className="listing-title" style={listingTitle}>
           {hasScore && (
             <span
               className="mobile-score"
@@ -86,19 +89,19 @@ function ListingRow({ listing }: { listing: Listing }) {
           )}
           {listing.address}
         </div>
-        <div style={listingMeta}>
+        <div className="listing-meta" style={listingMeta}>
           {listing.district} · {listing.sizeSqm}m² ·{" "}
           €{listing.monthlyRent.toLocaleString("en-US")}/mo
         </div>
         {hasReason && (
           <div style={{ marginTop: "4px" }}>
-            <div style={reasonCallout}>
+            <div className="listing-callout" style={reasonCallout}>
               <span style={{ fontWeight: 700 }}>Why: </span>
               {listing.reason}
             </div>
           </div>
         )}
-        <div style={listingListedAgo}>
+        <div className="listing-ago" style={listingListedAgo}>
           {listedAgoLabel(listing.listedDaysAgo)}
         </div>
       </Column>
@@ -139,6 +142,7 @@ export default function MinersDigest({
   const MAX_SHOWN = 5;
   const displayListings = listings.slice(0, MAX_SHOWN);
   const topCount = listings.length;
+  const cityName = city.charAt(0).toUpperCase() + city.slice(1);
 
   return (
     <Html lang="en">
@@ -174,6 +178,33 @@ export default function MinersDigest({
             .mobile-score {
               display: inline-block !important;
             }
+            .listing-title {
+              font-size: 22px !important;
+              line-height: 28px !important;
+              white-space: normal !important;
+            }
+            .listing-meta {
+              font-size: 17px !important;
+              line-height: 22px !important;
+              margin-top: 4px !important;
+              white-space: normal !important;
+            }
+            .listing-callout {
+              font-size: 16px !important;
+              line-height: 22px !important;
+              white-space: normal !important;
+            }
+            .listing-ago {
+              font-size: 15px !important;
+              line-height: 20px !important;
+            }
+            .mobile-score {
+              font-size: 14px !important;
+            }
+          }
+          @media (prefers-color-scheme: dark) {
+            .logo-dark { display: none !important; }
+            .logo-light { display: block !important; }
           }
         `}} />
         <Font
@@ -188,22 +219,30 @@ export default function MinersDigest({
         />
       </Head>
       <Preview>
-        {String(topCount)} new locations found in {city}
+        {String(topCount)} new locations found in {cityName}
       </Preview>
       <Body style={body}>
         <Container style={container}>
           <Section style={logoSection}>
             <Img
+              className="logo-dark"
               src={LOGO_URL}
               alt="THEMINERS"
               height={70}
               style={{ display: "block", margin: "0 auto" }}
             />
+            <Img
+              className="logo-light"
+              src={LOGO_WHITE_URL}
+              alt="THEMINERS"
+              height={70}
+              style={{ display: "none", margin: "0 auto" }}
+            />
           </Section>
 
           <Section style={contentSection}>
             <Text style={heading}>
-              {String(topCount)} new locations found in {city}
+              {String(topCount)} new locations found in {cityName}
             </Text>
           </Section>
 
@@ -236,8 +275,8 @@ export default function MinersDigest({
             </Text>
             <Text style={footerDesc}>
               Got feedback? Email{" "}
-              <Link href="mailto:matus.husar@miners.eu" style={footerLink}>
-                matus.husar@miners.eu
+              <Link href="mailto:matus.husar@theminers.eu" style={footerLink}>
+                matus.husar@theminers.eu
               </Link>
             </Text>
           </Section>
@@ -270,12 +309,13 @@ const contentSection: React.CSSProperties = {
 };
 
 const heading: React.CSSProperties = {
-  fontSize: "24px",
+  fontSize: "28px",
   fontWeight: 700,
   color: "#18181b",
   lineHeight: "1.3",
   margin: "32px 0 0",
   letterSpacing: "-0.02em",
+  textAlign: "center",
 };
 
 const sectionLabel: React.CSSProperties = {
@@ -374,38 +414,3 @@ const footerDesc: React.CSSProperties = {
   lineHeight: "1.5",
 };
 
-const sampleListings: Listing[] = [
-  {
-    address: "Calle de la Palma 42",
-    district: "Malasaña",
-    sizeSqm: 140,
-    monthlyRent: 4300,
-    score: 87,
-    photoUrl:
-      "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=600&h=600&fit=crop&q=80",
-    reason: "High foot traffic near major metro hub.",
-    listedDaysAgo: 2,
-  },
-  {
-    address: "Calle de Atocha 112",
-    district: "Huertas",
-    sizeSqm: 120,
-    monthlyRent: 3200,
-    score: 84,
-    photoUrl:
-      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&h=600&fit=crop&q=80",
-    reason: "Tourist-heavy, two competitors closed.",
-    listedDaysAgo: 5,
-  },
-  {
-    address: "Calle del Almirante 18",
-    district: "Chueca",
-    sizeSqm: 95,
-    monthlyRent: 3300,
-    score: 81,
-    photoUrl:
-      "https://images.unsplash.com/photo-1567521464027-f127ff144326?w=600&h=600&fit=crop&q=80",
-    reason: "High-spending locals, low competition.",
-    listedDaysAgo: 1,
-  },
-];

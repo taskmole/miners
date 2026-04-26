@@ -1,3 +1,5 @@
+import { createClient } from "@supabase/supabase-js";
+
 export interface Listing {
   address: string;
   district: string;
@@ -15,15 +17,59 @@ export interface DigestRecipient {
   cities: string[];
 }
 
-// Swap this for a Supabase query on user_profiles where receives_listing_emails = true
-export async function getSubscribedUsers(): Promise<DigestRecipient[]> {
-  return [
-    { email: "founders@taskmole.co", cities: ["Madrid"] },
-  ];
+function getSupabase() {
+  return createClient(
+    process.env.SUPABASE_PROD_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
 }
 
-// Sample listings for email preview and stub queries.
-// Used by the email template as default prop values.
+export async function getSubscribedUsers(): Promise<DigestRecipient[]> {
+  return [{ email: "founders@taskmole.co", cities: ["madrid"] }];
+}
+
+export async function getNewListingsForCity(
+  city: string,
+): Promise<Listing[]> {
+  const cutoff = new Date();
+  cutoff.setHours(cutoff.getHours() - 84);
+
+  const { data, error } = await getSupabase()
+    .from("places")
+    .select("address, metadata, photos, score, created_at")
+    .eq("source", "idealista")
+    .eq("city_id", city)
+    .gte("created_at", cutoff.toISOString())
+    .order("score", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (error || !data) return [];
+
+  const now = new Date();
+
+  return data
+    .filter((row) => row.photos && row.photos.length > 0)
+    .map((row) => {
+      const meta = (row.metadata as Record<string, unknown>) ?? {};
+      const createdAt = new Date(row.created_at);
+      const daysAgo = Math.floor(
+        (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
+      return {
+        address: row.address ?? "Unknown address",
+        district: (meta.district as string) ?? "",
+        sizeSqm: (meta.size as number) ?? 0,
+        monthlyRent: (meta.price as number) ?? 0,
+        score: row.score != null ? Number(row.score) : undefined,
+        photoUrl: row.photos[0],
+        listingUrl: (meta.url as string) ?? undefined,
+        listedDaysAgo: daysAgo,
+      };
+    });
+}
+
 export const SAMPLE_LISTINGS: Listing[] = [
   {
     address: "Calle de la Palma 42",
@@ -31,7 +77,8 @@ export const SAMPLE_LISTINGS: Listing[] = [
     sizeSqm: 140,
     monthlyRent: 4300,
     score: 87,
-    photoUrl: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=600&h=600&fit=crop&q=80",
+    photoUrl:
+      "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=600&h=600&fit=crop&q=80",
     reason: "High foot traffic near major metro hub.",
     listedDaysAgo: 2,
   },
@@ -41,7 +88,8 @@ export const SAMPLE_LISTINGS: Listing[] = [
     sizeSqm: 120,
     monthlyRent: 3200,
     score: 84,
-    photoUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&h=600&fit=crop&q=80",
+    photoUrl:
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&h=600&fit=crop&q=80",
     reason: "Tourist-heavy, two competitors closed.",
     listedDaysAgo: 5,
   },
@@ -51,13 +99,9 @@ export const SAMPLE_LISTINGS: Listing[] = [
     sizeSqm: 95,
     monthlyRent: 3300,
     score: 81,
-    photoUrl: "https://images.unsplash.com/photo-1567521464027-f127ff144326?w=600&h=600&fit=crop&q=80",
+    photoUrl:
+      "https://images.unsplash.com/photo-1567521464027-f127ff144326?w=600&h=600&fit=crop&q=80",
     reason: "High-spending locals, low competition.",
     listedDaysAgo: 1,
   },
 ];
-
-// Swap this for a Supabase query on the scraped properties table
-export async function getNewListingsForCity(city: string): Promise<Listing[]> {
-  return SAMPLE_LISTINGS;
-}
