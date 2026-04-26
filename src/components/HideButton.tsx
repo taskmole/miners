@@ -33,7 +33,7 @@ export function HideButton({ placeId, className, style }: HideButtonProps) {
       onClick={handleClick}
       className={cn(
         "flex items-center justify-center",
-        !hidden && "text-zinc-500",
+        !hidden && "text-zinc-600",
         hidden && "text-rose-500",
         className
       )}

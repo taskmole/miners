@@ -2490,11 +2490,13 @@ export function EnhancedMapContainer({
                                 >
                                     <MarkerContent>
                                         <IconMarker color="bg-[#78C500]" icon={Home} isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
+                                        {/* Score chip hidden for now
                                         {typeof property.score === "number" && !hidden && (
                                             <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 pointer-events-none">
                                                 <ScoreBadge score={property.score} />
                                             </div>
                                         )}
+                                        */}
                                     </MarkerContent>
                                     {!isLinkingMode && !hasMultiplePois && !isMobile && (
                                         <MarkerPopup onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
