@@ -10,8 +10,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-digest-secret");
   if (secret !== process.env.DIGEST_SECRET) {
@@ -19,6 +17,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
     const users = await getSubscribedUsers();
     const results: { email: string; city: string; status: string }[] = [];
 
