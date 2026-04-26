@@ -1,0 +1,136 @@
+/**
+ * Idealista Scraper Configuration
+ *
+ * Per-city search filters, proxy settings, and extraction patterns.
+ * To change what the scraper fetches, edit the filter config here.
+ */
+
+// ---------------------------------------------------------------------------
+// Per-city search filters
+// ---------------------------------------------------------------------------
+
+export interface IdealistaFilters {
+  maxSqm: number;
+  propertyType: string;       // "locales" = commercial premises
+  streetLevel: boolean;       // "en-planta-calle"
+  rentalOnly: boolean;        // "alquiler-solo-inmueble"
+  useType: string | null;     // "restauracion", "oficinas", etc. (null = any)
+}
+
+export const CITY_FILTERS: Record<string, IdealistaFilters> = {
+  madrid: {
+    maxSqm: 500,
+    propertyType: "locales",
+    streetLevel: true,
+    rentalOnly: true,
+    useType: "restauracion",
+  },
+  barcelona: {
+    maxSqm: 500,
+    propertyType: "locales",
+    streetLevel: true,
+    rentalOnly: true,
+    useType: "restauracion",
+  },
+};
+
+// ---------------------------------------------------------------------------
+// URL builder
+// ---------------------------------------------------------------------------
+
+function buildFilterSegment(filters: IdealistaFilters): string {
+  const parts: string[] = [];
+  parts.push(`con-metros-cuadrados-menos-de_${filters.maxSqm}`);
+  parts.push(filters.propertyType);
+  if (filters.streetLevel) parts.push("en-planta-calle");
+  if (filters.rentalOnly) parts.push("alquiler-solo-inmueble");
+  if (filters.useType) parts.push(filters.useType);
+  return parts.join(",");
+}
+
+/**
+ * Build the Idealista search URL for a given city area and page.
+ * Example output:
+ *   https://www.idealista.com/en/alquiler-locales/madrid-madrid/con-metros-cuadrados-menos-de_500,...
+ */
+export function buildSearchUrl(
+  cityArea: string,
+  page: number,
+  filters: IdealistaFilters
+): string {
+  const base = `https://www.idealista.com/en/alquiler-locales/${cityArea}-${cityArea}/${buildFilterSegment(filters)}`;
+  if (page <= 1) return base + "/";
+  return `${base}/pagina-${page}.htm`;
+}
+
+/**
+ * Get filters for a city, falling back to Madrid defaults.
+ */
+export function getFiltersForCity(cityId: string): IdealistaFilters {
+  return CITY_FILTERS[cityId] ?? CITY_FILTERS.madrid;
+}
+
+// ---------------------------------------------------------------------------
+// Proxy configuration
+// ---------------------------------------------------------------------------
+
+export const PROXY_CONFIG = {
+  url: "https://magic.xhr.dev",
+  searchTimeoutMs: 30_000,
+  detailTimeoutMs: 60_000,
+  maxRetries: 3,
+  backoffMs: [2_000, 4_000, 8_000],
+  delayBetweenDetailPagesMs: 1_500,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Coordinate validation (Spain / Portugal / Iberian peninsula)
+// ---------------------------------------------------------------------------
+
+export interface CoordRange {
+  lat: { min: number; max: number };
+  lon: { min: number; max: number };
+}
+
+export const COORD_RANGES: Record<string, CoordRange> = {
+  spain: { lat: { min: 35, max: 44 }, lon: { min: -10, max: 5 } },
+};
+
+export function isValidCoordinate(
+  lat: number,
+  lon: number,
+  range: CoordRange = COORD_RANGES.spain
+): boolean {
+  return (
+    lat > range.lat.min &&
+    lat < range.lat.max &&
+    lon > range.lon.min &&
+    lon < range.lon.max
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Gallery photo extraction
+// ---------------------------------------------------------------------------
+
+const GALLERY_REGEX =
+  /https:\/\/img[0-9]*\.idealista\.com\/blur\/WEB_DETAIL\/0\/[^\s"'<>]+\.jpg/g;
+
+const IMAGE_ID_REGEX = /\/(\d+)\.jpg/;
+
+/**
+ * Extract all unique gallery photo URLs from a detail page's HTML.
+ * Returns de-duplicated WEB_DETAIL quality JPGs.
+ */
+export function extractGalleryPhotos(html: string): string[] {
+  const matches = html.match(GALLERY_REGEX) ?? [];
+  const seen = new Map<string, string>();
+  for (const url of matches) {
+    const idMatch = url.match(IMAGE_ID_REGEX);
+    if (idMatch) {
+      const imgId = idMatch[1];
+      if (!seen.has(imgId)) seen.set(imgId, url);
+    }
+  }
+  return Array.from(seen.values());
+}

@@ -79,7 +79,7 @@ export function CreateTripButton({ property, cityId, variant = 'default', onClos
       variant="outline"
       size="lg"
       onClick={handleClick}
-      className="md:h-8 md:text-sm px-3"
+      className="md:h-10 md:text-sm px-3"
     >
       <Route className="h-3.5 w-3.5" />
       <span>Create trip</span>
