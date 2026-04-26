@@ -1,0 +1,19 @@
+name: Send Property Digest
+
+on:
+  # Runs Monday and Thursday at 8:00 AM UTC
+  schedule:
+    - cron: "0 8 * * 1,4"
+  # Manual trigger from GitHub Actions UI
+  workflow_dispatch:
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger digest email
+        run: |
+          curl -X POST "${{ secrets.APP_URL }}/api/send-digest" \
+            -H "x-digest-secret: ${{ secrets.DIGEST_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --fail --silent --show-error

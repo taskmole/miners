@@ -37,6 +37,7 @@ import {
   buildSearchUrl,
   getFiltersForCity,
   extractGalleryPhotos,
+  extractListingId,
   isValidCoordinate,
   PROXY_CONFIG,
 } from "./config/idealista";
@@ -61,19 +62,6 @@ interface IdealistaListing {
   hasStorefront: boolean | null;
   datePosted: string | null;
   photos: string[];
-}
-
-interface DbPlace {
-  city_id: string;
-  category_id: string;
-  source: string;
-  source_id: string;
-  name: string;
-  address: string;
-  location: string;
-  metadata: Record<string, unknown>;
-  photos: string[];
-  status: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -411,11 +399,11 @@ async function enrichWithDetailPage(
 }
 
 // ---------------------------------------------------------------------------
-// Source ID generation (coordinate-based dedup)
+// Source ID generation
 // ---------------------------------------------------------------------------
 
-function generateSourceId(lat: number, lon: number): string {
-  return `${lat.toFixed(5)}-${lon.toFixed(5)}`;
+function generateSourceId(url: string): string | null {
+  return extractListingId(url);
 }
 
 // ---------------------------------------------------------------------------
@@ -492,7 +480,7 @@ async function publishListings(
 
   console.log(`\nPublishing ${listings.length} listings to ${envName}...`);
 
-  // Pre-validate listings and compute source IDs
+  // Pre-validate listings and extract Idealista IDs
   const validListings: { listing: IdealistaListing; sourceId: string }[] = [];
   for (const listing of listings) {
     if (!listing.latitude || !listing.longitude) continue;
@@ -500,10 +488,12 @@ async function publishListings(
       skippedValidation++;
       continue;
     }
-    validListings.push({
-      listing,
-      sourceId: generateSourceId(listing.latitude, listing.longitude),
-    });
+    const sourceId = generateSourceId(listing.url);
+    if (!sourceId) {
+      skippedValidation++;
+      continue;
+    }
+    validListings.push({ listing, sourceId });
   }
 
   // Batch fetch all existing records in one query (replaces N individual SELECTs)
@@ -609,7 +599,6 @@ async function publishListings(
 }
 
 // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 // Email report
 // ---------------------------------------------------------------------------
 
@@ -632,36 +621,73 @@ async function sendScraperReport(report: ScraperReport): Promise<void> {
     return;
   }
 
-  const isAlert = report.safetyGuardTripped || report.errors > 5 || report.totalScraped === 0;
-  const prefix = isAlert ? "ALERT" : "OK";
+  const hasProblems = report.safetyGuardTripped || report.errors > 5 || report.totalScraped === 0;
 
-  const subject = `Scraper ${prefix}: ${report.city} - ${report.totalScraped} listings (${report.inserted} new, ${report.priceChanges} price changes)`;
+  const subject = hasProblems
+    ? `Scraper needs attention: ${report.city}`
+    : `Scraper ran successfully: ${report.city} (${report.inserted} new, ${report.priceChanges} price changes)`;
 
-  const lines = [
-    `Idealista Scraper Report - ${report.city}`,
-    `${"=".repeat(45)}`,
-    ``,
-    `Total scraped:      ${report.totalScraped}`,
-    `  New listings:     ${report.inserted}`,
-    `  Updated:          ${report.updated}`,
-    `  Price changes:    ${report.priceChanges}`,
-    `  Errors:           ${report.errors}`,
-    `  Failed validation:${report.skippedValidation}`,
-    `  Inactivated:      ${report.inactivated}`,
-    ``,
-  ];
+  const lines: string[] = [];
 
-  if (report.safetyGuardTripped) {
-    lines.push(`WARNING: Safety guard tripped. Scraped far fewer listings`);
-    lines.push(`than expected. Inactivation was skipped to protect data.`);
-    lines.push(``);
+  // Summary
+  if (hasProblems) {
+    lines.push(`Something went wrong with today's ${report.city} scrape. Details below.`);
+  } else {
+    lines.push(`The ${report.city} scraper ran and everything looks good.`);
   }
+  lines.push(``);
+
+  // What happened
+  lines.push(`WHAT HAPPENED`);
+  lines.push(`--------------`);
+  lines.push(`Scraped ${report.totalScraped} listings from Idealista.`);
+  if (report.inserted > 0) {
+    lines.push(`  ${report.inserted} are brand new (never seen before).`);
+  }
+  if (report.updated > 0) {
+    lines.push(`  ${report.updated} were already in the database and got refreshed.`);
+  }
+  if (report.priceChanges > 0) {
+    lines.push(`  ${report.priceChanges} had a price change since last scrape.`);
+  }
+  if (report.inactivated > 0) {
+    lines.push(`  ${report.inactivated} listings disappeared from Idealista and were hidden from the map.`);
+  }
+  lines.push(``);
+
+  // Safeguards
+  lines.push(`SAFEGUARD CHECKS`);
+  lines.push(`-----------------`);
 
   if (report.totalScraped === 0) {
-    lines.push(`WARNING: Zero listings scraped. The proxy may be blocked`);
-    lines.push(`or Idealista changed their HTML structure.`);
-    lines.push(``);
+    lines.push(`PROBLEM: Zero listings scraped. The proxy might be blocked, or Idealista changed their website. Nothing was written to the database.`);
+  } else {
+    lines.push(`Scraping: ${report.totalScraped} listings found. Looks normal.`);
   }
+
+  if (report.safetyGuardTripped) {
+    lines.push(`PROBLEM: Way fewer listings than expected. To be safe, no listings were marked inactive. This usually means the proxy got partially blocked. Your existing data is untouched.`);
+  } else if (report.totalScraped > 0) {
+    lines.push(`Data protection: Scraped count looks healthy compared to existing data. Safe to mark missing listings as inactive.`);
+  }
+
+  if (report.errors > 5) {
+    lines.push(`PROBLEM: ${report.errors} listings failed to save. Some individual pages may have errored out.`);
+  } else if (report.errors > 0) {
+    lines.push(`Minor errors: ${report.errors} listings failed to save. This is normal in small numbers.`);
+  } else {
+    lines.push(`Errors: None. Every listing saved successfully.`);
+  }
+
+  if (report.skippedValidation > 0) {
+    const pct = Math.round((report.skippedValidation / Math.max(report.totalScraped, 1)) * 100);
+    lines.push(`Validation: ${report.skippedValidation} listings (${pct}%) were missing a price or coordinates and were skipped.${pct > 20 ? " That's high. Idealista may have changed their page layout." : ""}`);
+  } else {
+    lines.push(`Validation: All listings had valid data.`);
+  }
+
+  lines.push(``);
+  lines.push(`-- Miners Location Scout`);
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -812,11 +838,11 @@ async function main() {
   console.log(`\n  With coordinates: ${valid.length}`);
   if (noCoords > 0) console.log(`  Skipped (no coords): ${noCoords}`);
 
-  // Deduplicate within batch by source_id
+  // Deduplicate within batch by Idealista listing ID
   const deduped = new Map<string, IdealistaListing>();
   for (const listing of valid) {
-    const sid = generateSourceId(listing.latitude!, listing.longitude!);
-    if (!deduped.has(sid)) deduped.set(sid, listing);
+    const sid = generateSourceId(listing.url);
+    if (sid && !deduped.has(sid)) deduped.set(sid, listing);
   }
   if (deduped.size < valid.length) {
     console.log(`  Deduplicated: ${valid.length} -> ${deduped.size}`);
@@ -831,7 +857,10 @@ async function main() {
 
   // Determine which environment(s) to write to
   const writeToDevFirst = !HEADLESS && config.dev;
-  const writeToProd = HEADLESS || false;
+  const writeToProd = HEADLESS;
+
+  // Build seenIds once (used for marking unseen listings as inactive)
+  const seenIds = new Set(Array.from(deduped.keys()));
 
   if (writeToDevFirst) {
     const devClient = getDevClient();
@@ -844,7 +873,6 @@ async function main() {
     console.log(`    Price changes: ${devResult.priceChanges}`);
     console.log(`    Errors:        ${devResult.errors}`);
 
-    const seenIds = new Set(finalListings.map((l) => generateSourceId(l.latitude!, l.longitude!)));
     const { inactivated: devInactivated } = await markUnseenAsInactive(devClient, selectedCityId, SOURCES.IDEALISTA, seenIds, 0.5);
     if (devInactivated > 0) console.log(`    Inactivated:   ${devInactivated}`);
 
@@ -882,12 +910,11 @@ async function main() {
     console.log(`    Errors:        ${result.errors}`);
     if (result.skippedValidation > 0) console.log(`    Skipped (val): ${result.skippedValidation}`);
 
-    const seenIds = new Set(finalListings.map((l) => generateSourceId(l.latitude!, l.longitude!)));
     const { inactivated, safetyGuardTripped } = await markUnseenAsInactive(prodClient, selectedCityId, SOURCES.IDEALISTA, seenIds, 0.5);
     if (inactivated > 0) console.log(`    Inactivated:   ${inactivated}`);
 
     // Validation failure rate check
-    const validationFailRate = result.skippedValidation / finalListings.length;
+    const validationFailRate = finalListings.length > 0 ? result.skippedValidation / finalListings.length : 0;
     if (validationFailRate > 0.2) {
       console.error(`\n  ERROR: ${Math.round(validationFailRate * 100)}% of listings failed validation. HTML structure may have changed.`);
     }

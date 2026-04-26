@@ -21,17 +21,14 @@ npm run fetch:idealista -- --headless --city madrid
 
 ## How deduplication works
 
-Each listing gets a `source_id` based on its coordinates, rounded to 5 decimal places:
+Each listing gets a `source_id` from its Idealista listing ID (the number in the URL):
 
 ```
-source_id = "{lat.toFixed(5)}-{lon.toFixed(5)}"
+URL:       https://www.idealista.com/en/inmueble/107482935/
+source_id: "107482935"
 ```
 
-For example: `40.42345--3.70123`
-
-The database has a unique constraint on `(source, source_id)`. When a listing is scraped again at the same coordinates, it gets updated instead of duplicated.
-
-**Known edge case**: Two different listings in the same building could share coordinates and overwrite each other. This is rare for commercial premises.
+The database has a unique constraint on `(source, source_id)`. When a listing is scraped again, it gets updated instead of duplicated. The Idealista ID is unique per listing, so two units in the same building each get their own row.
 
 ## How gallery photos are extracted
 
