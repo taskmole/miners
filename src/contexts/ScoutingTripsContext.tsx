@@ -5,6 +5,7 @@ import type {
   ScoutingTrip,
   ScoutingTripsState,
   ScoutingTripStatus,
+  ScoutingTripType,
   LinkedItem,
   ScoutingPhoto,
   UploadedDocument,
@@ -16,10 +17,11 @@ import {
   SCOUTING_TRIPS_VERSION,
   generateTripId,
   createEmptyTrip,
+  createDefaultChecklist,
   migrateTrip,
 } from '@/types/scouting';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
+import { getAnonymousUserId, withSupabase, withRetry } from '@/lib/supabaseHelpers';
 import { getCurrentUserId } from '@/lib/browser-session';
 
 /**
@@ -49,32 +51,145 @@ function getInitialState(): ScoutingTripsState {
 }
 
 /**
- * Fetch trip metadata from Supabase
+ * Fetch ALL trip data from Supabase (matches every field syncCreateToSupabase writes).
+ * Uses withRetry for resilience against transient network errors.
  */
-async function fetchTripsFromSupabase(): Promise<Partial<ScoutingTrip>[]> {
+async function fetchTripsFromSupabase(): Promise<ScoutingTrip[]> {
   if (!isSupabaseConfigured() || !supabase) return [];
 
   const currentId = getCurrentUserId();
   const anonId = getAnonymousUserId();
 
-  const { data, error } = await supabase
-    .from('pitches')
-    .select('id, city_id, status, address, condition_notes, created_at')
-    .or(`created_by.eq.${currentId},created_by.eq.${anonId}`);
+  // Select every column that syncCreateToSupabase / syncUpdateToSupabase write.
+  const columns = [
+    'id',
+    'city_id',
+    'created_by',
+    'created_at',
+    'status',
+    'trip_name',
+    'author_name',
+    'address',
+    'condition_notes',
+    'trip_type',
+    // Location
+    'area_sqm',
+    'storage_sqm',
+    'property_type',
+    'footfall_estimate',
+    'neighbourhood_profile',
+    'nearby_competitors',
+    // Financial
+    'monthly_rent',
+    'service_fees',
+    'deposit',
+    'transfer_fee',
+    'fitout_cost',
+    'opening_investment',
+    'expected_daily_revenue',
+    'monthly_revenue_range',
+    'payback_months',
+    // Operational
+    'ventilation',
+    'water_waste',
+    'power_capacity',
+    'visibility',
+    'delivery_access',
+    'seating_capacity',
+    'outdoor_seating',
+    // Structured / JSONB
+    'property',
+    'related_places',
+    'uploaded_document',
+    'risks',
+    'checklist',
+    'attachment_paths',
+    // Review
+    'rejection_notes',
+    'reviewed_by',
+    'final_reviewed_at',
+    'submitted_at',
+  ].join(', ');
+
+  const { data, error } = await withRetry(
+    async () => {
+      const res = await supabase!
+        .from('pitches')
+        .select(columns)
+        .or(`created_by.eq.${currentId},created_by.eq.${anonId}`);
+      if (res.error) throw res.error;
+      return res;
+    },
+    'fetch trips from Supabase'
+  );
 
   if (error) {
     console.error('Error fetching pitches from Supabase:', error);
     return [];
   }
 
-  return data?.map((row) => ({
-    id: row.id,
-    cityId: row.city_id || 'madrid',
-    status: row.status as ScoutingTripStatus,
-    address: row.address || '',
-    notes: row.condition_notes || '',
-    createdAt: row.created_at,
-  })) || [];
+  // Map every Supabase snake_case column back to the camelCase ScoutingTrip shape.
+  return (data || []).map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    cityId: (row.city_id as string) || 'madrid',
+    createdBy: (row.created_by as string) || 'guest',
+    authorName: (row.author_name as string) || 'Guest',
+    tripType: ((row.trip_type as string) || 'form') as ScoutingTripType,
+    status: (row.status as ScoutingTripStatus) || 'draft',
+    name: (row.trip_name as string) || '',
+
+    // Structured JSONB fields
+    property: (row.property as LinkedItem | null) ?? null,
+    relatedPlaces: (row.related_places as LinkedItem[]) ?? [],
+    checklist: (row.checklist as ChecklistItem[]) ?? createDefaultChecklist(),
+    attachments: [] as Attachment[], // Attachments are stored by path, not inline
+    uploadedDocument: (row.uploaded_document as UploadedDocument | undefined) ?? undefined,
+
+    // Location
+    address: (row.address as string) || '',
+    areaSqm: (row.area_sqm as number) ?? undefined,
+    storageSqm: (row.storage_sqm as number) ?? undefined,
+    propertyType: (row.property_type as string) ?? undefined,
+    footfallEstimate: (row.footfall_estimate as number) ?? undefined,
+    neighbourhoodProfile: (row.neighbourhood_profile as string) ?? undefined,
+    nearbyCompetitors: (row.nearby_competitors as string) ?? undefined,
+
+    // Financial
+    monthlyRent: (row.monthly_rent as number) ?? undefined,
+    serviceFees: (row.service_fees as number) ?? undefined,
+    deposit: (row.deposit as number) ?? undefined,
+    transferFee: (row.transfer_fee as number) ?? undefined,
+    fitoutCost: (row.fitout_cost as number) ?? undefined,
+    openingInvestment: (row.opening_investment as number) ?? undefined,
+    expectedDailyRevenue: (row.expected_daily_revenue as number) ?? undefined,
+    monthlyRevenueRange: (row.monthly_revenue_range as string) ?? undefined,
+    paybackMonths: (row.payback_months as number) ?? undefined,
+
+    // Operational
+    ventilation: (row.ventilation as string) ?? undefined,
+    waterWaste: (row.water_waste as string) ?? undefined,
+    powerCapacity: (row.power_capacity as string) ?? undefined,
+    visibility: (row.visibility as string) ?? undefined,
+    deliveryAccess: (row.delivery_access as string) ?? undefined,
+    seatingCapacity: (row.seating_capacity as number) ?? undefined,
+    outdoorSeating: (row.outdoor_seating as boolean) ?? undefined,
+
+    // Other
+    risks: Array.isArray(row.risks) && (row.risks as string[]).length > 0
+      ? (row.risks as string[])[0]
+      : (row.risks as string) ?? undefined,
+    photos: [] as ScoutingPhoto[],
+
+    // Review / rejection
+    rejectionNotes: (row.rejection_notes as string) ?? undefined,
+    reviewedBy: (row.reviewed_by as string) ?? undefined,
+    reviewedAt: (row.final_reviewed_at as string) ?? undefined,
+    submittedAt: (row.submitted_at as string) ?? undefined,
+
+    // Timestamps
+    createdAt: (row.created_at as string) || new Date().toISOString(),
+    updatedAt: (row.created_at as string) || new Date().toISOString(),
+  } as ScoutingTrip));
 }
 
 /**
@@ -98,9 +213,15 @@ async function syncCreateToSupabase(trip: ScoutingTrip): Promise<void> {
 
       // Basic info
       trip_name: trip.name,
+      trip_type: trip.tripType || 'form',
       author_name: trip.authorName,
       address: trip.address || trip.property?.address,
       condition_notes: trip.notes,
+
+      // Structured JSONB fields
+      property: trip.property ?? null,
+      related_places: trip.relatedPlaces ?? [],
+      uploaded_document: trip.uploadedDocument ?? null,
 
       // Location fields
       area_sqm: trip.areaSqm,
@@ -156,9 +277,15 @@ async function syncUpdateToSupabase(trip: ScoutingTrip): Promise<void> {
 
         // Basic info
         trip_name: trip.name,
+        trip_type: trip.tripType || 'form',
         author_name: trip.authorName,
         address: trip.address || trip.property?.address,
         condition_notes: trip.notes,
+
+        // Structured JSONB fields
+        property: trip.property ?? null,
+        related_places: trip.relatedPlaces ?? [],
+        uploaded_document: trip.uploadedDocument ?? null,
 
         // Location fields
         area_sqm: trip.areaSqm,
@@ -268,71 +395,93 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
   const [isLoaded, setIsLoaded] = useState(false);
   const initialLoadDone = useRef(false);
 
-  // Load from Supabase + localStorage on mount
+  // Load from Supabase + localStorage on mount, with one-time migration
   useEffect(() => {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
 
     async function loadTrips() {
-      // Start with localStorage (has full data)
+      // --- One-time localStorage-to-Supabase migration ---
+      // If localStorage still has trips, push any that are missing from Supabase,
+      // verify the data arrived, THEN delete the localStorage key.
       const localState = getInitialState();
       const localTrips = localState.trips;
+      const hasLocalData = localTrips.length > 0;
 
-      // Fetch trip metadata from Supabase
+      if (hasLocalData && isSupabaseConfigured() && supabase) {
+        try {
+          // Fetch current Supabase trip IDs so we only push what is missing
+          const existingIds = await withSupabase(async () => {
+            const currentId = getCurrentUserId();
+            const anonId = getAnonymousUserId();
+            const { data } = await supabase!
+              .from('pitches')
+              .select('id')
+              .or(`created_by.eq.${currentId},created_by.eq.${anonId}`);
+            return new Set((data || []).map((r: { id: string }) => r.id));
+          }, new Set<string>(), 'migration: fetch existing IDs');
+
+          const tripsToMigrate = localTrips.filter(t => !existingIds.has(t.id));
+
+          if (tripsToMigrate.length > 0) {
+            // Push each missing trip to Supabase
+            for (const trip of tripsToMigrate) {
+              await syncCreateToSupabase(trip);
+            }
+
+            // Verify: re-fetch and confirm all migrated IDs are present
+            const verifyIds = await withSupabase(async () => {
+              const currentId = getCurrentUserId();
+              const anonId = getAnonymousUserId();
+              const { data } = await supabase!
+                .from('pitches')
+                .select('id')
+                .or(`created_by.eq.${currentId},created_by.eq.${anonId}`);
+              return new Set((data || []).map((r: { id: string }) => r.id));
+            }, new Set<string>(), 'migration: verify IDs');
+
+            const allMigrated = tripsToMigrate.every(t => verifyIds.has(t.id));
+
+            if (allMigrated) {
+              // Safe to remove localStorage now that Supabase has everything
+              localStorage.removeItem(SCOUTING_TRIPS_STORAGE_KEY);
+              console.info('[migration] localStorage trips migrated to Supabase and local key removed.');
+            } else {
+              // Keep localStorage, retry on next page load
+              console.warn('[migration] Verification failed. Keeping localStorage for next retry.');
+            }
+          } else {
+            // All local trips already exist in Supabase, safe to clean up
+            localStorage.removeItem(SCOUTING_TRIPS_STORAGE_KEY);
+            console.info('[migration] All local trips already in Supabase. Local key removed.');
+          }
+        } catch (error) {
+          // Migration failed, keep localStorage intact for next retry
+          console.warn('[migration] Error during migration. Keeping localStorage for retry:', error);
+        }
+      }
+
+      // --- Fetch full trip data from Supabase (the single source of truth) ---
       const supabaseTrips = await withSupabase(
         () => fetchTripsFromSupabase(),
-        [],
+        [] as ScoutingTrip[],
         'fetch trips'
       );
 
-      // Merge: localStorage has full data, Supabase has metadata
-      const localTripIds = new Set(localTrips.map(t => t.id));
-
-      // Trips that exist in Supabase but not localStorage (create stubs)
-      const supabaseOnlyTrips: ScoutingTrip[] = supabaseTrips
-        .filter(st => !localTripIds.has(st.id!))
-        .map(st => ({
-          ...createEmptyTrip(st.cityId || 'madrid', 'Guest'),
-          id: st.id!,
-          status: st.status || 'draft',
-          address: st.address || '',
-          notes: st.notes || '',
-          createdAt: st.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }));
-
-      const mergedTrips = [...localTrips, ...supabaseOnlyTrips];
+      // If Supabase returned data, use it. Otherwise fall back to localStorage.
+      const finalTrips = supabaseTrips.length > 0
+        ? supabaseTrips
+        : localTrips;
 
       setState({
         version: SCOUTING_TRIPS_VERSION,
-        trips: mergedTrips,
+        trips: finalTrips,
       });
       setIsLoaded(true);
-
-      // Save merged state back to localStorage
-      try {
-        localStorage.setItem(SCOUTING_TRIPS_STORAGE_KEY, JSON.stringify({
-          version: SCOUTING_TRIPS_VERSION,
-          trips: mergedTrips,
-        }));
-      } catch (error) {
-        console.error('Error saving merged trips to localStorage:', error);
-      }
     }
 
     loadTrips();
   }, []);
-
-  // Save to localStorage whenever state changes (after initial load)
-  useEffect(() => {
-    if (!isLoaded) return;
-
-    try {
-      localStorage.setItem(SCOUTING_TRIPS_STORAGE_KEY, JSON.stringify(state));
-    } catch (error) {
-      console.error('Error saving scouting trips to localStorage:', error);
-    }
-  }, [state, isLoaded]);
 
   // Get all trips for a city
   const getTrips = useCallback((cityId?: string): ScoutingTrip[] => {
