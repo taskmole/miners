@@ -143,6 +143,10 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function randomBetween(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 // ---------------------------------------------------------------------------
 // Search page scraper
 // ---------------------------------------------------------------------------
@@ -821,6 +825,15 @@ async function main() {
 
   const listings: IdealistaListing[] = [];
 
+  // Batch pause state
+  const batchSizes = PROXY_CONFIG.detailBatchSizes;
+  const batchPauses = PROXY_CONFIG.detailBatchPausesMs;
+  let batchCount = 0;
+  let nextBatchBoundary = batchSizes[0];
+
+  // Circuit breaker state
+  const recentResults: boolean[] = [];
+
   for (let i = 0; i < partialListings.length; i++) {
     const partial = partialListings[i];
     const shortTitle = (partial.title || "Unknown").slice(0, 55);
@@ -833,9 +846,33 @@ async function main() {
     const hasCoords = enriched.latitude && enriched.longitude;
     console.log(` ${hasCoords ? "OK" : "NO COORDS"} (${photoCount} photos)`);
 
-    // Rate limiting
+    // Circuit breaker: track recent success/failure
+    recentResults.push(!!hasCoords);
+    if (recentResults.length > 10) recentResults.shift();
+
+    if (recentResults.length >= 10) {
+      const failures = recentResults.filter((r) => !r).length;
+      if (failures >= PROXY_CONFIG.circuitBreakerThreshold) {
+        console.log(`\n  Circuit breaker: ${failures}/10 recent failures, pausing ${PROXY_CONFIG.circuitBreakerPauseMs / 1000}s for solver recovery...`);
+        await sleep(PROXY_CONFIG.circuitBreakerPauseMs);
+        recentResults.length = 0;
+      }
+    }
+
+    // Batch pause
+    if (i + 1 === nextBatchBoundary && i < partialListings.length - 1) {
+      const pauseRange = batchPauses[batchCount % batchPauses.length];
+      const pauseDuration = randomBetween(pauseRange[0], pauseRange[1]);
+      console.log(`\n  Batch pause: waiting ${Math.round(pauseDuration / 1000)}s for solver cooldown... (batch ${batchCount + 1})`);
+      await sleep(pauseDuration);
+      batchCount++;
+      nextBatchBoundary += batchSizes[batchCount % batchSizes.length];
+    }
+
+    // Rate limiting with jitter
     if (i < partialListings.length - 1) {
-      await sleep(PROXY_CONFIG.delayBetweenDetailPagesMs);
+      const delay = randomBetween(PROXY_CONFIG.delayBetweenDetailPagesMs, PROXY_CONFIG.delayBetweenDetailPagesMs + 500);
+      await sleep(delay);
     }
   }
 
