@@ -1049,6 +1049,48 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['activity_log_reads']['Insert']>;
       };
 
+      // ===========================================
+      // DRAWN FEATURES (map shapes backup)
+      // ===========================================
+
+      drawn_features: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          city_id: string | null;
+          geojson: Record<string, unknown> | null;  // Full GeoJSON Feature object
+          name: string | null;
+          color: string | null;
+          tags: string[] | null;
+          link: string | null;
+          category_id: string | null;
+          address: string | null;
+          address_coords: number[] | null;           // [lon, lat]
+          created_by: string | null;
+          attachments: Record<string, unknown>[] | null;  // Array of attachment objects
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;                                // MapboxDraw feature ID
+          user_id?: string | null;
+          city_id?: string | null;
+          geojson?: Record<string, unknown> | null;
+          name?: string | null;
+          color?: string | null;
+          tags?: string[] | null;
+          link?: string | null;
+          category_id?: string | null;
+          address?: string | null;
+          address_coords?: number[] | null;
+          created_by?: string | null;
+          attachments?: Record<string, unknown>[] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['drawn_features']['Insert']>;
+      };
+
     };
   };
 }
