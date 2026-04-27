@@ -79,12 +79,16 @@ export function getFiltersForCity(cityId: string): IdealistaFilters {
 export const PROXY_CONFIG = {
   url: "https://magic.xhr.dev",
   searchTimeoutMs: 30_000,
-  detailTimeoutMs: 60_000,
+  detailTimeoutMs: 30_000,
   maxRetries: 3,
   backoffMs: [2_000, 4_000, 8_000],
   maxSearchPages: 34,
   delayBetweenSearchPagesMs: 5_000,
   delayBetweenDetailPagesMs: 2_000,
+  detailBatchSizes: [40, 55, 45, 60] as readonly number[],
+  detailBatchPausesMs: [[38_000, 48_000], [78_000, 95_000]] as readonly (readonly number[])[],
+  circuitBreakerThreshold: 5,
+  circuitBreakerPauseMs: 120_000,
 } as const;
 
 // ---------------------------------------------------------------------------

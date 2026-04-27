@@ -25,6 +25,7 @@ import { WalkingRadiusProvider } from "@/contexts/WalkingRadiusContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
 import { supabase } from "@/lib/supabase";
 import { setAuthUserId } from "@/lib/browser-session";
+import { migrateAnonymousData } from "@/lib/supabaseHelpers";
 import type { User } from "@supabase/supabase-js";
 import type { ScoutingTrip, LinkedItem } from "@/types/scouting";
 import type { EuctFilter } from "@/types/filters";
@@ -63,20 +64,25 @@ function HomeContent() {
     }
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
+        // Re-tag anonymous data BEFORE setting auth ID (prevents race condition)
+        await migrateAnonymousData(session.user.id);
         setUser(session.user);
-        setAuthUserId(session.user.id); // Store user ID for sync access
-        setShowLanding(false); // Skip landing if already logged in
+        setAuthUserId(session.user.id);
+        setShowLanding(false);
       }
       setAuthChecked(true);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
+        if (session?.user) {
+          await migrateAnonymousData(session.user.id);
+        }
         setUser(session?.user ?? null);
-        setAuthUserId(session?.user?.id ?? null); // Update stored user ID
+        setAuthUserId(session?.user?.id ?? null);
         if (session?.user) {
           setShowLanding(false);
           setAuthError(null);

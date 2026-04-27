@@ -9,6 +9,7 @@ import {
 import type { ShapeMetadata } from '@/types/draw';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
+import { getCurrentUserId } from '@/lib/browser-session';
 
 // Storage key for shape metadata (to count points using a category)
 const METADATA_STORAGE_KEY = 'miners-shape-metadata';
@@ -69,13 +70,14 @@ function loadShapeMetadata(): Record<string, ShapeMetadata> {
 async function fetchFromSupabase(): Promise<PointCategory[]> {
   if (!isSupabaseConfigured() || !supabase) return [];
 
-  const userId = getAnonymousUserId();
+  const currentId = getCurrentUserId();
+  const anonId = getAnonymousUserId();
 
-  // Fetch both system categories and user's custom categories
+  // Fetch system categories + user's custom categories (both current and legacy anon ID)
   const { data, error } = await supabase
     .from('categories')
     .select('id, name, is_system, created_at')
-    .or(`is_system.eq.true,created_by.eq.${userId}`);
+    .or(`is_system.eq.true,created_by.eq.${currentId},created_by.eq.${anonId}`);
 
   if (error) {
     console.error('Error fetching categories from Supabase:', error);
@@ -96,7 +98,7 @@ async function fetchFromSupabase(): Promise<PointCategory[]> {
 async function syncCreateToSupabase(category: PointCategory): Promise<void> {
   if (!isSupabaseConfigured() || !supabase) return;
 
-  const userId = getAnonymousUserId();
+  const userId = getCurrentUserId();
 
   try {
     await supabase.from('categories').upsert({
