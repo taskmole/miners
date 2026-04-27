@@ -66,6 +66,8 @@ import {
     MessageSquare,
     Paperclip,
     Dumbbell,
+    TrendingDown,
+    TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCompactNumber } from "@/lib/format-numbers";
@@ -1113,6 +1115,18 @@ function capitalizeFirst(str: string): string {
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+function getPriceChange(property: PropertyData): { direction: "up" | "down"; percent: number } | null {
+    if (!property.priceHistory?.length || !property.price) return null;
+    const lastOldPrice = property.priceHistory[property.priceHistory.length - 1].price;
+    if (!lastOldPrice || lastOldPrice === property.price) return null;
+    const percent = Math.abs(((property.price - lastOldPrice) / lastOldPrice) * 100);
+    if (percent < 0.5) return null;
+    return {
+        direction: property.price > lastOldPrice ? "up" : "down",
+        percent: Math.min(percent, 99),
+    };
+}
+
 // Property popup content - Uses universal popup base - memoized
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address);
@@ -1123,6 +1137,8 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
     if (property.hasAirConditioning) features.push('A/C');
     if (property.hasBathroom) features.push('Bathroom');
     if (property.hasStorefront) features.push('Storefront');
+
+    const priceChange = getPriceChange(property);
 
     return (
         <div className="popup-base">
@@ -1145,27 +1161,34 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             {/* Address */}
             <div className="popup-address">{capitalizeFirst(property.address)}</div>
 
-            {/* Price card with optional transfer chip */}
+            {/* Price card with optional change badge and transfer chip */}
             <div className="popup-price-card">
-                <div>
+                <div className="popup-price-top-row">
                     <div className="popup-price-main">
-                        €{property.price.toLocaleString()}/month
+                        <span className="price-amount">€{property.price.toLocaleString()}</span>
+                        <span className="price-period">/month</span>
                     </div>
-                    <div className="popup-price-secondary">
-                        {property.priceByArea > 0 && (
-                            <span>€{property.priceByArea.toLocaleString()}/m²</span>
-                        )}
-                        {property.priceByArea > 0 && property.size > 0 && (
-                            <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#86efac', margin: '0 6px', verticalAlign: 'middle' }} />
-                        )}
-                        <span>{property.size} m²</span>
-                    </div>
+                    {priceChange && (
+                        <span className={`popup-price-change ${priceChange.direction}`}>
+                            {priceChange.direction === "down" ? <TrendingDown size={13} /> : <TrendingUp size={13} />}
+                            {priceChange.percent >= 99 ? ">99" : priceChange.percent.toFixed(1)}%
+                        </span>
+                    )}
+                    {property.transfer && (
+                        <span className="popup-transfer-chip">
+                            €{property.transfer >= 1000 ? `${Math.round(property.transfer / 1000)}k` : property.transfer} transfer
+                        </span>
+                    )}
                 </div>
-                {property.transfer && (
-                    <span className="popup-transfer-chip">
-                        €{property.transfer >= 1000 ? `${Math.round(property.transfer / 1000)}k` : property.transfer} transfer
-                    </span>
-                )}
+                <div className="popup-price-secondary">
+                    {property.priceByArea > 0 && (
+                        <span>€{property.priceByArea.toLocaleString()}/m²</span>
+                    )}
+                    {property.priceByArea > 0 && property.size > 0 && (
+                        <span className="separator" />
+                    )}
+                    <span>{property.size} m²</span>
+                </div>
             </div>
 
             {/* Feature pills */}

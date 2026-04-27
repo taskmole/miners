@@ -57,6 +57,7 @@ export interface PropertyData {
     // Undefined for cities without gravity data (e.g. Barcelona, Prague).
     score?: number;
     image_url?: string;
+    priceHistory?: { price: number; date: string }[];
 }
 
 export interface OtherPoiData {
@@ -299,6 +300,7 @@ export function useMapData(cityId?: string) {
                                 hasStorefront: meta.hasStorefront === true,
                                 score: getScoreAt(coords.lat, coords.lon, "madrid"),
                                 image_url: p.photos?.[0] || undefined,
+                                priceHistory: meta.price_history || undefined,
                             };
                         })
                         .filter(Boolean) as PropertyData[];
