@@ -20,6 +20,7 @@ import {
 } from '@/types/scouting';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
+import { getCurrentUserId } from '@/lib/browser-session';
 
 /**
  * Get initial state from localStorage with migration for old trips
@@ -53,12 +54,13 @@ function getInitialState(): ScoutingTripsState {
 async function fetchTripsFromSupabase(): Promise<Partial<ScoutingTrip>[]> {
   if (!isSupabaseConfigured() || !supabase) return [];
 
-  const userId = getAnonymousUserId();
+  const currentId = getCurrentUserId();
+  const anonId = getAnonymousUserId();
 
   const { data, error } = await supabase
     .from('pitches')
     .select('id, city_id, status, address, condition_notes, created_at')
-    .eq('created_by', userId);
+    .or(`created_by.eq.${currentId},created_by.eq.${anonId}`);
 
   if (error) {
     console.error('Error fetching pitches from Supabase:', error);
@@ -81,7 +83,7 @@ async function fetchTripsFromSupabase(): Promise<Partial<ScoutingTrip>[]> {
 async function syncCreateToSupabase(trip: ScoutingTrip): Promise<void> {
   if (!isSupabaseConfigured() || !supabase) return;
 
-  const userId = getAnonymousUserId();
+  const userId = getCurrentUserId();
 
   try {
     await supabase.from('pitches').upsert({

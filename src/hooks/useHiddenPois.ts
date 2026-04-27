@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
+import { getCurrentUserId } from '@/lib/browser-session';
 
 // localStorage key for hidden POIs
 const STORAGE_KEY = 'miners-hidden-pois';
@@ -42,7 +43,7 @@ function getInitialState(): HiddenPoisState {
 async function syncToSupabase(placeId: string, isHidden: boolean): Promise<void> {
   if (!isSupabaseConfigured() || !supabase) return;
 
-  const userId = getAnonymousUserId();
+  const userId = getCurrentUserId();
 
   try {
     if (isHidden) {
@@ -70,12 +71,13 @@ async function syncToSupabase(placeId: string, isHidden: boolean): Promise<void>
 async function fetchFromSupabase(): Promise<string[]> {
   if (!isSupabaseConfigured() || !supabase) return [];
 
-  const userId = getAnonymousUserId();
+  const currentId = getCurrentUserId();
+  const anonId = getAnonymousUserId();
 
   const { data, error } = await supabase
     .from('hidden_pois')
     .select('place_id')
-    .eq('user_id', userId);
+    .or(`user_id.eq.${currentId},user_id.eq.${anonId}`);
 
   if (error) {
     console.error('Error fetching hidden POIs from Supabase:', error);
