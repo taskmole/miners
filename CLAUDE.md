@@ -1,6 +1,12 @@
 # How I Work
 I'm not technical - I don't read or understand code.
 
+# Product Spec
+- The master product spec is `docs/product-spec-v1.md`. Read it before making any product decisions (features, scoring, pricing, scope, priorities).
+- When running `.ceo` or `/plan-ceo-review`, ALWAYS read `docs/product-spec-v1.md` first. Challenge ideas against the spec's goals, non-goals, and build sequence.
+- Companion technical docs (schema, migration, email, integration) live in `docs/`. The growth/sales playbook lives in `docs/miners-growth-sprint/`.
+- Archived docs (superseded by the product spec) live in `docs/archive/`.
+
 # Planning Rules
 - Plain English only, NO code snippets
 - Simple language, numbered steps
@@ -65,7 +71,7 @@ When the user types any of these, immediately execute the action - no questions 
   4. Check the Vercel deployment status and confirm the production build succeeded (or report any errors)
   If already on `main`, skip step 3 and just commit + push main directly.
 - **`.t`** → Deep testing. Run `/qa` (full QA with headless browser) and a parallel codebase audit (dead code, type safety, component complexity, CSS issues). Combine everything into one prioritized summary with a health score.
-- **`.ceo`** → Run `/plan-ceo-review` on the current plan. Challenge assumptions, push for a better product, ask if this is the best version of the idea.
+- **`.ceo`** → First read `docs/product-spec-v1.md` to ground yourself in the product goals, non-goals, and build sequence. Then run `/plan-ceo-review` on the current plan. Challenge assumptions against the spec, push for a better product, ask if this is the best version of the idea.
 - **`.ui`** → Activate the UI fix workflow: First read `docs/design-system.md` for the correct values. Then read ALL component + style files, trace the full style cascade, explain the root cause, then apply ONE targeted fix following the design system rules. Verify at mobile widths (375px, 390px, 428px). Run the checklist at the end of the design system doc. Run type check and lint.
 - **`.s`** → Run the code simplifier agent on recently modified code to make sure it's as efficient as it can be.
 - **`.sim`** → Re-explain the last thing you said in plain, simple English. Short sentences. No jargon. Like you're talking to a smart 15-year-old. Be concise - if it can be said in 3 sentences, don't use 10.

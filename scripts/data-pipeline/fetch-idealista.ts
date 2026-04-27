@@ -268,16 +268,18 @@ async function scrapeSearchPages(
 ): Promise<Partial<IdealistaListing>[]> {
   const filters = getFiltersForCity(cityId);
   const allListings: Partial<IdealistaListing>[] = [];
-  let page = 1;
 
-  while (true) {
+  for (let page = 1; page <= PROXY_CONFIG.maxSearchPages; page++) {
     const url = buildSearchUrl(cityArea, page, filters);
     console.log(`  Page ${page}: ${url}`);
 
     const html = await fetchWithRetry(url, PROXY_CONFIG.searchTimeoutMs);
     if (!html) {
-      console.log(`    Failed to fetch page ${page}, stopping pagination.`);
-      break;
+      console.log(`    Failed to fetch page ${page}, skipping.`);
+      if (page < PROXY_CONFIG.maxSearchPages) {
+        await sleep(PROXY_CONFIG.delayBetweenSearchPagesMs);
+      }
+      continue;
     }
 
     const $ = cheerio.load(html);
@@ -302,7 +304,9 @@ async function scrapeSearchPages(
       break;
     }
 
-    page++;
+    if (page < PROXY_CONFIG.maxSearchPages) {
+      await sleep(PROXY_CONFIG.delayBetweenSearchPagesMs);
+    }
   }
 
   return allListings;
@@ -812,6 +816,9 @@ async function main() {
 
   // Phase 2: Enrich with detail pages
   console.log("Phase 2: Fetching detail pages for coordinates and photos...");
+  console.log("  Waiting 10s for CAPTCHA solver to reset...");
+  await sleep(10_000);
+
   const listings: IdealistaListing[] = [];
 
   for (let i = 0; i < partialListings.length; i++) {
