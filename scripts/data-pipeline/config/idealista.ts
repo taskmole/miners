@@ -82,7 +82,9 @@ export const PROXY_CONFIG = {
   detailTimeoutMs: 60_000,
   maxRetries: 3,
   backoffMs: [2_000, 4_000, 8_000],
-  delayBetweenDetailPagesMs: 1_500,
+  maxSearchPages: 34,
+  delayBetweenSearchPagesMs: 5_000,
+  delayBetweenDetailPagesMs: 2_000,
 } as const;
 
 // ---------------------------------------------------------------------------
