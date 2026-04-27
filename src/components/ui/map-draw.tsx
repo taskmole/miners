@@ -7,8 +7,9 @@ import { useMap } from './map';
 import { safeMapCleanup } from '@/lib/safe-map-cleanup';
 import { convertToMapboxDrawStyles } from '@/lib/draw-styles';
 import type { DrawMode, ShapeMetadata } from '@/types/draw';
-import { canEditShape } from '@/lib/browser-session';
-import { logActivity } from '@/lib/supabaseHelpers';
+import { getCurrentUserId, canEditShape } from '@/lib/browser-session';
+import { logActivity, getAnonymousUserId } from '@/lib/supabaseHelpers';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
 import { useMobile } from '@/hooks/useMobile';
 
@@ -19,6 +20,140 @@ function loadMetadata(): Record<string, ShapeMetadata> {
     return saved ? JSON.parse(saved) : {};
   } catch {
     return {};
+  }
+}
+
+/**
+ * One-time migration: push existing localStorage drawn shapes to Supabase.
+ * Merges GeoJSON features with shape metadata, then upserts to drawn_features.
+ * Sets a flag so it only runs once. If verification fails, retries next load.
+ */
+async function migrateLocalStorageToSupabase(): Promise<void> {
+  // Skip if migration already done or Supabase not available
+  if (!isSupabaseConfigured() || !supabase) return;
+  if (localStorage.getItem('miners-shapes-migrated')) return;
+
+  // Check if any of the 3 localStorage keys exist
+  const featuresRaw = localStorage.getItem('miners-drawn-features');
+  const metadataRaw = localStorage.getItem('miners-shape-metadata');
+  const commentsRaw = localStorage.getItem('miners-drawn-comments');
+
+  if (!featuresRaw && !metadataRaw && !commentsRaw) {
+    // Nothing to migrate
+    localStorage.setItem('miners-shapes-migrated', 'true');
+    return;
+  }
+
+  try {
+    const userId = getCurrentUserId();
+
+    // Parse localStorage data
+    const featureCollection: GeoJSON.FeatureCollection = featuresRaw
+      ? JSON.parse(featuresRaw)
+      : { type: 'FeatureCollection', features: [] };
+    const metadata: Record<string, ShapeMetadata> = metadataRaw
+      ? JSON.parse(metadataRaw)
+      : {};
+
+    // Build rows by merging GeoJSON with metadata
+    const rows = featureCollection.features.map(f => {
+      const fId = f.id as string;
+      const meta = metadata[fId] || {};
+      return {
+        id: fId,
+        user_id: userId,
+        geojson: f as unknown as Record<string, unknown>,
+        name: meta.name || null,
+        color: meta.color || null,
+        tags: meta.tags || null,
+        link: meta.link || null,
+        category_id: meta.categoryId || null,
+        address: meta.address || null,
+        address_coords: meta.addressCoords || null,
+        created_by: meta.createdBy || userId,
+        attachments: (meta.attachments || null) as Record<string, unknown>[] | null,
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+    if (rows.length === 0) {
+      localStorage.setItem('miners-shapes-migrated', 'true');
+      return;
+    }
+
+    // Upsert to Supabase
+    const { error: upsertError } = await supabase
+      .from('drawn_features')
+      .upsert(rows, { onConflict: 'id' });
+
+    if (upsertError) {
+      console.error('Migration upsert error:', upsertError);
+      return; // Don't set flag, retry next load
+    }
+
+    // Migrate comments to the comments table (entity_type = 'drawn_feature')
+    interface LocalComment {
+      id: string;
+      text: string;
+      createdAt: string;
+    }
+    const comments: Record<string, LocalComment[]> = commentsRaw
+      ? JSON.parse(commentsRaw)
+      : {};
+    const commentRows: Array<{
+      id: string;
+      entity_type: string;
+      entity_id: string;
+      content: string;
+      created_by: string;
+      created_at: string;
+    }> = [];
+    for (const [shapeId, shapeComments] of Object.entries(comments)) {
+      for (const c of shapeComments) {
+        commentRows.push({
+          id: c.id,
+          entity_type: 'drawn_feature',
+          entity_id: shapeId,
+          content: c.text,
+          created_by: userId,
+          created_at: c.createdAt,
+        });
+      }
+    }
+
+    if (commentRows.length > 0) {
+      const { error: commentError } = await supabase
+        .from('comments')
+        .upsert(commentRows, { onConflict: 'id' });
+      if (commentError) {
+        console.error('Migration comment upsert error:', commentError);
+        // Non-blocking: continue even if comments fail
+      }
+    }
+
+    // Verify by reading back from Supabase
+    const { data: verifyData, error: verifyError } = await supabase
+      .from('drawn_features')
+      .select('id')
+      .eq('user_id', userId);
+
+    if (verifyError) {
+      console.error('Migration verification error:', verifyError);
+      return; // Don't set flag, retry next load
+    }
+
+    const migratedIds = new Set((verifyData || []).map(r => r.id));
+    const allMigrated = rows.every(r => migratedIds.has(r.id));
+
+    if (allMigrated) {
+      localStorage.setItem('miners-shapes-migrated', 'true');
+      console.log(`Migrated ${rows.length} drawn features to Supabase`);
+    } else {
+      console.warn('Migration verification incomplete, will retry on next load');
+    }
+  } catch (error) {
+    console.error('Error during localStorage migration:', error);
+    // Don't set flag, retry next load
   }
 }
 
@@ -63,7 +198,8 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
   const { setHoveredPoint, clearHoveredPoint, setDrawnPoints } = useWalkingRadius();
   const isMobile = useMobile();
 
-  // Helper to sync points and persist features (used by create, update, delete handlers)
+  // Helper to sync points and persist features (used by create, update, delete handlers).
+  // Dual-write: saves to localStorage immediately, then syncs to Supabase in the background.
   const syncAndPersist = useCallback((allFeatures: GeoJSON.FeatureCollection) => {
     // Sync points to context for mobile multi-circle rendering
     const points = allFeatures.features
@@ -74,11 +210,60 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       }));
     setDrawnPoints(points);
 
-    // Save to localStorage
+    // Save to localStorage (instant, never blocks)
     try {
       localStorage.setItem('miners-drawn-features', JSON.stringify(allFeatures));
     } catch (error) {
-      console.error('Error saving features:', error);
+      console.error('Error saving features to localStorage:', error);
+    }
+
+    // Dual-write to Supabase (async, fire-and-forget)
+    if (isSupabaseConfigured() && supabase) {
+      const userId = getCurrentUserId();
+      const metadataRaw = localStorage.getItem('miners-shape-metadata');
+      const metadata: Record<string, ShapeMetadata> = metadataRaw ? JSON.parse(metadataRaw) : {};
+
+      // Build rows for all current features
+      const rows = allFeatures.features.map(f => {
+        const fId = f.id as string;
+        const meta = metadata[fId] || {};
+        return {
+          id: fId,
+          user_id: userId,
+          geojson: f as unknown as Record<string, unknown>,
+          name: meta.name || null,
+          color: meta.color || null,
+          tags: meta.tags || null,
+          link: meta.link || null,
+          category_id: meta.categoryId || null,
+          address: meta.address || null,
+          address_coords: meta.addressCoords || null,
+          created_by: meta.createdBy || userId,
+          attachments: (meta.attachments || null) as Record<string, unknown>[] | null,
+          updated_at: new Date().toISOString(),
+        };
+      });
+
+      // Upsert all features in one call
+      if (rows.length > 0) {
+        supabase
+          .from('drawn_features')
+          .upsert(rows, { onConflict: 'id' })
+          .then(({ error }) => {
+            if (error) console.error('Error syncing features to Supabase:', error);
+          });
+      }
+
+      // Delete features that are no longer present
+      const currentIds = allFeatures.features.map(f => f.id as string);
+      supabase
+        .from('drawn_features')
+        .delete()
+        .eq('user_id', userId)
+        .not('id', 'in', `(${currentIds.map(id => `"${id}"`).join(',')})`)
+        .then(({ error }) => {
+          if (error) console.error('Error cleaning deleted features from Supabase:', error);
+        });
     }
   }, [setDrawnPoints]);
 
@@ -95,25 +280,81 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
     map.addControl(drawInstance);
     setDraw(drawInstance);
 
-    // Load features from localStorage
-    try {
-      const saved = localStorage.getItem('miners-drawn-features');
-      if (saved) {
-        const savedFeatures = JSON.parse(saved);
-        drawInstance.set(savedFeatures);
-        setFeatures(savedFeatures);
-        // Sync points to context for mobile (don't re-persist, just sync)
-        const points = savedFeatures.features
-          .filter((f: GeoJSON.Feature) => f.geometry.type === 'Point')
-          .map((f: GeoJSON.Feature) => ({
-            id: f.id as string,
-            center: (f.geometry as GeoJSON.Point).coordinates as [number, number]
-          }));
-        setDrawnPoints(points);
+    // Helper to apply loaded features to the draw instance
+    const applyFeatures = (fc: GeoJSON.FeatureCollection) => {
+      drawInstance.set(fc);
+      setFeatures(fc);
+      // Sync points to context for mobile (don't re-persist, just sync)
+      const points = fc.features
+        .filter((f: GeoJSON.Feature) => f.geometry.type === 'Point')
+        .map((f: GeoJSON.Feature) => ({
+          id: f.id as string,
+          center: (f.geometry as GeoJSON.Point).coordinates as [number, number]
+        }));
+      setDrawnPoints(points);
+    };
+
+    // Load features from localStorage as immediate fallback
+    const loadFromLocalStorage = (): GeoJSON.FeatureCollection | null => {
+      try {
+        const saved = localStorage.getItem('miners-drawn-features');
+        if (saved) return JSON.parse(saved);
+      } catch (error) {
+        console.error('Error loading features from localStorage:', error);
       }
-    } catch (error) {
-      console.error('Error loading saved features:', error);
-    }
+      return null;
+    };
+
+    // Try Supabase first, fall back to localStorage
+    const loadFeatures = async () => {
+      // Show localStorage data immediately so the map is not blank
+      const localFeatures = loadFromLocalStorage();
+      if (localFeatures && localFeatures.features.length > 0) {
+        applyFeatures(localFeatures);
+      }
+
+      // Then try to load from Supabase (may contain more recent data)
+      if (isSupabaseConfigured() && supabase) {
+        try {
+          const userId = getCurrentUserId();
+          const anonId = getAnonymousUserId();
+
+          // Query by both current user ID and anonymous ID to catch all user data
+          const userIds = Array.from(new Set([userId, anonId]));
+          const { data, error } = await supabase
+            .from('drawn_features')
+            .select('id, geojson')
+            .in('user_id', userIds);
+
+          if (!error && data && data.length > 0) {
+            const supabaseFeatures: GeoJSON.FeatureCollection = {
+              type: 'FeatureCollection',
+              features: data
+                .filter(row => row.geojson)
+                .map(row => row.geojson as unknown as GeoJSON.Feature),
+            };
+
+            // Use Supabase data if it has features
+            if (supabaseFeatures.features.length > 0) {
+              applyFeatures(supabaseFeatures);
+              // Also update localStorage to keep in sync
+              try {
+                localStorage.setItem('miners-drawn-features', JSON.stringify(supabaseFeatures));
+              } catch {
+                // Ignore localStorage write errors
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error loading features from Supabase, using localStorage:', error);
+        }
+      }
+
+      // Run one-time migration from localStorage to Supabase
+      migrateLocalStorageToSupabase();
+    };
+
+    loadFeatures();
 
     return () => {
       safeMapCleanup(map, (m) => {
