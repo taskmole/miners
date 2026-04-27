@@ -13,6 +13,7 @@ import {
 } from '@/types/attachments';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { getAnonymousUserId, logActivity } from '@/lib/supabaseHelpers';
+import { getCurrentUserId } from '@/lib/browser-session';
 
 const BUCKET_NAME = 'attachments';
 
@@ -28,7 +29,7 @@ function generateId(): string {
 async function uploadToStorage(placeId: string, file: File, attachmentId: string): Promise<string | null> {
   if (!isSupabaseConfigured() || !supabase) return null;
 
-  const userId = getAnonymousUserId();
+  const userId = getCurrentUserId();
   // Create path: userId/placeId/attachmentId-filename
   const ext = file.name.split('.').pop() || 'bin';
   const storagePath = `${userId}/${placeId}/${attachmentId}.${ext}`;
