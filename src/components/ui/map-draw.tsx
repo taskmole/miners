@@ -217,13 +217,12 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       console.error('Error saving features to localStorage:', error);
     }
 
-    // Dual-write to Supabase (async, fire-and-forget)
+    // Dual-write to Supabase (async, non-blocking)
     if (isSupabaseConfigured() && supabase) {
       const userId = getCurrentUserId();
       const metadataRaw = localStorage.getItem('miners-shape-metadata');
       const metadata: Record<string, ShapeMetadata> = metadataRaw ? JSON.parse(metadataRaw) : {};
 
-      // Build rows for all current features
       const rows = allFeatures.features.map(f => {
         const fId = f.id as string;
         const meta = metadata[fId] || {};
@@ -244,26 +243,37 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
         };
       });
 
-      // Upsert all features in one call
-      if (rows.length > 0) {
-        supabase
-          .from('drawn_features')
-          .upsert(rows, { onConflict: 'id' })
-          .then(({ error }) => {
-            if (error) console.error('Error syncing features to Supabase:', error);
-          });
-      }
+      // Upsert first, then clean up deleted features (sequential to avoid race)
+      (async () => {
+        try {
+          if (rows.length > 0) {
+            const { error } = await supabase.from('drawn_features')
+              .upsert(rows, { onConflict: 'id' });
+            if (error) {
+              console.error('Error syncing features to Supabase:', error);
+              return;
+            }
+          }
 
-      // Delete features that are no longer present
-      const currentIds = allFeatures.features.map(f => f.id as string);
-      supabase
-        .from('drawn_features')
-        .delete()
-        .eq('user_id', userId)
-        .not('id', 'in', `(${currentIds.map(id => `"${id}"`).join(',')})`)
-        .then(({ error }) => {
-          if (error) console.error('Error cleaning deleted features from Supabase:', error);
-        });
+          // Only after upsert succeeds, remove features the user deleted
+          const currentIds = allFeatures.features.map(f => f.id as string);
+          if (currentIds.length > 0) {
+            const { error } = await supabase.from('drawn_features')
+              .delete()
+              .eq('user_id', userId)
+              .not('id', 'in', `(${currentIds.join(',')})`)
+            if (error) console.error('Error cleaning deleted features from Supabase:', error);
+          } else {
+            // All shapes were deleted, clean up everything for this user
+            const { error } = await supabase.from('drawn_features')
+              .delete()
+              .eq('user_id', userId);
+            if (error) console.error('Error deleting all features from Supabase:', error);
+          }
+        } catch (error) {
+          console.error('Error in Supabase sync:', error);
+        }
+      })();
     }
   }, [setDrawnPoints]);
 

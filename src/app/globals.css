@@ -200,7 +200,7 @@
   overflow: hidden;
 }
 .popup-image.tall { height: min(300px, 40vh); }
-.popup-image.medium { height: min(200px, 30vh); }
+.popup-image.medium { height: min(260px, 38vh); }
 
 .popup-image img {
   width: 100%;
@@ -352,12 +352,63 @@
   color: #222;
 }
 
+/* Carousel navigation */
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(4px);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  z-index: 5;
+  transition: background 0.15s, transform 0.15s;
+}
+.carousel-arrow:hover { background: #fff; transform: translateY(-50%) scale(1.08); }
+.carousel-arrow.left { left: 10px; }
+.carousel-arrow.right { right: 10px; }
+
+.carousel-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  z-index: 5;
+}
+
+.carousel-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  transition: background 0.15s;
+}
+.carousel-dot.active { background: #fff; }
+
+.carousel-dot-more {
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
 /* Action buttons floating on image - top right */
 .popup-image-actions {
   position: absolute;
   top: 10px;
   right: 10px;
   display: flex;
+  align-items: center;
   gap: 8px;
   z-index: 20;
 }
@@ -367,10 +418,10 @@
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.45);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -379,13 +430,13 @@
 }
 
 .popup-action-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .popup-action-btn svg {
   width: 18px;
   height: 18px;
-  color: #444;
+  color: #666;
 }
 
 /* Overlay chips - positioned on image */
@@ -568,7 +619,7 @@
 /* Price card */
 .popup-price-card {
   margin: 12px 24px;
-  padding: 14px 16px;
+  padding: 16px 20px;
   background: linear-gradient(135deg, #f0fdf4, #dcfce7);
   border: 1px solid #bbf7d0;
   border-radius: 16px;
@@ -620,21 +671,107 @@
 .popup-price-change.up { color: #dc2626; }
 .popup-price-change svg { flex-shrink: 0; }
 
-.popup-price-secondary {
+/* Score + freshness badges on image (top-left) */
+.image-badges {
+  position: absolute;
+  top: 10px;
+  left: 12px;
   display: flex;
   align-items: center;
-  font-size: 12px;
-  color: #a1a1aa;
-  margin-top: 8px;
+  gap: 6px;
+  z-index: 2;
 }
 
-.popup-price-secondary .separator {
-  display: inline-block;
-  width: 3px;
-  height: 3px;
+.score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(12px);
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  cursor: default;
+  transition: background 0.15s;
+}
+
+.score-badge:hover { background: rgba(0, 0, 0, 0.75); }
+.freshness-badge { position: relative; }
+
+/* Tooltip for badges (score + freshness) */
+.badge-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.score-badge:hover .badge-tooltip,
+.freshness-badge:hover .badge-tooltip,
+.header-score-badge:hover .badge-tooltip {
+  display: block;
+}
+
+.score-badge .dot,
+.header-score-badge .dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #d4d4d8;
-  margin: 0 6px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.freshness-badge {
+  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  padding: 5px 10px;
+  border-radius: 8px;
+}
+
+/* No-photo fallback: badges above title */
+.header-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 24px 0;
+}
+
+.header-score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f5f5f4;
+  border: 1px solid #e5e5e5;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #525252;
+}
+
+.header-freshness {
+  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #a1a1aa;
 }
 
 /* Transfer chip (inside price card, subtle outline) */
@@ -658,24 +795,24 @@
 .popup-feature-pill {
   display: inline-flex;
   align-items: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  padding: 5px 11px;
-  border-radius: 10px;
-  background: #f5f5f4;
-  border: 1px solid #e5e5e5;
-  color: #525252;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: #fafafa;
+  border: 1px solid #ebebeb;
+  color: #8c8c8c;
   white-space: nowrap;
 }
 
-/* Details row - features */
+/* Details row - features (used by non-property popups) */
 .popup-details-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 0 24px;
-  margin-bottom: 12px;
+  padding: 4px 24px;
+  margin-bottom: 9px;
   font-size: 13px;
   color: #6B7280;
 }
@@ -830,8 +967,10 @@
   .popup-body { padding: 0 20px 12px 20px; }
   .popup-chips-row { padding: 4px 20px 16px 20px; }
   .popup-details-row { padding: 0 20px; }
-  .popup-price-card { margin: 12px 16px; padding: 14px 12px; }
+  .popup-details-row { padding: 4px 16px; }
+  .popup-price-card { margin: 12px 16px; padding: 16px 16px; }
   .popup-price-top-row { gap: 8px; }
+  .header-badges { padding: 14px 16px 0; }
 
   /* Pull image up to extend behind the drag handle (content area has pt-10 = 40px) */
   .popup-image {
@@ -850,13 +989,16 @@
     height: min(200px, 28vh);
   }
   .popup-image.medium {
-    height: min(160px, 24vh);
+    height: min(210px, 30vh);
   }
 
-  /* Reposition image action buttons just below the drag handle on mobile */
+  /* Reposition image overlays on mobile */
   .popup-image-actions {
-    top: 42px;
+    top: 26px;
     right: 12px;
+  }
+  .image-badges {
+    top: 31px;
   }
 
   /* Icon buttons: same style as desktop, slightly larger for touch */

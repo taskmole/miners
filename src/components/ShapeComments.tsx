@@ -78,25 +78,21 @@ function syncMetadataToSupabase(shapeId: string, meta: ShapeMetadata): void {
   if (!isSupabaseConfigured() || !supabase) return;
 
   const userId = getCurrentUserId();
-  supabase
-    .from('drawn_features')
-    .upsert({
-      id: shapeId,
-      user_id: userId,
-      name: meta.name || null,
-      color: meta.color || null,
-      tags: meta.tags || null,
-      link: meta.link || null,
-      category_id: meta.categoryId || null,
-      address: meta.address || null,
-      address_coords: meta.addressCoords || null,
-      created_by: meta.createdBy || userId,
-      attachments: (meta.attachments || null) as Record<string, unknown>[] | null,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'id' })
-    .then(({ error }) => {
-      if (error) console.error('Error syncing metadata to Supabase:', error);
-    });
+
+  supabase.rpc('update_drawn_feature_metadata', {
+    feature_id: shapeId,
+    feature_name: meta.name || null,
+    feature_color: meta.color || null,
+    feature_tags: meta.tags || null,
+    feature_link: meta.link || null,
+    feature_category_id: meta.categoryId || null,
+    feature_address: meta.address || null,
+    feature_address_coords: meta.addressCoords || null,
+    feature_created_by: meta.createdBy || userId,
+    feature_attachments: meta.attachments || null,
+  }).then(({ error }) => {
+    if (error) console.error('[syncMetadata] RPC failed:', error);
+  });
 }
 
 /**
