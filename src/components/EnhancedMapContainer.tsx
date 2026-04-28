@@ -1157,13 +1157,6 @@ const SCORE_TIER_LABELS: Record<string, string> = {
     weak: "Weak",
 };
 
-function getScoreTier(score: number): string {
-    if (score >= 80) return "prime";
-    if (score >= 65) return "strong";
-    if (score >= 45) return "moderate";
-    return "weak";
-}
-
 // Property popup content - Uses universal popup base - memoized
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address);
@@ -1178,12 +1171,20 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
 
     const priceChange = getPriceChange(property);
 
-    const photos = property.photos || (property.image_url ? [property.image_url] : []);
+    const photos = React.useMemo(() => property.photos || (property.image_url ? [property.image_url] : []), [property.photos, property.image_url]);
     const hasMultiplePhotos = photos.length > 1;
     const [photoIndex, setPhotoIndex] = React.useState(0);
     const safeIndex = Math.min(photoIndex, Math.max(0, photos.length - 1));
 
     React.useEffect(() => { setPhotoIndex(0); }, [property.latitude, property.longitude]);
+
+    const [activeTooltip, setActiveTooltip] = React.useState<string | null>(null);
+    React.useEffect(() => {
+        if (!activeTooltip) return;
+        const close = () => setActiveTooltip(null);
+        document.addEventListener("click", close);
+        return () => document.removeEventListener("click", close);
+    }, [activeTooltip]);
 
     React.useEffect(() => {
         if (!hasMultiplePhotos) return;
@@ -1200,16 +1201,16 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                     <img src={photos[safeIndex]} alt={property.title} />
                     <div className="image-badges">
                         {typeof property.score === "number" && (
-                            <span className="score-badge">
-                                <span className="dot" style={{ background: SCORE_TIER_COLORS[getScoreTier(property.score)] }} />
-                                {SCORE_TIER_LABELS[getScoreTier(property.score)]}
-                                <span className="badge-tooltip">Location score: {property.score}/100</span>
+                            <span className="score-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "score" ? null : "score"); }}>
+                                <span className="dot" style={{ background: SCORE_TIER_COLORS[scoreTier(property.score)] }} />
+                                {SCORE_TIER_LABELS[scoreTier(property.score)]}
+                                <span className={`badge-tooltip ${activeTooltip === "score" ? "visible" : ""}`}>Location score: {property.score}/100</span>
                             </span>
                         )}
                         {property.updatedAt && (
-                            <span className="freshness-badge">
+                            <span className="freshness-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "freshness" ? null : "freshness"); }}>
                                 {formatTimeAgo(property.updatedAt)}
-                                <span className="badge-tooltip">Last updated {formatTimeAgo(property.updatedAt)} ago</span>
+                                <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>Last updated {formatTimeAgo(property.updatedAt)} ago</span>
                             </span>
                         )}
                     </div>
@@ -1237,10 +1238,10 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             {!property.image_url && (typeof property.score === "number" || property.updatedAt) && (
                 <div className="header-badges">
                     {typeof property.score === "number" && (
-                        <span className="header-score-badge">
-                            <span className="dot" style={{ background: SCORE_TIER_COLORS[getScoreTier(property.score)] }} />
-                            {SCORE_TIER_LABELS[getScoreTier(property.score)]}
-                            <span className="badge-tooltip">Location score: {property.score}/100</span>
+                        <span className="header-score-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "score" ? null : "score"); }}>
+                            <span className="dot" style={{ background: SCORE_TIER_COLORS[scoreTier(property.score)] }} />
+                            {SCORE_TIER_LABELS[scoreTier(property.score)]}
+                            <span className={`badge-tooltip ${activeTooltip === "score" ? "visible" : ""}`}>Location score: {property.score}/100</span>
                         </span>
                     )}
                     {property.updatedAt && (
