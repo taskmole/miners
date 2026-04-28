@@ -14,7 +14,6 @@
 // Parse CLI arguments
 const args = process.argv.slice(2);
 const HEADLESS = args.includes("--headless");
-const SKIP_TRANSFERS = args.includes("--skip-transfers");
 const cityArgIndex = args.indexOf("--city");
 const CITY_ARG = cityArgIndex !== -1 ? args[cityArgIndex + 1]?.toLowerCase() : null;
 
@@ -37,13 +36,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildSearchUrl,
   getFiltersForCity,
-  getTransferFilters,
   extractGalleryPhotos,
   extractListingId,
   isValidCoordinate,
   PROXY_CONFIG,
 } from "./config/idealista";
-import type { ListingMode, IdealistaFilters } from "./config/idealista";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,7 +52,6 @@ interface IdealistaListing {
   price: number | null;
   priceByArea: number | null;
   transfer: number | null;
-  isTransfer: boolean;
   size: number | null;
   address: string;
   district: string;
@@ -203,7 +199,7 @@ function parseRelativeDate(text: string): string | null {
   return null;
 }
 
-function parseListingCard($: cheerio.CheerioAPI, article: any, listingMode: ListingMode = "rental"): Partial<IdealistaListing> {
+function parseListingCard($: cheerio.CheerioAPI, article: any): Partial<IdealistaListing> {
   const el = $(article);
   const listing: Partial<IdealistaListing> = {};
 
@@ -213,19 +209,9 @@ function parseListingCard($: cheerio.CheerioAPI, article: any, listingMode: List
   const href = link.attr("href");
   listing.url = href ? new URL(href, "https://www.idealista.com").toString() : "";
 
-  // Price + transfer (different mapping for rental vs transfer cards)
+  // Price
   const priceEl = el.find(".item-price");
-  const transferEl = el.find(".item-price-transfer, .item-transfer");
-
-  if (listingMode === "transfer") {
-    listing.isTransfer = true;
-    listing.transfer = priceEl.length ? parsePrice(priceEl.text()) : null;
-    listing.price = transferEl.length ? parsePrice(transferEl.text()) : null;
-  } else {
-    listing.isTransfer = false;
-    listing.price = priceEl.length ? parsePrice(priceEl.text()) : null;
-    listing.transfer = transferEl.length ? parsePrice(transferEl.text()) : null;
-  }
+  listing.price = priceEl.length ? parsePrice(priceEl.text()) : null;
 
   // Price per m2
   const details = el.find(".item-detail-char");
@@ -238,6 +224,10 @@ function parseListingCard($: cheerio.CheerioAPI, article: any, listingMode: List
       }
     });
   }
+
+  // Transfer price
+  const transferEl = el.find(".item-price-transfer, .item-transfer");
+  listing.transfer = transferEl.length ? parsePrice(transferEl.text()) : null;
 
   // Size
   listing.size = null;
@@ -252,8 +242,6 @@ function parseListingCard($: cheerio.CheerioAPI, article: any, listingMode: List
   let addr = listing.title || "";
   addr = addr.replace(/^Commercial premises in\s*/i, "");
   addr = addr.replace(/^Local comercial en\s*/i, "");
-  addr = addr.replace(/^.+?\s+for\s+transfer\s+in\s+/i, "");
-  addr = addr.replace(/^.+?\s+in\s+/i, "");
   listing.address = addr;
 
   const parts = addr.split(",").map((p) => p.trim());
@@ -280,8 +268,9 @@ function parseListingCard($: cheerio.CheerioAPI, article: any, listingMode: List
 
 async function scrapeSearchPages(
   cityArea: string,
-  filters: IdealistaFilters
+  cityId: string
 ): Promise<Partial<IdealistaListing>[]> {
+  const filters = getFiltersForCity(cityId);
   const allListings: Partial<IdealistaListing>[] = [];
 
   for (let page = 1; page <= PROXY_CONFIG.maxSearchPages; page++) {
@@ -308,7 +297,7 @@ async function scrapeSearchPages(
     console.log(`    Found ${articles.length} listings`);
 
     articles.each((_, article) => {
-      const listing = parseListingCard($, article, filters.listingMode);
+      const listing = parseListingCard($, article);
       if (listing.url) allListings.push(listing);
     });
 
@@ -385,7 +374,6 @@ async function enrichWithDetailPage(
     price: listing.price ?? null,
     priceByArea: listing.priceByArea ?? null,
     transfer: listing.transfer ?? null,
-    isTransfer: listing.isTransfer ?? false,
     size: listing.size ?? null,
     address: listing.address || "",
     district: listing.district || "",
@@ -504,9 +492,7 @@ async function publishListings(
   const validListings: { listing: IdealistaListing; sourceId: string }[] = [];
   for (const listing of listings) {
     if (!listing.latitude || !listing.longitude) continue;
-    const hasValidPrice = (listing.price != null && listing.price > 0) ||
-      (listing.isTransfer && listing.transfer != null && listing.transfer > 0);
-    if (!hasValidPrice || !listing.title) {
+    if (!listing.price || listing.price <= 0 || !listing.title) {
       skippedValidation++;
       continue;
     }
@@ -550,7 +536,6 @@ async function publishListings(
       price: listing.price,
       priceByArea: listing.priceByArea,
       transfer: listing.transfer,
-      isTransfer: listing.isTransfer,
       size: listing.size,
       district: listing.district,
       bathrooms: listing.bathrooms,
@@ -821,30 +806,12 @@ async function main() {
 
   const city = getCity(selectedCityId)!;
   console.log(`\nSelected: ${city.name}`);
-  const rentalFilters = getFiltersForCity(selectedCityId);
-  console.log(`Filters: ${JSON.stringify(rentalFilters)}\n`);
+  console.log(`Filters: ${JSON.stringify(getFiltersForCity(selectedCityId))}\n`);
 
-  // Phase 1a: Scrape rental search pages
-  console.log("Phase 1a: Scraping RENTAL search pages...");
-  const rentalListings = await scrapeSearchPages(city.idealistaArea!, rentalFilters);
-  console.log(`\n  Rental listings from search: ${rentalListings.length}\n`);
-
-  // Phase 1b: Scrape transfer search pages
-  let transferListings: Partial<IdealistaListing>[] = [];
-  if (SKIP_TRANSFERS) {
-    console.log("Phase 1b: Skipping transfer scraping (--skip-transfers flag)\n");
-  } else {
-    console.log("Phase 1b: Scraping TRANSFER search pages...");
-    const transferFilters = getTransferFilters(selectedCityId);
-    transferListings = await scrapeSearchPages(city.idealistaArea!, transferFilters);
-    console.log(`\n  Transfer listings from search: ${transferListings.length}\n`);
-  }
-
-  // Merge with dedup (prefer rental if same URL appears in both)
-  const seenUrls = new Set(rentalListings.map((l) => l.url));
-  const uniqueTransfers = transferListings.filter((l) => !seenUrls.has(l.url));
-  const partialListings = [...rentalListings, ...uniqueTransfers];
-  console.log(`  Total after dedup: ${partialListings.length} (${rentalListings.length} rental + ${uniqueTransfers.length} transfer)\n`);
+  // Phase 1: Scrape search pages
+  console.log("Phase 1: Scraping search pages...");
+  const partialListings = await scrapeSearchPages(city.idealistaArea!, selectedCityId);
+  console.log(`\n  Total listings from search: ${partialListings.length}\n`);
 
   if (partialListings.length === 0) {
     console.log("No listings found. The proxy may be blocked or filters too narrow.");
