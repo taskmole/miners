@@ -68,6 +68,8 @@ import {
     Dumbbell,
     TrendingDown,
     TrendingUp,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCompactNumber } from "@/lib/format-numbers";
@@ -1127,6 +1129,41 @@ function getPriceChange(property: PropertyData): { direction: "up" | "down"; per
     };
 }
 
+function formatTimeAgo(dateStr: string): string {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 14) return `${days}d`;
+    const weeks = Math.floor(days / 7);
+    if (weeks < 9) return `${weeks}w`;
+    const months = Math.floor(days / 30);
+    return `${months}mo`;
+}
+
+const SCORE_TIER_COLORS: Record<string, string> = {
+    prime: "#16a34a",
+    strong: "#f59e0b",
+    moderate: "#71717a",
+    weak: "#dc2626",
+};
+
+const SCORE_TIER_LABELS: Record<string, string> = {
+    prime: "Prime",
+    strong: "Strong",
+    moderate: "Moderate",
+    weak: "Weak",
+};
+
+function getScoreTier(score: number): string {
+    if (score >= 80) return "prime";
+    if (score >= 65) return "strong";
+    if (score >= 45) return "moderate";
+    return "weak";
+}
+
 // Property popup content - Uses universal popup base - memoized
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address);
@@ -1134,19 +1171,81 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
 
     // Build features array
     const features: string[] = [];
+    if (property.size > 0) features.push(`${property.size} m²`);
     if (property.hasAirConditioning) features.push('A/C');
     if (property.hasBathroom) features.push('Bathroom');
     if (property.hasStorefront) features.push('Storefront');
 
     const priceChange = getPriceChange(property);
 
+    const photos = property.photos || (property.image_url ? [property.image_url] : []);
+    const hasMultiplePhotos = photos.length > 1;
+    const [photoIndex, setPhotoIndex] = React.useState(0);
+    const safeIndex = Math.min(photoIndex, Math.max(0, photos.length - 1));
+
+    React.useEffect(() => { setPhotoIndex(0); }, [property.latitude, property.longitude]);
+
+    React.useEffect(() => {
+        if (!hasMultiplePhotos) return;
+        const next = (safeIndex + 1) % photos.length;
+        const prev = (safeIndex - 1 + photos.length) % photos.length;
+        [photos[next], photos[prev]].forEach(url => { if (url) new Image().src = url; });
+    }, [safeIndex, photos, hasMultiplePhotos]);
+
     return (
         <div className="popup-base">
-            {/* Image section */}
-            {property.image_url && (
+            {/* Image section with carousel */}
+            {photos.length > 0 && (
                 <div className="popup-image medium">
-                    <img src={property.image_url} alt={property.title} />
+                    <img src={photos[safeIndex]} alt={property.title} />
+                    <div className="image-badges">
+                        {typeof property.score === "number" && (
+                            <span className="score-badge">
+                                <span className="dot" style={{ background: SCORE_TIER_COLORS[getScoreTier(property.score)] }} />
+                                {SCORE_TIER_LABELS[getScoreTier(property.score)]}
+                                <span className="badge-tooltip">Location score: {property.score}/100</span>
+                            </span>
+                        )}
+                        {property.updatedAt && (
+                            <span className="freshness-badge">
+                                {formatTimeAgo(property.updatedAt)}
+                                <span className="badge-tooltip">Last updated {formatTimeAgo(property.updatedAt)} ago</span>
+                            </span>
+                        )}
+                    </div>
+                    {hasMultiplePhotos && (
+                        <>
+                            <button className="carousel-arrow left" onClick={(e) => { e.stopPropagation(); setPhotoIndex((safeIndex - 1 + photos.length) % photos.length); }}>
+                                <ChevronLeft size={18} />
+                            </button>
+                            <button className="carousel-arrow right" onClick={(e) => { e.stopPropagation(); setPhotoIndex((safeIndex + 1) % photos.length); }}>
+                                <ChevronRight size={18} />
+                            </button>
+                            <div className="carousel-dots">
+                                {photos.slice(0, 7).map((_, i) => (
+                                    <span key={i} className={`carousel-dot ${i === safeIndex ? "active" : ""}`} />
+                                ))}
+                                {photos.length > 7 && <span className="carousel-dot-more">+{photos.length - 7}</span>}
+                            </div>
+                        </>
+                    )}
                     <PopupActionBar position="image" placeId={placeId} onClose={onClose} />
+                </div>
+            )}
+
+            {/* No-photo fallback: badges above title */}
+            {!property.image_url && (typeof property.score === "number" || property.updatedAt) && (
+                <div className="header-badges">
+                    {typeof property.score === "number" && (
+                        <span className="header-score-badge">
+                            <span className="dot" style={{ background: SCORE_TIER_COLORS[getScoreTier(property.score)] }} />
+                            {SCORE_TIER_LABELS[getScoreTier(property.score)]}
+                            <span className="badge-tooltip">Location score: {property.score}/100</span>
+                        </span>
+                    )}
+                    {property.updatedAt && (
+                        <span className="header-freshness">{formatTimeAgo(property.updatedAt)} ago</span>
+                    )}
                 </div>
             )}
 
@@ -1180,18 +1279,9 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                         </span>
                     )}
                 </div>
-                <div className="popup-price-secondary">
-                    {property.priceByArea > 0 && (
-                        <span>€{property.priceByArea.toLocaleString()}/m²</span>
-                    )}
-                    {property.priceByArea > 0 && property.size > 0 && (
-                        <span className="separator" />
-                    )}
-                    <span>{property.size} m²</span>
-                </div>
             </div>
 
-            {/* Feature pills */}
+            {/* Property details */}
             {features.length > 0 && (
                 <div className="popup-details-row">
                     {features.map((feature) => (
@@ -1639,7 +1729,8 @@ const IconMarker = React.memo(function IconMarker({
     isMiners = false,
     isActive = false,
     isHidden = false,
-    poiCount = 1
+    poiCount = 1,
+    ringClass = ""
 }: {
     color: string;
     icon: React.ElementType;
@@ -1647,6 +1738,7 @@ const IconMarker = React.memo(function IconMarker({
     isActive?: boolean;
     isHidden?: boolean;
     poiCount?: number;
+    ringClass?: string;
 }) {
     const showBadge = poiCount > 1;
 
@@ -1677,6 +1769,7 @@ const IconMarker = React.memo(function IconMarker({
         <div className={cn("relative", isHidden && "marker-hidden")}>
             <div className={cn(
                 `${color} rounded-full p-1.5 shadow-lg transition-transform duration-200`,
+                ringClass,
                 isActive ? "scale-125" : "hover:scale-125"
             )}>
                 <Icon className="size-3 text-white" />
@@ -2513,13 +2606,6 @@ export function EnhancedMapContainer({
                                 >
                                     <MarkerContent>
                                         <IconMarker color="bg-[#78C500]" icon={Home} isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
-                                        {/* Score chip hidden for now
-                                        {typeof property.score === "number" && !hidden && (
-                                            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 pointer-events-none">
-                                                <ScoreBadge score={property.score} />
-                                            </div>
-                                        )}
-                                        */}
                                     </MarkerContent>
                                     {!isLinkingMode && !hasMultiplePois && !isMobile && (
                                         <MarkerPopup onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">

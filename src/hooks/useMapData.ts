@@ -58,6 +58,8 @@ export interface PropertyData {
     score?: number;
     image_url?: string;
     priceHistory?: { price: number; date: string }[];
+    updatedAt?: string;
+    photos?: string[];
 }
 
 export interface OtherPoiData {
@@ -138,7 +140,7 @@ export function useMapData(cityId?: string) {
                         fetch("/api/data?type=data"),
                         fetch("/api/data?type=cafes"),
                         fetch("/api/data?type=barcelona_cafes"),
-                        supabase!.from("places").select("name, address, location, metadata, photos").eq("source", "idealista").eq("status", "active"),
+                        supabase!.from("places").select("name, address, location, metadata, photos, updated_at").eq("source", "idealista").eq("status", "active"),
                         fetch("/api/data?type=other"),
                         fetch("/api/data?type=google_madrid"),
                         fetch("/api/data?type=google_enrichment"),
@@ -301,6 +303,8 @@ export function useMapData(cityId?: string) {
                                 score: getScoreAt(coords.lat, coords.lon, "madrid"),
                                 image_url: p.photos?.[0] || undefined,
                                 priceHistory: meta.price_history || undefined,
+                                updatedAt: p.updated_at || undefined,
+                                photos: p.photos?.length ? p.photos : undefined,
                             };
                         })
                         .filter(Boolean) as PropertyData[];
