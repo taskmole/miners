@@ -9,13 +9,11 @@
 // Per-city search filters
 // ---------------------------------------------------------------------------
 
-export type ListingMode = "rental" | "transfer";
-
 export interface IdealistaFilters {
   maxSqm: number;
   propertyType: string;       // "locales" = commercial premises
   streetLevel: boolean;       // "en-planta-calle"
-  listingMode: ListingMode;   // "rental" = alquiler-solo-inmueble, "transfer" = negocio-traspaso
+  rentalOnly: boolean;        // "alquiler-solo-inmueble"
   useTypes: string[];         // "restauracion", "tienda", etc. (empty = any)
 }
 
@@ -23,7 +21,7 @@ const DEFAULT_FILTERS: IdealistaFilters = {
   maxSqm: 500,
   propertyType: "locales",
   streetLevel: true,
-  listingMode: "rental",
+  rentalOnly: true,
   useTypes: [
     "locales-fiesta",
     "restauracion",
@@ -47,8 +45,7 @@ function buildFilterSegment(filters: IdealistaFilters): string {
   parts.push(`con-metros-cuadrados-menos-de_${filters.maxSqm}`);
   parts.push(filters.propertyType);
   if (filters.streetLevel) parts.push("en-planta-calle");
-  if (filters.listingMode === "rental") parts.push("alquiler-solo-inmueble");
-  if (filters.listingMode === "transfer") parts.push("negocio-traspaso");
+  if (filters.rentalOnly) parts.push("alquiler-solo-inmueble");
   if (filters.useTypes.length > 0) parts.push(...filters.useTypes);
   return parts.join(",");
 }
@@ -63,25 +60,16 @@ export function buildSearchUrl(
   page: number,
   filters: IdealistaFilters
 ): string {
-  const pathSegment = filters.listingMode === "transfer" ? "traspasos" : "alquiler-locales";
-  const base = `https://www.idealista.com/en/${pathSegment}/${cityArea}-${cityArea}/${buildFilterSegment(filters)}`;
+  const base = `https://www.idealista.com/en/alquiler-locales/${cityArea}-${cityArea}/${buildFilterSegment(filters)}`;
   if (page <= 1) return base + "/";
   return `${base}/pagina-${page}.htm`;
 }
 
 /**
- * Get rental filters for a city, falling back to Madrid defaults.
+ * Get filters for a city, falling back to Madrid defaults.
  */
 export function getFiltersForCity(cityId: string): IdealistaFilters {
   return CITY_FILTERS[cityId] ?? CITY_FILTERS.madrid;
-}
-
-/**
- * Get transfer filters for a city (derives from rental filters, changes mode).
- */
-export function getTransferFilters(cityId: string): IdealistaFilters {
-  const base = getFiltersForCity(cityId);
-  return { ...base, listingMode: "transfer" as ListingMode };
 }
 
 // ---------------------------------------------------------------------------
