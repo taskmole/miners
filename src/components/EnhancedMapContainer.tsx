@@ -894,6 +894,13 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
     const recentlyAdded = isRecentlyAdded(cafe.datePublished);
     const commentCount = 0; // TODO: Get from data when available
     const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
+    const [activeTooltip, setActiveTooltip] = React.useState<string | null>(null);
+    React.useEffect(() => {
+        if (!activeTooltip) return;
+        const close = () => setActiveTooltip(null);
+        document.addEventListener("click", close);
+        return () => document.removeEventListener("click", close);
+    }, [activeTooltip]);
 
     return (
         <div className="popup-base">
@@ -903,6 +910,15 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
                     <img src={cafe.image} alt={cafe.name} />
 
                     <PopupActionBar position="image" placeId={placeId} onClose={onClose} />
+
+                    {cafe.fetchedAt && (
+                        <div className="image-badges">
+                            <span className="freshness-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "freshness" ? null : "freshness"); }}>
+                                {formatTimeAgo(cafe.fetchedAt)}
+                                <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>{freshTooltipText(cafe.fetchedAt)}</span>
+                            </span>
+                        </div>
+                    )}
 
                     {/* New ribbon */}
                     {recentlyAdded && (
@@ -920,12 +936,22 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
                 </div>
             )}
 
+            {/* No-photo fallback: freshness badge + action bar above title */}
+            {!cafe.image && (
+                <div className="header-badges">
+                    {cafe.fetchedAt && (
+                        <span className="header-freshness" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "freshness" ? null : "freshness"); }}>
+                            {freshBadgeText(cafe.fetchedAt)}
+                            <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>{freshTooltipText(cafe.fetchedAt)}</span>
+                        </span>
+                    )}
+                    <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
+                </div>
+            )}
+
             {/* Header */}
             <div className="popup-header">
                 <span className="popup-name">{cafe.name}</span>
-                {!cafe.image && (
-                    <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
-                )}
             </div>
 
             {/* Address */}
@@ -1012,13 +1038,28 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }:
     const mapsUrl = buildGoogleMapsUrl(cafe.name, cafe.googleMapsUrl, cafe.lat, cafe.lon, cafe.address);
     const commentCount = 0; // TODO: Get from data when available
     const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
+    const [activeTooltip, setActiveTooltip] = React.useState<string | null>(null);
+    React.useEffect(() => {
+        if (!activeTooltip) return;
+        const close = () => setActiveTooltip(null);
+        document.addEventListener("click", close);
+        return () => document.removeEventListener("click", close);
+    }, [activeTooltip]);
 
     return (
         <div className="popup-base">
+            <div className="header-badges">
+                {cafe.fetchedAt && (
+                    <span className="header-freshness" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "freshness" ? null : "freshness"); }}>
+                        {freshBadgeText(cafe.fetchedAt)}
+                        <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>{freshTooltipText(cafe.fetchedAt)}</span>
+                    </span>
+                )}
+                <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
+            </div>
             {/* Header */}
             <div className="popup-header">
                 <span className="popup-name">{cafe.name}</span>
-                <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
             </div>
 
             {/* Address */}
@@ -1131,16 +1172,24 @@ function getPriceChange(property: PropertyData): { direction: "up" | "down"; per
 
 function formatTimeAgo(dateStr: string): string {
     const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h`;
+    const hours = Math.floor(diff / 3600000);
+    if (hours < 24) return "Today";
     const days = Math.floor(hours / 24);
     if (days < 14) return `${days}d`;
     const weeks = Math.floor(days / 7);
     if (weeks < 9) return `${weeks}w`;
     const months = Math.floor(days / 30);
     return `${months}mo`;
+}
+
+function freshBadgeText(dateStr: string): string {
+    const t = formatTimeAgo(dateStr);
+    return t === "Today" ? "Today" : `${t} ago`;
+}
+
+function freshTooltipText(dateStr: string): string {
+    const t = formatTimeAgo(dateStr);
+    return t === "Today" ? "Updated today" : `Updated ${t} ago`;
 }
 
 const SCORE_TIER_COLORS: Record<string, string> = {
@@ -1210,7 +1259,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                         {property.updatedAt && (
                             <span className="freshness-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "freshness" ? null : "freshness"); }}>
                                 {formatTimeAgo(property.updatedAt)}
-                                <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>Last updated {formatTimeAgo(property.updatedAt)} ago</span>
+                                <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>{freshTooltipText(property.updatedAt)}</span>
                             </span>
                         )}
                     </div>
@@ -1235,17 +1284,22 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             )}
 
             {/* No-photo fallback: badges above title */}
-            {!property.image_url && (typeof property.score === "number" || property.updatedAt) && (
+            {!property.image_url && (
                 <div className="header-badges">
-                    {typeof property.score === "number" && (
+                    {typeof property.score === "number" ? (
                         <span className="header-score-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "score" ? null : "score"); }}>
                             <span className="dot" style={{ background: SCORE_TIER_COLORS[scoreTier(property.score)] }} />
                             {SCORE_TIER_LABELS[scoreTier(property.score)]}
                             <span className={`badge-tooltip ${activeTooltip === "score" ? "visible" : ""}`}>Location score: {property.score}/100</span>
                         </span>
+                    ) : (
+                        <span className="header-score-badge" style={{ opacity: 0.5 }}>
+                            <span className="dot" style={{ background: '#d4d4d4' }} />
+                            Not rated
+                        </span>
                     )}
                     {property.updatedAt && (
-                        <span className="header-freshness">{formatTimeAgo(property.updatedAt)} ago</span>
+                        <span className="header-freshness">{freshBadgeText(property.updatedAt)}</span>
                     )}
                 </div>
             )}
