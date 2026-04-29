@@ -2,13 +2,24 @@ name: Scraper Pipeline
 
 on:
   schedule:
-    # Runs at 06:00 UTC on Monday and Thursday
+    # Idealista: Monday and Thursday at 06:00 UTC
     - cron: '0 6 * * 1,4'
+    # Sreality: Tuesday, Friday, and Sunday at 06:00 UTC
+    - cron: '0 6 * * 0,2,5'
   workflow_dispatch:
     inputs:
-      city:
-        description: 'City to scrape'
+      scraper:
+        description: 'Which scraper to run'
         required: true
+        default: 'both'
+        type: choice
+        options:
+          - idealista
+          - sreality
+          - both
+      city:
+        description: 'City for Idealista scraper'
+        required: false
         default: 'madrid'
         type: choice
         options:
@@ -18,7 +29,10 @@ on:
 jobs:
   scrape-idealista:
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 600
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '0 6 * * 1,4')
+      || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'idealista' || github.event.inputs.scraper == 'both'))
 
     steps:
       - name: Checkout
@@ -43,6 +57,36 @@ jobs:
           npx ts-node --project scripts/data-pipeline/tsconfig.json \
             scripts/data-pipeline/fetch-idealista.ts \
             --headless --city ${{ github.event.inputs.city || 'madrid' }}
+
+  scrape-sreality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '0 6 * * 0,2,5')
+      || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'sreality' || github.event.inputs.scraper == 'both'))
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Sreality scraper
+        env:
+          SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          npx ts-node --project scripts/data-pipeline/tsconfig.json \
+            scripts/data-pipeline/fetch-sreality.ts \
+            --headless --url "${{ secrets.SREALITY_SEARCH_URL }}" --city prague
 
   # Future pipeline stages (uncomment when ready):
   #
