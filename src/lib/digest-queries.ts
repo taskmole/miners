@@ -25,7 +25,7 @@ function getSupabase() {
 }
 
 export async function getSubscribedUsers(): Promise<DigestRecipient[]> {
-  return [{ email: "founders@taskmole.co", cities: ["madrid"] }];
+  return [{ email: "founders@taskmole.co", cities: ["madrid", "prague"] }];
 }
 
 export async function getNewListingsForCity(
@@ -37,9 +37,10 @@ export async function getNewListingsForCity(
   const { data, error } = await getSupabase()
     .from("places")
     .select("address, metadata, photos, score, created_at")
-    .eq("source", "idealista")
+    .in("source", ["idealista", "sreality"])
     .eq("city_id", city)
     .gte("created_at", cutoff.toISOString())
+    .not("photos", "eq", "{}")
     .order("score", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(10);
