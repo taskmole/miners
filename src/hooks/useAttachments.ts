@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Attachment, PoiAttachmentsState } from '@/types/attachments';
 import {
-  POI_ATTACHMENTS_STORAGE_KEY,
   POI_ATTACHMENTS_VERSION,
   IMAGE_COMPRESSION,
   validateFile,
@@ -14,9 +13,6 @@ import { withRetry, logActivity } from '@/lib/supabaseHelpers';
 import { getCurrentUserId } from '@/lib/browser-session';
 
 const BUCKET_NAME = 'attachments';
-
-// Flag to ensure localStorage migration runs only once per session
-const MIGRATION_FLAG = 'miners-poi-attachments-migrated-to-supabase';
 
 // Generate unique ID
 function generateId(): string {
@@ -156,28 +152,6 @@ async function deleteMetadataFromSupabase(attachmentId: string): Promise<void> {
   }, 'delete attachment metadata');
 }
 
-// Get initial state from localStorage (used during migration only)
-function getInitialState(): PoiAttachmentsState {
-  if (typeof window === 'undefined') {
-    return { version: POI_ATTACHMENTS_VERSION, attachments: {} };
-  }
-
-  try {
-    const saved = localStorage.getItem(POI_ATTACHMENTS_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved) as PoiAttachmentsState;
-      return {
-        version: parsed.version || POI_ATTACHMENTS_VERSION,
-        attachments: parsed.attachments || {},
-      };
-    }
-  } catch (error) {
-    console.error('Error loading POI attachments from localStorage:', error);
-  }
-
-  return { version: POI_ATTACHMENTS_VERSION, attachments: {} };
-}
-
 // Generate a thumbnail for an image (used in the upload success path)
 async function generateThumbnail(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -220,134 +194,10 @@ async function generateThumbnail(file: File): Promise<string> {
 }
 
 /**
- * Convert a base64 data URL to a File object.
- * Returns null if the base64 is truncated or invalid.
- */
-function base64ToFile(base64Data: string, fileName: string, mimeType: string): File | null {
-  try {
-    // Validate the data URL format
-    if (!base64Data || !base64Data.includes(',')) return null;
-
-    const parts = base64Data.split(',');
-    const raw = atob(parts[1]); // This throws if base64 is corrupted
-
-    // Convert decoded string to Uint8Array
-    const bytes = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i++) {
-      bytes[i] = raw.charCodeAt(i);
-    }
-
-    return new File([bytes], fileName, { type: mimeType });
-  } catch {
-    // base64 is truncated or invalid
-    return null;
-  }
-}
-
-/**
- * One-time migration: move attachment metadata from localStorage to Supabase.
- *
- * For entries with a storagePath (already in Storage): push metadata only.
- * For entries with base64 data only: try to re-upload the file, then push metadata.
- * Corrupted or failed entries stay in localStorage with a console warning.
- * The localStorage key is only deleted after verifying data landed in Supabase.
- */
-async function migrateLocalStorageToSupabase(): Promise<void> {
-  if (typeof window === 'undefined') return;
-  if (!isSupabaseConfigured() || !supabase) return;
-
-  // Already migrated this browser
-  if (localStorage.getItem(MIGRATION_FLAG)) return;
-
-  // Nothing to migrate
-  const raw = localStorage.getItem(POI_ATTACHMENTS_STORAGE_KEY);
-  if (!raw) {
-    localStorage.setItem(MIGRATION_FLAG, 'true');
-    return;
-  }
-
-  let localState: PoiAttachmentsState;
-  try {
-    localState = JSON.parse(raw) as PoiAttachmentsState;
-  } catch {
-    console.warn('[attachments migration] Could not parse localStorage data. Skipping.');
-    return;
-  }
-
-  const allAttachments = localState.attachments || {};
-  const placeIds = Object.keys(allAttachments);
-  if (placeIds.length === 0) {
-    localStorage.setItem(MIGRATION_FLAG, 'true');
-    localStorage.removeItem(POI_ATTACHMENTS_STORAGE_KEY);
-    return;
-  }
-
-  let failedCount = 0;
-
-  for (const placeId of placeIds) {
-    const attachments = allAttachments[placeId] || [];
-
-    for (const att of attachments) {
-      try {
-        if (att.storagePath) {
-          // File is already in Supabase Storage. Push metadata only.
-          await writeMetadataToSupabase(placeId, att);
-        } else if (att.data) {
-          // Base64-only entry. Try to re-upload the file to Storage.
-          const file = base64ToFile(att.data, att.name, att.type);
-          if (!file) {
-            console.warn(`[attachments migration] Corrupted base64 for "${att.name}" (place ${placeId}). Keeping in localStorage.`);
-            failedCount++;
-            continue;
-          }
-
-          const storagePath = await uploadToStorage(placeId, file, att.id);
-          if (!storagePath) {
-            console.warn(`[attachments migration] Re-upload failed for "${att.name}" (place ${placeId}). Keeping in localStorage.`);
-            failedCount++;
-            continue;
-          }
-
-          // Push metadata with the new storage path
-          const migratedAtt: Attachment = { ...att, storagePath, data: '' };
-          await writeMetadataToSupabase(placeId, migratedAtt);
-        } else {
-          // No data and no storagePath. Push metadata anyway (it may be a zero-byte record).
-          await writeMetadataToSupabase(placeId, att);
-        }
-      } catch (err) {
-        console.warn(`[attachments migration] Failed to migrate "${att.name}" (place ${placeId}):`, err);
-        failedCount++;
-      }
-    }
-  }
-
-  if (failedCount > 0) {
-    console.warn(`[attachments migration] ${failedCount} attachment(s) could not be migrated. localStorage preserved.`);
-    return; // Do NOT delete localStorage if any entry failed
-  }
-
-  // Verify data landed in Supabase by reading back at least one place
-  const samplePlaceId = placeIds[0];
-  const verification = await fetchAttachmentsFromSupabase(samplePlaceId);
-  const expectedCount = (allAttachments[samplePlaceId] || []).length;
-
-  if (verification.length < expectedCount) {
-    console.warn('[attachments migration] Verification failed: Supabase has fewer attachments than localStorage. Keeping localStorage.');
-    return;
-  }
-
-  // All good. Clean up.
-  localStorage.removeItem(POI_ATTACHMENTS_STORAGE_KEY);
-  localStorage.setItem(MIGRATION_FLAG, 'true');
-  console.log('[attachments migration] Successfully migrated all attachment metadata to Supabase.');
-}
-
-/**
  * Hook for managing POI attachments.
  *
  * Files are uploaded to Supabase Storage bucket.
- * Metadata is stored in the poi_attachments table (with localStorage dual-write for now).
+ * Metadata is stored in the poi_attachments table.
  * Signed URLs are generated for viewing private files.
  * Attachments are lazy-loaded per place_id from Supabase.
  */
@@ -357,33 +207,12 @@ export function useAttachments() {
   const initialLoadDone = useRef(false);
   const fetchedFromSupabase = useRef<Set<string>>(new Set());
 
-  // On mount: run migration, then mark as loaded
+  // On mount: mark as loaded (attachments lazy-load per POI from Supabase)
   useEffect(() => {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
-
-    // Start with any existing localStorage data (will be overwritten by Supabase fetches)
-    const initialState = getInitialState();
-    setState(initialState);
     setIsLoaded(true);
-
-    // Run the one-time migration in the background
-    migrateLocalStorageToSupabase().catch((err) => {
-      console.error('[attachments migration] Unexpected error:', err);
-    });
   }, []);
-
-  // Dual-write: save to localStorage whenever state changes (after initial load)
-  useEffect(() => {
-    if (!isLoaded) return;
-
-    try {
-      localStorage.setItem(POI_ATTACHMENTS_STORAGE_KEY, JSON.stringify(state));
-    } catch (error) {
-      // localStorage may be full; this is non-critical since Supabase is the source of truth
-      console.warn('Could not save attachments to localStorage (non-critical):', error);
-    }
-  }, [state, isLoaded]);
 
   // Get attachments for a specific POI (lazy-loads from Supabase)
   const getPoiAttachments = useCallback((placeId: string): Attachment[] => {
@@ -463,7 +292,6 @@ export function useAttachments() {
         uploadedByName: 'Guest',
       };
 
-      // Update local state (triggers localStorage dual-write via useEffect)
       setState(prev => ({
         ...prev,
         attachments: {
@@ -513,7 +341,6 @@ export function useAttachments() {
       console.error('Failed to delete attachment metadata from Supabase:', err);
     });
 
-    // Update local state (triggers localStorage dual-write via useEffect)
     setState(prev => ({
       ...prev,
       attachments: {
