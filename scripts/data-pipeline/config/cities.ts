@@ -20,6 +20,7 @@ export interface CityConfig {
   bounds: CityBounds;
   idealistaArea: string | null;
   euCoffeeTripSlug: string | null;
+  srealityRegionId: number | null;
 }
 
 export const CITIES: Record<string, CityConfig> = {
@@ -33,6 +34,7 @@ export const CITIES: Record<string, CityConfig> = {
     },
     idealistaArea: "madrid",
     euCoffeeTripSlug: "madrid",
+    srealityRegionId: null,
   },
   barcelona: {
     name: "Barcelona",
@@ -44,6 +46,7 @@ export const CITIES: Record<string, CityConfig> = {
     },
     idealistaArea: "barcelona",
     euCoffeeTripSlug: "barcelona",
+    srealityRegionId: null,
   },
   prague: {
     name: "Prague",
@@ -53,8 +56,9 @@ export const CITIES: Record<string, CityConfig> = {
       west: 14.30,
       east: 14.55,
     },
-    idealistaArea: null, // Idealista not available in Prague
+    idealistaArea: null,
     euCoffeeTripSlug: "prague",
+    srealityRegionId: 10,
   },
   // Add more cities below:
   // vienna: {

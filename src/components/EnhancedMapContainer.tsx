@@ -1265,7 +1265,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             <div className="popup-price-card">
                 <div className="popup-price-top-row">
                     <div className="popup-price-main">
-                        <span className="price-amount">€{property.price.toLocaleString()}</span>
+                        <span className="price-amount">{property.source === "sreality" ? `${property.price.toLocaleString()} Kč` : `€${property.price.toLocaleString()}`}</span>
                         <span className="price-period">/month</span>
                     </div>
                     {priceChange && (
@@ -1276,7 +1276,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                     )}
                     {property.transfer && (
                         <span className="popup-transfer-chip">
-                            €{property.transfer >= 1000 ? `${Math.round(property.transfer / 1000)}k` : property.transfer} transfer
+                            {property.source === "sreality" ? "" : "€"}{property.transfer >= 1000 ? `${Math.round(property.transfer / 1000)}k` : property.transfer}{property.source === "sreality" ? " Kč" : ""} transfer
                         </span>
                     )}
                 </div>
@@ -1303,7 +1303,10 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             <div className="popup-footer">
                 <div className="popup-buttons">
                     <a href={property.url} target="_blank" rel="noopener noreferrer" className="popup-btn-icon logo-fill">
-                        <img src="/assets/idealista-logo.png" alt="Idealista" />
+                        <img
+                            src={property.source === "sreality" ? "/assets/sreality-logo.png" : "/assets/idealista-logo.png"}
+                            alt={property.source === "sreality" ? "Sreality" : "Idealista"}
+                        />
                     </a>
                     <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="popup-btn-icon has-bg">
                         <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
