@@ -10,6 +10,7 @@
     "fetch:google": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/fetch-google-places.ts",
     "fetch:euct": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/fetch-euct.ts",
     "fetch:idealista": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/fetch-idealista.ts",
+    "fetch:sreality": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/fetch-sreality.ts",
     "review": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/review.ts",
     "publish": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/publish.ts",
     "export:csv": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/export-csv.ts",
