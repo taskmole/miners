@@ -1,9 +1,9 @@
 name: Send Property Digest
 
 on:
-  # Runs Monday and Thursday at 8:00 AM UTC
+  # Runs 2 hours after each scraper: Mon, Tue, Thu, Fri, Sun at 08:00 UTC
   schedule:
-    - cron: "0 8 * * 1,4"
+    - cron: "0 8 * * 0,1,2,4,5"
   # Manual trigger from GitHub Actions UI
   workflow_dispatch:
 
