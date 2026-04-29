@@ -27,48 +27,9 @@ import { reverseGeocode, formatShortAddress } from '@/lib/geocoding';
 import { getCurrentUserId, canEditShape } from '@/lib/browser-session';
 import { logActivity, getAnonymousUserId } from '@/lib/supabaseHelpers';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { useShapeDataContext } from '@/contexts/ShapeDataContext';
 import { useMobile } from '@/hooks/useMobile';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
-
-// Storage keys
-const COMMENTS_STORAGE_KEY = 'miners-drawn-comments';
-const METADATA_STORAGE_KEY = 'miners-shape-metadata';
-
-// Load/save comments from localStorage
-function loadComments(): Record<string, ShapeComment[]> {
-  try {
-    const saved = localStorage.getItem(COMMENTS_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveComments(comments: Record<string, ShapeComment[]>) {
-  try {
-    localStorage.setItem(COMMENTS_STORAGE_KEY, JSON.stringify(comments));
-  } catch (error) {
-    console.error('Error saving comments:', error);
-  }
-}
-
-// Load/save metadata (name, color, tags) from localStorage
-function loadMetadata(): Record<string, ShapeMetadata> {
-  try {
-    const saved = localStorage.getItem(METADATA_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveMetadata(metadata: Record<string, ShapeMetadata>) {
-  try {
-    localStorage.setItem(METADATA_STORAGE_KEY, JSON.stringify(metadata));
-  } catch (error) {
-    console.error('Error saving metadata:', error);
-  }
-}
 
 /**
  * Sync a single shape's metadata to Supabase (fire-and-forget).
@@ -93,77 +54,6 @@ function syncMetadataToSupabase(shapeId: string, meta: ShapeMetadata): void {
   }).then(({ error }) => {
     if (error) console.error('[syncMetadata] RPC failed:', error);
   });
-}
-
-/**
- * Load metadata from Supabase for the current user.
- * Returns null if Supabase is unavailable or fetch fails.
- */
-async function loadMetadataFromSupabase(): Promise<Record<string, ShapeMetadata> | null> {
-  if (!isSupabaseConfigured() || !supabase) return null;
-
-  try {
-    const userId = getCurrentUserId();
-    const anonId = getAnonymousUserId();
-    const userIds = Array.from(new Set([userId, anonId]));
-
-    const { data, error } = await supabase
-      .from('drawn_features')
-      .select('id, name, color, tags, link, category_id, address, address_coords, created_by, attachments')
-      .in('user_id', userIds);
-
-    if (error || !data) return null;
-
-    const result: Record<string, ShapeMetadata> = {};
-    for (const row of data) {
-      result[row.id] = {
-        name: row.name || undefined,
-        color: row.color || undefined,
-        tags: row.tags || undefined,
-        link: row.link || undefined,
-        categoryId: row.category_id || undefined,
-        address: row.address || undefined,
-        addressCoords: row.address_coords as [number, number] | undefined,
-        createdBy: row.created_by || undefined,
-        attachments: row.attachments as Attachment[] | undefined,
-      };
-    }
-    return result;
-  } catch (error) {
-    console.error('Error loading metadata from Supabase:', error);
-    return null;
-  }
-}
-
-/**
- * Load shape comments from Supabase (entity_type = 'drawn_feature').
- * Returns null if Supabase is unavailable or fetch fails.
- */
-async function loadCommentsFromSupabase(): Promise<Record<string, ShapeComment[]> | null> {
-  if (!isSupabaseConfigured() || !supabase) return null;
-
-  try {
-    const { data, error } = await supabase
-      .from('comments')
-      .select('id, entity_id, content, created_at')
-      .eq('entity_type', 'drawn_feature');
-
-    if (error || !data) return null;
-
-    const result: Record<string, ShapeComment[]> = {};
-    for (const row of data) {
-      if (!result[row.entity_id]) result[row.entity_id] = [];
-      result[row.entity_id].push({
-        id: row.id,
-        text: row.content,
-        createdAt: row.created_at,
-      });
-    }
-    return result;
-  } catch (error) {
-    console.error('Error loading comments from Supabase:', error);
-    return null;
-  }
 }
 
 /**
@@ -431,8 +321,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
   const { features, selectedFeatureIds, deleteFeatureById, clearSelection } = useMapDraw();
   const { showToast } = useToast();
   const { isLinking, addItem: addLinkingItem } = useLinking();
-  const [allComments, setAllComments] = useState<Record<string, ShapeComment[]>>(loadComments);
-  const [allMetadata, setAllMetadata] = useState<Record<string, ShapeMetadata>>(loadMetadata);
+  const { allMetadata, allComments, setAllMetadata, setAllComments, fetchCommentsForShape, isMetadataLoaded } = useShapeDataContext();
 
   // Mobile detection for BottomSheet
   const isMobile = useMobile();
@@ -482,49 +371,6 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     getCategoryById
   } = usePointCategoriesContext();
 
-  // On mount: load metadata and comments from Supabase (async).
-  // localStorage is already loaded synchronously via the useState initializers above.
-  // Supabase data overwrites localStorage if the fetch succeeds.
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadFromSupabase() {
-      // Load metadata from Supabase
-      const sbMetadata = await loadMetadataFromSupabase();
-      if (!cancelled && sbMetadata && Object.keys(sbMetadata).length > 0) {
-        // Merge Supabase data on top of localStorage (Supabase is source of truth)
-        setAllMetadata(prev => {
-          const merged = { ...prev, ...sbMetadata };
-          // Also update localStorage to keep in sync
-          saveMetadata(merged);
-          return merged;
-        });
-      }
-
-      // Load comments from Supabase
-      const sbComments = await loadCommentsFromSupabase();
-      if (!cancelled && sbComments) {
-        setAllComments(prev => {
-          // Merge: for each shape, combine local + Supabase comments (dedup by ID)
-          const merged = { ...prev };
-          for (const [shapeId, comments] of Object.entries(sbComments)) {
-            const localComments = merged[shapeId] || [];
-            const localIds = new Set(localComments.map(c => c.id));
-            const newComments = comments.filter(c => !localIds.has(c.id));
-            if (newComments.length > 0) {
-              merged[shapeId] = [...localComments, ...newComments];
-            }
-          }
-          saveComments(merged);
-          return merged;
-        });
-      }
-    }
-
-    loadFromSupabase();
-
-    return () => { cancelled = true; };
-  }, []);
 
   // Collect all unique tags from all shapes for suggestions
   const allUniqueTags = useMemo(() => {
@@ -595,65 +441,69 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     ? features.features.find(f => f.id === selectedId)
     : null;
 
-  // Load and sync data when features change
+  // Memoize feature IDs so cleanup only runs when shapes are added/removed
+  const featureIds = useMemo(
+    () => features.features.map(f => f.id as string).sort().join(','),
+    [features]
+  );
+
+  // Clean up orphaned metadata/comments when the set of feature IDs changes
   useEffect(() => {
-    // Skip cleanup on initial empty state - features not loaded yet
-    if (features.features.length === 0) return;
+    if (!featureIds) return;
+    const currentIds = new Set(featureIds.split(','));
 
-    const currentIds = new Set(features.features.map(f => f.id as string));
-
-    // Clean up orphaned comments
-    const comments = loadComments();
-    const cleanedComments: Record<string, ShapeComment[]> = {};
-    let commentsChanged = false;
-    for (const [id, cmts] of Object.entries(comments)) {
-      if (currentIds.has(id)) {
-        cleanedComments[id] = cmts;
-      } else {
-        commentsChanged = true;
+    setAllComments(prev => {
+      const cleaned: Record<string, ShapeComment[]> = {};
+      let changed = false;
+      for (const [id, cmts] of Object.entries(prev)) {
+        if (currentIds.has(id)) {
+          cleaned[id] = cmts;
+        } else {
+          changed = true;
+        }
       }
-    }
-    if (commentsChanged) saveComments(cleanedComments);
-    setAllComments(cleanedComments);
+      return changed ? cleaned : prev;
+    });
 
-    // Clean up orphaned metadata
-    const metadata = loadMetadata();
-    const cleanedMetadata: Record<string, ShapeMetadata> = {};
-    let metadataChanged = false;
-    for (const [id, meta] of Object.entries(metadata)) {
-      if (currentIds.has(id)) {
-        cleanedMetadata[id] = meta;
-      } else {
-        metadataChanged = true;
+    setAllMetadata(prev => {
+      const cleaned: Record<string, ShapeMetadata> = {};
+      let changed = false;
+      for (const [id, meta] of Object.entries(prev)) {
+        if (currentIds.has(id)) {
+          cleaned[id] = meta;
+        } else {
+          changed = true;
+        }
       }
-    }
-    if (metadataChanged) saveMetadata(cleanedMetadata);
-    setAllMetadata(cleanedMetadata);
-  }, [features]);
+      return changed ? cleaned : prev;
+    });
+  }, [featureIds, setAllComments, setAllMetadata]);
 
   // Reset editing state when selection changes
-  // Also stamp authorship on NEW shapes (shapes without createdBy)
+  // Also stamp authorship on NEW shapes and lazy-load comments
   useEffect(() => {
     if (selectedId) {
       const metadata = allMetadata[selectedId];
       setNameValue(metadata?.name || '');
       setLinkValue(metadata?.link || '');
+      fetchCommentsForShape(selectedId);
 
-      // Stamp authorship on new shapes (only if no createdBy exists)
-      // Legacy shapes (created before this update) keep createdBy as undefined
+      // Only stamp authorship after Supabase metadata has loaded (prevents overwriting real owners)
+      if (!isMetadataLoaded) return;
+
       if (metadata && metadata.createdBy === undefined && Object.keys(metadata).length === 0) {
         // This is a completely new shape with empty metadata, stamp it
         const newMeta = { ...metadata, createdBy: getCurrentUserId() };
         const updated = { ...allMetadata, [selectedId]: newMeta };
         setAllMetadata(updated);
-        saveMetadata(updated);
+
         syncMetadataToSupabase(selectedId, newMeta);
       } else if (!metadata) {
         // No metadata at all, create it with authorship
         const newMeta: ShapeMetadata = { createdBy: getCurrentUserId() };
         const updated = { ...allMetadata, [selectedId]: newMeta };
         setAllMetadata(updated);
-        saveMetadata(updated);
+
         syncMetadataToSupabase(selectedId, newMeta);
       }
     }
@@ -665,7 +515,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     setCategoryDropdownOpen(false);
     setIsAddingCategory(false);
     setNewCategoryName('');
-  }, [selectedId, allMetadata]);
+  }, [selectedId, allMetadata, fetchCommentsForShape, isMetadataLoaded]);
 
   // Auto-fetch address for Points: when created OR when moved to new coordinates
   useEffect(() => {
@@ -701,7 +551,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
         };
         const updated = { ...allMetadata, [selectedId]: newMeta };
         setAllMetadata(updated);
-        saveMetadata(updated);
+
         syncMetadataToSupabase(selectedId, newMeta);
       })
       .catch((error) => {
@@ -718,7 +568,6 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     const newMeta = { ...allMetadata[selectedId], name: nameValue.trim() || undefined };
     const updated = { ...allMetadata, [selectedId]: newMeta };
     setAllMetadata(updated);
-    saveMetadata(updated);
     syncMetadataToSupabase(selectedId, newMeta);
     setEditingName(false);
     showToast('Saved');
@@ -730,7 +579,6 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     const newMeta = { ...allMetadata[selectedId], link: trimmed || undefined };
     const updated = { ...allMetadata, [selectedId]: newMeta };
     setAllMetadata(updated);
-    saveMetadata(updated);
     syncMetadataToSupabase(selectedId, newMeta);
     setEditingLink(false);
     showToast('Saved');
@@ -744,7 +592,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
         const newMeta = { ...allMetadata[selectedId], tags: [...tags, newTag.trim()] };
         const updated = { ...allMetadata, [selectedId]: newMeta };
         setAllMetadata(updated);
-        saveMetadata(updated);
+
         syncMetadataToSupabase(selectedId, newMeta);
         showToast('Saved');
       }
@@ -758,7 +606,6 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     const newMeta = { ...allMetadata[selectedId], tags: tags.filter(t => t !== tagToRemove) };
     const updated = { ...allMetadata, [selectedId]: newMeta };
     setAllMetadata(updated);
-    saveMetadata(updated);
     syncMetadataToSupabase(selectedId, newMeta);
     showToast('Saved');
   }, [selectedId, allMetadata, showToast]);
@@ -775,7 +622,6 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
       [selectedId]: [...(allComments[selectedId] || []), comment]
     };
     setAllComments(updated);
-    saveComments(updated);
     syncCommentAddToSupabase(selectedId, comment);
     setNewComment('');
     showToast('Saved');
@@ -803,7 +649,6 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
       [selectedId]: (allComments[selectedId] || []).filter(c => c.id !== commentId)
     };
     setAllComments(updated);
-    saveComments(updated);
     syncCommentDeleteFromSupabase(commentId);
     showToast('Deleted');
   }, [selectedId, allComments, showToast]);
@@ -846,7 +691,6 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
       const newMeta = { ...allMetadata[selectedId], attachments: [...currentAttachments, attachment] };
       const updated = { ...allMetadata, [selectedId]: newMeta };
       setAllMetadata(updated);
-      saveMetadata(updated);
       syncMetadataToSupabase(selectedId, newMeta);
       showToast('Saved');
       return { success: true };
@@ -863,7 +707,6 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     const newMeta = { ...allMetadata[selectedId], attachments: currentAttachments.filter(a => a.id !== attachmentId) };
     const updated = { ...allMetadata, [selectedId]: newMeta };
     setAllMetadata(updated);
-    saveMetadata(updated);
     syncMetadataToSupabase(selectedId, newMeta);
     showToast('Deleted');
   }, [selectedId, allMetadata, showToast]);
@@ -1117,7 +960,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                           const newMeta = { ...allMetadata[selectedId], categoryId: created.id };
                           const updated = { ...allMetadata, [selectedId]: newMeta };
                           setAllMetadata(updated);
-                          saveMetadata(updated);
+                  
                           syncMetadataToSupabase(selectedId, newMeta);
                           showToast('Category created');
                         }
@@ -1143,7 +986,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                           const newMeta = { ...allMetadata[selectedId], categoryId: created.id };
                           const updated = { ...allMetadata, [selectedId]: newMeta };
                           setAllMetadata(updated);
-                          saveMetadata(updated);
+                  
                           syncMetadataToSupabase(selectedId, newMeta);
                           showToast('Category created');
                         }
@@ -1195,7 +1038,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                             const newMeta = { ...allMetadata[selectedId], categoryId: undefined };
                             const updated = { ...allMetadata, [selectedId]: newMeta };
                             setAllMetadata(updated);
-                            saveMetadata(updated);
+                    
                             syncMetadataToSupabase(selectedId, newMeta);
                             showToast('Saved');
                           }
@@ -1235,7 +1078,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                                   const newMeta = { ...allMetadata[selectedId], categoryId: cat.id };
                                   const updated = { ...allMetadata, [selectedId]: newMeta };
                                   setAllMetadata(updated);
-                                  saveMetadata(updated);
+                          
                                   syncMetadataToSupabase(selectedId, newMeta);
                                   showToast('Saved');
                                 }
@@ -1466,7 +1309,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                       const newMeta = { ...allMetadata[selectedId], tags: [...tags, tag] };
                       const updated = { ...allMetadata, [selectedId]: newMeta };
                       setAllMetadata(updated);
-                      saveMetadata(updated);
+              
                       syncMetadataToSupabase(selectedId, newMeta);
                       showToast('Saved');
                     }

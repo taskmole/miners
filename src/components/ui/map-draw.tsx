@@ -6,156 +6,15 @@ import type mapboxgl from 'mapbox-gl';
 import { useMap } from './map';
 import { safeMapCleanup } from '@/lib/safe-map-cleanup';
 import { convertToMapboxDrawStyles } from '@/lib/draw-styles';
-import type { DrawMode, ShapeMetadata } from '@/types/draw';
+import type { DrawMode } from '@/types/draw';
 import { getCurrentUserId, canEditShape } from '@/lib/browser-session';
 import { logActivity, getAnonymousUserId } from '@/lib/supabaseHelpers';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
 import { useMobile } from '@/hooks/useMobile';
 
-// Load shape metadata from localStorage
-function loadMetadata(): Record<string, ShapeMetadata> {
-  try {
-    const saved = localStorage.getItem('miners-shape-metadata');
-    return saved ? JSON.parse(saved) : {};
-  } catch {
-    return {};
-  }
-}
-
-/**
- * One-time migration: push existing localStorage drawn shapes to Supabase.
- * Merges GeoJSON features with shape metadata, then upserts to drawn_features.
- * Sets a flag so it only runs once. If verification fails, retries next load.
- */
-async function migrateLocalStorageToSupabase(): Promise<void> {
-  // Skip if migration already done or Supabase not available
-  if (!isSupabaseConfigured() || !supabase) return;
-  if (localStorage.getItem('miners-shapes-migrated')) return;
-
-  // Check if any of the 3 localStorage keys exist
-  const featuresRaw = localStorage.getItem('miners-drawn-features');
-  const metadataRaw = localStorage.getItem('miners-shape-metadata');
-  const commentsRaw = localStorage.getItem('miners-drawn-comments');
-
-  if (!featuresRaw && !metadataRaw && !commentsRaw) {
-    // Nothing to migrate
-    localStorage.setItem('miners-shapes-migrated', 'true');
-    return;
-  }
-
-  try {
-    const userId = getCurrentUserId();
-
-    // Parse localStorage data
-    const featureCollection: GeoJSON.FeatureCollection = featuresRaw
-      ? JSON.parse(featuresRaw)
-      : { type: 'FeatureCollection', features: [] };
-    const metadata: Record<string, ShapeMetadata> = metadataRaw
-      ? JSON.parse(metadataRaw)
-      : {};
-
-    // Build rows by merging GeoJSON with metadata
-    const rows = featureCollection.features.map(f => {
-      const fId = f.id as string;
-      const meta = metadata[fId] || {};
-      return {
-        id: fId,
-        user_id: userId,
-        geojson: f as unknown as Record<string, unknown>,
-        name: meta.name || null,
-        color: meta.color || null,
-        tags: meta.tags || null,
-        link: meta.link || null,
-        category_id: meta.categoryId || null,
-        address: meta.address || null,
-        address_coords: meta.addressCoords || null,
-        created_by: meta.createdBy || userId,
-        attachments: (meta.attachments || null) as Record<string, unknown>[] | null,
-        updated_at: new Date().toISOString(),
-      };
-    });
-
-    if (rows.length === 0) {
-      localStorage.setItem('miners-shapes-migrated', 'true');
-      return;
-    }
-
-    // Upsert to Supabase
-    const { error: upsertError } = await supabase
-      .from('drawn_features')
-      .upsert(rows, { onConflict: 'id' });
-
-    if (upsertError) {
-      console.error('Migration upsert error:', upsertError);
-      return; // Don't set flag, retry next load
-    }
-
-    // Migrate comments to the comments table (entity_type = 'drawn_feature')
-    interface LocalComment {
-      id: string;
-      text: string;
-      createdAt: string;
-    }
-    const comments: Record<string, LocalComment[]> = commentsRaw
-      ? JSON.parse(commentsRaw)
-      : {};
-    const commentRows: Array<{
-      id: string;
-      entity_type: string;
-      entity_id: string;
-      content: string;
-      created_by: string;
-      created_at: string;
-    }> = [];
-    for (const [shapeId, shapeComments] of Object.entries(comments)) {
-      for (const c of shapeComments) {
-        commentRows.push({
-          id: c.id,
-          entity_type: 'drawn_feature',
-          entity_id: shapeId,
-          content: c.text,
-          created_by: userId,
-          created_at: c.createdAt,
-        });
-      }
-    }
-
-    if (commentRows.length > 0) {
-      const { error: commentError } = await supabase
-        .from('comments')
-        .upsert(commentRows, { onConflict: 'id' });
-      if (commentError) {
-        console.error('Migration comment upsert error:', commentError);
-        // Non-blocking: continue even if comments fail
-      }
-    }
-
-    // Verify by reading back from Supabase
-    const { data: verifyData, error: verifyError } = await supabase
-      .from('drawn_features')
-      .select('id')
-      .eq('user_id', userId);
-
-    if (verifyError) {
-      console.error('Migration verification error:', verifyError);
-      return; // Don't set flag, retry next load
-    }
-
-    const migratedIds = new Set((verifyData || []).map(r => r.id));
-    const allMigrated = rows.every(r => migratedIds.has(r.id));
-
-    if (allMigrated) {
-      localStorage.setItem('miners-shapes-migrated', 'true');
-      console.log(`Migrated ${rows.length} drawn features to Supabase`);
-    } else {
-      console.warn('Migration verification incomplete, will retry on next load');
-    }
-  } catch (error) {
-    console.error('Error during localStorage migration:', error);
-    // Don't set flag, retry next load
-  }
-}
+// Ownership map: shape ID -> created_by user ID. Populated from Supabase on load.
+const shapeOwnership = new Map<string, string>();
 
 // Context for drawing state
 type MapDrawContextValue = {
@@ -198,10 +57,7 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
   const { setHoveredPoint, clearHoveredPoint, setDrawnPoints } = useWalkingRadius();
   const isMobile = useMobile();
 
-  // Helper to sync points and persist features (used by create, update, delete handlers).
-  // Dual-write: saves to localStorage immediately, then syncs to Supabase in the background.
   const syncAndPersist = useCallback((allFeatures: GeoJSON.FeatureCollection) => {
-    // Sync points to context for mobile multi-circle rendering
     const points = allFeatures.features
       .filter(f => f.geometry.type === 'Point')
       .map(f => ({
@@ -209,13 +65,6 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
         center: (f.geometry as GeoJSON.Point).coordinates as [number, number]
       }));
     setDrawnPoints(points);
-
-    // Save to localStorage (instant, never blocks)
-    try {
-      localStorage.setItem('miners-drawn-features', JSON.stringify(allFeatures));
-    } catch (error) {
-      console.error('Error saving features to localStorage:', error);
-    }
 
     // Sync geometry to Supabase (async, non-blocking)
     // Only sends geometry fields. Metadata (name, color, tags) is owned by ShapeComments via RPC.
@@ -290,39 +139,27 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       setDrawnPoints(points);
     };
 
-    // Load features from localStorage as immediate fallback
-    const loadFromLocalStorage = (): GeoJSON.FeatureCollection | null => {
-      try {
-        const saved = localStorage.getItem('miners-drawn-features');
-        if (saved) return JSON.parse(saved);
-      } catch (error) {
-        console.error('Error loading features from localStorage:', error);
-      }
-      return null;
-    };
-
-    // Try Supabase first, fall back to localStorage
+    // Load features from Supabase
     const loadFeatures = async () => {
-      // Show localStorage data immediately so the map is not blank
-      const localFeatures = loadFromLocalStorage();
-      if (localFeatures && localFeatures.features.length > 0) {
-        applyFeatures(localFeatures);
-      }
-
-      // Then try to load from Supabase (may contain more recent data)
       if (isSupabaseConfigured() && supabase) {
         try {
           const userId = getCurrentUserId();
           const anonId = getAnonymousUserId();
 
-          // Query by both current user ID and anonymous ID to catch all user data
           const userIds = Array.from(new Set([userId, anonId]));
           const { data, error } = await supabase
             .from('drawn_features')
-            .select('id, geojson')
+            .select('id, geojson, created_by')
             .in('user_id', userIds);
 
           if (!error && data && data.length > 0) {
+            // Populate ownership map for edit permission checks
+            for (const row of data) {
+              if (row.created_by) {
+                shapeOwnership.set(row.id, row.created_by);
+              }
+            }
+
             const supabaseFeatures: GeoJSON.FeatureCollection = {
               type: 'FeatureCollection',
               features: data
@@ -330,24 +167,14 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
                 .map(row => row.geojson as unknown as GeoJSON.Feature),
             };
 
-            // Use Supabase data if it has features
             if (supabaseFeatures.features.length > 0) {
               applyFeatures(supabaseFeatures);
-              // Also update localStorage to keep in sync
-              try {
-                localStorage.setItem('miners-drawn-features', JSON.stringify(supabaseFeatures));
-              } catch {
-                // Ignore localStorage write errors
-              }
             }
           }
         } catch (error) {
-          console.error('Error loading features from Supabase, using localStorage:', error);
+          console.error('Error loading features from Supabase:', error);
         }
       }
-
-      // Run one-time migration from localStorage to Supabase
-      migrateLocalStorageToSupabase();
     };
 
     loadFeatures();
@@ -371,8 +198,10 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       onShapeCreated?.();
       syncAndPersist(allFeatures);
 
-      // Log shape creation to activity feed
       const newest = allFeatures.features[allFeatures.features.length - 1];
+      if (newest?.id) {
+        shapeOwnership.set(newest.id as string, getCurrentUserId());
+      }
       if (newest?.geometry) {
         const geom = newest.geometry;
         let lat = 0, lon = 0;
@@ -393,21 +222,17 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
     const handleUpdate = () => {
       const allFeatures = draw.getAll();
 
-      // Check ownership: find which features were updated and verify the user can edit them
-      const metadata = loadMetadata();
       const oldFeatureMap = new Map(features.features.map(f => [f.id, f]));
 
       let unauthorizedEdit = false;
       for (const feature of allFeatures.features) {
         const oldFeature = oldFeatureMap.get(feature.id);
         if (oldFeature) {
-          // Check if geometry changed
           const oldCoords = JSON.stringify(oldFeature.geometry.coordinates);
           const newCoords = JSON.stringify(feature.geometry.coordinates);
           if (oldCoords !== newCoords) {
-            // Geometry changed - check if user can edit this shape
-            const shapeMetadata = metadata[feature.id as string];
-            if (!canEditShape(shapeMetadata?.createdBy)) {
+            const createdBy = shapeOwnership.get(feature.id as string);
+            if (!canEditShape(createdBy)) {
               unauthorizedEdit = true;
               break;
             }
@@ -416,19 +241,9 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       }
 
       if (unauthorizedEdit) {
-        // Revert: restore features from localStorage
-        try {
-          const saved = localStorage.getItem('miners-drawn-features');
-          if (saved) {
-            const savedFeatures = JSON.parse(saved);
-            draw.set(savedFeatures);
-            setFeatures(savedFeatures);
-          }
-        } catch (error) {
-          console.error('Error reverting features:', error);
-        }
-
-        // Dispatch event so toast can be shown
+        // Revert from React state (the last-known-good geometry)
+        draw.set(features);
+        setFeatures(features);
         window.dispatchEvent(new CustomEvent('unauthorized-shape-edit'));
         return;
       }
