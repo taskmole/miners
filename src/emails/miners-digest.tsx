@@ -45,7 +45,12 @@ function listedAgoLabel(days?: number): string {
   return `${days} days ago`;
 }
 
-function ListingRow({ listing }: { listing: Listing }) {
+function formatPrice(rent: number, city: string): string {
+  if (city === "prague") return `${rent.toLocaleString("en-US")} Kč/mo`;
+  return `€${rent.toLocaleString("en-US")}/mo`;
+}
+
+function ListingRow({ listing, city }: { listing: Listing; city: string }) {
   const hasScore = listing.score != null;
   const hasReason = listing.reason != null && listing.reason.length > 0;
 
@@ -91,7 +96,7 @@ function ListingRow({ listing }: { listing: Listing }) {
         </div>
         <div className="listing-meta" style={listingMeta}>
           {listing.district} · {listing.sizeSqm}m² ·{" "}
-          €{listing.monthlyRent.toLocaleString("en-US")}/mo
+          {formatPrice(listing.monthlyRent, city)}
         </div>
         {hasReason && (
           <div style={{ marginTop: "4px" }}>
@@ -250,7 +255,7 @@ export default function MinersDigest({
             <Text style={sectionLabel}>TOP PICKS</Text>
 
             {displayListings.map((listing, i) => (
-              <ListingRow key={i} listing={listing} />
+              <ListingRow key={i} listing={listing} city={city} />
             ))}
           </Section>
 
