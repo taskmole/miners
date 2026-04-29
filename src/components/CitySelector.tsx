@@ -32,9 +32,9 @@ export interface City {
 // City configuration with coordinates and status chips
 export const cities: City[] = [
   { id: "madrid", name: "Madrid", active: true, coordinates: [-3.7038, 40.4168], chip: null, countryCode: "ES" },
-  { id: "barcelona", name: "Barcelona", active: true, coordinates: [2.1734, 41.3874], chip: { text: "NEW", style: "gold" }, countryCode: "ES" },
+  { id: "prague", name: "Prague", active: true, coordinates: [14.4378, 50.0755], chip: { text: "NEW", style: "gold" }, countryCode: "CZ" },
+  { id: "barcelona", name: "Barcelona", active: true, coordinates: [2.1734, 41.3874], chip: null, countryCode: "ES" },
   { id: "seville", name: "Seville", active: false, coordinates: [-5.9845, 37.3891], chip: { text: "COMING SOON", style: "gray" }, countryCode: "ES" },
-  { id: "prague", name: "Prague", active: false, coordinates: [14.4378, 50.0755], chip: { text: "COMING SOON", style: "gray" }, countryCode: "CZ" },
 ];
 
 interface CitySelectorProps {

@@ -56,12 +56,20 @@ export function getCategoryForIdealista(): string {
 }
 
 /**
+ * Get category for Sreality properties
+ */
+export function getCategoryForSreality(): string {
+  return CATEGORIES.PROPERTY;
+}
+
+/**
  * Data source identifiers
  */
 export const SOURCES = {
   GOOGLE_PLACES: "google_places",
   EU_COFFEE_TRIP: "eu_coffee_trip",
   IDEALISTA: "idealista",
+  SREALITY: "sreality",
   OSM: "osm",
   USER: "user",
 } as const;
@@ -70,7 +78,7 @@ export const SOURCES = {
  * Get the appropriate source string for a data source
  */
 export function getSourceString(
-  source: "google" | "euct" | "idealista" | "osm" | "user"
+  source: "google" | "euct" | "idealista" | "sreality" | "osm" | "user"
 ): string {
   switch (source) {
     case "google":
@@ -79,6 +87,8 @@ export function getSourceString(
       return SOURCES.EU_COFFEE_TRIP;
     case "idealista":
       return SOURCES.IDEALISTA;
+    case "sreality":
+      return SOURCES.SREALITY;
     case "osm":
       return SOURCES.OSM;
     case "user":

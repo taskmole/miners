@@ -217,31 +217,17 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       console.error('Error saving features to localStorage:', error);
     }
 
-    // Dual-write to Supabase (async, non-blocking)
+    // Sync geometry to Supabase (async, non-blocking)
+    // Only sends geometry fields. Metadata (name, color, tags) is owned by ShapeComments via RPC.
     if (isSupabaseConfigured() && supabase) {
       const userId = getCurrentUserId();
-      const metadataRaw = localStorage.getItem('miners-shape-metadata');
-      const metadata: Record<string, ShapeMetadata> = metadataRaw ? JSON.parse(metadataRaw) : {};
 
-      const rows = allFeatures.features.map(f => {
-        const fId = f.id as string;
-        const meta = metadata[fId] || {};
-        return {
-          id: fId,
-          user_id: userId,
-          geojson: f as unknown as Record<string, unknown>,
-          name: meta.name || null,
-          color: meta.color || null,
-          tags: meta.tags || null,
-          link: meta.link || null,
-          category_id: meta.categoryId || null,
-          address: meta.address || null,
-          address_coords: meta.addressCoords || null,
-          created_by: meta.createdBy || userId,
-          attachments: (meta.attachments || null) as Record<string, unknown>[] | null,
-          updated_at: new Date().toISOString(),
-        };
-      });
+      const rows = allFeatures.features.map(f => ({
+        id: f.id as string,
+        user_id: userId,
+        geojson: f as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString(),
+      }));
 
       // Upsert first, then clean up deleted features (sequential to avoid race)
       (async () => {
