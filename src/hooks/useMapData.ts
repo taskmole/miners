@@ -183,6 +183,7 @@ export function useMapData(cityId?: string) {
                                 facebook: info?.facebook || undefined,
                                 premium: info?.premium === 'True' || info?.premium === true,
                                 datePublished: info?.date_published || undefined,
+                                fetchedAt: info?.date_modified || undefined,
                                 city: "madrid" as const, // Mark as Madrid cafe
                             };
                         });
@@ -209,6 +210,7 @@ export function useMapData(cityId?: string) {
                             facebook: c.facebook || undefined,
                             premium: c.premium === 'True' || c.premium === true,
                             datePublished: c.date_published || undefined,
+                            fetchedAt: c.date_modified || undefined,
                             city: "barcelona" as const, // Mark as Barcelona cafe
                         }));
 
