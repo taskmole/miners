@@ -54,6 +54,61 @@ const CZ_BOUNDS = {
   lonMax: 18.9,
 };
 
+// Sreality category codes to URL slugs
+const CATEGORY_TYPE_SLUGS: Record<number, string> = {
+  1: "prodej",
+  2: "pronajem",
+};
+
+const CATEGORY_MAIN_SLUGS: Record<number, string> = {
+  1: "byty",
+  2: "domy",
+  3: "pozemky",
+  4: "komercni",
+};
+
+const CATEGORY_SUB_SLUGS: Record<number, string> = {
+  2: "byt",
+  3: "dum",
+  4: "pozemek",
+  5: "garaz",
+  6: "pole",
+  7: "les",
+  8: "zahrada",
+  9: "chata",
+  10: "chalupa",
+  11: "vila",
+  12: "byt-1+kk",
+  18: "kancelare",
+  19: "sklad",
+  20: "vyrobni-prostor",
+  21: "obchodni-prostor",
+  22: "ubytovani",
+  23: "restaurace",
+  24: "zemedelsky-objekt",
+  25: "cinzovni-dum",
+  26: "virtualni-kancelar",
+  27: "vinny-sklep",
+  28: "obchodni-prostor",
+  29: "kancelare",
+  30: "restaurace",
+  31: "sklad",
+  32: "vyrobni-prostor",
+  33: "ubytovani",
+  34: "zemedelsky-objekt",
+  35: "cinzovni-dum",
+  36: "virtualni-kancelar",
+  37: "vinny-sklep",
+  38: "apartman",
+  39: "atelier",
+  40: "kancelare",
+  41: "restaurace",
+  42: "obchodni-prostor",
+  43: "ostatni",
+  44: "pokoj",
+  46: "garsoniera",
+};
+
 // Czech field name to English property name mapping
 const ITEM_FIELD_MAP: Record<string, string> = {
   "Celková cena": "totalPrice",
@@ -243,17 +298,24 @@ async function fetchListingDetail(hashId: string): Promise<SrealityListing | nul
     const price = data.price_czk?.value_raw ?? null;
     const pricePerSqm = data.price_czk?.alt?.value_raw ?? null;
 
+    // Use view size (749x562) for faster loading instead of self (1920x1080)
     const photos: string[] = [];
     for (const img of data._embedded?.images || []) {
-      const url = img._links?.self?.href || img._links?.view?.href;
-      if (url) photos.push(url);
+      const photoUrl = img._links?.view?.href || img._links?.self?.href;
+      if (photoUrl) photos.push(photoUrl);
     }
 
     const description = data.text?.value || "";
     const name = data.name?.value || `Listing ${hashId}`;
     const locality = data.locality?.value || "";
-    const seoLocality = data.seo?.locality || "";
-    const url = `https://www.sreality.cz/detail/${seoLocality}/${hashId}`;
+
+    // Build full URL with category path segments
+    const seo = data.seo || {};
+    const typeSlug = CATEGORY_TYPE_SLUGS[seo.category_type_cb] || "pronajem";
+    const mainSlug = CATEGORY_MAIN_SLUGS[seo.category_main_cb] || "komercni";
+    const subSlug = CATEGORY_SUB_SLUGS[seo.category_sub_cb] || "ostatni";
+    const seoLocality = seo.locality || "";
+    const url = `https://www.sreality.cz/detail/${typeSlug}/${mainSlug}/${subSlug}/${seoLocality}/${hashId}`;
 
     const nearbyPoi: Record<string, unknown> = {};
     for (const key of Object.keys(data)) {
