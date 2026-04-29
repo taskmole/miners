@@ -8,53 +8,8 @@ import { MessageCircle, Scan, Users, Banknote } from 'lucide-react';
 import type { Feature, Polygon } from 'geojson';
 import { getCachedStats, formatArea, formatPopulation, formatIncome } from '@/lib/area-calculations';
 import { useGeoData } from '@/contexts/GeoDataContext';
-
-import { POINT_CATEGORIES_STORAGE_KEY, DEFAULT_CATEGORIES } from '@/types/point-categories';
-
-// Storage keys (same as ShapeComments.tsx)
-const COMMENTS_STORAGE_KEY = 'miners-drawn-comments';
-const METADATA_STORAGE_KEY = 'miners-shape-metadata';
-
-// Get shape metadata from localStorage
-function getShapeMetadata(featureId: string): { name?: string; tags?: string[]; categoryId?: string } {
-  try {
-    const saved = localStorage.getItem(METADATA_STORAGE_KEY);
-    if (saved) {
-      const all = JSON.parse(saved);
-      return all[featureId] || {};
-    }
-  } catch {}
-  return {};
-}
-
-// Get category name by ID from localStorage
-function getCategoryName(categoryId: string): string | undefined {
-  try {
-    const saved = localStorage.getItem(POINT_CATEGORIES_STORAGE_KEY);
-    if (saved) {
-      const state = JSON.parse(saved);
-      const categories = state.categories || [];
-      const found = categories.find((c: { id: string; name: string }) => c.id === categoryId);
-      if (found) return found.name;
-    }
-    // Fallback to default categories
-    const defaultCat = DEFAULT_CATEGORIES.find(c => c.id === categoryId);
-    return defaultCat?.name;
-  } catch {}
-  return undefined;
-}
-
-// Get comment count from localStorage
-function getCommentCount(featureId: string): number {
-  try {
-    const saved = localStorage.getItem(COMMENTS_STORAGE_KEY);
-    if (saved) {
-      const all = JSON.parse(saved);
-      return (all[featureId] || []).length;
-    }
-  } catch {}
-  return 0;
-}
+import { useShapeDataContext } from '@/contexts/ShapeDataContext';
+import { usePointCategoriesContext } from '@/contexts/PointCategoriesContext';
 
 type TooltipData = {
   x: number;
@@ -75,13 +30,25 @@ export function ShapeHoverTooltip() {
   const { features, selectedFeatureIds } = useMapDraw();
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const { densityData, incomeData } = useGeoData();
+  const { allMetadata, allComments } = useShapeDataContext();
+  const { getCategoryById } = usePointCategoriesContext();
   const hoveredFeatureId = useRef<string | null>(null);
 
-  // Use ref for selectedFeatureIds to avoid stale closure in event listeners
+  // Use refs for data that changes frequently to avoid re-registering map event handlers
   const selectedFeatureIdsRef = useRef(selectedFeatureIds);
-  useEffect(() => {
-    selectedFeatureIdsRef.current = selectedFeatureIds;
-  }, [selectedFeatureIds]);
+  useEffect(() => { selectedFeatureIdsRef.current = selectedFeatureIds; }, [selectedFeatureIds]);
+
+  const allMetadataRef = useRef(allMetadata);
+  useEffect(() => { allMetadataRef.current = allMetadata; }, [allMetadata]);
+
+  const allCommentsRef = useRef(allComments);
+  useEffect(() => { allCommentsRef.current = allComments; }, [allComments]);
+
+  const getCategoryByIdRef = useRef(getCategoryById);
+  useEffect(() => { getCategoryByIdRef.current = getCategoryById; }, [getCategoryById]);
+
+  const featuresRef = useRef(features);
+  useEffect(() => { featuresRef.current = features; }, [features]);
 
   // Track previous feature IDs to detect when hovered feature is deleted
   const prevFeatureIdsRef = useRef<Set<string>>(new Set());
@@ -119,7 +86,7 @@ export function ShapeHoverTooltip() {
       // Skip tooltip for the shape that has the popup open (is selected)
       // But show tooltip for OTHER shapes even when a popup is open
       if (selectedFeatureIdsRef.current.includes(featureId)) {
-        if (tooltip) setTooltip(null);
+        setTooltip(null);
         hoveredFeatureId.current = null;
         return;
       }
@@ -129,20 +96,18 @@ export function ShapeHoverTooltip() {
         hoveredFeatureId.current = featureId;
 
         // Find the full feature from our features state
-        const fullFeature = features.features.find(f => f.id === featureId);
+        const fullFeature = featuresRef.current.features.find(f => f.id === featureId);
         if (!fullFeature) return;
 
         const isPolygon = fullFeature.geometry.type === 'Polygon';
         const isPoint = fullFeature.geometry.type === 'Point';
         if (!isPolygon && !isPoint) return;
 
-        // Get metadata
-        const metadata = getShapeMetadata(featureId);
-        const commentCount = getCommentCount(featureId);
+        const metadata = allMetadataRef.current[featureId] || {};
+        const commentCount = (allCommentsRef.current[featureId] || []).length;
 
-        // Get category name for points
         const categoryName = isPoint && metadata.categoryId
-          ? getCategoryName(metadata.categoryId)
+          ? getCategoryByIdRef.current(metadata.categoryId)?.name
           : undefined;
 
         // Calculate stats using cache (only for polygons)
@@ -170,13 +135,11 @@ export function ShapeHoverTooltip() {
 
       map.getCanvas().style.cursor = 'pointer';
     } else {
-      if (tooltip) {
-        setTooltip(null);
-        hoveredFeatureId.current = null;
-      }
+      setTooltip(null);
+      hoveredFeatureId.current = null;
       map.getCanvas().style.cursor = '';
     }
-  }, [map, features, tooltip, densityData, incomeData]);
+  }, [map, densityData, incomeData]);
 
   // Handle mouse leave map
   const handleMouseLeave = useCallback(() => {

@@ -17,6 +17,7 @@ import { MapDraw } from "@/components/ui/map-draw";
 import { DrawToolbar } from "@/components/DrawToolbar";
 import { ShapeComments } from "@/components/ShapeComments";
 import { ShapeHoverTooltip } from "@/components/ShapeHoverTooltip";
+import { ShapeDataProvider } from "@/contexts/ShapeDataContext";
 import { DrawingIndicator } from "@/components/DrawingIndicator";
 import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
 import { ToastProvider, useToast } from "@/contexts/ToastContext";
@@ -2415,10 +2416,12 @@ export function EnhancedMapContainer({
                     onShapeCreated={shapeCreatedCallback ?? undefined}
                     onShapeUpdated={shapeCreatedCallback ?? undefined}
                 >
-                    <DrawToolbar />
-                    <ShapeComments cityId={selectedCity?.id} />
-                    <ShapeHoverTooltip />
-                    <DrawingIndicator />
+                    <ShapeDataProvider>
+                      <DrawToolbar />
+                      <ShapeComments cityId={selectedCity?.id} />
+                      <ShapeHoverTooltip />
+                      <DrawingIndicator />
+                    </ShapeDataProvider>
                 </MapDraw>
 
                 {/* Zoom tracker for hybrid rendering */}

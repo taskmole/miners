@@ -13,42 +13,14 @@ import type {
 } from '@/types/scouting';
 import type { Attachment } from '@/types/attachments';
 import {
-  SCOUTING_TRIPS_STORAGE_KEY,
   SCOUTING_TRIPS_VERSION,
   generateTripId,
   createEmptyTrip,
   createDefaultChecklist,
-  migrateTrip,
 } from '@/types/scouting';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { getAnonymousUserId, withSupabase, withRetry } from '@/lib/supabaseHelpers';
 import { getCurrentUserId } from '@/lib/browser-session';
-
-/**
- * Get initial state from localStorage with migration for old trips
- */
-function getInitialState(): ScoutingTripsState {
-  if (typeof window === 'undefined') {
-    return { version: SCOUTING_TRIPS_VERSION, trips: [] };
-  }
-
-  try {
-    const saved = localStorage.getItem(SCOUTING_TRIPS_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved) as ScoutingTripsState;
-      // Migrate all trips to new format (property + relatedPlaces + checklist + attachments)
-      const migratedTrips = (parsed.trips || []).map(migrateTrip);
-      return {
-        version: SCOUTING_TRIPS_VERSION,
-        trips: migratedTrips,
-      };
-    }
-  } catch (error) {
-    console.error('Error loading scouting trips from localStorage:', error);
-  }
-
-  return { version: SCOUTING_TRIPS_VERSION, trips: [] };
-}
 
 /**
  * Fetch ALL trip data from Supabase (matches every field syncCreateToSupabase writes).
@@ -395,87 +367,21 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
   const [isLoaded, setIsLoaded] = useState(false);
   const initialLoadDone = useRef(false);
 
-  // Load from Supabase + localStorage on mount, with one-time migration
+  // Load from Supabase on mount
   useEffect(() => {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
 
     async function loadTrips() {
-      // --- One-time localStorage-to-Supabase migration ---
-      // If localStorage still has trips, push any that are missing from Supabase,
-      // verify the data arrived, THEN delete the localStorage key.
-      const localState = getInitialState();
-      const localTrips = localState.trips;
-      const hasLocalData = localTrips.length > 0;
-
-      if (hasLocalData && isSupabaseConfigured() && supabase) {
-        try {
-          // Fetch current Supabase trip IDs so we only push what is missing
-          const existingIds = await withSupabase(async () => {
-            const currentId = getCurrentUserId();
-            const anonId = getAnonymousUserId();
-            const { data } = await supabase!
-              .from('pitches')
-              .select('id')
-              .or(`created_by.eq.${currentId},created_by.eq.${anonId}`);
-            return new Set((data || []).map((r: { id: string }) => r.id));
-          }, new Set<string>(), 'migration: fetch existing IDs');
-
-          const tripsToMigrate = localTrips.filter(t => !existingIds.has(t.id));
-
-          if (tripsToMigrate.length > 0) {
-            // Push each missing trip to Supabase
-            for (const trip of tripsToMigrate) {
-              await syncCreateToSupabase(trip);
-            }
-
-            // Verify: re-fetch and confirm all migrated IDs are present
-            const verifyIds = await withSupabase(async () => {
-              const currentId = getCurrentUserId();
-              const anonId = getAnonymousUserId();
-              const { data } = await supabase!
-                .from('pitches')
-                .select('id')
-                .or(`created_by.eq.${currentId},created_by.eq.${anonId}`);
-              return new Set((data || []).map((r: { id: string }) => r.id));
-            }, new Set<string>(), 'migration: verify IDs');
-
-            const allMigrated = tripsToMigrate.every(t => verifyIds.has(t.id));
-
-            if (allMigrated) {
-              // Safe to remove localStorage now that Supabase has everything
-              localStorage.removeItem(SCOUTING_TRIPS_STORAGE_KEY);
-              console.info('[migration] localStorage trips migrated to Supabase and local key removed.');
-            } else {
-              // Keep localStorage, retry on next page load
-              console.warn('[migration] Verification failed. Keeping localStorage for next retry.');
-            }
-          } else {
-            // All local trips already exist in Supabase, safe to clean up
-            localStorage.removeItem(SCOUTING_TRIPS_STORAGE_KEY);
-            console.info('[migration] All local trips already in Supabase. Local key removed.');
-          }
-        } catch (error) {
-          // Migration failed, keep localStorage intact for next retry
-          console.warn('[migration] Error during migration. Keeping localStorage for retry:', error);
-        }
-      }
-
-      // --- Fetch full trip data from Supabase (the single source of truth) ---
       const supabaseTrips = await withSupabase(
         () => fetchTripsFromSupabase(),
         [] as ScoutingTrip[],
         'fetch trips'
       );
 
-      // If Supabase returned data, use it. Otherwise fall back to localStorage.
-      const finalTrips = supabaseTrips.length > 0
-        ? supabaseTrips
-        : localTrips;
-
       setState({
         version: SCOUTING_TRIPS_VERSION,
-        trips: finalTrips,
+        trips: supabaseTrips,
       });
       setIsLoaded(true);
     }
