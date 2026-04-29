@@ -10,7 +10,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // Environment variable names
 const DEV_URL = process.env.SUPABASE_DEV_URL;
-const DEV_KEY = process.env.SUPABASE_DEV_KEY;
+const DEV_KEY =
+  process.env.SUPABASE_DEV_SERVICE_ROLE_KEY || process.env.SUPABASE_DEV_KEY;
 const PROD_URL = process.env.SUPABASE_PROD_URL;
 // Use service role key for prod (bypasses RLS, required for pipeline writes)
 // Falls back to SUPABASE_PROD_KEY if service role key is not set

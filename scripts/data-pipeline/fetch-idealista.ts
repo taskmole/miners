@@ -14,9 +14,6 @@
 // Parse CLI arguments
 const args = process.argv.slice(2);
 const HEADLESS = args.includes("--headless");
-const SKIP_TRANSFERS = args.includes("--skip-transfers");
-const limitArgIndex = args.indexOf("--limit");
-const DETAIL_LIMIT = limitArgIndex !== -1 ? parseInt(args[limitArgIndex + 1], 10) : 0;
 const cityArgIndex = args.indexOf("--city");
 const CITY_ARG = cityArgIndex !== -1 ? args[cityArgIndex + 1]?.toLowerCase() : null;
 
@@ -37,15 +34,22 @@ import {
 } from "./lib/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  detectPriceChange,
+  getCategoryId,
+  publishListings as publishListingsShared,
+  sendScraperReport,
+  type ValidatedListing,
+  type ScraperReport,
+  type PublishStats,
+} from "./lib/scraper-utils";
+import {
   buildSearchUrl,
   getFiltersForCity,
-  getTransferFilters,
   extractGalleryPhotos,
   extractListingId,
   isValidCoordinate,
   PROXY_CONFIG,
 } from "./config/idealista";
-import type { ListingMode, IdealistaFilters } from "./config/idealista";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,7 +61,6 @@ interface IdealistaListing {
   price: number | null;
   priceByArea: number | null;
   transfer: number | null;
-  isTransfer: boolean;
   size: number | null;
   address: string;
   district: string;
@@ -205,7 +208,7 @@ function parseRelativeDate(text: string): string | null {
   return null;
 }
 
-function parseListingCard($: cheerio.CheerioAPI, article: any, listingMode: ListingMode = "rental"): Partial<IdealistaListing> {
+function parseListingCard($: cheerio.CheerioAPI, article: any): Partial<IdealistaListing> {
   const el = $(article);
   const listing: Partial<IdealistaListing> = {};
 
@@ -215,19 +218,9 @@ function parseListingCard($: cheerio.CheerioAPI, article: any, listingMode: List
   const href = link.attr("href");
   listing.url = href ? new URL(href, "https://www.idealista.com").toString() : "";
 
-  // Price + transfer (different mapping for rental vs transfer cards)
+  // Price
   const priceEl = el.find(".item-price");
-  const transferEl = el.find(".item-price-transfer, .item-transfer");
-
-  if (listingMode === "transfer") {
-    listing.isTransfer = true;
-    listing.transfer = priceEl.length ? parsePrice(priceEl.text()) : null;
-    listing.price = transferEl.length ? parsePrice(transferEl.text()) : null;
-  } else {
-    listing.isTransfer = false;
-    listing.price = priceEl.length ? parsePrice(priceEl.text()) : null;
-    listing.transfer = transferEl.length ? parsePrice(transferEl.text()) : null;
-  }
+  listing.price = priceEl.length ? parsePrice(priceEl.text()) : null;
 
   // Price per m2
   const details = el.find(".item-detail-char");
@@ -240,6 +233,10 @@ function parseListingCard($: cheerio.CheerioAPI, article: any, listingMode: List
       }
     });
   }
+
+  // Transfer price
+  const transferEl = el.find(".item-price-transfer, .item-transfer");
+  listing.transfer = transferEl.length ? parsePrice(transferEl.text()) : null;
 
   // Size
   listing.size = null;
@@ -254,8 +251,6 @@ function parseListingCard($: cheerio.CheerioAPI, article: any, listingMode: List
   let addr = listing.title || "";
   addr = addr.replace(/^Commercial premises in\s*/i, "");
   addr = addr.replace(/^Local comercial en\s*/i, "");
-  addr = addr.replace(/^.+?\s+for\s+transfer\s+\bin\b\s+/i, "");
-  addr = addr.replace(/^.+?\s+\bin\b\s+/i, "");
   listing.address = addr;
 
   const parts = addr.split(",").map((p) => p.trim());
@@ -282,8 +277,9 @@ function parseListingCard($: cheerio.CheerioAPI, article: any, listingMode: List
 
 async function scrapeSearchPages(
   cityArea: string,
-  filters: IdealistaFilters
+  cityId: string
 ): Promise<Partial<IdealistaListing>[]> {
+  const filters = getFiltersForCity(cityId);
   const allListings: Partial<IdealistaListing>[] = [];
 
   for (let page = 1; page <= PROXY_CONFIG.maxSearchPages; page++) {
@@ -310,7 +306,7 @@ async function scrapeSearchPages(
     console.log(`    Found ${articles.length} listings`);
 
     articles.each((_, article) => {
-      const listing = parseListingCard($, article, filters.listingMode);
+      const listing = parseListingCard($, article);
       if (listing.url) allListings.push(listing);
     });
 
@@ -387,7 +383,6 @@ async function enrichWithDetailPage(
     price: listing.price ?? null,
     priceByArea: listing.priceByArea ?? null,
     transfer: listing.transfer ?? null,
-    isTransfer: listing.isTransfer ?? false,
     size: listing.size ?? null,
     address: listing.address || "",
     district: listing.district || "",
@@ -428,63 +423,10 @@ function generateSourceId(url: string): string | null {
   return extractListingId(url);
 }
 
-// ---------------------------------------------------------------------------
-// Price change detection
-// ---------------------------------------------------------------------------
-
-/**
- * Detect price changes by comparing new price against existing metadata.
- * Accepts the already-fetched existing row to avoid a redundant DB query.
- */
-function detectPriceChange(
-  existingMeta: Record<string, unknown> | null,
-  newPrice: number | null
-): {
-  priceChanged: boolean;
-  priceHistory: Array<{ price: number; date: string }>;
-} {
-  if (!existingMeta) {
-    return { priceChanged: false, priceHistory: [] };
-  }
-
-  const oldPrice = existingMeta.price as number | null;
-  const existingHistory = (existingMeta.price_history as Array<{ price: number; date: string }>) || [];
-
-  if (oldPrice !== null && newPrice !== null && oldPrice !== newPrice) {
-    return {
-      priceChanged: true,
-      priceHistory: [
-        ...existingHistory,
-        { price: oldPrice, date: new Date().toISOString().slice(0, 10) },
-      ],
-    };
-  }
-
-  return { priceChanged: false, priceHistory: existingHistory };
-}
+// detectPriceChange, getCategoryId, ScraperReport, sendScraperReport imported from ./lib/scraper-utils
 
 // ---------------------------------------------------------------------------
-// Category ID lookup
-// ---------------------------------------------------------------------------
-
-async function getCategoryId(client: SupabaseClient): Promise<string> {
-  const categoryName = getCategoryForIdealista();
-  const { data } = await client
-    .from("categories")
-    .select("id")
-    .eq("name", categoryName)
-    .single();
-
-  if (!data) {
-    throw new Error(
-      `Category "${categoryName}" not found in database. Run "npm run publish" first to seed categories.`
-    );
-  }
-  return data.id;
-}
-
-// ---------------------------------------------------------------------------
-// Publish to Supabase
+// Publish to Supabase (validates Idealista listings, then delegates to shared)
 // ---------------------------------------------------------------------------
 
 async function publishListings(
@@ -493,22 +435,13 @@ async function publishListings(
   cityId: string,
   categoryId: string,
   envName: string
-): Promise<{ inserted: number; updated: number; priceChanges: number; errors: number; skippedValidation: number }> {
-  let inserted = 0;
-  let updated = 0;
-  let priceChanges = 0;
-  let errors = 0;
+): Promise<PublishStats & { skippedValidation: number }> {
   let skippedValidation = 0;
 
-  console.log(`\nPublishing ${listings.length} listings to ${envName}...`);
-
-  // Pre-validate listings and extract Idealista IDs
-  const validListings: { listing: IdealistaListing; sourceId: string }[] = [];
+  const validated: ValidatedListing[] = [];
   for (const listing of listings) {
     if (!listing.latitude || !listing.longitude) continue;
-    const hasValidPrice = (listing.price != null && listing.price > 0) ||
-      (listing.isTransfer && listing.transfer != null && listing.transfer > 0);
-    if (!hasValidPrice || !listing.title) {
+    if (!listing.price || listing.price <= 0 || !listing.title) {
       skippedValidation++;
       continue;
     }
@@ -517,228 +450,38 @@ async function publishListings(
       skippedValidation++;
       continue;
     }
-    validListings.push({ listing, sourceId });
-  }
-
-  // Batch fetch all existing records in one query (replaces N individual SELECTs)
-  const sourceIds = validListings.map((v) => v.sourceId);
-  const { data: existingRows } = await client
-    .from("places")
-    .select("id, source_id, metadata")
-    .eq("source", SOURCES.IDEALISTA)
-    .in("source_id", sourceIds);
-
-  // Build lookup map: source_id -> { id, metadata }
-  const existingMap = new Map<string, { id: string; metadata: Record<string, unknown> | null }>();
-  for (const row of existingRows || []) {
-    existingMap.set(row.source_id, {
-      id: row.id,
-      metadata: row.metadata as Record<string, unknown> | null,
+    validated.push({
+      sourceId,
+      name: listing.title,
+      address: listing.address,
+      latitude: listing.latitude,
+      longitude: listing.longitude,
+      price: listing.price,
+      photos: listing.photos,
+      metadata: {
+        url: listing.url,
+        price: listing.price,
+        priceByArea: listing.priceByArea,
+        transfer: listing.transfer,
+        size: listing.size,
+        district: listing.district,
+        bathrooms: listing.bathrooms,
+        hasAirConditioning: listing.hasAirConditioning,
+        hasStorefront: listing.hasStorefront,
+        datePosted: listing.datePosted,
+      },
     });
   }
 
-  const now = new Date().toISOString();
-
-  for (const { listing, sourceId } of validListings) {
-    const existing = existingMap.get(sourceId);
-
-    // Price change detection (uses pre-fetched metadata, no extra query)
-    const existingMeta = existing?.metadata ?? null;
-    const { priceChanged, priceHistory } = detectPriceChange(existingMeta, listing.price);
-    if (priceChanged) priceChanges++;
-
-    const metadata: Record<string, unknown> = {
-      url: listing.url,
-      price: listing.price,
-      priceByArea: listing.priceByArea,
-      transfer: listing.transfer,
-      isTransfer: listing.isTransfer,
-      size: listing.size,
-      district: listing.district,
-      bathrooms: listing.bathrooms,
-      hasAirConditioning: listing.hasAirConditioning,
-      hasStorefront: listing.hasStorefront,
-      datePosted: listing.datePosted,
-      price_history: priceHistory,
-      price_changed: priceChanged,
-    };
-
-    try {
-      if (existing) {
-        const { error } = await client
-          .from("places")
-          .update({
-            name: listing.title,
-            address: listing.address,
-            location: `POINT(${listing.longitude} ${listing.latitude})`,
-            metadata,
-            photos: listing.photos,
-            status: "active",
-            updated_at: now,
-            last_seen_at: now,
-          })
-          .eq("id", existing.id);
-
-        if (error) {
-          console.error(`  Error updating ${listing.title?.slice(0, 50)}:`, error.message);
-          errors++;
-        } else {
-          updated++;
-        }
-      } else {
-        const { error } = await client.from("places").insert({
-          city_id: cityId,
-          category_id: categoryId,
-          source: SOURCES.IDEALISTA,
-          source_id: sourceId,
-          name: listing.title,
-          address: listing.address,
-          location: `POINT(${listing.longitude} ${listing.latitude})`,
-          metadata,
-          photos: listing.photos,
-          is_new: true,
-          status: "active",
-          created_at: now,
-          updated_at: now,
-          last_seen_at: now,
-        });
-
-        if (error) {
-          console.error(`  Error inserting ${listing.title?.slice(0, 50)}:`, error.message);
-          errors++;
-        } else {
-          inserted++;
-        }
-      }
-    } catch (err) {
-      console.error(`  Exception for ${listing.title?.slice(0, 50)}:`, err);
-      errors++;
-    }
-  }
+  const stats = await publishListingsShared(
+    client, validated, cityId, categoryId, SOURCES.IDEALISTA, envName
+  );
 
   if (skippedValidation > 0) {
     console.log(`  Skipped (validation): ${skippedValidation}`);
   }
 
-  return { inserted, updated, priceChanges, errors, skippedValidation };
-}
-
-// ---------------------------------------------------------------------------
-// Email report
-// ---------------------------------------------------------------------------
-
-interface ScraperReport {
-  city: string;
-  totalScraped: number;
-  inserted: number;
-  updated: number;
-  priceChanges: number;
-  errors: number;
-  skippedValidation: number;
-  inactivated: number;
-  safetyGuardTripped: boolean;
-}
-
-async function sendScraperReport(report: ScraperReport): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.log("  No RESEND_API_KEY set, skipping email report.");
-    return;
-  }
-
-  const hasProblems = report.safetyGuardTripped || report.errors > 5 || report.totalScraped === 0;
-
-  const subject = hasProblems
-    ? `Scraper needs attention: ${report.city}`
-    : `Scraper ran successfully: ${report.city} (${report.inserted} new, ${report.priceChanges} price changes)`;
-
-  const lines: string[] = [];
-
-  // Summary
-  if (hasProblems) {
-    lines.push(`Something went wrong with today's ${report.city} scrape. Details below.`);
-  } else {
-    lines.push(`The ${report.city} scraper ran and everything looks good.`);
-  }
-  lines.push(``);
-
-  // What happened
-  lines.push(`WHAT HAPPENED`);
-  lines.push(`--------------`);
-  lines.push(`Scraped ${report.totalScraped} listings from Idealista.`);
-  if (report.inserted > 0) {
-    lines.push(`  ${report.inserted} are brand new (never seen before).`);
-  }
-  if (report.updated > 0) {
-    lines.push(`  ${report.updated} were already in the database and got refreshed.`);
-  }
-  if (report.priceChanges > 0) {
-    lines.push(`  ${report.priceChanges} had a price change since last scrape.`);
-  }
-  if (report.inactivated > 0) {
-    lines.push(`  ${report.inactivated} listings disappeared from Idealista and were hidden from the map.`);
-  }
-  lines.push(``);
-
-  // Safeguards
-  lines.push(`SAFEGUARD CHECKS`);
-  lines.push(`-----------------`);
-
-  if (report.totalScraped === 0) {
-    lines.push(`PROBLEM: Zero listings scraped. The proxy might be blocked, or Idealista changed their website. Nothing was written to the database.`);
-  } else {
-    lines.push(`Scraping: ${report.totalScraped} listings found. Looks normal.`);
-  }
-
-  if (report.safetyGuardTripped) {
-    lines.push(`PROBLEM: Way fewer listings than expected. To be safe, no listings were marked inactive. This usually means the proxy got partially blocked. Your existing data is untouched.`);
-  } else if (report.totalScraped > 0) {
-    lines.push(`Data protection: Scraped count looks healthy compared to existing data. Safe to mark missing listings as inactive.`);
-  }
-
-  if (report.errors > 5) {
-    lines.push(`PROBLEM: ${report.errors} listings failed to save. Some individual pages may have errored out.`);
-  } else if (report.errors > 0) {
-    lines.push(`Minor errors: ${report.errors} listings failed to save. This is normal in small numbers.`);
-  } else {
-    lines.push(`Errors: None. Every listing saved successfully.`);
-  }
-
-  if (report.skippedValidation > 0) {
-    const pct = Math.round((report.skippedValidation / Math.max(report.totalScraped, 1)) * 100);
-    lines.push(`Validation: ${report.skippedValidation} listings (${pct}%) were missing a price or coordinates and were skipped.${pct > 20 ? " That's high. Idealista may have changed their page layout." : ""}`);
-  } else {
-    lines.push(`Validation: All listings had valid data.`);
-  }
-
-  lines.push(``);
-  lines.push(`-- Miners Location Scout`);
-
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "Miners Scraper <onboarding@resend.dev>",
-        to: ["founders@taskmole.co"],
-        subject,
-        text: lines.join("\n"),
-      }),
-    });
-
-    if (res.ok) {
-      console.log("  Report email sent.");
-    } else {
-      const body = await res.text();
-      console.log(`  Failed to send email: ${res.status} ${body.slice(0, 100)}`);
-    }
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.log(`  Failed to send email: ${msg}`);
-  }
+  return { ...stats, skippedValidation };
 }
 
 // ---------------------------------------------------------------------------
@@ -823,30 +566,12 @@ async function main() {
 
   const city = getCity(selectedCityId)!;
   console.log(`\nSelected: ${city.name}`);
-  const rentalFilters = getFiltersForCity(selectedCityId);
-  console.log(`Filters: ${JSON.stringify(rentalFilters)}\n`);
+  console.log(`Filters: ${JSON.stringify(getFiltersForCity(selectedCityId))}\n`);
 
-  // Phase 1a: Scrape rental search pages
-  console.log("Phase 1a: Scraping RENTAL search pages...");
-  const rentalListings = await scrapeSearchPages(city.idealistaArea!, rentalFilters);
-  console.log(`\n  Rental listings from search: ${rentalListings.length}\n`);
-
-  // Phase 1b: Scrape transfer search pages
-  let transferListings: Partial<IdealistaListing>[] = [];
-  if (SKIP_TRANSFERS) {
-    console.log("Phase 1b: Skipping transfer scraping (--skip-transfers flag)\n");
-  } else {
-    console.log("Phase 1b: Scraping TRANSFER search pages...");
-    const transferFilters = getTransferFilters(selectedCityId);
-    transferListings = await scrapeSearchPages(city.idealistaArea!, transferFilters);
-    console.log(`\n  Transfer listings from search: ${transferListings.length}\n`);
-  }
-
-  // Merge with dedup (prefer rental if same URL appears in both)
-  const seenUrls = new Set(rentalListings.map((l) => l.url));
-  const uniqueTransfers = transferListings.filter((l) => !seenUrls.has(l.url));
-  const partialListings = [...rentalListings, ...uniqueTransfers];
-  console.log(`  Total after dedup: ${partialListings.length} (${rentalListings.length} rental + ${uniqueTransfers.length} transfer)\n`);
+  // Phase 1: Scrape search pages
+  console.log("Phase 1: Scraping search pages...");
+  const partialListings = await scrapeSearchPages(city.idealistaArea!, selectedCityId);
+  console.log(`\n  Total listings from search: ${partialListings.length}\n`);
 
   if (partialListings.length === 0) {
     console.log("No listings found. The proxy may be blocked or filters too narrow.");
@@ -857,10 +582,6 @@ async function main() {
   console.log("Phase 2: Fetching detail pages for coordinates and photos...");
   console.log("  Waiting 10s for CAPTCHA solver to reset...");
   await sleep(10_000);
-
-  if (DETAIL_LIMIT > 0) {
-    console.log(`  --limit ${DETAIL_LIMIT}: fetching ${DETAIL_LIMIT} of ${partialListings.length} detail pages`);
-  }
 
   const listings: IdealistaListing[] = [];
 
@@ -873,11 +594,10 @@ async function main() {
   // Circuit breaker state
   const recentResults: boolean[] = [];
 
-  const detailCount = DETAIL_LIMIT > 0 ? Math.min(DETAIL_LIMIT, partialListings.length) : partialListings.length;
-  for (let i = 0; i < detailCount; i++) {
+  for (let i = 0; i < partialListings.length; i++) {
     const partial = partialListings[i];
     const shortTitle = (partial.title || "Unknown").slice(0, 55);
-    process.stdout.write(`  [${i + 1}/${detailCount}] ${shortTitle}...`);
+    process.stdout.write(`  [${i + 1}/${partialListings.length}] ${shortTitle}...`);
 
     const enriched = await enrichWithDetailPage(partial);
     listings.push(enriched);
@@ -948,7 +668,7 @@ async function main() {
 
   if (writeToDevFirst) {
     const devClient = getDevClient();
-    const categoryId = await getCategoryId(devClient);
+    const categoryId = await getCategoryId(devClient, getCategoryForIdealista());
 
     const devResult = await publishListings(devClient, finalListings, selectedCityId, categoryId, "DEV");
     console.log(`\n  DEV results:`);
@@ -968,7 +688,7 @@ async function main() {
 
       if (answer.toLowerCase() === "y") {
         const prodClient = getProdClient();
-        const prodCategoryId = await getCategoryId(prodClient);
+        const prodCategoryId = await getCategoryId(prodClient, getCategoryForIdealista());
         const prodResult = await publishListings(prodClient, finalListings, selectedCityId, prodCategoryId, "PROD");
         console.log(`\n  PROD results:`);
         console.log(`    Inserted:      ${prodResult.inserted}`);
@@ -984,7 +704,7 @@ async function main() {
 
   if (writeToProd) {
     const prodClient = getProdClient();
-    const categoryId = await getCategoryId(prodClient);
+    const categoryId = await getCategoryId(prodClient, getCategoryForIdealista());
 
     const result = await publishListings(prodClient, finalListings, selectedCityId, categoryId, "PROD");
     console.log(`\n  PROD results:`);
@@ -1006,6 +726,7 @@ async function main() {
     // Send email report
     console.log("\nSending report...");
     await sendScraperReport({
+      sourceName: "Idealista",
       city: city.name,
       totalScraped: finalListings.length,
       inserted: result.inserted,

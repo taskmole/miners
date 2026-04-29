@@ -39,6 +39,7 @@ export interface CafeData {
 
 export interface PropertyData {
     type: "property";
+    source: "idealista" | "sreality";
     address: string;
     latitude: number;
     longitude: number;
@@ -49,12 +50,9 @@ export interface PropertyData {
     hasAirConditioning: boolean;
     url: string;
     title: string;
-    // Optional fields for enhanced display
-    transfer?: number;          // traspaso amount
+    transfer?: number;
     hasBathroom?: boolean;
     hasStorefront?: boolean;
-    // Location score (0-100) derived from the gravity model grid.
-    // Undefined for cities without gravity data (e.g. Barcelona, Prague).
     score?: number;
     image_url?: string;
     priceHistory?: { price: number; date: string }[];
@@ -140,7 +138,7 @@ export function useMapData(cityId?: string) {
                         fetch("/api/data?type=data"),
                         fetch("/api/data?type=cafes"),
                         fetch("/api/data?type=barcelona_cafes"),
-                        supabase!.from("places").select("name, address, location, metadata, photos, updated_at").eq("source", "idealista").eq("status", "active"),
+                        supabase!.from("places").select("name, address, location, source, metadata, photos, updated_at").in("source", ["idealista", "sreality"]).eq("status", "active"),
                         fetch("/api/data?type=other"),
                         fetch("/api/data?type=google_madrid"),
                         fetch("/api/data?type=google_enrichment"),
@@ -285,14 +283,16 @@ export function useMapData(cityId?: string) {
                             const coords = parseWkbPoint(p.location);
                             if (!coords) return null;
                             const meta = (p.metadata || {}) as Record<string, any>;
+                            const src = p.source === "sreality" ? "sreality" as const : "idealista" as const;
                             return {
                                 type: "property" as const,
+                                source: src,
                                 address: p.address || "",
                                 latitude: coords.lat,
                                 longitude: coords.lon,
                                 price: meta.price || 0,
                                 size: meta.size || 0,
-                                priceByArea: meta.priceByArea || 0,
+                                priceByArea: meta.priceByArea || meta.pricePerSqm || 0,
                                 district: meta.district || "",
                                 hasAirConditioning: meta.hasAirConditioning === true,
                                 url: meta.url || "",
