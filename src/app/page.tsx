@@ -22,6 +22,8 @@ import { ScoutingTripsProvider } from "@/contexts/ScoutingTripsContext";
 import { PointCategoriesProvider } from "@/contexts/PointCategoriesContext";
 import { SheetProvider } from "@/contexts/SheetContext";
 import { WalkingRadiusProvider } from "@/contexts/WalkingRadiusContext";
+import { ToastProvider } from "@/contexts/ToastContext";
+import { ShapeDataProvider } from "@/contexts/ShapeDataContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
 import { supabase } from "@/lib/supabase";
 import { setAuthUserId } from "@/lib/browser-session";
@@ -363,7 +365,11 @@ export default function Home() {
               <ScoutingTripsProvider>
                 <LinkingProvider>
                   <SheetProvider>
-                    <HomeContent />
+                    <ToastProvider>
+                      <ShapeDataProvider>
+                        <HomeContent />
+                      </ShapeDataProvider>
+                    </ToastProvider>
                   </SheetProvider>
                 </LinkingProvider>
               </ScoutingTripsProvider>

@@ -17,10 +17,9 @@ import { MapDraw } from "@/components/ui/map-draw";
 import { DrawToolbar } from "@/components/DrawToolbar";
 import { ShapeComments } from "@/components/ShapeComments";
 import { ShapeHoverTooltip } from "@/components/ShapeHoverTooltip";
-import { ShapeDataProvider } from "@/contexts/ShapeDataContext";
 import { DrawingIndicator } from "@/components/DrawingIndicator";
 import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
-import { ToastProvider, useToast } from "@/contexts/ToastContext";
+import { useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
 import { AddToListButton } from "@/components/AddToListButton";
@@ -2370,7 +2369,6 @@ export function EnhancedMapContainer({
     }
 
     return (
-        <ToastProvider>
         <div className="w-full h-full relative">
             {/* Toast helper for shape creation */}
             <ShapeCreatedToast onReady={handleShapeCreatedReady} />
@@ -2416,12 +2414,10 @@ export function EnhancedMapContainer({
                     onShapeCreated={shapeCreatedCallback ?? undefined}
                     onShapeUpdated={shapeCreatedCallback ?? undefined}
                 >
-                    <ShapeDataProvider>
                       <DrawToolbar />
                       <ShapeComments cityId={selectedCity?.id} />
                       <ShapeHoverTooltip />
                       <DrawingIndicator />
-                    </ShapeDataProvider>
                 </MapDraw>
 
                 {/* Zoom tracker for hybrid rendering */}
@@ -2921,6 +2917,5 @@ export function EnhancedMapContainer({
                 </div>
             )}
         </div>
-        </ToastProvider>
     );
 }

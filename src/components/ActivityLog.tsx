@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { History, MapPin, Star, MessageSquare, Pencil, Plus, Eye, X, Activity, Loader2, Check, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSheetState, useSheet } from "@/contexts/SheetContext";
@@ -8,6 +8,8 @@ import { MobilePanel } from "@/components/ui/mobile-panel";
 import { useMobile } from "@/hooks/useMobile";
 import { useActivities, type ActivityType, type ActivityItem } from "@/hooks/useActivities";
 import { navigateAndOpenPopup } from "@/components/ListsPanel";
+import { useShapeDataContext } from "@/contexts/ShapeDataContext";
+import { useToast } from "@/contexts/ToastContext";
 
 // Icon config by activity type
 const ACTIVITY_ICONS: Record<ActivityType | 'default', { icon: typeof Plus; color: string }> = {
@@ -49,9 +51,26 @@ export function ActivityLog() {
     const { openSheet } = useSheet();
     const isMobile = useMobile();
     const { activities, isLoading, error, refetch, unreadCount, markAllAsRead } = useActivities();
+    const { allMetadata, isMetadataLoaded } = useShapeDataContext();
+    const { showToast } = useToast();
+
+    const activitiesWithOrphanStatus = useMemo(() => {
+        if (!isMetadataLoaded) return activities;
+        return activities.map(item => {
+            if (
+                (item.actionType === 'created_point' || item.actionType === 'created_area') &&
+                item.entityId &&
+                !(item.entityId in allMetadata)
+            ) {
+                return { ...item, isOrphaned: true };
+            }
+            return item;
+        });
+    }, [activities, allMetadata, isMetadataLoaded]);
 
     // Check if an activity entry has a navigable target
     const isNavigable = useCallback((item: ActivityItem): boolean => {
+        if (item.isOrphaned) return false;
         if (item.target.type === 'list' && item.type === 'created') return true;
         if (item.lat != null && item.lon != null) return true;
         if (item.entityId) return true;
@@ -60,6 +79,10 @@ export function ActivityLog() {
 
     // Handle clicking an activity entry — navigate to the relevant location or panel
     const handleActivityClick = useCallback((item: ActivityItem) => {
+        if (item.isOrphaned) {
+            showToast('This point has been deleted', 'error');
+            return;
+        }
         // List created → open Lists panel
         if (item.target.type === 'list' && item.type === 'created') {
             close();
@@ -97,7 +120,7 @@ export function ActivityLog() {
             }));
             return;
         }
-    }, [close, openSheet]);
+    }, [close, openSheet, showToast]);
 
     // Collapsed button
     const collapsedButton = (
@@ -169,7 +192,7 @@ export function ActivityLog() {
             )}
 
             {/* Empty state */}
-            {!isLoading && !error && activities.length === 0 && (
+            {!isLoading && !error && activitiesWithOrphanStatus.length === 0 && (
                 <div className="p-8 flex flex-col items-center justify-center text-zinc-400">
                     <Activity className="w-8 h-8 mb-2 opacity-50" />
                     <span className="text-xs">No activities yet</span>
@@ -178,23 +201,23 @@ export function ActivityLog() {
             )}
 
             {/* Log entries - scrollable */}
-            {!isLoading && !error && activities.length > 0 && (
+            {!isLoading && !error && activitiesWithOrphanStatus.length > 0 && (
                 <div className={cn("overflow-y-auto", isMobile ? "flex-1" : "max-h-[280px]")}>
-                    {activities.map((item) => (
+                    {activitiesWithOrphanStatus.map((item) => (
                         <div
                             key={item.id}
                             onClick={() => handleActivityClick(item)}
                             className={cn(
                                 "px-3 py-2.5 border-b border-zinc-100 transition-colors group",
                                 isNavigable(item) && "cursor-pointer",
-                                item.isRead
-                                    ? "hover:bg-zinc-50"
-                                    : "bg-red-50/50 hover:bg-red-50"
+                                item.isOrphaned && "opacity-50",
+                                !item.isOrphaned && !item.isRead && "bg-red-50/50 hover:bg-red-50",
+                                !item.isOrphaned && item.isRead && "hover:bg-zinc-50"
                             )}
                         >
                             <div className="flex items-start gap-2.5">
                                 {/* Unread indicator */}
-                                {!item.isRead && (
+                                {!item.isRead && !item.isOrphaned && (
                                     <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 shrink-0" />
                                 )}
 
@@ -206,6 +229,9 @@ export function ActivityLog() {
                                         <span className="font-medium text-zinc-800">
                                             {item.target.name}
                                         </span>
+                                        {item.isOrphaned && (
+                                            <span className="ml-1 text-[10px] text-red-400 font-medium">(deleted)</span>
+                                        )}
                                     </p>
                                     <span className="text-[10px] font-medium text-zinc-400 mt-0.5 block">
                                         {item.time}
