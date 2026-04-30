@@ -215,7 +215,7 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
           [lon, lat] = (geom.coordinates as number[][])[0];
         }
         const actionType = geom.type === 'Point' ? 'created_point' : 'created_area';
-        logActivity(actionType, { name: geom.type === 'Point' ? 'New point' : 'New area', lat, lon });
+        logActivity(actionType, { name: geom.type === 'Point' ? 'New point' : 'New area', lat, lon, shapeId: newest.id });
       }
     };
 
