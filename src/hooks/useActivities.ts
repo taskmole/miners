@@ -30,6 +30,8 @@ export interface ActivityItem {
   entityId?: string; // placeId, listId, or shapeId for click-to-navigate
   lat?: number; // For map navigation
   lon?: number; // For map navigation
+  isOrphaned?: boolean; // True when a created_point/created_area's target no longer exists
+  actionType?: string; // Original action_type for orphan checking
 }
 
 /**
@@ -361,6 +363,7 @@ export function useActivities() {
             entityId: (summary.placeId as string) || (summary.shapeId as string) || undefined,
             lat,
             lon,
+            actionType: entry.action_type,
           };
         });
 
