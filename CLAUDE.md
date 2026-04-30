@@ -69,12 +69,18 @@ When the user types any of these, immediately execute the action - no questions 
   2. Stage changed files, write a fitting commit message, commit, and push the current branch
   3. Switch to `main`, pull latest, merge the feature branch into main (using `--no-ff`), and push main
   4. Check the Vercel deployment status and confirm the production build succeeded (or report any errors)
+  5. If this folder is a git worktree (not the main repo), clean it up: switch back to the main repo folder, run `git worktree remove` on this folder, and confirm cleanup
   If already on `main`, skip step 3 and just commit + push main directly.
 - **`.t`** → Deep testing. Run `/qa` (full QA with headless browser) and a parallel codebase audit (dead code, type safety, component complexity, CSS issues). Combine everything into one prioritized summary with a health score.
 - **`.ceo`** → First read `docs/product-spec-v1.md` to ground yourself in the product goals, non-goals, and build sequence. Then run `/plan-ceo-review` on the current plan. Challenge assumptions against the spec, push for a better product, ask if this is the best version of the idea.
 - **`.ui`** → Activate the UI fix workflow: First read `docs/design-system.md` for the correct values. Then read ALL component + style files, trace the full style cascade, explain the root cause, then apply ONE targeted fix following the design system rules. Verify at mobile widths (375px, 390px, 428px). Run the checklist at the end of the design system doc. Run type check and lint.
 - **`.s`** → Run the code simplifier agent on recently modified code to make sure it's as efficient as it can be.
 - **`.sim`** → Re-explain the last thing you said in plain, simple English. Short sentences. No jargon. Like you're talking to a smart 15-year-old. Be concise - if it can be said in 3 sentences, don't use 10.
+- **`.w feature-name`** → Create a git worktree for parallel work. Run in this exact order:
+  1. Create a new branch `feat/feature-name` from the current `main`
+  2. Run `git worktree add "../Miners Location Scout NEW-feature-name" feat/feature-name`
+  3. Print the full path to the new folder so the user can open a new conversation there
+  4. Remind the user: "Open a new Claude Code conversation in that folder to start working."
 - **`.kill`** → Kill the local dev server. If port numbers are given (e.g. `.kill 3000 3001`), only kill those. If no port is given, kill all ports used by this project (3000, 3001, etc.). Confirm what was stopped.
 
 # Available Tools & Skills
