@@ -1,15 +1,20 @@
 name: Send Property Digest
 
 on:
-  # Runs 2 hours after each scraper: Mon, Tue, Thu, Fri, Sun at 08:00 UTC
-  schedule:
-    - cron: "0 8 * * 0,1,2,4,5"
+  # Fires automatically after the Scraper Pipeline workflow completes.
+  # The name below must exactly match the "name:" field in scraper-pipeline.yml.
+  workflow_run:
+    workflows: ["Scraper Pipeline"]
+    types: [completed]
   # Manual trigger from GitHub Actions UI
   workflow_dispatch:
 
 jobs:
   send-digest:
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Trigger digest email
         run: |
