@@ -138,7 +138,7 @@ export function useMapData(cityId?: string) {
                         fetch("/api/data?type=data"),
                         fetch("/api/data?type=cafes"),
                         fetch("/api/data?type=barcelona_cafes"),
-                        supabase!.from("places").select("name, address, location, source, metadata, photos, updated_at").in("source", ["idealista", "sreality"]).eq("status", "active"),
+                        supabase!.from("places").select("name, address, location, source, metadata, photos, updated_at").in("source", ["idealista", "idealista_transfer", "sreality"]).eq("status", "active"),
                         fetch("/api/data?type=other"),
                         fetch("/api/data?type=google_madrid"),
                         fetch("/api/data?type=google_enrichment"),
