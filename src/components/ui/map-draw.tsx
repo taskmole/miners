@@ -8,7 +8,7 @@ import { safeMapCleanup } from '@/lib/safe-map-cleanup';
 import { convertToMapboxDrawStyles } from '@/lib/draw-styles';
 import type { DrawMode } from '@/types/draw';
 import { getCurrentUserId, canEditShape } from '@/lib/browser-session';
-import { logActivity, getAnonymousUserId } from '@/lib/supabaseHelpers';
+import { logActivity } from '@/lib/supabaseHelpers';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
 import { useMobile } from '@/hooks/useMobile';
@@ -144,13 +144,10 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       if (isSupabaseConfigured() && supabase) {
         try {
           const userId = getCurrentUserId();
-          const anonId = getAnonymousUserId();
-
-          const userIds = Array.from(new Set([userId, anonId]));
           const { data, error } = await supabase
             .from('drawn_features')
             .select('id, geojson, created_by')
-            .in('user_id', userIds);
+            .eq('user_id', userId);
 
           if (!error && data && data.length > 0) {
             // Populate ownership map for edit permission checks

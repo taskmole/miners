@@ -25,7 +25,7 @@ import { usePointCategoriesContext } from '@/contexts/PointCategoriesContext';
 import { useWalkingRadius, WALKING_MINUTES_OPTIONS } from '@/contexts/WalkingRadiusContext';
 import { reverseGeocode, formatShortAddress } from '@/lib/geocoding';
 import { getCurrentUserId, canEditShape } from '@/lib/browser-session';
-import { logActivity, getAnonymousUserId } from '@/lib/supabaseHelpers';
+import { logActivity } from '@/lib/supabaseHelpers';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useShapeDataContext } from '@/contexts/ShapeDataContext';
 import { useMobile } from '@/hooks/useMobile';
