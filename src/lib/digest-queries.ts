@@ -37,7 +37,7 @@ export async function getNewListingsForCity(
   const { data, error } = await getSupabase()
     .from("places")
     .select("address, metadata, photos, score, created_at")
-    .in("source", ["idealista", "sreality"])
+    .in("source", ["idealista", "idealista_transfer", "sreality"])
     .eq("city_id", city)
     .gte("created_at", cutoff.toISOString())
     .not("photos", "eq", "{}")
