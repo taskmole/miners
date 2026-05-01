@@ -69,6 +69,7 @@ export const SOURCES = {
   GOOGLE_PLACES: "google_places",
   EU_COFFEE_TRIP: "eu_coffee_trip",
   IDEALISTA: "idealista",
+  IDEALISTA_TRANSFER: "idealista_transfer",
   SREALITY: "sreality",
   OSM: "osm",
   USER: "user",

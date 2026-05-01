@@ -307,3 +307,77 @@ export async function sendScraperReport(report: ScraperReport): Promise<void> {
     console.log(`  Failed to send email: ${msg}`);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Combined report (multiple scrapers in one email)
+// ---------------------------------------------------------------------------
+
+export async function sendCombinedScraperReport(reports: ScraperReport[]): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.log("  No RESEND_API_KEY set, skipping email report.");
+    return;
+  }
+
+  const totalInserted = reports.reduce((s, r) => s + r.inserted, 0);
+  const totalPriceChanges = reports.reduce((s, r) => s + r.priceChanges, 0);
+  const anyProblems = reports.some((r) => r.safetyGuardTripped || r.errors > 5 || r.totalScraped === 0);
+  const cityName = reports[0]?.city ?? "Unknown";
+
+  const subject = anyProblems
+    ? `Scraper needs attention: ${cityName}`
+    : `Scraper ran successfully: ${cityName} (${totalInserted} new, ${totalPriceChanges} price changes)`;
+
+  const lines: string[] = [];
+  lines.push(anyProblems
+    ? `Something went wrong with today's ${cityName} scrape. Details below.`
+    : `The ${cityName} scraper ran and everything looks good.`);
+  lines.push(``);
+
+  for (const report of reports) {
+    lines.push(`${report.sourceName.toUpperCase()}`);
+    lines.push(`-`.repeat(report.sourceName.length + 1));
+    lines.push(`Scraped ${report.totalScraped} listings.`);
+    if (report.inserted > 0) lines.push(`  ${report.inserted} brand new.`);
+    if (report.updated > 0) lines.push(`  ${report.updated} refreshed.`);
+    if (report.priceChanges > 0) lines.push(`  ${report.priceChanges} price changes.`);
+    if (report.inactivated > 0) lines.push(`  ${report.inactivated} hidden (no longer listed).`);
+    if (report.totalScraped === 0) lines.push(`  PROBLEM: Zero listings scraped.`);
+    if (report.safetyGuardTripped) lines.push(`  PROBLEM: Safety guard tripped. Existing data untouched.`);
+    if (report.errors > 5) lines.push(`  PROBLEM: ${report.errors} listings failed to save.`);
+    else if (report.errors > 0) lines.push(`  Minor: ${report.errors} listings failed to save (normal in small numbers).`);
+    if (report.skippedValidation > 0) {
+      const pct = Math.round((report.skippedValidation / Math.max(report.totalScraped, 1)) * 100);
+      lines.push(`  ${report.skippedValidation} listings (${pct}%) skipped validation.${pct > 20 ? " That's high." : ""}`);
+    }
+    lines.push(``);
+  }
+
+  lines.push(`-- Miners Location Scout`);
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "Miners Scraper <onboarding@resend.dev>",
+        to: ["founders@taskmole.co"],
+        subject,
+        text: lines.join("\n"),
+      }),
+    });
+
+    if (res.ok) {
+      console.log("  Combined report email sent.");
+    } else {
+      const body = await res.text();
+      console.log(`  Failed to send email: ${res.status} ${body.slice(0, 100)}`);
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(`  Failed to send email: ${msg}`);
+  }
+}
