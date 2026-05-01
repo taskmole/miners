@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
+import { withSupabase } from '@/lib/supabaseHelpers';
 import { getCurrentUserId } from '@/lib/browser-session';
 
 async function syncToSupabase(placeId: string, isHidden: boolean): Promise<void> {
@@ -32,12 +32,11 @@ async function fetchFromSupabase(): Promise<string[]> {
   if (!isSupabaseConfigured() || !supabase) return [];
 
   const currentId = getCurrentUserId();
-  const anonId = getAnonymousUserId();
 
   const { data, error } = await supabase
     .from('hidden_pois')
     .select('place_id')
-    .or(`user_id.eq.${currentId},user_id.eq.${anonId}`);
+    .eq('user_id', currentId);
 
   if (error) {
     console.error('Error fetching hidden POIs from Supabase:', error);
