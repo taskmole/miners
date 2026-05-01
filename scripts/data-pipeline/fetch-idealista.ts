@@ -14,13 +14,19 @@
 // Parse CLI arguments
 const args = process.argv.slice(2);
 const HEADLESS = args.includes("--headless");
+const SKIP_REPORT = args.includes("--skip-report");
 const cityArgIndex = args.indexOf("--city");
 const CITY_ARG = cityArgIndex !== -1 ? args[cityArgIndex + 1]?.toLowerCase() : null;
+const modeArgIndex = args.indexOf("--mode");
+const MODE: "rental" | "transfer" = modeArgIndex !== -1 && args[modeArgIndex + 1] === "transfer" ? "transfer" : "rental";
+const statsFileArgIndex = args.indexOf("--stats-file");
+const STATS_FILE = statsFileArgIndex !== -1 ? args[statsFileArgIndex + 1] : null;
 
 import * as dotenv from "dotenv";
 import * as path from "path";
 dotenv.config({ path: path.join(__dirname, "../../.env.local") });
 
+import * as fs from "fs";
 import * as readline from "readline";
 import * as cheerio from "cheerio";
 import { getCityIds, getCity, hasIdealistaSupport } from "./config/cities";
@@ -45,6 +51,7 @@ import {
 import {
   buildSearchUrl,
   getFiltersForCity,
+  getTransferFilters,
   extractGalleryPhotos,
   extractListingId,
   isValidCoordinate,
@@ -277,9 +284,8 @@ function parseListingCard($: cheerio.CheerioAPI, article: any): Partial<Idealist
 
 async function scrapeSearchPages(
   cityArea: string,
-  cityId: string
+  filters: ReturnType<typeof getFiltersForCity>
 ): Promise<Partial<IdealistaListing>[]> {
-  const filters = getFiltersForCity(cityId);
   const allListings: Partial<IdealistaListing>[] = [];
 
   for (let page = 1; page <= PROXY_CONFIG.maxSearchPages; page++) {
@@ -434,14 +440,17 @@ async function publishListings(
   listings: IdealistaListing[],
   cityId: string,
   categoryId: string,
-  envName: string
+  envName: string,
+  source: string
 ): Promise<PublishStats & { skippedValidation: number }> {
   let skippedValidation = 0;
 
   const validated: ValidatedListing[] = [];
   for (const listing of listings) {
     if (!listing.latitude || !listing.longitude) continue;
-    if (!listing.price || listing.price <= 0 || !listing.title) {
+    const hasPrice = listing.price && listing.price > 0;
+    const hasTransfer = listing.transfer && listing.transfer > 0;
+    if ((!hasPrice && !hasTransfer) || !listing.title) {
       skippedValidation++;
       continue;
     }
@@ -474,7 +483,7 @@ async function publishListings(
   }
 
   const stats = await publishListingsShared(
-    client, validated, cityId, categoryId, SOURCES.IDEALISTA, envName
+    client, validated, cityId, categoryId, source, envName
   );
 
   if (skippedValidation > 0) {
@@ -507,6 +516,7 @@ async function main() {
 
   if (HEADLESS) console.log("  Mode: HEADLESS (CI)");
   else console.log("  Mode: INTERACTIVE");
+  console.log(`  Type: ${MODE === "transfer" ? "TRANSFERS (traspaso)" : "RENTALS"}`);
 
   // Check for XHR proxy key
   if (!process.env.XHR_API_KEY) {
@@ -565,12 +575,14 @@ async function main() {
   }
 
   const city = getCity(selectedCityId)!;
+  const activeSource = MODE === "transfer" ? SOURCES.IDEALISTA_TRANSFER : SOURCES.IDEALISTA;
+  const activeFilters = MODE === "transfer" ? getTransferFilters(selectedCityId) : getFiltersForCity(selectedCityId);
   console.log(`\nSelected: ${city.name}`);
-  console.log(`Filters: ${JSON.stringify(getFiltersForCity(selectedCityId))}\n`);
+  console.log(`Filters: ${JSON.stringify(activeFilters)}\n`);
 
   // Phase 1: Scrape search pages
   console.log("Phase 1: Scraping search pages...");
-  const partialListings = await scrapeSearchPages(city.idealistaArea!, selectedCityId);
+  const partialListings = await scrapeSearchPages(city.idealistaArea!, activeFilters);
   console.log(`\n  Total listings from search: ${partialListings.length}\n`);
 
   if (partialListings.length === 0) {
@@ -666,18 +678,20 @@ async function main() {
   // Build seenIds once (used for marking unseen listings as inactive)
   const seenIds = new Set(Array.from(deduped.keys()));
 
+  const sourceName = MODE === "transfer" ? "Idealista Transfers" : "Idealista";
+
   if (writeToDevFirst) {
     const devClient = getDevClient();
     const categoryId = await getCategoryId(devClient, getCategoryForIdealista());
 
-    const devResult = await publishListings(devClient, finalListings, selectedCityId, categoryId, "DEV");
+    const devResult = await publishListings(devClient, finalListings, selectedCityId, categoryId, "DEV", activeSource);
     console.log(`\n  DEV results:`);
     console.log(`    Inserted:      ${devResult.inserted}`);
     console.log(`    Updated:       ${devResult.updated}`);
     console.log(`    Price changes: ${devResult.priceChanges}`);
     console.log(`    Errors:        ${devResult.errors}`);
 
-    const { inactivated: devInactivated } = await markUnseenAsInactive(devClient, selectedCityId, SOURCES.IDEALISTA, seenIds, 0.5);
+    const { inactivated: devInactivated } = await markUnseenAsInactive(devClient, selectedCityId, activeSource, seenIds, 0.5);
     if (devInactivated > 0) console.log(`    Inactivated:   ${devInactivated}`);
 
     // Ask about PROD
@@ -689,14 +703,14 @@ async function main() {
       if (answer.toLowerCase() === "y") {
         const prodClient = getProdClient();
         const prodCategoryId = await getCategoryId(prodClient, getCategoryForIdealista());
-        const prodResult = await publishListings(prodClient, finalListings, selectedCityId, prodCategoryId, "PROD");
+        const prodResult = await publishListings(prodClient, finalListings, selectedCityId, prodCategoryId, "PROD", activeSource);
         console.log(`\n  PROD results:`);
         console.log(`    Inserted:      ${prodResult.inserted}`);
         console.log(`    Updated:       ${prodResult.updated}`);
         console.log(`    Price changes: ${prodResult.priceChanges}`);
         console.log(`    Errors:        ${prodResult.errors}`);
 
-        const { inactivated: prodInactivated } = await markUnseenAsInactive(prodClient, selectedCityId, SOURCES.IDEALISTA, seenIds, 0.5);
+        const { inactivated: prodInactivated } = await markUnseenAsInactive(prodClient, selectedCityId, activeSource, seenIds, 0.5);
         if (prodInactivated > 0) console.log(`    Inactivated:   ${prodInactivated}`);
       }
     }
@@ -706,7 +720,7 @@ async function main() {
     const prodClient = getProdClient();
     const categoryId = await getCategoryId(prodClient, getCategoryForIdealista());
 
-    const result = await publishListings(prodClient, finalListings, selectedCityId, categoryId, "PROD");
+    const result = await publishListings(prodClient, finalListings, selectedCityId, categoryId, "PROD", activeSource);
     console.log(`\n  PROD results:`);
     console.log(`    Inserted:      ${result.inserted}`);
     console.log(`    Updated:       ${result.updated}`);
@@ -714,7 +728,7 @@ async function main() {
     console.log(`    Errors:        ${result.errors}`);
     if (result.skippedValidation > 0) console.log(`    Skipped (val): ${result.skippedValidation}`);
 
-    const { inactivated, safetyGuardTripped } = await markUnseenAsInactive(prodClient, selectedCityId, SOURCES.IDEALISTA, seenIds, 0.5);
+    const { inactivated, safetyGuardTripped } = await markUnseenAsInactive(prodClient, selectedCityId, activeSource, seenIds, 0.5);
     if (inactivated > 0) console.log(`    Inactivated:   ${inactivated}`);
 
     // Validation failure rate check
@@ -723,20 +737,41 @@ async function main() {
       console.error(`\n  ERROR: ${Math.round(validationFailRate * 100)}% of listings failed validation. HTML structure may have changed.`);
     }
 
-    // Send email report
-    console.log("\nSending report...");
-    await sendScraperReport({
-      sourceName: "Idealista",
-      city: city.name,
-      totalScraped: finalListings.length,
-      inserted: result.inserted,
-      updated: result.updated,
-      priceChanges: result.priceChanges,
-      errors: result.errors,
-      skippedValidation: result.skippedValidation,
-      inactivated,
-      safetyGuardTripped,
-    });
+    // Write stats file for combined report step
+    if (STATS_FILE) {
+      const stats = {
+        sourceName,
+        city: city.name,
+        totalScraped: finalListings.length,
+        inserted: result.inserted,
+        updated: result.updated,
+        priceChanges: result.priceChanges,
+        errors: result.errors,
+        skippedValidation: result.skippedValidation,
+        inactivated,
+        safetyGuardTripped,
+      };
+      fs.writeFileSync(STATS_FILE, JSON.stringify(stats, null, 2));
+      console.log(`\n  Stats written to ${STATS_FILE}`);
+    }
+
+    if (!SKIP_REPORT) {
+      console.log("\nSending report...");
+      await sendScraperReport({
+        sourceName,
+        city: city.name,
+        totalScraped: finalListings.length,
+        inserted: result.inserted,
+        updated: result.updated,
+        priceChanges: result.priceChanges,
+        errors: result.errors,
+        skippedValidation: result.skippedValidation,
+        inactivated,
+        safetyGuardTripped,
+      });
+    } else {
+      console.log("\nSkipping report (--skip-report flag set).");
+    }
 
     if (validationFailRate > 0.2) {
       process.exit(1);

@@ -15,6 +15,8 @@ on:
         type: choice
         options:
           - idealista
+          - idealista-rental
+          - idealista-transfer
           - sreality
           - both
       city:
@@ -32,7 +34,7 @@ jobs:
     timeout-minutes: 600
     if: >-
       (github.event_name == 'schedule' && github.event.schedule == '0 6 * * 1,4')
-      || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'idealista' || github.event.inputs.scraper == 'both'))
+      || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'idealista' || github.event.inputs.scraper == 'idealista-rental' || github.event.inputs.scraper == 'idealista-transfer' || github.event.inputs.scraper == 'both'))
 
     steps:
       - name: Checkout
@@ -47,7 +49,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Idealista scraper
+      - name: Scrape Idealista rentals
+        if: >-
+          github.event_name == 'schedule'
+          || github.event.inputs.scraper == 'idealista'
+          || github.event.inputs.scraper == 'idealista-rental'
+          || github.event.inputs.scraper == 'both'
         env:
           XHR_API_KEY: ${{ secrets.XHR_API_KEY }}
           SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
@@ -56,7 +63,33 @@ jobs:
         run: |
           npx ts-node --project scripts/data-pipeline/tsconfig.json \
             scripts/data-pipeline/fetch-idealista.ts \
-            --headless --city ${{ github.event.inputs.city || 'madrid' }}
+            --headless --city ${{ github.event.inputs.city || 'madrid' }} \
+            --mode rental --skip-report --stats-file /tmp/stats-rental.json
+
+      - name: Scrape Idealista transfers
+        if: >-
+          github.event_name == 'schedule'
+          || github.event.inputs.scraper == 'idealista'
+          || github.event.inputs.scraper == 'idealista-transfer'
+          || github.event.inputs.scraper == 'both'
+        env:
+          XHR_API_KEY: ${{ secrets.XHR_API_KEY }}
+          SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          npx ts-node --project scripts/data-pipeline/tsconfig.json \
+            scripts/data-pipeline/fetch-idealista.ts \
+            --headless --city ${{ github.event.inputs.city || 'madrid' }} \
+            --mode transfer --skip-report --stats-file /tmp/stats-transfer.json
+
+      - name: Send combined report
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          npx ts-node --project scripts/data-pipeline/tsconfig.json \
+            scripts/data-pipeline/send-combined-report.ts \
+            --stats /tmp/stats-rental.json --stats /tmp/stats-transfer.json
 
   scrape-sreality:
     runs-on: ubuntu-latest
@@ -88,48 +121,3 @@ jobs:
             scripts/data-pipeline/fetch-sreality.ts \
             --headless --url "${{ secrets.SREALITY_SEARCH_URL }}" --city prague
 
-  # Future pipeline stages (uncomment when ready):
-  #
-  # score-listings:
-  #   needs: scrape-idealista
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 10
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with: { node-version: '20', cache: 'npm' }
-  #     - run: npm ci
-  #     - run: npx ts-node scripts/data-pipeline/score-listings.ts --headless --city ${{ github.event.inputs.city || 'madrid' }}
-  #       env:
-  #         SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
-  #         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-  #
-  # analyze-images:
-  #   needs: score-listings
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 15
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with: { node-version: '20', cache: 'npm' }
-  #     - run: npm ci
-  #     - run: npx ts-node scripts/data-pipeline/analyze-images.ts --headless --city ${{ github.event.inputs.city || 'madrid' }}
-  #       env:
-  #         SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
-  #         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-  #         OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-  #
-  # send-digest:
-  #   needs: analyze-images
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 5
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with: { node-version: '20', cache: 'npm' }
-  #     - run: npm ci
-  #     - run: npx ts-node scripts/data-pipeline/send-digest.ts --headless
-  #       env:
-  #         SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
-  #         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-  #         RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
