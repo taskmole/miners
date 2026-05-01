@@ -19,7 +19,7 @@ import {
   createDefaultChecklist,
 } from '@/types/scouting';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { getAnonymousUserId, withSupabase, withRetry } from '@/lib/supabaseHelpers';
+import { withSupabase, withRetry } from '@/lib/supabaseHelpers';
 import { getCurrentUserId } from '@/lib/browser-session';
 
 /**
@@ -30,7 +30,6 @@ async function fetchTripsFromSupabase(): Promise<ScoutingTrip[]> {
   if (!isSupabaseConfigured() || !supabase) return [];
 
   const currentId = getCurrentUserId();
-  const anonId = getAnonymousUserId();
 
   // Select every column that syncCreateToSupabase / syncUpdateToSupabase write.
   const columns = [
@@ -88,7 +87,7 @@ async function fetchTripsFromSupabase(): Promise<ScoutingTrip[]> {
       const res = await supabase!
         .from('pitches')
         .select(columns)
-        .or(`created_by.eq.${currentId},created_by.eq.${anonId}`);
+        .eq('created_by', currentId);
       if (res.error) throw res.error;
       return res;
     },

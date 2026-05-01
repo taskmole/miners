@@ -6,7 +6,7 @@ import {
   DEFAULT_CATEGORIES
 } from '@/types/point-categories';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { getAnonymousUserId, withSupabase } from '@/lib/supabaseHelpers';
+import { withSupabase } from '@/lib/supabaseHelpers';
 import { getCurrentUserId } from '@/lib/browser-session';
 
 function generateCategoryId(): string {
@@ -17,12 +17,11 @@ async function fetchFromSupabase(): Promise<PointCategory[]> {
   if (!isSupabaseConfigured() || !supabase) return [];
 
   const currentId = getCurrentUserId();
-  const anonId = getAnonymousUserId();
 
   const { data, error } = await supabase
     .from('categories')
     .select('id, name, is_system, created_at')
-    .or(`is_system.eq.true,created_by.eq.${currentId},created_by.eq.${anonId}`);
+    .or(`is_system.eq.true,created_by.eq.${currentId}`);
 
   if (error) {
     console.error('Error fetching categories from Supabase:', error);

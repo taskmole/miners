@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { LocationList, ListItem, ListsState, PlaceInfo, VisitLog, DrawnAreaItem } from '@/types/lists';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { getAnonymousUserId, withSupabase, logActivity } from '@/lib/supabaseHelpers';
+import { withSupabase, logActivity } from '@/lib/supabaseHelpers';
 import { getCurrentUserId } from '@/lib/browser-session';
 
 // localStorage key for lists data
@@ -44,14 +44,11 @@ async function fetchListsFromSupabase(): Promise<LocationList[]> {
   if (!isSupabaseConfigured() || !supabase) return [];
 
   const currentId = getCurrentUserId();
-  const anonId = getAnonymousUserId();
 
-  // Fetch lists — query both current user ID and legacy anonymous ID
-  // so existing lists (created before auth fix) are still found
   const { data: listsData, error: listsError } = await supabase
     .from('lists')
     .select('id, name, created_at')
-    .or(`created_by.eq.${currentId},created_by.eq.${anonId}`);
+    .eq('created_by', currentId);
 
   if (listsError) {
     console.error('Error fetching lists from Supabase:', listsError);
