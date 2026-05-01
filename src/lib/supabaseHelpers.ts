@@ -6,34 +6,22 @@
  */
 
 import { supabase, isSupabaseConfigured } from './supabase';
-import { getAuthUserId } from './browser-session';
+import { getAuthUserId, getBrowserSessionId } from './browser-session';
 
-// localStorage key for anonymous user ID
+// localStorage key for anonymous user ID (legacy, kept for migration)
 const ANON_USER_KEY = 'miners-anonymous-user-id';
 
 /**
- * Get a stable anonymous user ID
- *
- * Returns a UUID stored in localStorage. If none exists, generates one.
- * This allows tracking user data before authentication is ready.
- *
- * Once auth is implemented, this will be replaced with the real user ID.
+ * Get the anonymous user ID.
+ * Now returns the same value as getBrowserSessionId() to eliminate
+ * the confusing dual-ID system. Legacy anonymous IDs are still
+ * migrated on login via migrateAnonymousData().
  */
 export function getAnonymousUserId(): string {
   if (typeof window === 'undefined') {
-    // Server-side: return placeholder (won't be used for writes)
     return '00000000-0000-0000-0000-000000000000';
   }
-
-  let userId = localStorage.getItem(ANON_USER_KEY);
-
-  if (!userId) {
-    // Generate a new UUID
-    userId = crypto.randomUUID();
-    localStorage.setItem(ANON_USER_KEY, userId);
-  }
-
-  return userId;
+  return getBrowserSessionId();
 }
 
 /**
@@ -103,41 +91,37 @@ export async function withRetry<T>(
 /**
  * Migrate anonymous user data to authenticated user ID.
  * Calls a Supabase RPC function that re-tags all rows in a single transaction.
- * Only runs once per browser (uses localStorage flag).
+ * Runs on every login to catch data created between sessions on different devices.
  */
 export async function migrateAnonymousData(authUserId: string): Promise<void> {
   if (!isSupabaseConfigured() || !supabase) return;
   if (typeof window === 'undefined') return;
 
-  const migrated = localStorage.getItem('miners-anon-migrated');
-  if (migrated) return;
+  // Collect all local IDs that might have been used to tag data
+  const idsToMigrate = new Set<string>();
 
   const anonId = localStorage.getItem(ANON_USER_KEY);
-  if (!anonId) {
-    localStorage.setItem('miners-anon-migrated', 'true');
-    return;
-  }
+  if (anonId && anonId !== authUserId) idsToMigrate.add(anonId);
 
-  // Skip if anon ID matches auth ID (no migration needed)
-  if (anonId === authUserId) {
-    localStorage.setItem('miners-anon-migrated', 'true');
-    return;
-  }
+  const sessionId = localStorage.getItem('miners-browser-session-id');
+  if (sessionId && sessionId !== authUserId) idsToMigrate.add(sessionId);
 
-  try {
-    const { error } = await supabase.rpc('migrate_anonymous_user', {
-      anon_id: anonId,
-      auth_id: authUserId,
-    });
+  if (idsToMigrate.size === 0) return;
 
-    if (error) {
-      console.error('[migrateAnonymousData] RPC failed:', error);
-      return;
+  // Migrate each anonymous ID to the auth user ID
+  for (const oldId of idsToMigrate) {
+    try {
+      const { error } = await supabase.rpc('migrate_anonymous_user', {
+        anon_id: oldId,
+        auth_id: authUserId,
+      });
+
+      if (error) {
+        console.error('[migrateAnonymousData] RPC failed for', oldId, ':', error);
+      }
+    } catch (error) {
+      console.error('[migrateAnonymousData] unexpected error:', error);
     }
-
-    localStorage.setItem('miners-anon-migrated', 'true');
-  } catch (error) {
-    console.error('[migrateAnonymousData] unexpected error:', error);
   }
 }
 

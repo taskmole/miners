@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import type { ShapeMetadata, ShapeComment } from '@/types/draw';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { getAnonymousUserId } from '@/lib/supabaseHelpers';
 import { getCurrentUserId } from '@/lib/browser-session';
 import type { Attachment } from '@/types/attachments';
 
@@ -12,13 +11,11 @@ async function loadMetadataFromSupabase(): Promise<Record<string, ShapeMetadata>
 
   try {
     const userId = getCurrentUserId();
-    const anonId = getAnonymousUserId();
-    const userIds = Array.from(new Set([userId, anonId]));
 
     const { data, error } = await supabase
       .from('drawn_features')
       .select('id, name, color, tags, link, category_id, address, address_coords, created_by, attachments')
-      .in('user_id', userIds);
+      .eq('user_id', userId);
 
     if (error || !data) return null;
 
