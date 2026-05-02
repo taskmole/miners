@@ -2,10 +2,8 @@ name: Scraper Pipeline
 
 on:
   schedule:
-    # Idealista: Monday and Thursday at 06:00 UTC
+    # Both scrapers: Monday and Thursday at 06:00 UTC
     - cron: '0 6 * * 1,4'
-    # Sreality: Tuesday, Friday, and Sunday at 06:00 UTC
-    - cron: '0 6 * * 0,2,5'
   workflow_dispatch:
     inputs:
       scraper:
@@ -33,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 600
     if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '0 6 * * 1,4')
+      (github.event_name == 'schedule')
       || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'idealista' || github.event.inputs.scraper == 'idealista-rental' || github.event.inputs.scraper == 'idealista-transfer' || github.event.inputs.scraper == 'both'))
 
     steps:
@@ -95,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '0 6 * * 0,2,5')
+      (github.event_name == 'schedule')
       || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'sreality' || github.event.inputs.scraper == 'both'))
 
     steps:
