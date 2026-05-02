@@ -54,6 +54,9 @@ const CZ_BOUNDS = {
   lonMax: 18.9,
 };
 
+// Listings containing these terms (case-insensitive) in name or description are excluded
+const BLOCKED_KEYWORDS = ["kancelář", "kanceláře"];
+
 // Sreality category codes to URL slugs
 const CATEGORY_TYPE_SLUGS: Record<number, string> = {
   1: "prodej",
@@ -393,6 +396,13 @@ function transformListings(listings: SrealityListing[]): { valid: ValidatedListi
       continue;
     }
     if (!listing.name) {
+      skipped++;
+      continue;
+    }
+
+    const textToCheck = `${listing.name} ${listing.description || ""}`.toLowerCase();
+    if (BLOCKED_KEYWORDS.some((kw) => textToCheck.includes(kw))) {
+      console.log(`  Filtered (office keyword): ${listing.name}`);
       skipped++;
       continue;
     }
