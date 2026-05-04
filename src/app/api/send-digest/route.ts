@@ -5,10 +5,20 @@ import React from "react";
 import MinersDigest from "@/emails/miners-digest";
 import {
   getSubscribedUsers,
-  getNewListingsForCity,
+  getNewListingsForCityAndSource,
+  type DigestSource,
 } from "@/lib/digest-queries";
 
 export const dynamic = "force-dynamic";
+
+const VALID_SOURCES: DigestSource[] = ["idealista", "sreality"];
+
+function isDigestSource(value: unknown): value is DigestSource {
+  return (
+    typeof value === "string" &&
+    (VALID_SOURCES as readonly string[]).includes(value)
+  );
+}
 
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-digest-secret");
@@ -16,38 +26,69 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid or empty JSON body" },
+      { status: 400 },
+    );
+  }
+
+  const { source, city } = (body ?? {}) as { source?: unknown; city?: unknown };
+  if (!isDigestSource(source)) {
+    return NextResponse.json(
+      { error: `Invalid source. Must be one of: ${VALID_SOURCES.join(", ")}` },
+      { status: 400 },
+    );
+  }
+  if (typeof city !== "string" || city.length === 0) {
+    return NextResponse.json(
+      { error: "Missing or invalid city" },
+      { status: 400 },
+    );
+  }
+
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const users = await getSubscribedUsers();
-    const results: { email: string; city: string; status: string }[] = [];
+    const results: {
+      email: string;
+      source: string;
+      city: string;
+      status: string;
+    }[] = [];
 
     for (const user of users) {
-      for (const city of user.cities) {
-        const listings = await getNewListingsForCity(city);
+      if (!user.sources.includes(source)) continue;
+      if (!user.cities.includes(city)) continue;
 
-        if (listings.length === 0) continue;
+      const listings = await getNewListingsForCityAndSource(city, source);
 
-        const html = await render(
-          React.createElement(MinersDigest, {
-            city,
-            listings,
-            appUrl: "https://theminers.vercel.app",
-          })
-        );
+      if (listings.length === 0) continue;
 
-        const { error } = await resend.emails.send({
-          from: "Miners Scout <onboarding@resend.dev>",
-          to: user.email,
-          subject: `${listings.length} new locations found in ${city}`,
-          html,
-        });
-
-        results.push({
-          email: user.email,
+      const html = await render(
+        React.createElement(MinersDigest, {
           city,
-          status: error ? `Failed: ${error.message}` : "Sent",
-        });
-      }
+          listings,
+          appUrl: "https://theminers.vercel.app",
+        }),
+      );
+
+      const { error } = await resend.emails.send({
+        from: "Miners Scout <onboarding@resend.dev>",
+        to: user.email,
+        subject: `${listings.length} new locations found in ${city}`,
+        html,
+      });
+
+      results.push({
+        email: user.email,
+        source,
+        city,
+        status: error ? `Failed: ${error.message}` : "Sent",
+      });
     }
 
     return NextResponse.json({ results });
