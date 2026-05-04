@@ -17,8 +17,7 @@
     "export:csv": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/export-csv.ts",
     "fetch:gyms": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/fetch-google-gyms.ts",
     "generate-gravity": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/generate-gravity-scores.ts",
-    "email:preview": "npx email dev --dir src/emails --port 3001",
-    "email:test": "curl -X POST http://localhost:3000/api/send-digest -H 'x-digest-secret: ***REMOVED***'"
+    "email:preview": "npx email dev --dir src/emails --port 3001"
   },
   "dependencies": {
     "@mapbox/mapbox-gl-draw": "^1.5.1",
