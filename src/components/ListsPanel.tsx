@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useListsContext } from "@/contexts/ListsContext";
 import { useScoutingTripsContext } from "@/contexts/ScoutingTripsContext";
 import { useSheetState } from "@/contexts/SheetContext";
+import { useToast } from "@/contexts/ToastContext";
 import { MobilePanel } from "@/components/ui/mobile-panel";
 import { useMobile } from "@/hooks/useMobile";
 import type { LinkedItem, ScoutingTrip } from "@/types/scouting";
@@ -221,6 +222,8 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
         addLinkedItem,
     } = useScoutingTripsContext();
 
+    const { showToast } = useToast();
+
     // Use SheetContext for coordinated open/close
     const { isOpen: isExpanded, open, close } = useSheetState("lists");
     const isMobile = useMobile();
@@ -283,12 +286,15 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
         setSelectedListId(null);
     };
 
-    // Handle deleting a list
-    const handleDeleteList = () => {
+    const handleDeleteList = async () => {
         if (!selectedListId) return;
-        deleteList(selectedListId);
+        const targetId = selectedListId;
         setIsDeleteDialogOpen(false);
         setSelectedListId(null);
+        const ok = await deleteList(targetId);
+        if (!ok) {
+            showToast("Couldn't delete this list. Please refresh and try again.", 'error');
+        }
     };
 
     // Handle creating a scouting trip from a list
@@ -480,7 +486,12 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
                                 setSelectedListId(list.id);
                                 setIsDeleteDialogOpen(true);
                             }}
-                            onRemoveItem={(itemId) => removeItem(list.id, itemId)}
+                            onRemoveItem={async (itemId) => {
+                                const ok = await removeItem(list.id, itemId);
+                                if (!ok) {
+                                    showToast("Couldn't remove this place. Please refresh and try again.", 'error');
+                                }
+                            }}
                             onRemoveArea={(areaId) => removeDrawnArea(list.id, areaId)}
                             onUpdateVisitPlan={(plan) => updateVisitPlan(list.id, plan)}
                             onExportCSV={() => exportListAsCSV(list)}
@@ -709,7 +720,7 @@ function ListSection({
                             <Route className="w-4 h-4 mr-2" />
                             Create trip
                         </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={onRename}>
+                        <DropdownMenuItem onSelect={() => setTimeout(onRename, 0)}>
                             <Pencil className="w-4 h-4 mr-2" />
                             Rename
                         </DropdownMenuItem>
@@ -723,7 +734,7 @@ function ListSection({
                             Export PDF
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={onDelete} className="text-red-600">
+                        <DropdownMenuItem onSelect={() => setTimeout(onDelete, 0)} className="text-red-600">
                             <Trash2 className="w-4 h-4 mr-2" />
                             Delete list
                         </DropdownMenuItem>
