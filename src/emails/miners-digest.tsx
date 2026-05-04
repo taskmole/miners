@@ -261,14 +261,22 @@ export default function MinersDigest({
 
           <Section style={ctaSection}>
             <Link href={appUrl} style={ctaButton}>
-              {"View all  "}
-              <Img
-                src={ARROW_URL}
-                alt="→"
-                width={14}
-                height={14}
-                style={{ display: "inline", verticalAlign: "middle", marginTop: "-3px" }}
-              />
+              <table cellPadding={0} cellSpacing={0} border={0} style={{ display: "inline-table", borderCollapse: "collapse" }}>
+                <tbody>
+                  <tr>
+                    <td valign="middle" style={ctaTextCell}>View all</td>
+                    <td valign="middle" style={ctaArrowCell}>
+                      <Img
+                        src={ARROW_URL}
+                        alt="→"
+                        width={14}
+                        height={14}
+                        style={{ display: "block" }}
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </Link>
           </Section>
 
@@ -389,6 +397,19 @@ const ctaButton: React.CSSProperties = {
   fontSize: "15px",
   fontWeight: 600,
   display: "inline-block",
+};
+
+const ctaTextCell: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: "15px",
+  fontWeight: 600,
+  lineHeight: "14px",
+  paddingRight: "8px",
+};
+
+const ctaArrowCell: React.CSSProperties = {
+  lineHeight: 0,
+  fontSize: 0,
 };
 
 const footer: React.CSSProperties = {
