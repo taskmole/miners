@@ -89,6 +89,19 @@ jobs:
             scripts/data-pipeline/send-combined-report.ts \
             --stats /tmp/stats-rental.json --stats /tmp/stats-transfer.json
 
+      - name: Send Idealista digest email
+        if: success()
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          DIGEST_SECRET: ${{ secrets.DIGEST_SECRET }}
+          CITY: ${{ github.event.inputs.city || 'madrid' }}
+        run: |
+          curl -X POST "$APP_URL/api/send-digest" \
+            -H "x-digest-secret: $DIGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"source\":\"idealista\",\"city\":\"$CITY\"}" \
+            --fail --silent --show-error
+
   scrape-sreality:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -118,4 +131,16 @@ jobs:
           npx ts-node --project scripts/data-pipeline/tsconfig.json \
             scripts/data-pipeline/fetch-sreality.ts \
             --headless --url "${{ secrets.SREALITY_SEARCH_URL }}" --city prague
+
+      - name: Send Sreality digest email
+        if: success()
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          DIGEST_SECRET: ${{ secrets.DIGEST_SECRET }}
+        run: |
+          curl -X POST "$APP_URL/api/send-digest" \
+            -H "x-digest-secret: $DIGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"source":"sreality","city":"prague"}' \
+            --fail --silent --show-error
 
