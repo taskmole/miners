@@ -1882,7 +1882,7 @@ export function EnhancedMapContainer({
     showNewOnly = false,
     gravityEnabled = false,
 }: EnhancedMapContainerProps) {
-    const { cafes, properties, otherPois, isLoading, error, retry } = useMapData();
+    const { cafes, properties, otherPois, isLoading, error, retry } = useMapData(selectedCity?.id);
     const {
         trafficData,
         trafficGroupedData,
@@ -2379,7 +2379,7 @@ export function EnhancedMapContainer({
             {/* Toast helper for shape creation */}
             <ShapeCreatedToast onReady={handleShapeCreatedReady} />
             <Map
-                center={[-3.7038, 40.4168]}
+                center={selectedCity?.coordinates ?? [-3.7038, 40.4168]}
                 zoom={13}
                 className="w-full h-full"
             >
