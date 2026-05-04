@@ -1882,7 +1882,7 @@ export function EnhancedMapContainer({
     showNewOnly = false,
     gravityEnabled = false,
 }: EnhancedMapContainerProps) {
-    const { cafes, properties, otherPois, isLoading, error } = useMapData();
+    const { cafes, properties, otherPois, isLoading, error, retry } = useMapData();
     const {
         trafficData,
         trafficGroupedData,
@@ -2362,8 +2362,14 @@ export function EnhancedMapContainer({
 
     if (error) {
         return (
-            <div className="w-full h-full flex items-center justify-center bg-zinc-100">
-                <div className="text-red-500">Error loading data: {error}</div>
+            <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-100 gap-3">
+                <div className="text-red-500 text-sm">Error loading data: {error}</div>
+                <button
+                    onClick={retry}
+                    className="px-4 py-2 bg-zinc-900 text-white text-sm rounded-lg hover:bg-zinc-700 transition-colors"
+                >
+                    Try again
+                </button>
             </div>
         );
     }
