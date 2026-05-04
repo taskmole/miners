@@ -49,10 +49,27 @@ export async function getNewListingsForCityAndSource(
   city: string,
   source: DigestSource,
 ): Promise<Listing[]> {
-  const cutoff = new Date();
-  cutoff.setHours(cutoff.getHours() - 84);
+  const supabase = getSupabase();
 
-  const { data, error } = await getSupabase()
+  // Anchor on the most recent insert for this source+city. A single scrape
+  // session inserts all rows within minutes, so a 12h window backward from
+  // the latest row captures only that scrape's batch (next-most-recent
+  // scrape happens days earlier on Mon/Thu cadence).
+  const { data: anchor } = await supabase
+    .from("places")
+    .select("created_at")
+    .in("source", SOURCE_DB_VALUES[source])
+    .eq("city_id", city)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!anchor) return [];
+
+  const cutoff = new Date(anchor.created_at);
+  cutoff.setHours(cutoff.getHours() - 12);
+
+  const { data, error } = await supabase
     .from("places")
     .select("address, metadata, photos, score, created_at")
     .in("source", SOURCE_DB_VALUES[source])
@@ -60,8 +77,7 @@ export async function getNewListingsForCityAndSource(
     .gte("created_at", cutoff.toISOString())
     .not("photos", "eq", "{}")
     .order("score", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false })
-    .limit(10);
+    .order("created_at", { ascending: false });
 
   if (error || !data) return [];
 
