@@ -1,24 +1,42 @@
 name: Send Property Digest
 
+# Manual trigger only.
+# Automatic digest sends now happen inside scraper-pipeline.yml, immediately
+# after each scrape job succeeds (per-source, per-city). This workflow exists
+# for re-sending a digest without re-running the scraper, useful when iterating
+# on the email template.
 on:
-  # Fires automatically after the Scraper Pipeline workflow completes.
-  # The name below must exactly match the "name:" field in scraper-pipeline.yml.
-  workflow_run:
-    workflows: ["Scraper Pipeline"]
-    types: [completed]
-  # Manual trigger from GitHub Actions UI
   workflow_dispatch:
+    inputs:
+      source:
+        description: 'Which source to send digest for'
+        required: true
+        type: choice
+        options:
+          - idealista
+          - sreality
+      city:
+        description: 'Which city to send digest for'
+        required: true
+        type: choice
+        options:
+          - madrid
+          - barcelona
+          - prague
 
 jobs:
   send-digest:
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name == 'workflow_dispatch'
-      || github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Trigger digest email
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          DIGEST_SECRET: ${{ secrets.DIGEST_SECRET }}
+          SOURCE: ${{ github.event.inputs.source }}
+          CITY: ${{ github.event.inputs.city }}
         run: |
-          curl -X POST "${{ secrets.APP_URL }}/api/send-digest" \
-            -H "x-digest-secret: ${{ secrets.DIGEST_SECRET }}" \
+          curl -X POST "$APP_URL/api/send-digest" \
+            -H "x-digest-secret: $DIGEST_SECRET" \
             -H "Content-Type: application/json" \
+            -d "{\"source\":\"$SOURCE\",\"city\":\"$CITY\"}" \
             --fail --silent --show-error
