@@ -113,7 +113,6 @@ export async function migrateAnonymousData(authUserId: string): Promise<void> {
     try {
       const { error } = await supabase.rpc('migrate_anonymous_user', {
         anon_id: oldId,
-        auth_id: authUserId,
       });
 
       if (error) {
