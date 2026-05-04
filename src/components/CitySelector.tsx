@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { ES, CZ } from "country-flag-icons/react/3x2";
 
 // Map country codes to flag components
-const FLAGS: Record<string, React.ComponentType<{ className?: string }>> = {
+export const FLAGS: Record<string, React.ComponentType<{ className?: string }>> = {
   ES,
   CZ,
 };
@@ -38,12 +38,11 @@ export const cities: City[] = [
 ];
 
 interface CitySelectorProps {
-  onCityChange?: (city: City) => void;
+  selectedCity: City;
+  onCityChange: (city: City) => void;
 }
 
-export function CitySelector({ onCityChange }: CitySelectorProps) {
-  const [selectedCity, setSelectedCity] = React.useState<City>(cities[0]);
-
+export function CitySelector({ selectedCity, onCityChange }: CitySelectorProps) {
   return (
     <div className="fixed top-6 left-6 z-50">
       <DropdownMenu>
@@ -74,8 +73,7 @@ export function CitySelector({ onCityChange }: CitySelectorProps) {
               )}
               onClick={() => {
                 if (city.active) {
-                  setSelectedCity(city);
-                  onCityChange?.(city);
+                  onCityChange(city);
                 }
               }}
             >
