@@ -2379,7 +2379,7 @@ export function EnhancedMapContainer({
             {/* Toast helper for shape creation */}
             <ShapeCreatedToast onReady={handleShapeCreatedReady} />
             <Map
-                center={[-3.7038, 40.4168]}
+                center={selectedCity?.coordinates ?? [-3.7038, 40.4168]}
                 zoom={13}
                 className="w-full h-full"
             >

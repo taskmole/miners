@@ -13,6 +13,13 @@ import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { FootfallTimePicker } from "@/components/FootfallTimePicker";
 import { EnhancedMapContainer } from "@/components/EnhancedMapContainer";
 import { LandingPage } from "@/components/LandingPage";
+import { CityPicker } from "@/components/CityPicker";
+import {
+  getStoredDefaultCity,
+  hasStoredDefaultCity,
+  saveDefaultCity,
+  shouldShowOnboardingPicker,
+} from "@/lib/userPreferences";
 import { useMapData } from "@/hooks/useMapData";
 import { ListsProvider } from "@/contexts/ListsContext";
 import { HiddenPoisProvider } from "@/contexts/HiddenPoisContext";
@@ -37,7 +44,9 @@ const DEFAULT_FILTERS = new Set<string>([]);
 
 // Inner component that uses the linking context
 function HomeContent() {
-  const [selectedCity, setSelectedCity] = useState<City>(cities[0]);
+  const [selectedCity, setSelectedCity] = useState<City>(
+    () => cities.find(c => c.id === "madrid") ?? cities[0]
+  );
   const { counts } = useMapData(selectedCity.id);
   const { startLinking, isLinking } = useLinking();
 
@@ -48,6 +57,9 @@ function HomeContent() {
 
   // Landing page state - shows on first load (unless already logged in)
   const [showLanding, setShowLanding] = useState(true);
+
+  // Onboarding city picker - shown to new users after Google sign-in
+  const [showCityPicker, setShowCityPicker] = useState(false);
 
   // Check for auth session on mount and listen for changes
   useEffect(() => {
@@ -65,6 +77,18 @@ function HomeContent() {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
+    // Show picker for any signed-in user without a saved city; otherwise apply
+    // the saved city. Madrid is the in-memory fallback while the picker renders.
+    const applyCityForUser = (u: User) => {
+      if (shouldShowOnboardingPicker(u)) {
+        setShowCityPicker(true);
+        return;
+      }
+      if (hasStoredDefaultCity(u)) {
+        setSelectedCity(getStoredDefaultCity(u));
+      }
+    };
+
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
@@ -73,6 +97,7 @@ function HomeContent() {
         setUser(session.user);
         setAuthUserId(session.user.id);
         setShowLanding(false);
+        applyCityForUser(session.user);
       }
       setAuthChecked(true);
     });
@@ -88,6 +113,7 @@ function HomeContent() {
         if (session?.user) {
           setShowLanding(false);
           setAuthError(null);
+          applyCityForUser(session.user);
         }
       }
     );
@@ -242,7 +268,15 @@ function HomeContent() {
       {/* UI Overlays - hide when in linking mode */}
       {!isLinking && (
         <>
-          <CitySelector onCityChange={setSelectedCity} />
+          <CitySelector
+            selectedCity={selectedCity}
+            onCityChange={(city) => {
+              setSelectedCity(city);
+              if (user) {
+                void saveDefaultCity(user, city.id);
+              }
+            }}
+          />
           <Sidebar
             counts={counts}
             activeFilters={activeFilters}
@@ -349,6 +383,16 @@ function HomeContent() {
       <LandingPage
         isVisible={showLanding && authChecked}
         authError={authError}
+      />
+
+      {/* City Picker - shown to new users after sign-in */}
+      <CityPicker
+        isVisible={showCityPicker}
+        user={user}
+        onComplete={(city) => {
+          setSelectedCity(city);
+          setShowCityPicker(false);
+        }}
       />
     </main>
   );
