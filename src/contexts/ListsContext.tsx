@@ -16,11 +16,11 @@ interface ListsContextValue {
   getListsContainingPlace: (placeId: string) => string[];
   updateVisitPlan: (listId: string, visitPlan: VisitLog) => void;
   reorderItems: (listId: string, fromIndex: number, toIndex: number) => void;
-  deleteList: (listId: string) => void;
+  deleteList: (listId: string) => Promise<boolean>;
   renameList: (listId: string, newName: string) => void;
   addDrawnArea: (listId: string, areaId: string, areaType: 'polygon' | 'line', name: string) => void;
   removeDrawnArea: (listId: string, areaId: string) => void;
-  removeItem: (listId: string, itemId: string) => void;
+  removeItem: (listId: string, itemId: string) => Promise<boolean>;
 }
 
 const ListsContext = createContext<ListsContextValue | null>(null);
