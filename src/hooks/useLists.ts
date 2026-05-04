@@ -131,27 +131,45 @@ async function syncRenameToSupabase(listId: string, newName: string): Promise<vo
   }
 }
 
-/**
- * Sync list delete to Supabase
- */
-async function syncDeleteToSupabase(listId: string): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
+// Delete a single row by an exact column match. Returns false if the cloud
+// rejected the delete or affected 0 rows (treated as a silent RLS rejection
+// unless `allowZeroRows` is set). When Supabase is not configured we treat
+// the delete as a no-op success so local-only mode keeps working.
+async function deleteRowOrFail(
+  table: 'lists' | 'list_items',
+  column: string,
+  value: string,
+  opts: { allowZeroRows?: boolean } = {},
+): Promise<boolean> {
+  if (!isSupabaseConfigured() || !supabase) return true;
 
   try {
-    // Delete list items first (if any in Supabase)
-    await supabase
-      .from('list_items')
-      .delete()
-      .eq('list_id', listId);
+    const res = await supabase
+      .from(table)
+      .delete({ count: 'exact' })
+      .eq(column, value);
 
-    // Then delete the list
-    await supabase
-      .from('lists')
-      .delete()
-      .eq('id', listId);
+    if (res.error) {
+      console.error(`Error deleting ${table} row:`, res.error);
+      return false;
+    }
+
+    if (!opts.allowZeroRows && (res.count ?? 0) === 0) {
+      console.error(`Delete on ${table} affected 0 rows (likely RLS):`, value);
+      return false;
+    }
+
+    return true;
   } catch (error) {
-    console.error('Error deleting list from Supabase:', error);
+    console.error(`Error deleting ${table} row:`, error);
+    return false;
   }
+}
+
+// list_items rows cascade automatically via the FK on list_items.list_id, so
+// we only need to delete the list row itself.
+async function syncDeleteToSupabase(listId: string): Promise<boolean> {
+  return deleteRowOrFail('lists', 'id', listId);
 }
 
 /**
@@ -177,20 +195,10 @@ async function syncAddItemToSupabase(listId: string, item: ListItem): Promise<vo
   }
 }
 
-/**
- * Sync list item remove to Supabase
- */
-async function syncRemoveItemToSupabase(itemId: string): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
-  try {
-    await supabase
-      .from('list_items')
-      .delete()
-      .eq('id', itemId);
-  } catch (error) {
-    console.error('Error removing list item from Supabase:', error);
-  }
+// 0 rows affected on item delete is treated as success: the row may simply
+// never have been synced to the cloud (local-only item).
+async function syncRemoveItemToSupabase(itemId: string): Promise<boolean> {
+  return deleteRowOrFail('list_items', 'id', itemId, { allowZeroRows: true });
 }
 
 /**
@@ -224,6 +232,14 @@ export function useLists() {
   const [isLoaded, setIsLoaded] = useState(false);
   const initialLoadDone = useRef(false);
 
+  // Tombstones for IDs whose cloud delete is still pending or failed, so the
+  // merge-on-load step can't revive them. Each ID is retried at most once per
+  // session to avoid hammering Supabase when RLS keeps rejecting the delete.
+  const pendingDeletedListIds = useRef<Set<string>>(new Set());
+  const pendingDeletedItemIds = useRef<Set<string>>(new Set());
+  const retriedListIds = useRef<Set<string>>(new Set());
+  const retriedItemIds = useRef<Set<string>>(new Set());
+
   // Load from Supabase + localStorage on mount
   useEffect(() => {
     if (initialLoadDone.current) return;
@@ -248,11 +264,34 @@ export function useLists() {
       // Merge strategy: Supabase wins for lists and items, keep local drawnAreas
       const mergedLists: LocationList[] = [];
 
-      // Add all Supabase lists (with their items), preserving local drawnAreas
       supabaseLists.forEach(supabaseList => {
+        if (pendingDeletedListIds.current.has(supabaseList.id)) {
+          if (!retriedListIds.current.has(supabaseList.id)) {
+            retriedListIds.current.add(supabaseList.id);
+            syncDeleteToSupabase(supabaseList.id).then(ok => {
+              if (ok) pendingDeletedListIds.current.delete(supabaseList.id);
+            });
+          }
+          return;
+        }
+
         const localList = localListsMap.get(supabaseList.id);
+        const filteredItems = supabaseList.items.filter(item => {
+          if (pendingDeletedItemIds.current.has(item.id)) {
+            if (!retriedItemIds.current.has(item.id)) {
+              retriedItemIds.current.add(item.id);
+              syncRemoveItemToSupabase(item.id).then(ok => {
+                if (ok) pendingDeletedItemIds.current.delete(item.id);
+              });
+            }
+            return false;
+          }
+          return true;
+        });
+
         mergedLists.push({
           ...supabaseList,
+          items: filteredItems,
           drawnAreas: localList?.drawnAreas || [],
         });
       });
@@ -520,23 +559,37 @@ export function useLists() {
     }));
   }, []);
 
-  // Delete a list
-  const deleteList = useCallback((listId: string): void => {
-    let deletedListName = '';
+  const deleteList = useCallback(async (listId: string): Promise<boolean> => {
+    let deletedList: LocationList | undefined;
+    let deletedIndex = -1;
 
     setLists(prev => {
-      const list = prev.find(l => l.id === listId);
-      if (list) deletedListName = list.name;
+      deletedIndex = prev.findIndex(l => l.id === listId);
+      if (deletedIndex !== -1) deletedList = prev[deletedIndex];
       return prev.filter(list => list.id !== listId);
     });
 
-    // Log to activity feed
-    if (deletedListName) {
-      logActivity('deleted_list', { listName: deletedListName, listId });
+    if (!deletedList) return true;
+
+    logActivity('deleted_list', { listName: deletedList.name, listId });
+    pendingDeletedListIds.current.add(listId);
+
+    const ok = await syncDeleteToSupabase(listId);
+
+    if (!ok) {
+      const restored = deletedList;
+      const insertAt = deletedIndex;
+      setLists(prev => {
+        if (prev.some(l => l.id === restored.id)) return prev;
+        const next = [...prev];
+        const idx = insertAt >= 0 && insertAt <= next.length ? insertAt : next.length;
+        next.splice(idx, 0, restored);
+        return next;
+      });
+      pendingDeletedListIds.current.delete(listId);
     }
 
-    // Sync to Supabase in background
-    syncDeleteToSupabase(listId);
+    return ok;
   }, []);
 
   // Rename a list
@@ -587,38 +640,56 @@ export function useLists() {
     }));
   }, []);
 
-  // Remove an item from a list by its item ID
-  const removeItem = useCallback((listId: string, itemId: string): void => {
-    let removedInfo: { placeName?: string; placeType?: string; placeId?: string; listName?: string; lat?: number; lon?: number } | null = null;
+  const removeItem = useCallback(async (
+    listId: string,
+    itemId: string,
+  ): Promise<boolean> => {
+    let removedItem: ListItem | undefined;
+    let removedFromIndex = -1;
+    let listName = '';
 
     setLists(prev => {
       const list = prev.find(l => l.id === listId);
       if (list) {
-        const item = list.items.find(i => i.id === itemId);
-        if (item) {
-          removedInfo = { placeName: item.placeName, placeType: item.placeType, placeId: item.placeId, listName: list.name, lat: item.lat, lon: item.lon };
-        }
+        listName = list.name;
+        removedFromIndex = list.items.findIndex(i => i.id === itemId);
+        if (removedFromIndex !== -1) removedItem = list.items[removedFromIndex];
       }
-      return prev.map(list => {
-        if (list.id !== listId) return list;
-        return { ...list, items: list.items.filter(item => item.id !== itemId) };
+      return prev.map(l => {
+        if (l.id !== listId) return l;
+        return { ...l, items: l.items.filter(item => item.id !== itemId) };
       });
     });
 
-    // Log to activity feed
-    if (removedInfo) {
-      logActivity('removed_from_list', {
-        placeName: removedInfo.placeName,
-        placeType: removedInfo.placeType,
-        placeId: removedInfo.placeId,
-        listName: removedInfo.listName,
-        lat: removedInfo.lat,
-        lon: removedInfo.lon,
-      });
+    if (!removedItem) return true;
+
+    logActivity('removed_from_list', {
+      placeName: removedItem.placeName,
+      placeType: removedItem.placeType,
+      placeId: removedItem.placeId,
+      listName,
+      lat: removedItem.lat,
+      lon: removedItem.lon,
+    });
+    pendingDeletedItemIds.current.add(itemId);
+
+    const ok = await syncRemoveItemToSupabase(itemId);
+
+    if (!ok) {
+      const restored = removedItem;
+      const insertAt = removedFromIndex;
+      setLists(prev => prev.map(l => {
+        if (l.id !== listId) return l;
+        if (l.items.some(i => i.id === restored.id)) return l;
+        const next = [...l.items];
+        const idx = insertAt >= 0 && insertAt <= next.length ? insertAt : next.length;
+        next.splice(idx, 0, restored);
+        return { ...l, items: next };
+      }));
+      pendingDeletedItemIds.current.delete(itemId);
     }
 
-    // Sync to Supabase in background
-    syncRemoveItemToSupabase(itemId);
+    return ok;
   }, []);
 
   return {
