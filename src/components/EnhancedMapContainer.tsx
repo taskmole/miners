@@ -1882,7 +1882,7 @@ export function EnhancedMapContainer({
     showNewOnly = false,
     gravityEnabled = false,
 }: EnhancedMapContainerProps) {
-    const { cafes, properties, otherPois, isLoading, error, retry } = useMapData();
+    const { cafes, properties, otherPois, isLoading, error, retry } = useMapData(selectedCity?.id);
     const {
         trafficData,
         trafficGroupedData,
