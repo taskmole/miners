@@ -27,12 +27,14 @@ on:
           - barcelona
 
 jobs:
-  scrape-idealista:
+  # Idealista rentals run in their own job so the 6h GitHub Actions hard cap
+  # applies to rentals alone, not to rentals + transfers combined.
+  scrape-idealista-rental:
     runs-on: ubuntu-latest
-    timeout-minutes: 600
+    timeout-minutes: 360
     if: >-
       (github.event_name == 'schedule')
-      || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'idealista' || github.event.inputs.scraper == 'idealista-rental' || github.event.inputs.scraper == 'idealista-transfer' || github.event.inputs.scraper == 'both'))
+      || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'idealista' || github.event.inputs.scraper == 'idealista-rental' || github.event.inputs.scraper == 'both'))
 
     steps:
       - name: Checkout
@@ -48,11 +50,6 @@ jobs:
         run: npm ci
 
       - name: Scrape Idealista rentals
-        if: >-
-          github.event_name == 'schedule'
-          || github.event.inputs.scraper == 'idealista'
-          || github.event.inputs.scraper == 'idealista-rental'
-          || github.event.inputs.scraper == 'both'
         env:
           XHR_API_KEY: ${{ secrets.XHR_API_KEY }}
           SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
@@ -64,12 +61,42 @@ jobs:
             --headless --city ${{ github.event.inputs.city || 'madrid' }} \
             --mode rental --skip-report --stats-file /tmp/stats-rental.json
 
+      - name: Upload rental stats artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stats-rental
+          path: /tmp/stats-rental.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Idealista transfers run after rentals (sequential) to avoid hammering the
+  # shared CAPTCHA-solver API key (magic.xhr.dev) with two parallel processes.
+  # `needs: scrape-idealista-rental` enforces the order. `if: always()` lets
+  # transfers run even if rental was skipped (single-mode dispatch) or failed.
+  scrape-idealista-transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    needs: scrape-idealista-rental
+    if: >-
+      always()
+      && ((github.event_name == 'schedule')
+        || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'idealista' || github.event.inputs.scraper == 'idealista-transfer' || github.event.inputs.scraper == 'both')))
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Scrape Idealista transfers
-        if: >-
-          github.event_name == 'schedule'
-          || github.event.inputs.scraper == 'idealista'
-          || github.event.inputs.scraper == 'idealista-transfer'
-          || github.event.inputs.scraper == 'both'
         env:
           XHR_API_KEY: ${{ secrets.XHR_API_KEY }}
           SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
@@ -80,6 +107,55 @@ jobs:
             scripts/data-pipeline/fetch-idealista.ts \
             --headless --city ${{ github.event.inputs.city || 'madrid' }} \
             --mode transfer --skip-report --stats-file /tmp/stats-transfer.json
+
+      - name: Upload transfer stats artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stats-transfer
+          path: /tmp/stats-transfer.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Combined report + digest email runs once after both scrapers finish.
+  # Downloads each scraper's stats artifact (if it exists), sends the combined
+  # email, then triggers the user-facing digest. Runs even if one scraper
+  # failed, as long as at least one produced data.
+  idealista-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [scrape-idealista-rental, scrape-idealista-transfer]
+    if: >-
+      always()
+      && (needs.scrape-idealista-rental.result == 'success'
+        || needs.scrape-idealista-transfer.result == 'success')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download rental stats artifact
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: stats-rental
+          path: /tmp/
+
+      - name: Download transfer stats artifact
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: stats-transfer
+          path: /tmp/
 
       - name: Send combined report
         env:
@@ -143,4 +219,3 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"source":"sreality","city":"prague"}' \
             --fail --silent --show-error
-
