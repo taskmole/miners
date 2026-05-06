@@ -2463,7 +2463,6 @@ export function EnhancedMapContainer({
                             latitude={cafe.lat}
                             longitude={cafe.lon}
                             onClick={() => {
-                                console.log('[Miners click] isMobile:', isMobile, 'isLinkingMode:', isLinkingMode, 'hasMultiplePois:', hasMultiplePois);
                                 if (isLinkingMode) {
                                     handleLinkingClick({
                                         type: 'place',
@@ -2473,13 +2472,11 @@ export function EnhancedMapContainer({
                                         data: cafe,
                                     });
                                 } else if (hasMultiplePois) {
-                                    // Show disambiguation popup
                                     setDisambiguationData({
                                         pois: colocated,
                                         coordinates: [cafe.lon, cafe.lat]
                                     });
                                 } else if (isMobile) {
-                                    console.log('[Miners click] Setting selectedCafe for mobile');
                                     setSelectedCafe({ cafe, coordinates: [cafe.lon, cafe.lat] });
                                 } else {
                                     setActiveMarkerKey(markerKey);
@@ -2631,7 +2628,6 @@ export function EnhancedMapContainer({
                                     latitude={property.latitude}
                                     longitude={property.longitude}
                                     onClick={() => {
-                                        console.log('[Property Click] Icon marker clicked', { property: property.title, isMobile, hasMultiplePois, isLinkingMode });
                                         if (isLinkingMode) {
                                             handleLinkingClick({
                                                 type: 'place',
@@ -2646,7 +2642,6 @@ export function EnhancedMapContainer({
                                                 coordinates: [property.longitude, property.latitude]
                                             });
                                         } else if (isMobile) {
-                                            console.log('[Property Click] Setting selectedProperty via icon marker', property.title);
                                             setSelectedProperty({ property, coordinates: [property.longitude, property.latitude] });
                                         } else {
                                             setActiveMarkerKey(markerKey);
@@ -2677,7 +2672,6 @@ export function EnhancedMapContainer({
                                 pointColor="#78C500"
                                 styleKey={mapStyleKey}
                                 onPointClick={(feature, coordinates) => {
-                                    console.log('[Property Click] Cluster point clicked', { feature, coordinates, isMobile });
                                     const property = feature.properties as unknown as PropertyData;
                                     if (isLinkingMode) {
                                         handleLinkingClick({
@@ -2688,7 +2682,6 @@ export function EnhancedMapContainer({
                                             data: property,
                                         });
                                     } else {
-                                        console.log('[Property Click] Setting selectedProperty', property.title);
                                         setSelectedProperty({ property, coordinates });
                                     }
                                 }}
