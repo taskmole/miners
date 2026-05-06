@@ -84,6 +84,7 @@ function getDataSupabase(): SupabaseClient {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false,
+        storageKey: 'sb-data-readonly',
       },
     });
   }
