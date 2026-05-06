@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
+import useSWR from "swr";
 import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
 import { preloadGravity, getScoreAt } from "@/lib/gravity-lookup";
-import { supabase } from "@/lib/supabase";
-import { withSupabase } from "@/lib/supabaseHelpers";
+import { isSupabaseConfigured, dataSupabase } from "@/lib/supabase";
 
 function parseWkbPoint(hex: string): { lat: number; lon: number } | null {
     if (!hex || hex.length < 50) return null;
@@ -14,7 +14,6 @@ function parseWkbPoint(hex: string): { lat: number; lon: number } | null {
     return { lon: view.getFloat64(0, true), lat: view.getFloat64(8, true) };
 }
 
-// Types for all POI categories
 export interface CafeData {
     type: "cafe";
     name: string;
@@ -29,13 +28,13 @@ export interface CafeData {
     openingHours?: string;
     image?: string;
     website?: string;
-    googleMapsUrl?: string; // Official Google Maps link from Google Places
+    googleMapsUrl?: string;
     instagram?: string;
     facebook?: string;
     premium?: boolean;
     datePublished?: string;
-    fetchedAt?: string; // When the POI was first discovered (Google Places)
-    city: "madrid" | "barcelona" | "prague"; // Which city this cafe belongs to
+    fetchedAt?: string;
+    city: "madrid" | "barcelona" | "prague";
 }
 
 export interface PropertyData {
@@ -70,12 +69,11 @@ export interface OtherPoiData {
     address: string;
     mapsUrl: string;
     website?: string;
-    fetchedAt?: string; // When the POI was first discovered
+    fetchedAt?: string;
 }
 
 export type LocationData = CafeData | PropertyData | OtherPoiData;
 
-// Category mapping for other.csv
 const categoryMap: Record<string, OtherPoiData["type"]> = {
     "Train Station": "transit",
     "Metro Station": "transit",
@@ -88,42 +86,44 @@ const categoryMap: Record<string, OtherPoiData["type"]> = {
     "Gym": "gym",
 };
 
-// Cache type definition
-interface MapDataCache {
-    cafes: CafeData[];
-    properties: PropertyData[];
-    otherPois: OtherPoiData[];
-}
+const TIMEOUT_MS = 15_000;
 
-// Module-level cache to prevent duplicate fetches across components
-let globalCache: MapDataCache | null = null;
-let activeCafePromise: Promise<CafeData[] | null> | null = null;
-
-const FETCH_TIMEOUT_MS = 15_000;
-
-function fetchWithTimeout(url: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<Response> {
+function fetchWithTimeout(url: string, timeoutMs = TIMEOUT_MS): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
-async function loadCafes(): Promise<CafeData[]> {
-    const [cafesRes, cafeInfoRes, barcelonaCafesRes, googleMadridRes, googleEnrichmentRes] = await Promise.all([
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    let timer: ReturnType<typeof setTimeout>;
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms);
+        }),
+    ]).finally(() => clearTimeout(timer));
+}
+
+async function loadCafes(cityId: string): Promise<CafeData[]> {
+    if (cityId === "madrid") return loadMadridCafes();
+    if (cityId === "barcelona") return loadBarcelonaCafes();
+    return [];
+}
+
+async function loadMadridCafes(): Promise<CafeData[]> {
+    const [cafesRes, cafeInfoRes, googleMadridRes, googleEnrichmentRes] = await Promise.all([
         fetchWithTimeout("/api/data?type=data"),
         fetchWithTimeout("/api/data?type=cafes"),
-        fetchWithTimeout("/api/data?type=barcelona_cafes"),
         fetchWithTimeout("/api/data?type=google_madrid"),
         fetchWithTimeout("/api/data?type=google_enrichment"),
     ]);
 
-    // Process Cafe Info (for images/socials)
     const cafeInfoRaw = await cafeInfoRes.json();
     const cafeInfoMap = new Map<string, any>();
     cafeInfoRaw.forEach((info: any) => {
         if (info.link) cafeInfoMap.set(info.link, info);
     });
 
-    // Process Madrid Cafes
     const cafesRaw = await cafesRes.json();
     const madridCafes: CafeData[] = cafesRaw
         .filter((c: any) => c.lat && c.lon && c.link?.includes("europeancoffeetrip"))
@@ -152,33 +152,6 @@ async function loadCafes(): Promise<CafeData[]> {
             };
         });
 
-    // Process Barcelona Cafes
-    const barcelonaCafesRaw = await barcelonaCafesRes.json();
-    const barcelonaCafes: CafeData[] = barcelonaCafesRaw
-        .filter((c: any) => c.latitude && c.longitude)
-        .map((c: any) => ({
-            type: "cafe" as const,
-            name: c.name || "Unknown Cafe",
-            link: c.link || undefined,
-            address: c.address || "",
-            lat: parseFloat(c.latitude),
-            lon: parseFloat(c.longitude),
-            categoryName: "EU Coffee Trip",
-            rating: undefined,
-            reviewCount: undefined,
-            franchisePartner: c.name?.toLowerCase().includes("miners") || false,
-            openingHours: undefined,
-            image: c.featured_photo || undefined,
-            website: c.website || undefined,
-            instagram: c.instagram || undefined,
-            facebook: c.facebook || undefined,
-            premium: c.premium === 'True' || c.premium === true,
-            datePublished: c.date_published || undefined,
-            fetchedAt: c.date_modified || undefined,
-            city: "barcelona" as const,
-        }));
-
-    // Enrich EUCT cafes with Google Places data
     if (googleEnrichmentRes.ok) {
         const enrichmentRaw = await googleEnrichmentRes.json();
         const enrichmentMap = new Map<string, any>();
@@ -199,7 +172,6 @@ async function loadCafes(): Promise<CafeData[]> {
         }
     }
 
-    // Process Google Places regular cafes
     let googleCafes: CafeData[] = [];
     if (googleMadridRes.ok) {
         const googleRaw = await googleMadridRes.json();
@@ -229,173 +201,195 @@ async function loadCafes(): Promise<CafeData[]> {
             }));
     }
 
-    return [...madridCafes, ...barcelonaCafes, ...googleCafes];
+    return [...madridCafes, ...googleCafes];
 }
 
-let backgroundLoading = false;
+async function loadBarcelonaCafes(): Promise<CafeData[]> {
+    const res = await fetchWithTimeout("/api/data?type=barcelona_cafes");
+    if (!res.ok) return [];
+    const raw = await res.json();
+    return (raw as any[])
+        .filter((c: any) => c.latitude && c.longitude)
+        .map((c: any) => ({
+            type: "cafe" as const,
+            name: c.name || "Unknown Cafe",
+            link: c.link || undefined,
+            address: c.address || "",
+            lat: parseFloat(c.latitude),
+            lon: parseFloat(c.longitude),
+            categoryName: "EU Coffee Trip",
+            rating: undefined,
+            reviewCount: undefined,
+            franchisePartner: c.name?.toLowerCase().includes("miners") || false,
+            openingHours: undefined,
+            image: c.featured_photo || undefined,
+            website: c.website || undefined,
+            instagram: c.instagram || undefined,
+            facebook: c.facebook || undefined,
+            premium: c.premium === 'True' || c.premium === true,
+            datePublished: c.date_published || undefined,
+            fetchedAt: c.date_modified || undefined,
+            city: "barcelona" as const,
+        }));
+}
 
-function loadBackgroundData(
-    setProperties: (p: PropertyData[]) => void,
-    setOtherPois: (o: OtherPoiData[]) => void,
-) {
-    if (backgroundLoading) return;
-    backgroundLoading = true;
+async function loadProperties(cityId: string): Promise<PropertyData[]> {
+    if (!isSupabaseConfigured() || !dataSupabase) return [];
 
-    // Preload gravity once for property score badges
-    preloadGravity("madrid").catch(() => {});
+    await preloadGravity(cityId);
 
-    // Properties from Supabase
-    withSupabase(
-        async () => {
-            const { data } = await supabase!.from("places")
+    const label = `loadProperties(${cityId})`;
+    console.time(label);
+    try {
+        const res = await withTimeout(
+            dataSupabase.from("places")
                 .select("name, address, location, source, metadata, photos, updated_at")
+                .eq("city_id", cityId)
                 .in("source", ["idealista", "idealista_transfer", "sreality"])
-                .eq("status", "active");
-            return (data || [])
-                .map((p: any) => {
-                    const coords = parseWkbPoint(p.location);
-                    if (!coords) return null;
-                    const meta = (p.metadata || {}) as Record<string, any>;
-                    const src = p.source === "sreality" ? "sreality" as const : "idealista" as const;
-                    return {
-                        type: "property" as const,
-                        source: src,
-                        address: p.address || "",
-                        latitude: coords.lat,
-                        longitude: coords.lon,
-                        price: meta.price || 0,
-                        size: meta.size || 0,
-                        priceByArea: meta.priceByArea || meta.pricePerSqm || 0,
-                        district: meta.district || "",
-                        hasAirConditioning: meta.hasAirConditioning === true,
-                        url: meta.url || "",
-                        title: p.name || "Property",
-                        transfer: meta.transfer || undefined,
-                        hasBathroom: meta.bathrooms != null && meta.bathrooms > 0,
-                        hasStorefront: meta.hasStorefront === true,
-                        score: getScoreAt(coords.lat, coords.lon, "madrid"),
-                        image_url: p.photos?.[0] || undefined,
-                        priceHistory: meta.price_history || undefined,
-                        updatedAt: p.updated_at || undefined,
-                        photos: p.photos?.length ? p.photos : undefined,
-                    };
-                })
-                .filter(Boolean) as PropertyData[];
-        },
-        [] as PropertyData[],
-        "useMapData/properties",
-    ).then(setProperties);
+                .eq("status", "active") as unknown as Promise<{ data: any[] | null; error: any }>,
+            TIMEOUT_MS,
+            label,
+        );
+        if (res.error) throw new Error(res.error.message || "Supabase query failed");
+        const data = res.data;
+        return (data || [])
+            .map((p: any) => {
+                const coords = parseWkbPoint(p.location);
+                if (!coords) return null;
+                const meta = (p.metadata || {}) as Record<string, any>;
+                const src = p.source === "sreality" ? "sreality" as const : "idealista" as const;
+                return {
+                    type: "property" as const,
+                    source: src,
+                    address: p.address || "",
+                    latitude: coords.lat,
+                    longitude: coords.lon,
+                    price: meta.price || 0,
+                    size: meta.size || 0,
+                    priceByArea: meta.priceByArea || meta.pricePerSqm || 0,
+                    district: meta.district || "",
+                    hasAirConditioning: meta.hasAirConditioning === true,
+                    url: meta.url || "",
+                    title: p.name || "Property",
+                    transfer: meta.transfer || undefined,
+                    hasBathroom: meta.bathrooms != null && meta.bathrooms > 0,
+                    hasStorefront: meta.hasStorefront === true,
+                    score: getScoreAt(coords.lat, coords.lon, cityId),
+                    image_url: p.photos?.[0] || undefined,
+                    priceHistory: meta.price_history || undefined,
+                    updatedAt: p.updated_at || undefined,
+                    photos: p.photos?.length ? p.photos : undefined,
+                };
+            })
+            .filter(Boolean) as PropertyData[];
+    } finally {
+        console.timeEnd(label);
+    }
+}
 
-    // Other POIs, gyms, metro
-    Promise.all([
+async function loadMadridOtherPois(): Promise<OtherPoiData[]> {
+    const [otherRaw, gymsRaw, metroData] = await Promise.all([
         fetchWithTimeout("/api/data?type=other").then(r => r.json()).catch(() => []),
         fetchWithTimeout("/api/data?type=gyms_madrid").then(r => r.json()).catch(() => []),
         fetchWithTimeout("/api/data?type=metro").then(r => r.json()).catch(() => ({ features: [] })),
-    ]).then(([otherRaw, gymsRaw, metroData]) => {
-        const parsedOther: OtherPoiData[] = otherRaw
-            .filter((o: any) => o.Lat && o.Lon)
-            .map((o: any) => ({
-                type: categoryMap[o.Category] || "office",
-                category: o.Category || "",
-                name: o.Name || "",
-                lat: parseFloat(o.Lat),
-                lon: parseFloat(o.Lon),
-                address: o.Address || "",
-                mapsUrl: o.MapsURL || "",
-            }));
+    ]);
 
-        const gyms: OtherPoiData[] = (gymsRaw as any[])
-            .filter((g: any) => g.lat && g.lon)
-            .map((g: any) => ({
-                type: "gym" as const,
-                category: "Gym",
-                name: g.name || "Gym",
-                lat: parseFloat(g.lat),
-                lon: parseFloat(g.lon),
-                address: g.address || "",
-                mapsUrl: g.googleMapsUrl || "",
-                website: g.website || undefined,
-                fetchedAt: g.fetchedAt || undefined,
-            }));
-        parsedOther.push(...gyms);
-
-        const metroStations: OtherPoiData[] = (metroData.features || []).map((feature: any) => ({
-            type: "metro" as const,
-            category: "Metro Station",
-            name: feature.properties.name || "Metro Station",
-            lat: feature.geometry.coordinates[1],
-            lon: feature.geometry.coordinates[0],
-            address: "",
-            mapsUrl: "",
-            website: feature.properties.website || "",
+    const parsedOther: OtherPoiData[] = (otherRaw as any[])
+        .filter((o: any) => o.Lat && o.Lon)
+        .map((o: any) => ({
+            type: categoryMap[o.Category] || "office",
+            category: o.Category || "",
+            name: o.Name || "",
+            lat: parseFloat(o.Lat),
+            lon: parseFloat(o.Lon),
+            address: o.Address || "",
+            mapsUrl: o.MapsURL || "",
         }));
-        parsedOther.push(...metroStations);
 
-        setOtherPois(parsedOther);
-    }).catch((err) => console.error("[useMapData] Other POIs failed:", err));
+    const gyms: OtherPoiData[] = (gymsRaw as any[])
+        .filter((g: any) => g.lat && g.lon)
+        .map((g: any) => ({
+            type: "gym" as const,
+            category: "Gym",
+            name: g.name || "Gym",
+            lat: parseFloat(g.lat),
+            lon: parseFloat(g.lon),
+            address: g.address || "",
+            mapsUrl: g.googleMapsUrl || "",
+            website: g.website || undefined,
+            fetchedAt: g.fetchedAt || undefined,
+        }));
+    parsedOther.push(...gyms);
+
+    const metroStations: OtherPoiData[] = ((metroData as any).features || []).map((feature: any) => ({
+        type: "metro" as const,
+        category: "Metro Station",
+        name: feature.properties.name || "Metro Station",
+        lat: feature.geometry.coordinates[1],
+        lon: feature.geometry.coordinates[0],
+        address: "",
+        mapsUrl: "",
+        website: feature.properties.website || "",
+    }));
+    parsedOther.push(...metroStations);
+
+    return parsedOther;
 }
 
+async function loadOtherPois(cityId: string): Promise<OtherPoiData[]> {
+    if (cityId === "madrid") {
+        return loadMadridOtherPois();
+    }
+    return [];
+}
+
+const SWR_OPTIONS = {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 5_000,
+    shouldRetryOnError: true,
+    errorRetryCount: 2,
+    errorRetryInterval: 1_000,
+    keepPreviousData: true,
+} as const;
+
 export function useMapData(cityId?: string) {
-    const [cafes, setCafes] = useState<CafeData[]>(globalCache?.cafes || []);
-    const [properties, setProperties] = useState<PropertyData[]>(globalCache?.properties || []);
-    const [otherPois, setOtherPois] = useState<OtherPoiData[]>(globalCache?.otherPois || []);
-    const [isLoading, setIsLoading] = useState(!globalCache);
-    const [error, setError] = useState<string | null>(null);
+    const effectiveCity = cityId || "madrid";
 
-    const runLoad = async () => {
-        if (globalCache) {
-            setCafes(globalCache.cafes);
-            setProperties(globalCache.properties);
-            setOtherPois(globalCache.otherPois);
-            setIsLoading(false);
-            return;
-        }
+    const cafesSWR = useSWR(
+        ["useMapData/cafes", effectiveCity],
+        ([, city]) => loadCafes(city),
+        SWR_OPTIONS,
+    );
+    const propertiesSWR = useSWR(
+        ["useMapData/properties", effectiveCity],
+        ([, city]) => loadProperties(city),
+        SWR_OPTIONS,
+    );
+    const otherPoisSWR = useSWR(
+        ["useMapData/otherPois", effectiveCity],
+        ([, city]) => loadOtherPois(city),
+        SWR_OPTIONS,
+    );
 
-        try {
-            if (activeCafePromise) {
-                const data = await activeCafePromise;
-                if (data) setCafes(data);
-            } else {
-                setIsLoading(true);
-                activeCafePromise = loadCafes();
-                const cafeData = await activeCafePromise;
-                if (cafeData) {
-                    setCafes(cafeData);
-                    globalCache = { cafes: cafeData, properties: [], otherPois: [] };
-                }
-            }
-            setIsLoading(false);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to load cafe data");
-            setIsLoading(false);
-            activeCafePromise = null;
-            return;
-        }
+    const cafes = cafesSWR.data ?? [];
+    const properties = propertiesSWR.data ?? [];
+    const otherPois = otherPoisSWR.data ?? [];
 
-        loadBackgroundData(setProperties, setOtherPois);
-    };
-
-    useEffect(() => { runLoad(); }, []);
+    const isLoading = cafesSWR.isLoading || propertiesSWR.isLoading || otherPoisSWR.isLoading;
+    const firstError = cafesSWR.error ?? propertiesSWR.error ?? otherPoisSWR.error;
+    const error = firstError instanceof Error ? firstError.message : firstError ? "Failed to load map data" : null;
 
     const retry = () => {
-        globalCache = null;
-        activeCafePromise = null;
-        backgroundLoading = false;
-        setError(null);
-        setIsLoading(true);
-        setCafes([]);
-        setProperties([]);
-        setOtherPois([]);
-        runLoad();
+        cafesSWR.mutate();
+        propertiesSWR.mutate();
+        otherPoisSWR.mutate();
     };
 
-    // Compute counts per category with detailed breakdown (filtered by selected city)
     const counts = useMemo(() => {
-        // Filter cafes by selected city so counts match what's visible on the map
-        const cityCafes = cityId ? cafes.filter(c => c.city === cityId) : cafes;
+        const cityCafes = cafes.filter(c => c.city === effectiveCity);
         const euctCafes = cityCafes.filter(c => c.link?.includes("europeancoffeetrip"));
 
-        // Count premium, new EUCT cafes, and new EUCT POIs in a single pass
         let premiumEuCoffeeTrip = 0;
         let newEuCoffeeTrip = 0;
         let newPoisCount = 0;
@@ -405,7 +399,6 @@ export function useMapData(cityId?: string) {
             if (isNewPoi(c.datePublished)) newPoisCount++;
         }
 
-        // Count new regular cafes (non-EUCT) in a single pass over the remainder
         const regularCafeCount = cityCafes.length - euctCafes.length;
         for (const c of cityCafes) {
             if (!c.link?.includes("europeancoffeetrip") && isNewPoi(c.fetchedAt)) {
@@ -413,7 +406,6 @@ export function useMapData(cityId?: string) {
             }
         }
 
-        // Count other POI types and new gyms in a single pass
         const poiCounts: Record<string, number> = {};
         for (const p of otherPois) {
             poiCounts[p.type] = (poiCounts[p.type] || 0) + 1;
@@ -437,7 +429,7 @@ export function useMapData(cityId?: string) {
             gym: poiCounts["gym"] || 0,
             newPois: newPoisCount,
         };
-    }, [cafes, properties, otherPois, cityId]);
+    }, [cafes, properties, otherPois, effectiveCity]);
 
     return {
         cafes,
@@ -449,3 +441,5 @@ export function useMapData(cityId?: string) {
         retry,
     };
 }
+
+export const __test = { loadProperties, loadCafes, loadOtherPois, parseWkbPoint };
