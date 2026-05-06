@@ -10,9 +10,19 @@ import {
     Users,
     GraduationCap,
     Home,
+    Dumbbell,
     ChevronRight,
 } from "lucide-react";
 import type { CafeData, PropertyData, OtherPoiData, LocationData } from "@/hooks/useMapData";
+import { scoreTier, SCORE_TIER_COLORS, SCORE_TIER_LABELS } from "@/lib/gravity-lookup";
+
+function formatRent(price: number, source: string): string {
+    if (price <= 0) return "";
+    if (source === "sreality") {
+        return price >= 1000 ? `${Math.round(price / 1000)}k Kč` : `${price} Kč`;
+    }
+    return price >= 1000 ? `€${(price / 1000).toFixed(1).replace(/\.0$/, "")}k/mo` : `€${price}/mo`;
+}
 
 // Icon config matching EnhancedMapContainer
 const iconConfig: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
@@ -26,6 +36,7 @@ const iconConfig: Record<string, { icon: React.ElementType; color: string; bg: s
     high_street: { icon: Users, color: "text-orange-700", bg: "bg-orange-50" },
     dorm: { icon: GraduationCap, color: "text-cyan-700", bg: "bg-cyan-50" },
     university: { icon: GraduationCap, color: "text-rose-700", bg: "bg-rose-50" },
+    gym: { icon: Dumbbell, color: "text-lime-700", bg: "bg-lime-50" },
 };
 
 // Get display info for a POI
@@ -34,6 +45,7 @@ function getPoiDisplayInfo(poi: LocationData): {
     bgColor: string;
     iconColor: string;
     typeLabel: string;
+    richSubtitle?: { tier: string; tierColor: string; size: string; rent: string };
     name: string;
 } {
     if (poi.type === "cafe") {
@@ -51,11 +63,19 @@ function getPoiDisplayInfo(poi: LocationData): {
     if (poi.type === "property") {
         const config = iconConfig.property;
         const prop = poi as PropertyData;
+        const hasScore = prop.score != null && prop.score > 0;
+        const tier = hasScore ? scoreTier(prop.score!) : null;
         return {
             icon: config.icon,
             bgColor: config.bg,
             iconColor: config.color,
             typeLabel: "Property",
+            richSubtitle: {
+                tier: tier ? SCORE_TIER_LABELS[tier] : "",
+                tierColor: tier ? SCORE_TIER_COLORS[tier] : "",
+                size: prop.size > 0 ? `${prop.size} m²` : "",
+                rent: formatRent(prop.price, prop.source),
+            },
             name: prop.title || prop.address,
         };
     }
@@ -79,7 +99,7 @@ interface DisambiguationItemProps {
 }
 
 function DisambiguationItem({ poi, onClick, delay }: DisambiguationItemProps) {
-    const { icon: Icon, bgColor, iconColor, typeLabel, name } = getPoiDisplayInfo(poi);
+    const { icon: Icon, bgColor, iconColor, typeLabel, richSubtitle, name } = getPoiDisplayInfo(poi);
 
     return (
         <button
@@ -90,18 +110,37 @@ function DisambiguationItem({ poi, onClick, delay }: DisambiguationItemProps) {
                        transition-colors duration-150 w-full text-left
                        focus:outline-none focus:ring-2 focus:ring-blue-500/20"
         >
-            {/* Icon */}
             <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${bgColor}`}>
                 <Icon className={`w-4 h-4 ${iconColor}`} />
             </div>
 
-            {/* Text */}
             <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm text-zinc-900 truncate">{name}</div>
-                <div className="text-xs text-zinc-500">{typeLabel}</div>
+                {richSubtitle ? (
+                    <div className="flex items-center gap-1.5 text-xs">
+                        {richSubtitle.tier && (
+                            <span style={{ color: richSubtitle.tierColor }} className="font-medium">
+                                {richSubtitle.tier}
+                            </span>
+                        )}
+                        {richSubtitle.size && (
+                            <>
+                                <span className="text-zinc-300 text-base leading-none font-bold">·</span>
+                                <span className="text-zinc-500">{richSubtitle.size}</span>
+                            </>
+                        )}
+                        {richSubtitle.rent && (
+                            <>
+                                <span className="text-zinc-300 text-base leading-none font-bold">·</span>
+                                <span className="text-zinc-500">{richSubtitle.rent}</span>
+                            </>
+                        )}
+                    </div>
+                ) : (
+                    <div className="text-xs text-zinc-500">{typeLabel}</div>
+                )}
             </div>
 
-            {/* Arrow */}
             <ChevronRight className="w-4 h-4 text-zinc-300 shrink-0" />
         </button>
     );
@@ -122,7 +161,7 @@ export function DisambiguationPopup({ pois, onSelect }: DisambiguationPopupProps
             </div>
 
             {/* Selectable list */}
-            <div className="flex flex-col gap-1 p-3 pt-0">
+            <div className="flex flex-col gap-1 p-3 pt-1.5">
                 {pois.map((poi, index) => (
                     <DisambiguationItem
                         key={`${poi.type}-${index}`}

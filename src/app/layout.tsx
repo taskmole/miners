@@ -16,12 +16,6 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "Miners Location Scout",
   description: "Advanced location intelligence for Miners Franchisees",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Miners Scout",
-  },
 };
 
 export const viewport: Viewport = {
@@ -41,11 +35,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* PWA Meta Tags */}
-        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
-        <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
-      </head>
+      <head />
       <body className={`${inter.variable} ${outfit.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"

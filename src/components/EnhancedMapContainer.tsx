@@ -73,7 +73,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCompactNumber } from "@/lib/format-numbers";
-import { scoreTier, SCORE_TIER_BG } from "@/lib/gravity-lookup";
+import { scoreTier, SCORE_TIER_BG, SCORE_TIER_COLORS, SCORE_TIER_LABELS } from "@/lib/gravity-lookup";
 
 // Enhanced icon configuration with ring colors
 const iconConfig: Record<string, { icon: React.ElementType; color: string; bg: string; ring: string }> = {
@@ -1192,19 +1192,7 @@ function freshTooltipText(dateStr: string): string {
     return t === "Today" ? "Updated today" : `Updated ${t} ago`;
 }
 
-const SCORE_TIER_COLORS: Record<string, string> = {
-    prime: "#16a34a",
-    strong: "#f59e0b",
-    moderate: "#71717a",
-    weak: "#dc2626",
-};
 
-const SCORE_TIER_LABELS: Record<string, string> = {
-    prime: "Prime",
-    strong: "Strong",
-    moderate: "Moderate",
-    weak: "Weak",
-};
 
 // Property popup content - Uses universal popup base - memoized
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
