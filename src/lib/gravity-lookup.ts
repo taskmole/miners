@@ -118,6 +118,21 @@ export function scoreTier(score: number): ScoreTier {
     return "weak";
 }
 
+// Hex colors per tier. Used for inline styles (dots, text).
+export const SCORE_TIER_COLORS: Record<ScoreTier, string> = {
+    prime: "#16a34a",
+    strong: "#f59e0b",
+    moderate: "#71717a",
+    weak: "#dc2626",
+};
+
+export const SCORE_TIER_LABELS: Record<ScoreTier, string> = {
+    prime: "Prime",
+    strong: "Strong",
+    moderate: "Moderate",
+    weak: "Weak",
+};
+
 // Tailwind background color classes per tier. Used on the filled circle/chip.
 export const SCORE_TIER_BG: Record<ScoreTier, string> = {
     prime: "bg-green-600",
