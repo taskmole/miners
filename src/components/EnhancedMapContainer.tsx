@@ -1192,8 +1192,6 @@ function freshTooltipText(dateStr: string): string {
     return t === "Today" ? "Updated today" : `Updated ${t} ago`;
 }
 
-
-
 // Property popup content - Uses universal popup base - memoized
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address);
