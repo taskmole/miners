@@ -114,9 +114,9 @@ interface DisambiguationPopupProps {
 
 export function DisambiguationPopup({ pois, onSelect }: DisambiguationPopupProps) {
     return (
-        <div className="popup-base" style={{ width: 350 }}>
+        <div className="popup-base">
             {/* Header */}
-            <div className="popup-header flex items-center justify-between">
+            <div className="popup-header flex items-center justify-between !pr-6">
                 <span className="popup-name">Multiple places here</span>
                 <span className="text-zinc-400 text-sm">{pois.length} places</span>
             </div>
