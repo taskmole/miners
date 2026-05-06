@@ -2881,27 +2881,35 @@ export function EnhancedMapContainer({
                 </BottomSheet>
             )}
 
-            {/* Disambiguation Popup - floating overlay when multiple POIs share same coordinates */}
-            {disambiguationData && (
+            {/* Disambiguation Popup - bottom sheet on mobile, floating overlay on desktop */}
+            {isMobile && disambiguationData && (
+                <BottomSheet
+                    isOpen={true}
+                    onClose={() => setDisambiguationData(null)}
+                    snapPoint="auto"
+                >
+                    <DisambiguationPopup
+                        pois={disambiguationData.pois}
+                        onSelect={handleDisambiguationSelect}
+                    />
+                </BottomSheet>
+            )}
+
+            {!isMobile && disambiguationData && (
                 <div
                     className="absolute inset-0 z-50 flex items-center justify-center"
                     onClick={(e) => {
-                        // Close when clicking the backdrop
                         if (e.target === e.currentTarget) {
                             setDisambiguationData(null);
                         }
                     }}
                 >
-                    {/* Semi-transparent backdrop */}
                     <div className="absolute inset-0 bg-black/20" />
-
-                    {/* Popup card */}
                     <div className="relative animate-in fade-in-0 zoom-in-95 duration-200">
                         <DisambiguationPopup
                             pois={disambiguationData.pois}
                             onSelect={handleDisambiguationSelect}
                         />
-                        {/* Close button */}
                         <button
                             onClick={() => setDisambiguationData(null)}
                             className="absolute -top-2 -right-2 w-7 h-7 bg-white rounded-full shadow-lg
