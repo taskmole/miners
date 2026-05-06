@@ -19,9 +19,9 @@ import { scoreTier, SCORE_TIER_COLORS, SCORE_TIER_LABELS } from "@/lib/gravity-l
 function formatRent(price: number, source: string): string {
     if (price <= 0) return "";
     if (source === "sreality") {
-        return price >= 1000 ? `${Math.round(price / 1000)}k Kč` : `${price} Kč`;
+        return `${price.toLocaleString("cs-CZ")} Kč`;
     }
-    return price >= 1000 ? `€${(price / 1000).toFixed(1).replace(/\.0$/, "")}k/mo` : `€${price}/mo`;
+    return `€${price.toLocaleString("en-US")}`;
 }
 
 // Icon config matching EnhancedMapContainer
@@ -125,13 +125,13 @@ function DisambiguationItem({ poi, onClick, delay }: DisambiguationItemProps) {
                         )}
                         {richSubtitle.size && (
                             <>
-                                <span className="text-zinc-300 text-base leading-none font-bold">·</span>
+                                {richSubtitle.tier && <span className="text-zinc-300 text-base leading-none font-bold">·</span>}
                                 <span className="text-zinc-500">{richSubtitle.size}</span>
                             </>
                         )}
                         {richSubtitle.rent && (
                             <>
-                                <span className="text-zinc-300 text-base leading-none font-bold">·</span>
+                                {(richSubtitle.tier || richSubtitle.size) && <span className="text-zinc-300 text-base leading-none font-bold">·</span>}
                                 <span className="text-zinc-500">{richSubtitle.rent}</span>
                             </>
                         )}
