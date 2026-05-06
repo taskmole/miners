@@ -68,9 +68,10 @@ When the user types any of these, immediately execute the action - no questions 
   1. Delete any plan files or temporary MD files created during this feature that are no longer needed
   2. Stage changed files, write a fitting commit message, commit, and push the current branch
   3. Switch to `main`, pull latest, merge the feature branch into main (using `--no-ff`), and push main
-  4. Check the Vercel deployment status and confirm the production build succeeded (or report any errors)
-  5. If this folder is a git worktree (not the main repo), clean it up: switch back to the main repo folder, run `git worktree remove` on this folder, and confirm cleanup
-  If already on `main`, skip step 3 and just commit + push main directly.
+  4. Switch back to the previous branch and merge main into it so the working branch stays up to date
+  5. Check the Vercel deployment status and confirm the production build succeeded (or report any errors)
+  6. If this folder is a git worktree (not the main repo), clean it up: switch back to the main repo folder, run `git worktree remove` on this folder, and confirm cleanup
+  If already on `main`, skip steps 3-4 and just commit + push main directly.
 - **`.t`** → Deep testing. Run `/qa` (full QA with headless browser) and a parallel codebase audit (dead code, type safety, component complexity, CSS issues). Combine everything into one prioritized summary with a health score.
 - **`.ceo`** → First read `docs/product-spec-v1.md` to ground yourself in the product goals, non-goals, and build sequence. Then run `/plan-ceo-review` on the current plan. Challenge assumptions against the spec, push for a better product, ask if this is the best version of the idea.
 - **`.ui`** → Activate the UI fix workflow: First read `docs/design-system.md` for the correct values. Then read ALL component + style files, trace the full style cascade, explain the root cause, then apply ONE targeted fix following the design system rules. Verify at mobile widths (375px, 390px, 428px). Run the checklist at the end of the design system doc. Run type check and lint.

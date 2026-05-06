@@ -104,8 +104,8 @@ function HomeContent() {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session?.user) {
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
           await migrateAnonymousData(session.user.id);
         }
         setUser(session?.user ?? null);
