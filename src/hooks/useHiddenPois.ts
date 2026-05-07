@@ -2,11 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
-import { getCurrentUserId } from '@/lib/browser-session';
 
 async function syncToApi(placeId: string, isHidden: boolean): Promise<void> {
-  const userId = getCurrentUserId();
-
   try {
     if (isHidden) {
       await apiFetch('/api/db/hidden-pois', {

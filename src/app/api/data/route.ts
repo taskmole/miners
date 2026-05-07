@@ -20,6 +20,8 @@ const FILE_MAP: Record<string, { fileName: string; delimiter?: string }> = {
     gyms_madrid: { fileName: "gyms_madrid.csv" },
     gyms_barcelona: { fileName: "gyms_barcelona.csv" },
     gyms_prague: { fileName: "gyms_prague.csv" },
+    prague_cafes: { fileName: "prague_cafe_info.csv" },
+    google_enrichment_prague: { fileName: "google_places_enrichment_prague.csv" },
 };
 
 export async function GET(request: NextRequest) {

@@ -85,9 +85,84 @@ function fetchWithTimeout(url: string, timeoutMs = TIMEOUT_MS): Promise<Response
     return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
+function mapEuctCsvCafes(raw: any[], city: CafeData["city"]): CafeData[] {
+    return raw
+        .filter((c: any) => c.latitude && c.longitude)
+        .map((c: any) => ({
+            type: "cafe" as const,
+            name: c.name || "Unknown Cafe",
+            link: c.link || undefined,
+            address: c.address || "",
+            lat: parseFloat(c.latitude),
+            lon: parseFloat(c.longitude),
+            categoryName: "EU Coffee Trip",
+            rating: undefined,
+            reviewCount: undefined,
+            franchisePartner: c.name?.toLowerCase().includes("miners") || false,
+            openingHours: undefined,
+            image: c.featured_photo || undefined,
+            website: c.website || undefined,
+            instagram: c.instagram || undefined,
+            facebook: c.facebook || undefined,
+            premium: c.premium === 'True' || c.premium === true,
+            datePublished: c.date_published || undefined,
+            fetchedAt: c.date_modified || undefined,
+            city,
+        }));
+}
+
+function mapGooglePlacesCafes(raw: any[], city: CafeData["city"]): CafeData[] {
+    return raw
+        .filter((c: any) => c.lat && c.lon)
+        .map((c: any) => ({
+            type: "cafe" as const,
+            name: c.name || "Unknown Cafe",
+            link: undefined,
+            address: c.address || "",
+            lat: parseFloat(c.lat),
+            lon: parseFloat(c.lon),
+            categoryName: "Café",
+            rating: c.rating ? parseFloat(c.rating) : undefined,
+            reviewCount: c.reviewCount ? parseInt(c.reviewCount) : undefined,
+            franchisePartner: false,
+            openingHours: c.openingHours || undefined,
+            image: undefined,
+            website: c.website || undefined,
+            googleMapsUrl: c.googleMapsUrl || undefined,
+            instagram: undefined,
+            facebook: undefined,
+            premium: false,
+            datePublished: undefined,
+            fetchedAt: c.fetchedAt || undefined,
+            city,
+        }));
+}
+
+async function applyGoogleEnrichment(cafes: CafeData[], enrichmentRes: Response): Promise<void> {
+    if (!enrichmentRes.ok) return;
+    const enrichmentRaw = await enrichmentRes.json();
+    const enrichmentMap = new Map<string, any>();
+    (enrichmentRaw as any[]).forEach((e: any) => {
+        const key = `${parseFloat(e.euct_lat).toFixed(4)},${parseFloat(e.euct_lon).toFixed(4)}`;
+        enrichmentMap.set(key, e);
+    });
+    for (const cafe of cafes) {
+        const key = `${cafe.lat.toFixed(4)},${cafe.lon.toFixed(4)}`;
+        const enrichment = enrichmentMap.get(key);
+        if (enrichment) {
+            if (enrichment.gp_website) cafe.website = enrichment.gp_website;
+            if (enrichment.gp_google_maps_url) cafe.googleMapsUrl = enrichment.gp_google_maps_url;
+            if (enrichment.gp_rating) cafe.rating = parseFloat(enrichment.gp_rating);
+            if (enrichment.gp_reviewCount) cafe.reviewCount = parseInt(enrichment.gp_reviewCount);
+            if (enrichment.gp_openingHours) cafe.openingHours = enrichment.gp_openingHours;
+        }
+    }
+}
+
 async function loadCafes(cityId: string): Promise<CafeData[]> {
     if (cityId === "madrid") return loadMadridCafes();
     if (cityId === "barcelona") return loadBarcelonaCafes();
+    if (cityId === "prague") return loadPragueCafes();
     return [];
 }
 
@@ -133,54 +208,11 @@ async function loadMadridCafes(): Promise<CafeData[]> {
             };
         });
 
-    if (googleEnrichmentRes.ok) {
-        const enrichmentRaw = await googleEnrichmentRes.json();
-        const enrichmentMap = new Map<string, any>();
-        enrichmentRaw.forEach((e: any) => {
-            const key = `${parseFloat(e.euct_lat).toFixed(4)},${parseFloat(e.euct_lon).toFixed(4)}`;
-            enrichmentMap.set(key, e);
-        });
-        for (const cafe of madridCafes) {
-            const key = `${cafe.lat.toFixed(4)},${cafe.lon.toFixed(4)}`;
-            const enrichment = enrichmentMap.get(key);
-            if (enrichment) {
-                if (enrichment.gp_website) cafe.website = enrichment.gp_website;
-                if (enrichment.gp_google_maps_url) cafe.googleMapsUrl = enrichment.gp_google_maps_url;
-                if (enrichment.gp_rating) cafe.rating = parseFloat(enrichment.gp_rating);
-                if (enrichment.gp_reviewCount) cafe.reviewCount = parseInt(enrichment.gp_reviewCount);
-                if (enrichment.gp_openingHours) cafe.openingHours = enrichment.gp_openingHours;
-            }
-        }
-    }
+    await applyGoogleEnrichment(madridCafes, googleEnrichmentRes);
 
-    let googleCafes: CafeData[] = [];
-    if (googleMadridRes.ok) {
-        const googleRaw = await googleMadridRes.json();
-        googleCafes = googleRaw
-            .filter((c: any) => c.lat && c.lon)
-            .map((c: any) => ({
-                type: "cafe" as const,
-                name: c.name || "Unknown Cafe",
-                link: undefined,
-                address: c.address || "",
-                lat: parseFloat(c.lat),
-                lon: parseFloat(c.lon),
-                categoryName: "Café",
-                rating: c.rating ? parseFloat(c.rating) : undefined,
-                reviewCount: c.reviewCount ? parseInt(c.reviewCount) : undefined,
-                franchisePartner: false,
-                openingHours: c.openingHours || undefined,
-                image: undefined,
-                website: c.website || undefined,
-                googleMapsUrl: c.googleMapsUrl || undefined,
-                instagram: undefined,
-                facebook: undefined,
-                premium: false,
-                datePublished: undefined,
-                fetchedAt: c.fetchedAt || undefined,
-                city: "madrid" as const,
-            }));
-    }
+    const googleCafes = googleMadridRes.ok
+        ? mapGooglePlacesCafes(await googleMadridRes.json(), "madrid")
+        : [];
 
     return [...madridCafes, ...googleCafes];
 }
@@ -188,30 +220,27 @@ async function loadMadridCafes(): Promise<CafeData[]> {
 async function loadBarcelonaCafes(): Promise<CafeData[]> {
     const res = await fetchWithTimeout("/api/data?type=barcelona_cafes");
     if (!res.ok) return [];
-    const raw = await res.json();
-    return (raw as any[])
-        .filter((c: any) => c.latitude && c.longitude)
-        .map((c: any) => ({
-            type: "cafe" as const,
-            name: c.name || "Unknown Cafe",
-            link: c.link || undefined,
-            address: c.address || "",
-            lat: parseFloat(c.latitude),
-            lon: parseFloat(c.longitude),
-            categoryName: "EU Coffee Trip",
-            rating: undefined,
-            reviewCount: undefined,
-            franchisePartner: c.name?.toLowerCase().includes("miners") || false,
-            openingHours: undefined,
-            image: c.featured_photo || undefined,
-            website: c.website || undefined,
-            instagram: c.instagram || undefined,
-            facebook: c.facebook || undefined,
-            premium: c.premium === 'True' || c.premium === true,
-            datePublished: c.date_published || undefined,
-            fetchedAt: c.date_modified || undefined,
-            city: "barcelona" as const,
-        }));
+    return mapEuctCsvCafes(await res.json(), "barcelona");
+}
+
+async function loadPragueCafes(): Promise<CafeData[]> {
+    const [euctRes, googleRes, enrichmentRes] = await Promise.all([
+        fetchWithTimeout("/api/data?type=prague_cafes"),
+        fetchWithTimeout("/api/data?type=google_prague"),
+        fetchWithTimeout("/api/data?type=google_enrichment_prague"),
+    ]);
+
+    const euctCafes = euctRes.ok
+        ? mapEuctCsvCafes(await euctRes.json(), "prague")
+        : [];
+
+    await applyGoogleEnrichment(euctCafes, enrichmentRes);
+
+    const googleCafes = googleRes.ok
+        ? mapGooglePlacesCafes(await googleRes.json(), "prague")
+        : [];
+
+    return [...euctCafes, ...googleCafes];
 }
 
 async function loadProperties(cityId: string): Promise<PropertyData[]> {
