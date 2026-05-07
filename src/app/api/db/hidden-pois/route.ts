@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest, createServerSupabase, getTokenFromRequest } from "@/lib/supabase-server";
+import { authenticateRequest } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 

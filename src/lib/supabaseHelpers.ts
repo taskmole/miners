@@ -1,27 +1,14 @@
-/**
- * Supabase Helper Utilities
- *
- * migrateAnonymousData: re-tags anonymous rows on login (uses Supabase RPC directly).
- * logActivity: fire-and-forget activity logging via server API route.
- */
-
 import { supabase, isSupabaseConfigured } from './supabase';
 import { getAuthUserId } from './browser-session';
 import { apiFetch } from './api-client';
 
-// localStorage key for anonymous user ID (legacy, kept for migration)
 const ANON_USER_KEY = 'miners-anonymous-user-id';
 
-/**
- * Migrate anonymous user data to authenticated user ID.
- * Calls a Supabase RPC function that re-tags all rows in a single transaction.
- * Runs on every login to catch data created between sessions on different devices.
- */
+// Re-tags anonymous rows on login via Supabase RPC
 export async function migrateAnonymousData(authUserId: string): Promise<void> {
   if (!isSupabaseConfigured() || !supabase) return;
   if (typeof window === 'undefined') return;
 
-  // Collect all local IDs that might have been used to tag data
   const idsToMigrate = new Set<string>();
 
   const anonId = localStorage.getItem(ANON_USER_KEY);
@@ -32,7 +19,6 @@ export async function migrateAnonymousData(authUserId: string): Promise<void> {
 
   if (idsToMigrate.size === 0) return;
 
-  // Migrate each anonymous ID to the auth user ID
   for (const oldId of idsToMigrate) {
     try {
       const { error } = await supabase.rpc('migrate_anonymous_user', {
@@ -48,11 +34,7 @@ export async function migrateAnonymousData(authUserId: string): Promise<void> {
   }
 }
 
-/**
- * Log an activity to the activity_log table via the server API route.
- * Only writes for authenticated users (skips anonymous).
- * Fire-and-forget: does not block the calling action.
- */
+// Fire-and-forget activity logging (skips anonymous users)
 export function logActivity(
   actionType: string,
   summary: Record<string, unknown>

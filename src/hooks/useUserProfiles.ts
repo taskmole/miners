@@ -17,7 +17,6 @@ export function useUserProfiles() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch all users
   const fetchUsers = useCallback(async () => {
     try {
       const data = await apiFetch<UserProfile[]>('/api/db/user-profiles?mode=all');
@@ -29,7 +28,6 @@ export function useUserProfiles() {
     }
   }, []);
 
-  // Fetch current user's role
   const fetchCurrentUserRole = useCallback(async () => {
     try {
       const data = await apiFetch<{ role: string }>('/api/db/user-profiles?mode=current');
@@ -39,15 +37,12 @@ export function useUserProfiles() {
     }
   }, []);
 
-  // Update user role
   const updateRole = useCallback(async (userId: string, newRole: UserRole): Promise<boolean> => {
     try {
       await apiFetch('/api/db/user-profiles', {
         method: 'PATCH',
         body: JSON.stringify({ id: userId, role: newRole }),
       });
-
-      // Update local state
       setUsers(prev => prev.map(u =>
         u.id === userId ? { ...u, role: newRole } : u
       ));
@@ -58,15 +53,12 @@ export function useUserProfiles() {
     }
   }, []);
 
-  // Toggle user active status
   const toggleActive = useCallback(async (userId: string, isActive: boolean): Promise<boolean> => {
     try {
       await apiFetch('/api/db/user-profiles', {
         method: 'PATCH',
         body: JSON.stringify({ id: userId, is_active: isActive }),
       });
-
-      // Update local state
       setUsers(prev => prev.map(u =>
         u.id === userId ? { ...u, is_active: isActive } : u
       ));
@@ -77,14 +69,10 @@ export function useUserProfiles() {
     }
   }, []);
 
-  // Check if current user is admin
   const isAdmin = currentUserRole ? ADMIN_ROLES.includes(currentUserRole) : false;
-  // Can access the admin dashboard (all roles above franchisee)
   const canAccessDashboard = currentUserRole ? DASHBOARD_ROLES.includes(currentUserRole) : false;
-  // Can approve/reject submissions (mirrors Supabase is_admin())
   const canReviewSubmissions = currentUserRole ? REVIEW_ROLES.includes(currentUserRole) : false;
 
-  // Initial fetch: Promise.all guarantees loading = false after both complete
   useEffect(() => {
     Promise.all([fetchCurrentUserRole(), fetchUsers()]).finally(() => setLoading(false));
   }, [fetchCurrentUserRole, fetchUsers]);
