@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api-client';
 import type { Database } from '@/lib/supabase';
 
 type UserProfile = Database['public']['Tables']['user_profiles']['Row'];
@@ -19,19 +19,8 @@ export function useUserProfiles() {
 
   // Fetch all users
   const fetchUsers = useCallback(async () => {
-    if (!isSupabaseConfigured() || !supabase) {
-      setError('Supabase not configured');
-      setLoading(false);
-      return;
-    }
-
     try {
-      const { data, error: fetchError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (fetchError) throw fetchError;
+      const data = await apiFetch<UserProfile[]>('/api/db/user-profiles?mode=all');
       setUsers(data || []);
       setError(null);
     } catch (err) {
@@ -42,24 +31,9 @@ export function useUserProfiles() {
 
   // Fetch current user's role
   const fetchCurrentUserRole = useCallback(async () => {
-    if (!isSupabaseConfigured() || !supabase) return;
-
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error: fetchError } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      if (fetchError) {
-        console.error('Error fetching current user role:', fetchError);
-        return;
-      }
-
-      setCurrentUserRole(data?.role as UserRole || 'franchisee');
+      const data = await apiFetch<{ role: string }>('/api/db/user-profiles?mode=current');
+      setCurrentUserRole((data?.role as UserRole) || 'franchisee');
     } catch (err) {
       console.error('Error fetching current user role:', err);
     }
@@ -67,15 +41,11 @@ export function useUserProfiles() {
 
   // Update user role
   const updateRole = useCallback(async (userId: string, newRole: UserRole): Promise<boolean> => {
-    if (!isSupabaseConfigured() || !supabase) return false;
-
     try {
-      const { error: updateError } = await supabase
-        .from('user_profiles')
-        .update({ role: newRole, updated_at: new Date().toISOString() })
-        .eq('id', userId);
-
-      if (updateError) throw updateError;
+      await apiFetch('/api/db/user-profiles', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: userId, role: newRole }),
+      });
 
       // Update local state
       setUsers(prev => prev.map(u =>
@@ -90,15 +60,11 @@ export function useUserProfiles() {
 
   // Toggle user active status
   const toggleActive = useCallback(async (userId: string, isActive: boolean): Promise<boolean> => {
-    if (!isSupabaseConfigured() || !supabase) return false;
-
     try {
-      const { error: updateError } = await supabase
-        .from('user_profiles')
-        .update({ is_active: isActive, updated_at: new Date().toISOString() })
-        .eq('id', userId);
-
-      if (updateError) throw updateError;
+      await apiFetch('/api/db/user-profiles', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: userId, is_active: isActive }),
+      });
 
       // Update local state
       setUsers(prev => prev.map(u =>
@@ -118,7 +84,7 @@ export function useUserProfiles() {
   // Can approve/reject submissions (mirrors Supabase is_admin())
   const canReviewSubmissions = currentUserRole ? REVIEW_ROLES.includes(currentUserRole) : false;
 
-  // Initial fetch — Promise.all guarantees loading = false after both complete
+  // Initial fetch: Promise.all guarantees loading = false after both complete
   useEffect(() => {
     Promise.all([fetchCurrentUserRole(), fetchUsers()]).finally(() => setLoading(false));
   }, [fetchCurrentUserRole, fetchUsers]);

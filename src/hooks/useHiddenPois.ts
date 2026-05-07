@@ -1,49 +1,36 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { withSupabase } from '@/lib/supabaseHelpers';
+import { apiFetch } from '@/lib/api-client';
 import { getCurrentUserId } from '@/lib/browser-session';
 
-async function syncToSupabase(placeId: string, isHidden: boolean): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
+async function syncToApi(placeId: string, isHidden: boolean): Promise<void> {
   const userId = getCurrentUserId();
 
   try {
     if (isHidden) {
-      await supabase.from('hidden_pois').upsert(
-        { user_id: userId, place_id: placeId },
-        { onConflict: 'user_id,place_id' }
-      );
+      await apiFetch('/api/db/hidden-pois', {
+        method: 'POST',
+        body: JSON.stringify({ place_id: placeId }),
+      });
     } else {
-      await supabase
-        .from('hidden_pois')
-        .delete()
-        .eq('user_id', userId)
-        .eq('place_id', placeId);
+      await apiFetch(`/api/db/hidden-pois?place_id=${encodeURIComponent(placeId)}`, {
+        method: 'DELETE',
+      });
     }
   } catch (error) {
-    console.error('Error syncing hidden POI to Supabase:', error);
+    console.error('Error syncing hidden POI:', error);
   }
 }
 
-async function fetchFromSupabase(): Promise<string[]> {
-  if (!isSupabaseConfigured() || !supabase) return [];
-
-  const currentId = getCurrentUserId();
-
-  const { data, error } = await supabase
-    .from('hidden_pois')
-    .select('place_id')
-    .eq('user_id', currentId);
-
-  if (error) {
-    console.error('Error fetching hidden POIs from Supabase:', error);
+async function fetchHiddenPois(): Promise<string[]> {
+  try {
+    const data = await apiFetch<Array<{ place_id: string }>>('/api/db/hidden-pois');
+    return data?.map((row) => row.place_id) || [];
+  } catch (error) {
+    console.error('Error fetching hidden POIs:', error);
     return [];
   }
-
-  return data?.map((row) => row.place_id) || [];
 }
 
 export function useHiddenPois() {
@@ -56,13 +43,8 @@ export function useHiddenPois() {
     initialLoadDone.current = true;
 
     async function loadHiddenPois() {
-      const supabaseIds = await withSupabase(
-        () => fetchFromSupabase(),
-        [],
-        'fetch hidden POIs'
-      );
-
-      setHiddenIds(new Set(supabaseIds));
+      const ids = await fetchHiddenPois();
+      setHiddenIds(new Set(ids));
       setIsLoaded(true);
     }
 
@@ -86,7 +68,7 @@ export function useHiddenPois() {
         wasHidden = false;
       }
 
-      syncToSupabase(placeId, !wasHidden);
+      syncToApi(placeId, !wasHidden);
 
       return newSet;
     });
@@ -101,7 +83,7 @@ export function useHiddenPois() {
       return newSet;
     });
 
-    syncToSupabase(placeId, true);
+    syncToApi(placeId, true);
   }, []);
 
   const unhidePlace = useCallback((placeId: string): void => {
@@ -111,7 +93,7 @@ export function useHiddenPois() {
       return newSet;
     });
 
-    syncToSupabase(placeId, false);
+    syncToApi(placeId, false);
   }, []);
 
   const hiddenCount = hiddenIds.size;

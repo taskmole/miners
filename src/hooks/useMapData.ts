@@ -4,15 +4,6 @@ import { useMemo } from "react";
 import useSWR from "swr";
 import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
 import { preloadGravity, getScoreAt } from "@/lib/gravity-lookup";
-import { isSupabaseConfigured, dataSupabase } from "@/lib/supabase";
-
-function parseWkbPoint(hex: string): { lat: number; lon: number } | null {
-    if (!hex || hex.length < 50) return null;
-    const coordHex = hex.slice(18);
-    const bytes = new Uint8Array(coordHex.match(/../g)!.map(h => parseInt(h, 16)));
-    const view = new DataView(bytes.buffer);
-    return { lon: view.getFloat64(0, true), lat: view.getFloat64(8, true) };
-}
 
 export interface CafeData {
     type: "cafe";
@@ -92,16 +83,6 @@ function fetchWithTimeout(url: string, timeoutMs = TIMEOUT_MS): Promise<Response
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-    let timer: ReturnType<typeof setTimeout>;
-    return Promise.race([
-        promise,
-        new Promise<T>((_, reject) => {
-            timer = setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms);
-        }),
-    ]).finally(() => clearTimeout(timer));
 }
 
 async function loadCafes(cityId: string): Promise<CafeData[]> {
@@ -234,57 +215,34 @@ async function loadBarcelonaCafes(): Promise<CafeData[]> {
 }
 
 async function loadProperties(cityId: string): Promise<PropertyData[]> {
-    if (!isSupabaseConfigured() || !dataSupabase) return [];
-
     await preloadGravity(cityId);
 
-    const label = `loadProperties(${cityId})`;
-    console.time(label);
-    try {
-        const res = await withTimeout(
-            dataSupabase.from("places")
-                .select("name, address, location, source, metadata, photos, updated_at")
-                .eq("city_id", cityId)
-                .in("source", ["idealista", "idealista_transfer", "sreality"])
-                .eq("status", "active") as unknown as Promise<{ data: any[] | null; error: any }>,
-            TIMEOUT_MS,
-            label,
-        );
-        if (res.error) throw new Error(res.error.message || "Supabase query failed");
-        const data = res.data;
-        return (data || [])
-            .map((p: any) => {
-                const coords = parseWkbPoint(p.location);
-                if (!coords) return null;
-                const meta = (p.metadata || {}) as Record<string, any>;
-                const src = p.source === "sreality" ? "sreality" as const : "idealista" as const;
-                return {
-                    type: "property" as const,
-                    source: src,
-                    address: p.address || "",
-                    latitude: coords.lat,
-                    longitude: coords.lon,
-                    price: meta.price || 0,
-                    size: meta.size || 0,
-                    priceByArea: meta.priceByArea || meta.pricePerSqm || 0,
-                    district: meta.district || "",
-                    hasAirConditioning: meta.hasAirConditioning === true,
-                    url: meta.url || "",
-                    title: p.name || "Property",
-                    transfer: meta.transfer || undefined,
-                    hasBathroom: meta.bathrooms != null && meta.bathrooms > 0,
-                    hasStorefront: meta.hasStorefront === true,
-                    score: getScoreAt(coords.lat, coords.lon, cityId),
-                    image_url: p.photos?.[0] || undefined,
-                    priceHistory: meta.price_history || undefined,
-                    updatedAt: p.updated_at || undefined,
-                    photos: p.photos?.length ? p.photos : undefined,
-                };
-            })
-            .filter(Boolean) as PropertyData[];
-    } finally {
-        console.timeEnd(label);
-    }
+    const res = await fetchWithTimeout(`/api/db/places?city_id=${encodeURIComponent(cityId)}`);
+    if (!res.ok) throw new Error(`Places API ${res.status}: ${res.statusText}`);
+    const rows: any[] = await res.json();
+
+    return rows.map((p: any) => ({
+        type: "property" as const,
+        source: p.source === "sreality" ? "sreality" as const : "idealista" as const,
+        address: p.address,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        price: p.price,
+        size: p.size,
+        priceByArea: p.priceByArea,
+        district: p.district,
+        hasAirConditioning: p.hasAirConditioning,
+        url: p.url,
+        title: p.name,
+        transfer: p.transfer,
+        hasBathroom: p.hasBathroom,
+        hasStorefront: p.hasStorefront,
+        score: getScoreAt(p.latitude, p.longitude, cityId),
+        image_url: p.image_url,
+        priceHistory: p.priceHistory,
+        updatedAt: p.updatedAt,
+        photos: p.photos,
+    }));
 }
 
 async function loadMadridOtherPois(): Promise<OtherPoiData[]> {
@@ -442,4 +400,4 @@ export function useMapData(cityId?: string) {
     };
 }
 
-export const __test = { loadProperties, loadCafes, loadOtherPois, parseWkbPoint };
+export const __test = { loadProperties, loadCafes, loadOtherPois };
