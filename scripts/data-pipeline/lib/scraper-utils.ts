@@ -25,6 +25,7 @@ export interface ScraperReport {
   skippedValidation: number;
   inactivated: number;
   safetyGuardTripped: boolean;
+  reportedTotal?: number;
 }
 
 export interface ValidatedListing {
@@ -233,7 +234,11 @@ export async function sendScraperReport(report: ScraperReport): Promise<void> {
 
   lines.push(`WHAT HAPPENED`);
   lines.push(`--------------`);
-  lines.push(`Scraped ${report.totalScraped} listings from ${report.sourceName}.`);
+  if (report.reportedTotal != null) {
+    lines.push(`${report.sourceName} reported ${report.reportedTotal} total listings. We collected and processed ${report.totalScraped}.`);
+  } else {
+    lines.push(`Scraped ${report.totalScraped} listings from ${report.sourceName}.`);
+  }
   if (report.inserted > 0) {
     lines.push(`  ${report.inserted} are brand new (never seen before).`);
   }
