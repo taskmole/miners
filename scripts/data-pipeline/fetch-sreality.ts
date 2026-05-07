@@ -366,8 +366,8 @@ function transformListings(listings: SrealityListing[]): { valid: ValidatedListi
       continue;
     }
 
-    const textToCheck = `${listing.name} ${listing.description || ""}`.toLowerCase();
-    if (BLOCKED_KEYWORDS.some((kw) => textToCheck.includes(kw))) {
+    const nameToCheck = listing.name.toLowerCase();
+    if (BLOCKED_KEYWORDS.some((kw) => nameToCheck.includes(kw))) {
       console.log(`  Filtered (office keyword): ${listing.name}`);
       skipped++;
       continue;
