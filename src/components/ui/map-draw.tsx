@@ -9,7 +9,7 @@ import { convertToMapboxDrawStyles } from '@/lib/draw-styles';
 import type { DrawMode } from '@/types/draw';
 import { getCurrentUserId, canEditShape } from '@/lib/browser-session';
 import { logActivity } from '@/lib/supabaseHelpers';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api-client';
 import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
 import { useMobile } from '@/hooks/useMobile';
 
@@ -66,50 +66,38 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       }));
     setDrawnPoints(points);
 
-    // Sync geometry to Supabase (async, non-blocking)
+    // Sync geometry to API (async, non-blocking)
     // Only sends geometry fields. Metadata (name, color, tags) is owned by ShapeComments via RPC.
-    if (isSupabaseConfigured() && supabase) {
-      const userId = getCurrentUserId();
+    const userId = getCurrentUserId();
 
-      const rows = allFeatures.features.map(f => ({
-        id: f.id as string,
-        user_id: userId,
-        geojson: f as unknown as Record<string, unknown>,
-        updated_at: new Date().toISOString(),
-      }));
+    const rows = allFeatures.features.map(f => ({
+      id: f.id as string,
+      user_id: userId,
+      geojson: f as unknown as Record<string, unknown>,
+      updated_at: new Date().toISOString(),
+    }));
 
-      // Upsert first, then clean up deleted features (sequential to avoid race)
-      (async () => {
-        try {
-          if (rows.length > 0) {
-            const { error } = await supabase.from('drawn_features')
-              .upsert(rows, { onConflict: 'id' });
-            if (error) {
-              console.error('Error syncing features to Supabase:', error);
-              return;
-            }
-          }
-
-          // Only after upsert succeeds, remove features the user deleted
-          const currentIds = allFeatures.features.map(f => f.id as string);
-          if (currentIds.length > 0) {
-            const { error } = await supabase.from('drawn_features')
-              .delete()
-              .eq('user_id', userId)
-              .not('id', 'in', `(${currentIds.join(',')})`)
-            if (error) console.error('Error cleaning deleted features from Supabase:', error);
-          } else {
-            // All shapes were deleted, clean up everything for this user
-            const { error } = await supabase.from('drawn_features')
-              .delete()
-              .eq('user_id', userId);
-            if (error) console.error('Error deleting all features from Supabase:', error);
-          }
-        } catch (error) {
-          console.error('Error in Supabase sync:', error);
+    // Upsert first, then clean up deleted features (sequential to avoid race)
+    (async () => {
+      try {
+        if (rows.length > 0) {
+          await apiFetch('/api/db/drawn-features', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'upsert_geometry', rows }),
+          });
         }
-      })();
-    }
+
+        // Only after upsert succeeds, remove features the user deleted
+        const currentIds = allFeatures.features.map(f => f.id as string);
+        const keepIds = currentIds.join(',');
+        await apiFetch(
+          `/api/db/drawn-features?user_id=${encodeURIComponent(userId)}${keepIds ? `&keep_ids=${encodeURIComponent(keepIds)}` : ''}`,
+          { method: 'DELETE' }
+        );
+      } catch (error) {
+        console.error('Error in drawn-features sync:', error);
+      }
+    })();
   }, [setDrawnPoints]);
 
   // Initialize MapboxDraw control
@@ -139,38 +127,35 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       setDrawnPoints(points);
     };
 
-    // Load features from Supabase
+    // Load features from API
     const loadFeatures = async () => {
-      if (isSupabaseConfigured() && supabase) {
-        try {
-          const userId = getCurrentUserId();
-          const { data, error } = await supabase
-            .from('drawn_features')
-            .select('id, geojson, created_by')
-            .eq('user_id', userId);
+      try {
+        const userId = getCurrentUserId();
+        const data = await apiFetch<Array<{ id: string; geojson: unknown; created_by: string | null }>>(
+          `/api/db/drawn-features?user_id=${encodeURIComponent(userId)}`
+        );
 
-          if (!error && data && data.length > 0) {
-            // Populate ownership map for edit permission checks
-            for (const row of data) {
-              if (row.created_by) {
-                shapeOwnership.set(row.id, row.created_by);
-              }
-            }
-
-            const supabaseFeatures: GeoJSON.FeatureCollection = {
-              type: 'FeatureCollection',
-              features: data
-                .filter(row => row.geojson)
-                .map(row => row.geojson as unknown as GeoJSON.Feature),
-            };
-
-            if (supabaseFeatures.features.length > 0) {
-              applyFeatures(supabaseFeatures);
+        if (data && data.length > 0) {
+          // Populate ownership map for edit permission checks
+          for (const row of data) {
+            if (row.created_by) {
+              shapeOwnership.set(row.id, row.created_by);
             }
           }
-        } catch (error) {
-          console.error('Error loading features from Supabase:', error);
+
+          const apiFeatures: GeoJSON.FeatureCollection = {
+            type: 'FeatureCollection',
+            features: data
+              .filter(row => row.geojson)
+              .map(row => row.geojson as unknown as GeoJSON.Feature),
+          };
+
+          if (apiFeatures.features.length > 0) {
+            applyFeatures(apiFeatures);
+          }
         }
+      } catch (error) {
+        console.error('Error loading features from API:', error);
       }
     };
 

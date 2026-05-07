@@ -2,20 +2,17 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { LocationList, ListItem, ListsState, PlaceInfo, VisitLog, DrawnAreaItem } from '@/types/lists';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { withSupabase, logActivity } from '@/lib/supabaseHelpers';
+import { apiFetch } from '@/lib/api-client';
+import { logActivity } from '@/lib/supabaseHelpers';
 import { getCurrentUserId } from '@/lib/browser-session';
 
-// localStorage key for lists data
 const STORAGE_KEY = 'miners-location-lists';
 const CURRENT_VERSION = 1;
 
-// Generate unique ID
 function generateId(): string {
   return crypto.randomUUID();
 }
 
-// Get initial state from localStorage
 function getInitialState(): ListsState {
   if (typeof window === 'undefined') {
     return { version: CURRENT_VERSION, lists: [] };
@@ -37,250 +34,183 @@ function getInitialState(): ListsState {
   return { version: CURRENT_VERSION, lists: [] };
 }
 
-/**
- * Fetch lists from Supabase (including items)
- */
-async function fetchListsFromSupabase(): Promise<LocationList[]> {
-  if (!isSupabaseConfigured() || !supabase) return [];
+async function fetchListsFromServer(): Promise<LocationList[]> {
+  try {
+    const { lists: listsData, listItems: itemsData } = await apiFetch<{
+      lists: any[];
+      listItems: any[];
+    }>('/api/db/lists');
 
-  const currentId = getCurrentUserId();
+    if (!listsData || listsData.length === 0) return [];
 
-  const { data: listsData, error: listsError } = await supabase
-    .from('lists')
-    .select('id, name, created_at')
-    .eq('created_by', currentId);
+    // Group items by list_id
+    const itemsByList: Record<string, ListItem[]> = {};
+    (itemsData || []).forEach((row: any) => {
+      if (!itemsByList[row.list_id]) {
+        itemsByList[row.list_id] = [];
+      }
+      itemsByList[row.list_id].push({
+        id: row.id,
+        placeId: row.place_id,
+        placeType: row.place_type || 'cafe',
+        placeName: row.place_name || '',
+        placeAddress: row.place_address || '',
+        lat: row.lat || 0,
+        lon: row.lon || 0,
+        addedAt: row.added_at || new Date().toISOString(),
+      });
+    });
 
-  if (listsError) {
-    console.error('Error fetching lists from Supabase:', listsError);
+    return listsData.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      createdAt: row.created_at,
+      items: itemsByList[row.id] || [],
+      drawnAreas: [],
+    }));
+  } catch (error) {
+    console.error('Error fetching lists from server:', error);
     return [];
   }
-
-  if (!listsData || listsData.length === 0) return [];
-
-  // Fetch all items for these lists
-  const listIds = listsData.map(l => l.id);
-  const { data: itemsData, error: itemsError } = await supabase
-    .from('list_items')
-    .select('id, list_id, place_id, place_type, place_name, place_address, lat, lon, added_at')
-    .in('list_id', listIds);
-
-  if (itemsError) {
-    console.error('Error fetching list items from Supabase:', itemsError);
-  }
-
-  // Group items by list_id
-  const itemsByList: Record<string, ListItem[]> = {};
-  (itemsData || []).forEach((row) => {
-    if (!itemsByList[row.list_id]) {
-      itemsByList[row.list_id] = [];
-    }
-    itemsByList[row.list_id].push({
-      id: row.id,
-      placeId: row.place_id,
-      placeType: row.place_type || 'cafe',
-      placeName: row.place_name || '',
-      placeAddress: row.place_address || '',
-      lat: row.lat || 0,
-      lon: row.lon || 0,
-      addedAt: row.added_at || new Date().toISOString(),
-    });
-  });
-
-  return listsData.map((row) => ({
-    id: row.id,
-    name: row.name,
-    createdAt: row.created_at,
-    items: itemsByList[row.id] || [],
-    drawnAreas: [],
-  }));
 }
 
-/**
- * Sync list create to Supabase
- */
-async function syncCreateToSupabase(list: LocationList): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
+async function syncCreateToServer(list: LocationList): Promise<void> {
   const userId = getCurrentUserId();
 
   try {
-    await supabase.from('lists').upsert({
-      id: list.id,
-      name: list.name,
-      created_by: userId,
-      created_at: list.createdAt,
-    }, { onConflict: 'id' });
+    await apiFetch('/api/db/lists', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'upsert_list',
+        id: list.id,
+        name: list.name,
+        created_by: userId,
+        created_at: list.createdAt,
+      }),
+    });
   } catch (error) {
-    console.error('Error syncing list to Supabase:', error);
+    console.error('Error syncing list to server:', error);
   }
 }
 
-/**
- * Sync list rename to Supabase
- */
-async function syncRenameToSupabase(listId: string, newName: string): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
+async function syncRenameToServer(listId: string, newName: string): Promise<void> {
   try {
-    await supabase
-      .from('lists')
-      .update({ name: newName })
-      .eq('id', listId);
+    await apiFetch('/api/db/lists', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'upsert_list',
+        id: listId,
+        name: newName,
+        created_by: getCurrentUserId(),
+      }),
+    });
   } catch (error) {
-    console.error('Error renaming list in Supabase:', error);
+    console.error('Error renaming list on server:', error);
   }
 }
 
-// Delete a single row by an exact column match. Returns false if the cloud
-// rejected the delete or affected 0 rows (treated as a silent RLS rejection
-// unless `allowZeroRows` is set). When Supabase is not configured we treat
-// the delete as a no-op success so local-only mode keeps working.
-async function deleteRowOrFail(
-  table: 'lists' | 'list_items',
-  column: string,
-  value: string,
-  opts: { allowZeroRows?: boolean } = {},
+// Returns false on failure so the caller can roll back the optimistic UI update
+async function deleteViaServer(
+  type: 'list' | 'item',
+  id: string,
 ): Promise<boolean> {
-  if (!isSupabaseConfigured() || !supabase) return true;
-
   try {
-    const res = await supabase
-      .from(table)
-      .delete({ count: 'exact' })
-      .eq(column, value);
-
-    if (res.error) {
-      console.error(`Error deleting ${table} row:`, res.error);
-      return false;
-    }
-
-    if (!opts.allowZeroRows && (res.count ?? 0) === 0) {
-      console.error(`Delete on ${table} affected 0 rows (likely RLS):`, value);
-      return false;
-    }
-
+    await apiFetch(`/api/db/lists?type=${type}&id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
     return true;
   } catch (error) {
-    console.error(`Error deleting ${table} row:`, error);
+    console.error(`Error deleting ${type} on server:`, error);
     return false;
   }
 }
 
-// list_items rows cascade automatically via the FK on list_items.list_id, so
-// we only need to delete the list row itself.
-async function syncDeleteToSupabase(listId: string): Promise<boolean> {
-  return deleteRowOrFail('lists', 'id', listId);
+async function syncDeleteListOnServer(listId: string): Promise<boolean> {
+  return deleteViaServer('list', listId);
 }
 
-/**
- * Sync list item add to Supabase
- */
-async function syncAddItemToSupabase(listId: string, item: ListItem): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
+async function syncAddItemToServer(listId: string, item: ListItem): Promise<void> {
   try {
-    await supabase.from('list_items').upsert({
-      id: item.id,
-      list_id: listId,
-      place_id: item.placeId,
-      place_type: item.placeType,
-      place_name: item.placeName,
-      place_address: item.placeAddress,
-      lat: item.lat,
-      lon: item.lon,
-      added_at: item.addedAt,
-    }, { onConflict: 'id' });
+    await apiFetch('/api/db/lists', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'upsert_item',
+        id: item.id,
+        list_id: listId,
+        place_id: item.placeId,
+        place_type: item.placeType,
+        place_name: item.placeName,
+        place_address: item.placeAddress,
+        lat: item.lat,
+        lon: item.lon,
+        added_at: item.addedAt,
+      }),
+    });
   } catch (error) {
-    console.error('Error syncing list item to Supabase:', error);
+    console.error('Error syncing list item to server:', error);
   }
 }
 
-// 0 rows affected on item delete is treated as success: the row may simply
-// never have been synced to the cloud (local-only item).
-async function syncRemoveItemToSupabase(itemId: string): Promise<boolean> {
-  return deleteRowOrFail('list_items', 'id', itemId, { allowZeroRows: true });
+async function syncRemoveItemOnServer(itemId: string): Promise<boolean> {
+  return deleteViaServer('item', itemId);
 }
 
-/**
- * Sync list item remove by place_id to Supabase
- */
-async function syncRemoveItemByPlaceIdToSupabase(listId: string, placeId: string): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
+async function syncRemoveItemByPlaceIdOnServer(listId: string, placeId: string): Promise<void> {
   try {
-    await supabase
-      .from('list_items')
-      .delete()
-      .eq('list_id', listId)
-      .eq('place_id', placeId);
+    await apiFetch(
+      `/api/db/lists?type=item_by_place&id=_&list_id=${encodeURIComponent(listId)}&place_id=${encodeURIComponent(placeId)}`,
+      { method: 'DELETE' }
+    );
   } catch (error) {
-    console.error('Error removing list item from Supabase:', error);
+    console.error('Error removing list item from server:', error);
   }
 }
 
-/**
- * Hook for managing location lists with Supabase + localStorage persistence
- *
- * Dual-write pattern:
- * - Lists metadata: synced to Supabase
- * - List items: stored in localStorage only (rich metadata not in Supabase schema)
- *
- * Provides methods to create lists, add/remove places, and update visit logs
- */
+// Lists and items sync to server via /api/db/lists.
+// drawnAreas and visit plans are localStorage-only.
 export function useLists() {
   const [lists, setLists] = useState<LocationList[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const initialLoadDone = useRef(false);
 
-  // Tombstones for IDs whose cloud delete is still pending or failed, so the
-  // merge-on-load step can't revive them. Each ID is retried at most once per
-  // session to avoid hammering Supabase when RLS keeps rejecting the delete.
+  // Tombstones prevent merge-on-load from reviving items whose cloud delete is pending
   const pendingDeletedListIds = useRef<Set<string>>(new Set());
   const pendingDeletedItemIds = useRef<Set<string>>(new Set());
   const retriedListIds = useRef<Set<string>>(new Set());
   const retriedItemIds = useRef<Set<string>>(new Set());
 
-  // Load from Supabase + localStorage on mount
   useEffect(() => {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
 
     async function loadLists() {
-      // Start with localStorage (has full data including items and drawnAreas)
       const localState = getInitialState();
       const localLists = localState.lists;
+      const serverLists = await fetchListsFromServer();
 
-      // Fetch lists with items from Supabase
-      const supabaseLists = await withSupabase(
-        () => fetchListsFromSupabase(),
-        [],
-        'fetch lists'
-      );
-
-      // Build a map of local lists for merging
       const localListsMap = new Map(localLists.map(l => [l.id, l]));
-      const supabaseListsMap = new Map(supabaseLists.map(l => [l.id, l]));
+      const serverListsMap = new Map(serverLists.map(l => [l.id, l]));
 
-      // Merge strategy: Supabase wins for lists and items, keep local drawnAreas
+      // Server wins for lists and items; keep local drawnAreas
       const mergedLists: LocationList[] = [];
 
-      supabaseLists.forEach(supabaseList => {
-        if (pendingDeletedListIds.current.has(supabaseList.id)) {
-          if (!retriedListIds.current.has(supabaseList.id)) {
-            retriedListIds.current.add(supabaseList.id);
-            syncDeleteToSupabase(supabaseList.id).then(ok => {
-              if (ok) pendingDeletedListIds.current.delete(supabaseList.id);
+      serverLists.forEach(serverList => {
+        if (pendingDeletedListIds.current.has(serverList.id)) {
+          if (!retriedListIds.current.has(serverList.id)) {
+            retriedListIds.current.add(serverList.id);
+            syncDeleteListOnServer(serverList.id).then(ok => {
+              if (ok) pendingDeletedListIds.current.delete(serverList.id);
             });
           }
           return;
         }
 
-        const localList = localListsMap.get(supabaseList.id);
-        const filteredItems = supabaseList.items.filter(item => {
+        const localList = localListsMap.get(serverList.id);
+        const filteredItems = serverList.items.filter(item => {
           if (pendingDeletedItemIds.current.has(item.id)) {
             if (!retriedItemIds.current.has(item.id)) {
               retriedItemIds.current.add(item.id);
-              syncRemoveItemToSupabase(item.id).then(ok => {
+              syncRemoveItemOnServer(item.id).then(ok => {
                 if (ok) pendingDeletedItemIds.current.delete(item.id);
               });
             }
@@ -290,20 +220,18 @@ export function useLists() {
         });
 
         mergedLists.push({
-          ...supabaseList,
+          ...serverList,
           items: filteredItems,
           drawnAreas: localList?.drawnAreas || [],
         });
       });
 
-      // Add local-only lists that don't exist in Supabase
       localLists.forEach(localList => {
-        if (!supabaseListsMap.has(localList.id)) {
+        if (!serverListsMap.has(localList.id)) {
           mergedLists.push(localList);
-          // Sync this local-only list to Supabase
-          syncCreateToSupabase(localList);
+          syncCreateToServer(localList);
           localList.items.forEach(item => {
-            syncAddItemToSupabase(localList.id, item);
+            syncAddItemToServer(localList.id, item);
           });
         }
       });
@@ -311,7 +239,6 @@ export function useLists() {
       setLists(mergedLists);
       setIsLoaded(true);
 
-      // Save merged state back to localStorage
       try {
         const state: ListsState = {
           version: CURRENT_VERSION,
@@ -326,7 +253,6 @@ export function useLists() {
     loadLists();
   }, []);
 
-  // Save to localStorage whenever lists change (after initial load)
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -341,7 +267,6 @@ export function useLists() {
     }
   }, [lists, isLoaded]);
 
-  // Create a new list
   const createList = useCallback((name: string): LocationList => {
     const newList: LocationList = {
       id: generateId(),
@@ -352,14 +277,11 @@ export function useLists() {
     };
 
     setLists(prev => [...prev, newList]);
-
-    // Sync to Supabase in background
-    syncCreateToSupabase(newList);
+    syncCreateToServer(newList);
 
     return newList;
   }, []);
 
-  // Add a place to a list
   const addToList = useCallback((listId: string, place: PlaceInfo): void => {
     const newItem: ListItem = {
       id: generateId(),
@@ -380,8 +302,7 @@ export function useLists() {
       if (!list) return prev;
 
       // Check if place already exists in this list
-      const exists = list.items.some(item => item.placeId === place.placeId);
-      if (exists) return prev;
+      if (list.items.some(item => item.placeId === place.placeId)) return prev;
 
       didAdd = true;
       listName = list.name;
@@ -392,9 +313,8 @@ export function useLists() {
       });
     });
 
-    // Side effects outside the state updater
     if (didAdd) {
-      syncAddItemToSupabase(listId, newItem);
+      syncAddItemToServer(listId, newItem);
 
       logActivity('added_to_list', {
         placeName: place.placeName,
@@ -407,7 +327,6 @@ export function useLists() {
     }
   }, []);
 
-  // Remove a place from a list
   const removeFromList = useCallback((listId: string, placeId: string): void => {
     let removedInfo: { placeName?: string; placeType?: string; listName?: string; lat?: number; lon?: number } | null = null;
 
@@ -425,7 +344,6 @@ export function useLists() {
       });
     });
 
-    // Log to activity feed
     if (removedInfo) {
       logActivity('removed_from_list', {
         placeName: removedInfo.placeName,
@@ -437,11 +355,9 @@ export function useLists() {
       });
     }
 
-    // Sync to Supabase in background
-    syncRemoveItemByPlaceIdToSupabase(listId, placeId);
+    syncRemoveItemByPlaceIdOnServer(listId, placeId);
   }, []);
 
-  // Toggle a place in a list (add if not present, remove if present)
   const toggleInList = useCallback((listId: string, place: PlaceInfo): boolean => {
     let wasAdded = false;
     let removedItemId: string | null = null;
@@ -458,7 +374,6 @@ export function useLists() {
         const existingItem = list.items.find(item => item.placeId === place.placeId);
 
         if (existingItem) {
-          // Remove from list
           wasAdded = false;
           removedItemId = existingItem.id;
           return {
@@ -466,7 +381,6 @@ export function useLists() {
             items: list.items.filter(item => item.id !== existingItem.id),
           };
         } else {
-          // Add to list
           wasAdded = true;
           addedItem = {
             id: generateId(),
@@ -487,10 +401,8 @@ export function useLists() {
       });
     });
 
-    // Sync to Supabase in background
     if (addedItem) {
-      syncAddItemToSupabase(listId, addedItem);
-      // Log add to activity feed
+      syncAddItemToServer(listId, addedItem);
       logActivity('added_to_list', {
         placeName: place.placeName,
         placeType: place.placeType,
@@ -500,8 +412,7 @@ export function useLists() {
         lon: place.lon,
       });
     } else if (removedItemId) {
-      syncRemoveItemToSupabase(removedItemId);
-      // Log removal to activity feed
+      syncRemoveItemOnServer(removedItemId);
       logActivity('removed_from_list', {
         placeName: place.placeName,
         placeType: place.placeType,
@@ -515,21 +426,18 @@ export function useLists() {
     return wasAdded;
   }, []);
 
-  // Check if a place is in a specific list
   const isPlaceInList = useCallback((placeId: string, listId: string): boolean => {
     const list = lists.find(l => l.id === listId);
     if (!list) return false;
     return list.items.some(item => item.placeId === placeId);
   }, [lists]);
 
-  // Get all list IDs that contain a place
   const getListsContainingPlace = useCallback((placeId: string): string[] => {
     return lists
       .filter(list => list.items.some(item => item.placeId === placeId))
       .map(list => list.id);
   }, [lists]);
 
-  // Update visit plan for a list (list-level planning)
   const updateVisitPlan = useCallback((listId: string, visitPlan: VisitLog): void => {
     setLists(prev => prev.map(list => {
       if (list.id !== listId) return list;
@@ -543,7 +451,6 @@ export function useLists() {
     }));
   }, []);
 
-  // Reorder items in a list (for drag and drop)
   const reorderItems = useCallback((listId: string, fromIndex: number, toIndex: number): void => {
     setLists(prev => prev.map(list => {
       if (list.id !== listId) return list;
@@ -574,7 +481,7 @@ export function useLists() {
     logActivity('deleted_list', { listName: deletedList.name, listId });
     pendingDeletedListIds.current.add(listId);
 
-    const ok = await syncDeleteToSupabase(listId);
+    const ok = await syncDeleteListOnServer(listId);
 
     if (!ok) {
       const restored = deletedList;
@@ -592,26 +499,21 @@ export function useLists() {
     return ok;
   }, []);
 
-  // Rename a list
   const renameList = useCallback((listId: string, newName: string): void => {
     setLists(prev => prev.map(list => {
       if (list.id !== listId) return list;
       return { ...list, name: newName };
     }));
 
-    // Sync to Supabase in background
-    syncRenameToSupabase(listId, newName);
+    syncRenameToServer(listId, newName);
   }, []);
 
-  // Add a drawn area to a list
   const addDrawnArea = useCallback((listId: string, areaId: string, areaType: 'polygon' | 'line', name: string): void => {
     setLists(prev => prev.map(list => {
       if (list.id !== listId) return list;
 
-      // Check if area already exists in this list
       const areas = list.drawnAreas || [];
-      const exists = areas.some(area => area.areaId === areaId);
-      if (exists) return list;
+      if (areas.some(area => area.areaId === areaId)) return list;
 
       const newArea: DrawnAreaItem = {
         id: generateId(),
@@ -628,7 +530,6 @@ export function useLists() {
     }));
   }, []);
 
-  // Remove a drawn area from a list
   const removeDrawnArea = useCallback((listId: string, areaId: string): void => {
     setLists(prev => prev.map(list => {
       if (list.id !== listId) return list;
@@ -673,7 +574,7 @@ export function useLists() {
     });
     pendingDeletedItemIds.current.add(itemId);
 
-    const ok = await syncRemoveItemToSupabase(itemId);
+    const ok = await syncRemoveItemOnServer(itemId);
 
     if (!ok) {
       const restored = removedItem;

@@ -18,303 +18,176 @@ import {
   createEmptyTrip,
   createDefaultChecklist,
 } from '@/types/scouting';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { withSupabase, withRetry } from '@/lib/supabaseHelpers';
+import { apiFetch } from '@/lib/api-client';
 import { getCurrentUserId } from '@/lib/browser-session';
 
 /**
- * Fetch ALL trip data from Supabase (matches every field syncCreateToSupabase writes).
- * Uses withRetry for resilience against transient network errors.
+ * Fetch ALL trip data from the server API route.
  */
-async function fetchTripsFromSupabase(): Promise<ScoutingTrip[]> {
-  if (!isSupabaseConfigured() || !supabase) return [];
-
-  const currentId = getCurrentUserId();
-
-  // Select every column that syncCreateToSupabase / syncUpdateToSupabase write.
-  const columns = [
-    'id',
-    'city_id',
-    'created_by',
-    'created_at',
-    'status',
-    'trip_name',
-    'author_name',
-    'address',
-    'condition_notes',
-    'trip_type',
-    // Location
-    'area_sqm',
-    'storage_sqm',
-    'property_type',
-    'footfall_estimate',
-    'neighbourhood_profile',
-    'nearby_competitors',
-    // Financial
-    'monthly_rent',
-    'service_fees',
-    'deposit',
-    'transfer_fee',
-    'fitout_cost',
-    'opening_investment',
-    'expected_daily_revenue',
-    'monthly_revenue_range',
-    'payback_months',
-    // Operational
-    'ventilation',
-    'water_waste',
-    'power_capacity',
-    'visibility',
-    'delivery_access',
-    'seating_capacity',
-    'outdoor_seating',
-    // Structured / JSONB
-    'property',
-    'related_places',
-    'uploaded_document',
-    'risks',
-    'checklist',
-    'attachment_paths',
-    // Review
-    'rejection_notes',
-    'reviewed_by',
-    'final_reviewed_at',
-    'submitted_at',
-  ].join(', ');
-
-  const { data, error } = await withRetry(
-    async () => {
-      const res = await supabase!
-        .from('pitches')
-        .select(columns)
-        .eq('created_by', currentId);
-      if (res.error) throw res.error;
-      return res;
-    },
-    'fetch trips from Supabase'
-  );
-
-  if (error) {
-    console.error('Error fetching pitches from Supabase:', error);
-    return [];
-  }
-
-  // Map every Supabase snake_case column back to the camelCase ScoutingTrip shape.
-  return (data || []).map((row: Record<string, unknown>) => ({
-    id: row.id as string,
-    cityId: (row.city_id as string) || 'madrid',
-    createdBy: (row.created_by as string) || 'guest',
-    authorName: (row.author_name as string) || 'Guest',
-    tripType: ((row.trip_type as string) || 'form') as ScoutingTripType,
-    status: (row.status as ScoutingTripStatus) || 'draft',
-    name: (row.trip_name as string) || '',
-
-    // Structured JSONB fields
-    property: (row.property as LinkedItem | null) ?? null,
-    relatedPlaces: (row.related_places as LinkedItem[]) ?? [],
-    checklist: (row.checklist as ChecklistItem[]) ?? createDefaultChecklist(),
-    attachments: [] as Attachment[], // Attachments are stored by path, not inline
-    uploadedDocument: (row.uploaded_document as UploadedDocument | undefined) ?? undefined,
-
-    // Location
-    address: (row.address as string) || '',
-    areaSqm: (row.area_sqm as number) ?? undefined,
-    storageSqm: (row.storage_sqm as number) ?? undefined,
-    propertyType: (row.property_type as string) ?? undefined,
-    footfallEstimate: (row.footfall_estimate as number) ?? undefined,
-    neighbourhoodProfile: (row.neighbourhood_profile as string) ?? undefined,
-    nearbyCompetitors: (row.nearby_competitors as string) ?? undefined,
-
-    // Financial
-    monthlyRent: (row.monthly_rent as number) ?? undefined,
-    serviceFees: (row.service_fees as number) ?? undefined,
-    deposit: (row.deposit as number) ?? undefined,
-    transferFee: (row.transfer_fee as number) ?? undefined,
-    fitoutCost: (row.fitout_cost as number) ?? undefined,
-    openingInvestment: (row.opening_investment as number) ?? undefined,
-    expectedDailyRevenue: (row.expected_daily_revenue as number) ?? undefined,
-    monthlyRevenueRange: (row.monthly_revenue_range as string) ?? undefined,
-    paybackMonths: (row.payback_months as number) ?? undefined,
-
-    // Operational
-    ventilation: (row.ventilation as string) ?? undefined,
-    waterWaste: (row.water_waste as string) ?? undefined,
-    powerCapacity: (row.power_capacity as string) ?? undefined,
-    visibility: (row.visibility as string) ?? undefined,
-    deliveryAccess: (row.delivery_access as string) ?? undefined,
-    seatingCapacity: (row.seating_capacity as number) ?? undefined,
-    outdoorSeating: (row.outdoor_seating as boolean) ?? undefined,
-
-    // Other
-    risks: Array.isArray(row.risks) && (row.risks as string[]).length > 0
-      ? (row.risks as string[])[0]
-      : (row.risks as string) ?? undefined,
-    photos: [] as ScoutingPhoto[],
-
-    // Review / rejection
-    rejectionNotes: (row.rejection_notes as string) ?? undefined,
-    reviewedBy: (row.reviewed_by as string) ?? undefined,
-    reviewedAt: (row.final_reviewed_at as string) ?? undefined,
-    submittedAt: (row.submitted_at as string) ?? undefined,
-
-    // Timestamps
-    createdAt: (row.created_at as string) || new Date().toISOString(),
-    updatedAt: (row.created_at as string) || new Date().toISOString(),
-  } as ScoutingTrip));
-}
-
-/**
- * Sync trip create to Supabase - includes ALL form fields
- */
-async function syncCreateToSupabase(trip: ScoutingTrip): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
-  const userId = getCurrentUserId();
-
+async function fetchTripsFromApi(): Promise<ScoutingTrip[]> {
   try {
-    await supabase.from('pitches').upsert({
-      // Identity
-      id: trip.id,
-      city_id: trip.cityId,
-      created_by: userId,
-      created_at: trip.createdAt,
+    const data = await apiFetch<Array<Record<string, unknown>>>('/api/db/pitches?mode=user');
 
-      // Status
-      status: trip.status,
-
-      // Basic info
-      trip_name: trip.name,
-      trip_type: trip.tripType || 'form',
-      author_name: trip.authorName,
-      address: trip.address || trip.property?.address,
-      condition_notes: trip.notes,
+    // Map every snake_case column back to the camelCase ScoutingTrip shape.
+    return (data || []).map((row: Record<string, unknown>) => ({
+      id: row.id as string,
+      cityId: (row.city_id as string) || 'madrid',
+      createdBy: (row.created_by as string) || 'guest',
+      authorName: (row.author_name as string) || 'Guest',
+      tripType: ((row.trip_type as string) || 'form') as ScoutingTripType,
+      status: (row.status as ScoutingTripStatus) || 'draft',
+      name: (row.trip_name as string) || '',
 
       // Structured JSONB fields
-      property: trip.property ?? null,
-      related_places: trip.relatedPlaces ?? [],
-      uploaded_document: trip.uploadedDocument ?? null,
+      property: (row.property as LinkedItem | null) ?? null,
+      relatedPlaces: (row.related_places as LinkedItem[]) ?? [],
+      checklist: (row.checklist as ChecklistItem[]) ?? createDefaultChecklist(),
+      attachments: [] as Attachment[], // Attachments are stored by path, not inline
+      uploadedDocument: (row.uploaded_document as UploadedDocument | undefined) ?? undefined,
 
-      // Location fields
-      area_sqm: trip.areaSqm,
-      storage_sqm: trip.storageSqm,
-      property_type: trip.propertyType,
-      footfall_estimate: trip.footfallEstimate,
-      neighbourhood_profile: trip.neighbourhoodProfile,
-      nearby_competitors: trip.nearbyCompetitors,
+      // Location
+      address: (row.address as string) || '',
+      areaSqm: (row.area_sqm as number) ?? undefined,
+      storageSqm: (row.storage_sqm as number) ?? undefined,
+      propertyType: (row.property_type as string) ?? undefined,
+      footfallEstimate: (row.footfall_estimate as number) ?? undefined,
+      neighbourhoodProfile: (row.neighbourhood_profile as string) ?? undefined,
+      nearbyCompetitors: (row.nearby_competitors as string) ?? undefined,
 
-      // Financial fields
-      monthly_rent: trip.monthlyRent,
-      service_fees: trip.serviceFees,
-      deposit: trip.deposit,
-      transfer_fee: trip.transferFee,
-      fitout_cost: trip.fitoutCost,
-      opening_investment: trip.openingInvestment,
-      expected_daily_revenue: trip.expectedDailyRevenue,
-      monthly_revenue_range: trip.monthlyRevenueRange,
-      payback_months: trip.paybackMonths,
+      // Financial
+      monthlyRent: (row.monthly_rent as number) ?? undefined,
+      serviceFees: (row.service_fees as number) ?? undefined,
+      deposit: (row.deposit as number) ?? undefined,
+      transferFee: (row.transfer_fee as number) ?? undefined,
+      fitoutCost: (row.fitout_cost as number) ?? undefined,
+      openingInvestment: (row.opening_investment as number) ?? undefined,
+      expectedDailyRevenue: (row.expected_daily_revenue as number) ?? undefined,
+      monthlyRevenueRange: (row.monthly_revenue_range as string) ?? undefined,
+      paybackMonths: (row.payback_months as number) ?? undefined,
 
-      // Operational fields
-      ventilation: trip.ventilation,
-      water_waste: trip.waterWaste,
-      power_capacity: trip.powerCapacity,
-      visibility: trip.visibility,
-      delivery_access: trip.deliveryAccess,
-      seating_capacity: trip.seatingCapacity,
-      outdoor_seating: trip.outdoorSeating,
+      // Operational
+      ventilation: (row.ventilation as string) ?? undefined,
+      waterWaste: (row.water_waste as string) ?? undefined,
+      powerCapacity: (row.power_capacity as string) ?? undefined,
+      visibility: (row.visibility as string) ?? undefined,
+      deliveryAccess: (row.delivery_access as string) ?? undefined,
+      seatingCapacity: (row.seating_capacity as number) ?? undefined,
+      outdoorSeating: (row.outdoor_seating as boolean) ?? undefined,
 
       // Other
-      risks: trip.risks ? [trip.risks] : null,
-      checklist: trip.checklist,
-      attachment_paths: trip.attachments?.map(a => a.storagePath).filter(Boolean) || [],
-    }, { onConflict: 'id' });
+      risks: Array.isArray(row.risks) && (row.risks as string[]).length > 0
+        ? (row.risks as string[])[0]
+        : (row.risks as string) ?? undefined,
+      photos: [] as ScoutingPhoto[],
+
+      // Review / rejection
+      rejectionNotes: (row.rejection_notes as string) ?? undefined,
+      reviewedBy: (row.reviewed_by as string) ?? undefined,
+      reviewedAt: (row.final_reviewed_at as string) ?? undefined,
+      submittedAt: (row.submitted_at as string) ?? undefined,
+
+      // Timestamps
+      createdAt: (row.created_at as string) || new Date().toISOString(),
+      updatedAt: (row.created_at as string) || new Date().toISOString(),
+    } as ScoutingTrip));
   } catch (error) {
-    console.error('Error syncing trip to Supabase:', error);
+    console.error('Error fetching pitches from API:', error);
+    return [];
   }
 }
 
 /**
- * Sync trip update to Supabase - includes ALL form fields
+ * Build the snake_case row object for upsert (create or update).
  */
-async function syncUpdateToSupabase(trip: ScoutingTrip): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
+function buildPitchRow(trip: ScoutingTrip, userId: string) {
+  return {
+    // Identity
+    id: trip.id,
+    city_id: trip.cityId,
+    created_by: userId,
+    created_at: trip.createdAt,
 
+    // Status
+    status: trip.status,
+    submitted_at: trip.submittedAt,
+
+    // Basic info
+    trip_name: trip.name,
+    trip_type: trip.tripType || 'form',
+    author_name: trip.authorName,
+    address: trip.address || trip.property?.address,
+    condition_notes: trip.notes,
+
+    // Structured JSONB fields
+    property: trip.property ?? null,
+    related_places: trip.relatedPlaces ?? [],
+    uploaded_document: trip.uploadedDocument ?? null,
+
+    // Location fields
+    area_sqm: trip.areaSqm,
+    storage_sqm: trip.storageSqm,
+    property_type: trip.propertyType,
+    footfall_estimate: trip.footfallEstimate,
+    neighbourhood_profile: trip.neighbourhoodProfile,
+    nearby_competitors: trip.nearbyCompetitors,
+
+    // Financial fields
+    monthly_rent: trip.monthlyRent,
+    service_fees: trip.serviceFees,
+    deposit: trip.deposit,
+    transfer_fee: trip.transferFee,
+    fitout_cost: trip.fitoutCost,
+    opening_investment: trip.openingInvestment,
+    expected_daily_revenue: trip.expectedDailyRevenue,
+    monthly_revenue_range: trip.monthlyRevenueRange,
+    payback_months: trip.paybackMonths,
+
+    // Operational fields
+    ventilation: trip.ventilation,
+    water_waste: trip.waterWaste,
+    power_capacity: trip.powerCapacity,
+    visibility: trip.visibility,
+    delivery_access: trip.deliveryAccess,
+    seating_capacity: trip.seatingCapacity,
+    outdoor_seating: trip.outdoorSeating,
+
+    // Other
+    risks: trip.risks ? [trip.risks] : null,
+    checklist: trip.checklist,
+    attachment_paths: trip.attachments?.map(a => a.storagePath).filter(Boolean) || [],
+
+    // Review info
+    rejection_notes: trip.rejectionNotes,
+    reviewed_by: trip.reviewedBy,
+    final_reviewed_at: trip.reviewedAt,
+  };
+}
+
+/**
+ * Sync trip create/update to the server API (fire-and-forget).
+ */
+async function syncTripToApi(trip: ScoutingTrip): Promise<void> {
+  const userId = getCurrentUserId();
   try {
-    await supabase
-      .from('pitches')
-      .update({
-        // Status
-        status: trip.status,
-        submitted_at: trip.submittedAt,
-
-        // Basic info
-        trip_name: trip.name,
-        trip_type: trip.tripType || 'form',
-        author_name: trip.authorName,
-        address: trip.address || trip.property?.address,
-        condition_notes: trip.notes,
-
-        // Structured JSONB fields
-        property: trip.property ?? null,
-        related_places: trip.relatedPlaces ?? [],
-        uploaded_document: trip.uploadedDocument ?? null,
-
-        // Location fields
-        area_sqm: trip.areaSqm,
-        storage_sqm: trip.storageSqm,
-        property_type: trip.propertyType,
-        footfall_estimate: trip.footfallEstimate,
-        neighbourhood_profile: trip.neighbourhoodProfile,
-        nearby_competitors: trip.nearbyCompetitors,
-
-        // Financial fields
-        monthly_rent: trip.monthlyRent,
-        service_fees: trip.serviceFees,
-        deposit: trip.deposit,
-        transfer_fee: trip.transferFee,
-        fitout_cost: trip.fitoutCost,
-        opening_investment: trip.openingInvestment,
-        expected_daily_revenue: trip.expectedDailyRevenue,
-        monthly_revenue_range: trip.monthlyRevenueRange,
-        payback_months: trip.paybackMonths,
-
-        // Operational fields
-        ventilation: trip.ventilation,
-        water_waste: trip.waterWaste,
-        power_capacity: trip.powerCapacity,
-        visibility: trip.visibility,
-        delivery_access: trip.deliveryAccess,
-        seating_capacity: trip.seatingCapacity,
-        outdoor_seating: trip.outdoorSeating,
-
-        // Other
-        risks: trip.risks ? [trip.risks] : null,
-        checklist: trip.checklist,
-        attachment_paths: trip.attachments?.map(a => a.storagePath).filter(Boolean) || [],
-
-        // Review info
-        rejection_notes: trip.rejectionNotes,
-        reviewed_by: trip.reviewedBy,
-        final_reviewed_at: trip.reviewedAt,
-      })
-      .eq('id', trip.id);
+    await apiFetch('/api/db/pitches', {
+      method: 'POST',
+      body: JSON.stringify(buildPitchRow(trip, userId)),
+    });
   } catch (error) {
-    console.error('Error updating trip in Supabase:', error);
+    console.error('Error syncing trip to API:', error);
   }
 }
 
 /**
- * Sync trip delete to Supabase
+ * Sync trip delete to the server API (fire-and-forget).
  */
-async function syncDeleteToSupabase(tripId: string): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
+async function syncDeleteToApi(tripId: string): Promise<void> {
   try {
-    await supabase
-      .from('pitches')
-      .delete()
-      .eq('id', tripId);
+    await apiFetch(`/api/db/pitches?id=${encodeURIComponent(tripId)}`, {
+      method: 'DELETE',
+    });
   } catch (error) {
-    console.error('Error deleting trip from Supabase:', error);
+    console.error('Error deleting trip from API:', error);
   }
 }
 
@@ -366,21 +239,17 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
   const [isLoaded, setIsLoaded] = useState(false);
   const initialLoadDone = useRef(false);
 
-  // Load from Supabase on mount
+  // Load from API on mount
   useEffect(() => {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
 
     async function loadTrips() {
-      const supabaseTrips = await withSupabase(
-        () => fetchTripsFromSupabase(),
-        [] as ScoutingTrip[],
-        'fetch trips'
-      );
+      const apiTrips = await fetchTripsFromApi();
 
       setState({
         version: SCOUTING_TRIPS_VERSION,
-        trips: supabaseTrips,
+        trips: apiTrips,
       });
       setIsLoaded(true);
     }
@@ -419,8 +288,8 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       trips: [newTrip, ...prev.trips],
     }));
 
-    // Sync to Supabase in background
-    syncCreateToSupabase(newTrip);
+    // Sync to API in background
+    syncTripToApi(newTrip);
 
     return newTrip;
   }, []);
@@ -448,8 +317,8 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       trips: [newTrip, ...prev.trips],
     }));
 
-    // Sync to Supabase in background
-    syncCreateToSupabase(newTrip);
+    // Sync to API in background
+    syncTripToApi(newTrip);
 
     return newTrip;
   }, []);
@@ -463,10 +332,10 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
           : t
       );
 
-      // Find updated trip and sync to Supabase
+      // Find updated trip and sync to API
       const updatedTrip = newTrips.find(t => t.id === tripId);
       if (updatedTrip) {
-        syncUpdateToSupabase(updatedTrip);
+        syncTripToApi(updatedTrip);
       }
 
       return { ...prev, trips: newTrips };
@@ -480,8 +349,8 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       trips: prev.trips.filter(t => t.id !== tripId),
     }));
 
-    // Sync to Supabase in background
-    syncDeleteToSupabase(tripId);
+    // Sync to API in background
+    syncDeleteToApi(tripId);
   }, []);
 
   // Submit a trip for review
@@ -496,7 +365,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
 
       const updatedTrip = newTrips.find(t => t.id === tripId);
       if (updatedTrip) {
-        syncUpdateToSupabase(updatedTrip);
+        syncTripToApi(updatedTrip);
       }
 
       return { ...prev, trips: newTrips };
@@ -521,7 +390,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
 
       const updatedTrip = newTrips.find(t => t.id === tripId);
       if (updatedTrip) {
-        syncUpdateToSupabase(updatedTrip);
+        syncTripToApi(updatedTrip);
       }
 
       return { ...prev, trips: newTrips };
@@ -547,7 +416,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
 
       const updatedTrip = newTrips.find(t => t.id === tripId);
       if (updatedTrip) {
-        syncUpdateToSupabase(updatedTrip);
+        syncTripToApi(updatedTrip);
       }
 
       return { ...prev, trips: newTrips };

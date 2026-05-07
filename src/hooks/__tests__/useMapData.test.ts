@@ -1,14 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
-const { mockFrom, mockIsConfigured } = vi.hoisted(() => ({
-    mockFrom: vi.fn(),
-    mockIsConfigured: vi.fn(() => true),
-}));
-
-vi.mock("@/lib/supabase", () => ({
-    isSupabaseConfigured: mockIsConfigured,
-    dataSupabase: { from: mockFrom },
-}));
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/gravity-lookup", () => ({
     preloadGravity: vi.fn(),
@@ -20,67 +10,65 @@ vi.mock("@/lib/dateUtils", () => ({
     isNewPoi: vi.fn(() => false),
 }));
 
-const VALID_WKB_HEX =
-    "0101000020E6100000" +
-    "9A9999999999F1BF" +
-    "CDCCCCCCCC4C4440";
-
-function buildRow(overrides: Record<string, unknown> = {}) {
+function buildApiRow(overrides: Record<string, unknown> = {}) {
     return {
         name: "Test Property",
         address: "123 Main St",
-        location: VALID_WKB_HEX,
+        latitude: 40.3,
+        longitude: -1.1,
         source: "idealista",
-        metadata: {
-            price: 1200,
-            size: 80,
-            priceByArea: 15,
-            district: "Centro",
-            url: "https://example.com",
-        },
+        price: 1200,
+        size: 80,
+        priceByArea: 15,
+        district: "Centro",
+        hasAirConditioning: false,
+        url: "https://example.com",
+        transfer: undefined,
+        hasBathroom: false,
+        hasStorefront: false,
+        image_url: "https://img.example.com/1.jpg",
+        priceHistory: undefined,
+        updatedAt: "2026-05-01T00:00:00Z",
         photos: ["https://img.example.com/1.jpg"],
-        updated_at: "2026-05-01T00:00:00Z",
         ...overrides,
     };
 }
 
-function mockQuery(data: unknown[] | null) {
-    const result = Promise.resolve({ data, error: null });
-    const chain: Record<string, any> = {};
-    chain.select = vi.fn().mockReturnValue(chain);
-    chain.eq = vi.fn().mockReturnValue(chain);
-    chain.in = vi.fn().mockReturnValue(chain);
-    chain.then = (resolve: any, reject: any) => result.then(resolve, reject);
-    mockFrom.mockReturnValue(chain);
-    return chain;
+const originalFetch = global.fetch;
+
+function mockFetchResponse(data: unknown[], status = 200) {
+    global.fetch = vi.fn().mockResolvedValue({
+        ok: status >= 200 && status < 300,
+        status,
+        statusText: status === 200 ? "OK" : "Error",
+        json: () => Promise.resolve(data),
+    });
 }
 
-function mockQueryRejection(error: Error) {
-    const rejection = Promise.reject(error);
-    const chain: Record<string, any> = {};
-    chain.select = vi.fn().mockReturnValue(chain);
-    chain.eq = vi.fn().mockReturnValue(chain);
-    chain.in = vi.fn().mockReturnValue(chain);
-    chain.then = (resolve: any, reject: any) => rejection.then(resolve, reject);
-    mockFrom.mockReturnValue(chain);
-    return chain;
+function mockFetchError(status: number, statusText: string) {
+    global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status,
+        statusText,
+        json: () => Promise.resolve({ error: statusText }),
+    });
+}
+
+function mockFetchReject(error: Error) {
+    global.fetch = vi.fn().mockRejectedValue(error);
 }
 
 describe("loadProperties", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mockIsConfigured.mockReturnValue(true);
     });
 
-    it("returns empty array when Supabase is not configured", async () => {
-        mockIsConfigured.mockReturnValue(false);
-        const { __test } = await import("@/hooks/useMapData");
-        const result = await __test.loadProperties("prague");
-        expect(result).toEqual([]);
+    afterEach(() => {
+        global.fetch = originalFetch;
     });
 
-    it("returns properties on successful query", async () => {
-        mockQuery([buildRow()]);
+    it("returns properties on successful API response", async () => {
+        mockFetchResponse([buildApiRow()]);
         const { __test } = await import("@/hooks/useMapData");
         const result = await __test.loadProperties("prague");
         expect(result.length).toBe(1);
@@ -90,59 +78,74 @@ describe("loadProperties", () => {
         expect(result[0].address).toBe("123 Main St");
     });
 
-    it("filters out rows with unparseable WKB coordinates", async () => {
-        mockQuery([buildRow(), buildRow({ location: "bad_hex" }), buildRow({ location: "" })]);
-        const { __test } = await import("@/hooks/useMapData");
-        const result = await __test.loadProperties("madrid");
-        expect(result.length).toBe(1);
-    });
-
-    it("returns empty array when query returns null data", async () => {
-        mockQuery(null);
-        const { __test } = await import("@/hooks/useMapData");
-        const result = await __test.loadProperties("prague");
-        expect(result).toEqual([]);
-    });
-
     it("maps sreality source correctly", async () => {
-        mockQuery([buildRow({ source: "sreality" })]);
+        mockFetchResponse([buildApiRow({ source: "sreality" })]);
         const { __test } = await import("@/hooks/useMapData");
         const result = await __test.loadProperties("prague");
         expect(result[0].source).toBe("sreality");
     });
 
-    it("propagates query errors to caller (enables SWR retry)", async () => {
-        mockQueryRejection(new Error("connection failed"));
+    it("returns empty array when API returns empty list", async () => {
+        mockFetchResponse([]);
         const { __test } = await import("@/hooks/useMapData");
-        await expect(__test.loadProperties("prague")).rejects.toThrow("connection failed");
+        const result = await __test.loadProperties("prague");
+        expect(result).toEqual([]);
+    });
+
+    it("throws on non-OK API response (enables SWR retry)", async () => {
+        mockFetchError(500, "Internal Server Error");
+        const { __test } = await import("@/hooks/useMapData");
+        await expect(__test.loadProperties("prague")).rejects.toThrow("Places API 500");
+    });
+
+    it("propagates network errors to caller", async () => {
+        mockFetchReject(new Error("network timeout"));
+        const { __test } = await import("@/hooks/useMapData");
+        await expect(__test.loadProperties("prague")).rejects.toThrow("network timeout");
+    });
+
+    it("calls gravity scoring for each property", async () => {
+        const { getScoreAt } = await import("@/lib/gravity-lookup");
+        mockFetchResponse([buildApiRow(), buildApiRow({ latitude: 41.0, longitude: -2.0 })]);
+        const { __test } = await import("@/hooks/useMapData");
+        const result = await __test.loadProperties("prague");
+        expect(result.length).toBe(2);
+        expect(getScoreAt).toHaveBeenCalledTimes(2);
+        expect(result[0].score).toBe(72);
+    });
+
+    it("passes city_id as query parameter", async () => {
+        mockFetchResponse([]);
+        const { __test } = await import("@/hooks/useMapData");
+        await __test.loadProperties("barcelona");
+        expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringContaining("city_id=barcelona"),
+            expect.any(Object),
+        );
     });
 
     it.each(["madrid", "barcelona", "prague"])("does not crash for %s", async (city) => {
-        mockQuery([buildRow()]);
+        mockFetchResponse([buildApiRow()]);
         const { __test } = await import("@/hooks/useMapData");
         const result = await __test.loadProperties(city);
         expect(Array.isArray(result)).toBe(true);
         expect(result.length).toBeGreaterThan(0);
     });
-});
 
-describe("parseWkbPoint", () => {
-    it("returns null for empty input", async () => {
+    it("maps all expected fields from API response", async () => {
+        mockFetchResponse([buildApiRow()]);
         const { __test } = await import("@/hooks/useMapData");
-        expect(__test.parseWkbPoint("")).toBeNull();
-    });
-
-    it("returns null for short hex", async () => {
-        const { __test } = await import("@/hooks/useMapData");
-        expect(__test.parseWkbPoint("0101000020")).toBeNull();
-    });
-
-    it("parses valid WKB hex to lat/lon", async () => {
-        const { __test } = await import("@/hooks/useMapData");
-        const result = __test.parseWkbPoint(VALID_WKB_HEX);
-        expect(result).not.toBeNull();
-        expect(typeof result!.lat).toBe("number");
-        expect(typeof result!.lon).toBe("number");
+        const result = await __test.loadProperties("prague");
+        const p = result[0];
+        expect(p.type).toBe("property");
+        expect(p.latitude).toBe(40.3);
+        expect(p.longitude).toBe(-1.1);
+        expect(p.size).toBe(80);
+        expect(p.priceByArea).toBe(15);
+        expect(p.district).toBe("Centro");
+        expect(p.title).toBe("Test Property");
+        expect(p.image_url).toBe("https://img.example.com/1.jpg");
+        expect(p.updatedAt).toBe("2026-05-01T00:00:00Z");
     });
 });
 

@@ -68,31 +68,6 @@ export function getSupabase(): SupabaseClient {
  */
 export const supabase = isSupabaseConfigured() ? getSupabase() : null;
 
-/**
- * Data-only Supabase client (no session persistence).
- * Used by useMapData to avoid triggering auth token refreshes during data fetches.
- */
-let dataClient: SupabaseClient | null = null;
-
-function getDataSupabase(): SupabaseClient {
-  if (!isSupabaseConfigured()) {
-    throw new Error('Supabase is not configured');
-  }
-  if (!dataClient) {
-    dataClient = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-        storageKey: 'sb-data-readonly',
-      },
-    });
-  }
-  return dataClient;
-}
-
-export const dataSupabase = isSupabaseConfigured() ? getDataSupabase() : null;
-
 // ===========================================
 // AUTH HELPERS (ready for when auth is added)
 // ===========================================
