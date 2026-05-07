@@ -74,7 +74,7 @@ function getPoiDisplayInfo(poi: LocationData): {
                 tier: tier ? SCORE_TIER_LABELS[tier] : "",
                 tierColor: tier ? SCORE_TIER_COLORS[tier] : "",
                 size: prop.size > 0 ? `${prop.size} m²` : "",
-                rent: formatRent(prop.price, prop.source),
+                rent: prop.price > 0 ? formatRent(prop.price, prop.source) : "On request",
             },
             name: prop.title || prop.address,
         };
