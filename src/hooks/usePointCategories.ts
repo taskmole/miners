@@ -5,65 +5,58 @@ import {
   PointCategory,
   DEFAULT_CATEGORIES
 } from '@/types/point-categories';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { withSupabase } from '@/lib/supabaseHelpers';
+import { apiFetch } from '@/lib/api-client';
 import { getCurrentUserId } from '@/lib/browser-session';
 
 function generateCategoryId(): string {
   return `cat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-async function fetchFromSupabase(): Promise<PointCategory[]> {
-  if (!isSupabaseConfigured() || !supabase) return [];
+async function fetchFromApi(): Promise<PointCategory[]> {
+  try {
+    const currentId = getCurrentUserId();
+    const data = await apiFetch<Array<{ id: string; name: string; is_system: boolean; created_at: string }>>(
+      `/api/db/categories?user_id=${encodeURIComponent(currentId)}`
+    );
 
-  const currentId = getCurrentUserId();
-
-  const { data, error } = await supabase
-    .from('categories')
-    .select('id, name, is_system, created_at')
-    .or(`is_system.eq.true,created_by.eq.${currentId}`);
-
-  if (error) {
-    console.error('Error fetching categories from Supabase:', error);
+    return (data || []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      isSystem: row.is_system,
+      createdAt: row.created_at,
+    }));
+  } catch (error) {
+    console.error('Error fetching categories:', error);
     return [];
   }
-
-  return data?.map((row) => ({
-    id: row.id,
-    name: row.name,
-    isSystem: row.is_system,
-    createdAt: row.created_at,
-  })) || [];
 }
 
-async function syncCreateToSupabase(category: PointCategory): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
+async function syncCreateToApi(category: PointCategory): Promise<void> {
   const userId = getCurrentUserId();
 
   try {
-    await supabase.from('categories').upsert({
-      id: category.id,
-      name: category.name,
-      is_system: category.isSystem,
-      created_by: userId,
-      created_at: category.createdAt,
-    }, { onConflict: 'id' });
+    await apiFetch('/api/db/categories', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: category.id,
+        name: category.name,
+        is_system: category.isSystem,
+        created_by: userId,
+        created_at: category.createdAt,
+      }),
+    });
   } catch (error) {
-    console.error('Error syncing category to Supabase:', error);
+    console.error('Error syncing category:', error);
   }
 }
 
-async function syncDeleteToSupabase(categoryId: string): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
+async function syncDeleteToApi(categoryId: string): Promise<void> {
   try {
-    await supabase
-      .from('categories')
-      .delete()
-      .eq('id', categoryId);
+    await apiFetch(`/api/db/categories?id=${encodeURIComponent(categoryId)}`, {
+      method: 'DELETE',
+    });
   } catch (error) {
-    console.error('Error deleting category from Supabase:', error);
+    console.error('Error deleting category:', error);
   }
 }
 
@@ -77,15 +70,11 @@ export function usePointCategories() {
     initialLoadDone.current = true;
 
     async function loadCategories() {
-      const supabaseCats = await withSupabase(
-        () => fetchFromSupabase(),
-        [],
-        'fetch categories'
-      );
+      const apiCats = await fetchFromApi();
 
-      const supabaseIds = new Set(supabaseCats.map(c => c.id));
-      const missingDefaults = DEFAULT_CATEGORIES.filter(d => !supabaseIds.has(d.id));
-      const mergedCats = [...supabaseCats, ...missingDefaults];
+      const apiIds = new Set(apiCats.map(c => c.id));
+      const missingDefaults = DEFAULT_CATEGORIES.filter(d => !apiIds.has(d.id));
+      const mergedCats = [...apiCats, ...missingDefaults];
 
       setCategories(mergedCats);
       setIsLoaded(true);
@@ -142,7 +131,7 @@ export function usePointCategories() {
     };
 
     setCategories(prev => [...prev, newCategory]);
-    syncCreateToSupabase(newCategory);
+    syncCreateToApi(newCategory);
 
     return newCategory;
   }, [categories]);
@@ -155,7 +144,7 @@ export function usePointCategories() {
     }
 
     setCategories(prev => prev.filter(c => c.id !== categoryId));
-    syncDeleteToSupabase(categoryId);
+    syncDeleteToApi(categoryId);
 
     return true;
   }, [canDeleteCategory]);
