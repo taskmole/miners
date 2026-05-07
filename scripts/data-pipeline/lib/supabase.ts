@@ -7,6 +7,9 @@
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import ws from "ws";
+
+const wsTransport = ws as unknown as new (url: string | URL) => WebSocket;
 
 // Environment variable names
 const DEV_URL = process.env.SUPABASE_DEV_URL;
@@ -35,7 +38,9 @@ export function getDevClient(): SupabaseClient {
   }
 
   if (!devClient) {
-    devClient = createClient(DEV_URL, DEV_KEY);
+    devClient = createClient(DEV_URL, DEV_KEY, {
+      realtime: { transport: wsTransport },
+    });
   }
 
   return devClient;
@@ -54,7 +59,9 @@ export function getProdClient(): SupabaseClient {
   }
 
   if (!prodClient) {
-    prodClient = createClient(PROD_URL, PROD_KEY);
+    prodClient = createClient(PROD_URL, PROD_KEY, {
+      realtime: { transport: wsTransport },
+    });
   }
 
   return prodClient;
