@@ -459,19 +459,26 @@ async function publishListings(
       skippedValidation++;
       continue;
     }
+    // For transfer listings, Idealista puts the traspaso fee in .item-price
+    // and the monthly rent in .item-price-transfer, so we swap them here
+    // so price always means monthly rent and transfer always means the fee.
+    const isTransfer = source === SOURCES.IDEALISTA_TRANSFER;
+    const rentPrice = isTransfer ? listing.transfer : listing.price;
+    const transferFee = isTransfer ? listing.price : listing.transfer;
+
     validated.push({
       sourceId,
       name: listing.title,
       address: listing.address,
       latitude: listing.latitude,
       longitude: listing.longitude,
-      price: listing.price,
+      price: rentPrice,
       photos: listing.photos,
       metadata: {
         url: listing.url,
-        price: listing.price,
+        price: rentPrice,
         priceByArea: listing.priceByArea,
-        transfer: listing.transfer,
+        transfer: transferFee,
         size: listing.size,
         district: listing.district,
         bathrooms: listing.bathrooms,

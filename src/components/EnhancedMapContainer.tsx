@@ -1305,8 +1305,14 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             <div className="popup-price-card">
                 <div className="popup-price-top-row">
                     <div className="popup-price-main">
-                        <span className="price-amount">{property.source === "sreality" ? `${property.price.toLocaleString()} Kč` : `€${property.price.toLocaleString()}`}</span>
-                        <span className="price-period">/month</span>
+                        {property.price > 0 ? (
+                            <>
+                                <span className="price-amount">{property.source === "sreality" ? `${property.price.toLocaleString()} Kč` : `€${property.price.toLocaleString()}`}</span>
+                                <span className="price-period">/month</span>
+                            </>
+                        ) : (
+                            <span className="price-amount" style={{ fontSize: 18 }}>On request</span>
+                        )}
                     </div>
                     {priceChange && (
                         <span className={`popup-price-change ${priceChange.direction}`}>
