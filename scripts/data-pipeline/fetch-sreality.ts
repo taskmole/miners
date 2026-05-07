@@ -24,8 +24,15 @@ import * as path from "path";
 dotenv.config({ path: path.join(__dirname, "../../.env.local") });
 
 import * as readline from "readline";
-import * as cheerio from "cheerio";
 import { SOURCES, getCategoryForSreality } from "./lib/categories";
+import {
+  parseSrealityUrl,
+  buildApiUrl,
+  CATEGORY_TYPE_SLUGS,
+  CATEGORY_MAIN_SLUGS,
+  CATEGORY_SUB_SLUGS,
+} from "./config/sreality";
+import { getCity } from "./config/cities";
 import {
   getDevClient,
   getProdClient,
@@ -56,61 +63,6 @@ const CZ_BOUNDS = {
 
 // Listings containing these terms (case-insensitive) in name or description are excluded
 const BLOCKED_KEYWORDS = ["kancelář", "kanceláře"];
-
-// Sreality category codes to URL slugs
-const CATEGORY_TYPE_SLUGS: Record<number, string> = {
-  1: "prodej",
-  2: "pronajem",
-};
-
-const CATEGORY_MAIN_SLUGS: Record<number, string> = {
-  1: "byty",
-  2: "domy",
-  3: "pozemky",
-  4: "komercni",
-};
-
-const CATEGORY_SUB_SLUGS: Record<number, string> = {
-  2: "byt",
-  3: "dum",
-  4: "pozemek",
-  5: "garaz",
-  6: "pole",
-  7: "les",
-  8: "zahrada",
-  9: "chata",
-  10: "chalupa",
-  11: "vila",
-  12: "byt-1+kk",
-  18: "kancelare",
-  19: "sklad",
-  20: "vyrobni-prostor",
-  21: "obchodni-prostor",
-  22: "ubytovani",
-  23: "restaurace",
-  24: "zemedelsky-objekt",
-  25: "cinzovni-dum",
-  26: "virtualni-kancelar",
-  27: "vinny-sklep",
-  28: "obchodni-prostor",
-  29: "kancelare",
-  30: "restaurace",
-  31: "sklad",
-  32: "vyrobni-prostor",
-  33: "ubytovani",
-  34: "zemedelsky-objekt",
-  35: "cinzovni-dum",
-  36: "virtualni-kancelar",
-  37: "vinny-sklep",
-  38: "apartman",
-  39: "atelier",
-  40: "kancelare",
-  41: "restaurace",
-  42: "obchodni-prostor",
-  43: "ostatni",
-  44: "pokoj",
-  46: "garsoniera",
-};
 
 // Czech field name to English property name mapping
 const ITEM_FIELD_MAP: Record<string, string> = {
@@ -181,26 +133,37 @@ function isValidCzCoordinate(lat: number, lon: number): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 1: Scrape listing links from search page HTML
+// Phase 1: Fetch listing hash IDs via sReality JSON API
 // ---------------------------------------------------------------------------
 
-async function scrapeSearchPages(searchUrl: string): Promise<string[]> {
+async function fetchSearchViaApi(
+  searchUrl: string,
+  cityId: string
+): Promise<{ hashIds: string[]; reportedTotal: number }> {
+  const city = getCity(cityId);
+  if (!city) {
+    throw new Error(`Unknown city "${cityId}". Check config/cities.ts.`);
+  }
+  const apiParams = parseSrealityUrl(searchUrl, city.srealityRegionId);
+
+  console.log(`  API params: type=${apiParams.category_type_cb} main=${apiParams.category_main_cb} sub=${apiParams.category_sub_cb || "all"}`);
+  if (apiParams.building_condition) console.log(`  Condition filter: ${apiParams.building_condition}`);
+  if (apiParams.usable_area) console.log(`  Area filter: ${apiParams.usable_area}`);
+
   const allHashIds: Set<string> = new Set();
-  let page = 1;
+  let reportedTotal = 0;
+  let page = 0;
 
-  const baseUrl = searchUrl.replace(/[?&]strana=\d+/, "");
-  const separator = baseUrl.includes("?") ? "&" : "?";
-
-  while (true) {
-    const pageUrl = page === 1 ? baseUrl : `${baseUrl}${separator}strana=${page}`;
-    console.log(`  Page ${page}: ${pageUrl.slice(0, 80)}...`);
+  const MAX_PAGES = 100;
+  while (page < MAX_PAGES) {
+    const url = buildApiUrl(apiParams, page);
+    console.log(`  Page ${page}: fetching...`);
 
     try {
-      const res = await fetch(pageUrl, {
+      const res = await fetch(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-          "Accept": "text/html,application/xhtml+xml",
-          "Accept-Language": "cs,en;q=0.9",
+          "Accept": "application/json",
         },
       });
 
@@ -209,31 +172,30 @@ async function scrapeSearchPages(searchUrl: string): Promise<string[]> {
         break;
       }
 
-      const html = await res.text();
-      const $ = cheerio.load(html);
+      const data = await res.json();
 
-      const links: string[] = [];
-      $('a[href*="/detail/"]').each((_, el) => {
-        const href = $(el).attr("href");
-        if (href) links.push(href);
-      });
+      if (page === 0) {
+        reportedTotal = data.result_size ?? 0;
+        console.log(`  sReality reports ${reportedTotal} total results`);
+      }
 
-      const rawMatches = html.match(/\/detail\/[^"'\s]+\/(\d+)/g) || [];
+      const estates = data._embedded?.estates || [];
+      if (estates.length === 0) {
+        console.log(`  Page ${page}: 0 estates, done.`);
+        break;
+      }
 
       let newOnThisPage = 0;
-      const allLinks = [...links, ...rawMatches];
-      for (const link of allLinks) {
-        const match = link.match(/\/(\d{5,})$/);
-        if (match) {
-          const hashId = match[1];
-          if (!allHashIds.has(hashId)) {
-            allHashIds.add(hashId);
-            newOnThisPage++;
-          }
+      for (const estate of estates) {
+        if (typeof estate.hash_id !== "number") continue;
+        const hashId = String(estate.hash_id);
+        if (!allHashIds.has(hashId)) {
+          allHashIds.add(hashId);
+          newOnThisPage++;
         }
       }
 
-      console.log(`    Found ${newOnThisPage} new listings (${allHashIds.size} total)`);
+      console.log(`    ${estates.length} estates, ${newOnThisPage} new (${allHashIds.size} total)`);
 
       if (newOnThisPage === 0) {
         console.log(`  No new listings on page ${page}, done.`);
@@ -248,7 +210,11 @@ async function scrapeSearchPages(searchUrl: string): Promise<string[]> {
     }
   }
 
-  return Array.from(allHashIds);
+  if (reportedTotal > 0 && allHashIds.size < reportedTotal * 0.8) {
+    console.log(`  Warning: collected ${allHashIds.size} but sReality reported ${reportedTotal}. Possible pagination cap.`);
+  }
+
+  return { hashIds: Array.from(allHashIds), reportedTotal };
 }
 
 // ---------------------------------------------------------------------------
@@ -473,15 +439,15 @@ async function main() {
   const writeToDevFirst = !HEADLESS && config.dev;
   const writeToProd = HEADLESS && config.prod;
 
-  // Phase 1: Scrape search pages
-  console.log("\n--- Phase 1: Scraping search pages ---\n");
-  const hashIds = await scrapeSearchPages(searchUrl);
+  // Phase 1: Fetch listing IDs via JSON API
+  console.log("\n--- Phase 1: Fetching listings via API ---\n");
+  const { hashIds, reportedTotal } = await fetchSearchViaApi(searchUrl, selectedCityId);
 
   if (hashIds.length === 0) {
-    console.error("\nNo listings found on the search page. Check the URL.");
+    console.error("\nNo listings found. Check the URL and filters.");
     process.exit(1);
   }
-  console.log(`\nFound ${hashIds.length} listings total.`);
+  console.log(`\nFound ${hashIds.length} listings total (sReality reported ${reportedTotal}).`);
 
   // Phase 2: Fetch details
   console.log("\n--- Phase 2: Fetching listing details ---\n");
@@ -574,6 +540,7 @@ async function main() {
       skippedValidation,
       inactivated,
       safetyGuardTripped,
+      reportedTotal,
     });
   }
 
