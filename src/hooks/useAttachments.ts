@@ -8,8 +8,8 @@ import {
   validateFile,
   getFileCategory,
 } from '@/types/attachments';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { withRetry, logActivity } from '@/lib/supabaseHelpers';
+import { apiFetch } from '@/lib/api-client';
+import { logActivity } from '@/lib/supabaseHelpers';
 import { getCurrentUserId } from '@/lib/browser-session';
 
 const BUCKET_NAME = 'attachments';
@@ -20,26 +20,35 @@ function generateId(): string {
 }
 
 /**
- * Upload file to Supabase Storage.
+ * Upload file to Supabase Storage via a signed upload URL from the API.
  * Returns the storage path if successful, null if failed.
  */
 async function uploadToStorage(placeId: string, file: File, attachmentId: string): Promise<string | null> {
-  if (!isSupabaseConfigured() || !supabase) return null;
-
   const userId = getCurrentUserId();
   const ext = file.name.split('.').pop() || 'bin';
   const storagePath = `${userId}/${placeId}/${attachmentId}.${ext}`;
 
   try {
-    const { error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(storagePath, file, {
-        cacheControl: '3600',
-        upsert: true,
-      });
+    // Get a signed upload URL from the server
+    const urlData = await apiFetch<{ signedUrl: string; path: string; token: string }>('/api/db/attachments', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'signed_upload_url', path: storagePath }),
+    });
 
-    if (error) {
-      console.error('Error uploading to storage:', error);
+    if (!urlData?.signedUrl) {
+      console.error('Error getting signed upload URL');
+      return null;
+    }
+
+    // Upload directly to Storage using the signed URL
+    const uploadRes = await fetch(urlData.signedUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    });
+
+    if (!uploadRes.ok) {
+      console.error('Error uploading to storage:', uploadRes.statusText);
       return null;
     }
 
@@ -51,22 +60,16 @@ async function uploadToStorage(placeId: string, file: File, attachmentId: string
 }
 
 /**
- * Get a signed URL for a private file (valid for 1 hour)
+ * Get a signed URL for a private file (valid for 1 hour) via the API.
  */
 async function getSignedUrl(storagePath: string): Promise<string | null> {
-  if (!isSupabaseConfigured() || !supabase) return null;
-
   try {
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .createSignedUrl(storagePath, 3600);
+    const data = await apiFetch<{ signedUrl: string }>('/api/db/attachments', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'signed_read_url', path: storagePath }),
+    });
 
-    if (error) {
-      console.error('Error getting signed URL:', error);
-      return null;
-    }
-
-    return data.signedUrl;
+    return data?.signedUrl || null;
   } catch (error) {
     console.error('Error getting signed URL:', error);
     return null;
@@ -74,82 +77,76 @@ async function getSignedUrl(storagePath: string): Promise<string | null> {
 }
 
 /**
- * Delete file from Supabase Storage
+ * Delete file metadata and storage via the API.
  */
-async function deleteFromStorage(storagePath: string): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
+async function deleteAttachment(attachmentId: string, storagePath?: string): Promise<void> {
   try {
-    await supabase.storage.from(BUCKET_NAME).remove([storagePath]);
+    await apiFetch('/api/db/attachments', {
+      method: 'DELETE',
+      body: JSON.stringify({ id: attachmentId, storage_path: storagePath || null }),
+    });
   } catch (error) {
-    console.error('Error deleting from storage:', error);
+    console.error('Error deleting attachment:', error);
   }
 }
 
 /**
- * Fetch attachment metadata for a single POI from the poi_attachments table.
+ * Fetch attachment metadata for a single POI from the API.
  */
-async function fetchAttachmentsFromSupabase(placeId: string): Promise<Attachment[]> {
-  if (!isSupabaseConfigured() || !supabase) return [];
+async function fetchAttachmentsFromApi(placeId: string): Promise<Attachment[]> {
+  try {
+    const data = await apiFetch<Array<{
+      id: string;
+      place_id: string;
+      name: string;
+      type: string;
+      storage_path: string | null;
+      size: number | null;
+      added_at: string;
+      uploaded_by: string | null;
+      uploaded_by_name: string | null;
+    }>>(`/api/db/attachments?place_id=${encodeURIComponent(placeId)}`);
 
-  const { data, error } = await supabase
-    .from('poi_attachments')
-    .select('id, place_id, name, type, storage_path, size, added_at, uploaded_by, uploaded_by_name')
-    .eq('place_id', placeId);
-
-  if (error) {
-    console.error('Error fetching attachments from Supabase:', error);
+    return (data || []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      data: '', // No base64 data; files live in Storage
+      storagePath: row.storage_path || undefined,
+      size: row.size || 0,
+      addedAt: row.added_at,
+      uploadedBy: row.uploaded_by || undefined,
+      uploadedByName: row.uploaded_by_name || 'Guest',
+    }));
+  } catch (error) {
+    console.error('Error fetching attachments:', error);
     return [];
   }
-
-  return (data || []).map((row) => ({
-    id: row.id,
-    name: row.name,
-    type: row.type,
-    data: '', // No base64 data; files live in Storage
-    storagePath: row.storage_path || undefined,
-    size: row.size || 0,
-    addedAt: row.added_at,
-    uploadedBy: row.uploaded_by || undefined,
-    uploadedByName: row.uploaded_by_name || 'Guest',
-  }));
 }
 
 /**
- * Write attachment metadata to the poi_attachments table (with retry).
+ * Write attachment metadata to the API (with retry built into apiFetch).
  */
-async function writeMetadataToSupabase(placeId: string, attachment: Attachment): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
+async function writeMetadataToApi(placeId: string, attachment: Attachment): Promise<void> {
   const userId = getCurrentUserId();
 
-  await withRetry(async () => {
-    const { error } = await supabase!.from('poi_attachments').upsert({
-      id: attachment.id,
-      place_id: placeId,
-      name: attachment.name,
-      type: attachment.type,
-      storage_path: attachment.storagePath || null,
-      size: attachment.size,
-      added_at: attachment.addedAt,
-      uploaded_by: userId,
-      uploaded_by_name: attachment.uploadedByName || 'Guest',
-    }, { onConflict: 'id' });
-
-    if (error) throw error;
-  }, 'write attachment metadata');
-}
-
-/**
- * Delete attachment metadata from the poi_attachments table (with retry).
- */
-async function deleteMetadataFromSupabase(attachmentId: string): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-
-  await withRetry(async () => {
-    const { error } = await supabase!.from('poi_attachments').delete().eq('id', attachmentId);
-    if (error) throw error;
-  }, 'delete attachment metadata');
+  await apiFetch('/api/db/attachments', {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'upsert_metadata',
+      row: {
+        id: attachment.id,
+        place_id: placeId,
+        name: attachment.name,
+        type: attachment.type,
+        storage_path: attachment.storagePath || null,
+        size: attachment.size,
+        added_at: attachment.addedAt,
+        uploaded_by: userId,
+        uploaded_by_name: attachment.uploadedByName || 'Guest',
+      },
+    }),
+  });
 }
 
 // Generate a thumbnail for an image (used in the upload success path)
@@ -196,37 +193,37 @@ async function generateThumbnail(file: File): Promise<string> {
 /**
  * Hook for managing POI attachments.
  *
- * Files are uploaded to Supabase Storage bucket.
- * Metadata is stored in the poi_attachments table.
- * Signed URLs are generated for viewing private files.
- * Attachments are lazy-loaded per place_id from Supabase.
+ * Files are uploaded to Supabase Storage via signed upload URLs from the API.
+ * Metadata is stored via the /api/db/attachments route.
+ * Signed URLs are generated via the API for viewing private files.
+ * Attachments are lazy-loaded per place_id from the API.
  */
 export function useAttachments() {
   const [state, setState] = useState<PoiAttachmentsState>({ version: POI_ATTACHMENTS_VERSION, attachments: {} });
   const [isLoaded, setIsLoaded] = useState(false);
   const initialLoadDone = useRef(false);
-  const fetchedFromSupabase = useRef<Set<string>>(new Set());
+  const fetchedFromApi = useRef<Set<string>>(new Set());
 
-  // On mount: mark as loaded (attachments lazy-load per POI from Supabase)
+  // On mount: mark as loaded (attachments lazy-load per POI from API)
   useEffect(() => {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
     setIsLoaded(true);
   }, []);
 
-  // Get attachments for a specific POI (lazy-loads from Supabase)
+  // Get attachments for a specific POI (lazy-loads from API)
   const getPoiAttachments = useCallback((placeId: string): Attachment[] => {
-    // Lazy fetch from Supabase if not already done for this POI
-    if (!fetchedFromSupabase.current.has(placeId)) {
-      fetchedFromSupabase.current.add(placeId);
+    // Lazy fetch from API if not already done for this POI
+    if (!fetchedFromApi.current.has(placeId)) {
+      fetchedFromApi.current.add(placeId);
 
       // Async fetch and merge (same pattern as usePoiComments)
-      fetchAttachmentsFromSupabase(placeId).then((supabaseAttachments) => {
-        if (supabaseAttachments.length > 0) {
+      fetchAttachmentsFromApi(placeId).then((apiAttachments) => {
+        if (apiAttachments.length > 0) {
           setState(prev => {
             const localAttachments = prev.attachments[placeId] || [];
             const localIds = new Set(localAttachments.map(a => a.id));
-            const newAttachments = supabaseAttachments.filter(a => !localIds.has(a.id));
+            const newAttachments = apiAttachments.filter(a => !localIds.has(a.id));
 
             if (newAttachments.length > 0) {
               return {
@@ -268,7 +265,7 @@ export function useAttachments() {
         thumbnailData = await generateThumbnail(file);
       }
 
-      // Upload to Supabase Storage
+      // Upload to Supabase Storage via signed URL
       const storagePath = await uploadToStorage(placeId, file, attachmentId);
 
       if (!storagePath) {
@@ -300,9 +297,9 @@ export function useAttachments() {
         },
       }));
 
-      // Write metadata to Supabase table (async, non-blocking)
-      writeMetadataToSupabase(placeId, attachment).catch((err) => {
-        console.error('Failed to write attachment metadata to Supabase:', err);
+      // Write metadata to API (async, non-blocking)
+      writeMetadataToApi(placeId, attachment).catch((err) => {
+        console.error('Failed to write attachment metadata:', err);
       });
 
       // Log to activity feed
@@ -331,14 +328,9 @@ export function useAttachments() {
     const attachments = state.attachments[placeId] || [];
     const attachment = attachments.find(att => att.id === attachmentId);
 
-    // Delete from Supabase Storage if it has a storage path
-    if (attachment?.storagePath) {
-      deleteFromStorage(attachment.storagePath);
-    }
-
-    // Delete metadata from Supabase table
-    deleteMetadataFromSupabase(attachmentId).catch((err) => {
-      console.error('Failed to delete attachment metadata from Supabase:', err);
+    // Delete metadata and storage via API
+    deleteAttachment(attachmentId, attachment?.storagePath).catch((err) => {
+      console.error('Failed to delete attachment:', err);
     });
 
     setState(prev => ({

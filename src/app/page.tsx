@@ -31,6 +31,7 @@ import { SheetProvider } from "@/contexts/SheetContext";
 import { WalkingRadiusProvider } from "@/contexts/WalkingRadiusContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { ShapeDataProvider } from "@/contexts/ShapeDataContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
 import { supabase } from "@/lib/supabase";
 import { setAuthUserId } from "@/lib/browser-session";
@@ -401,26 +402,28 @@ function HomeContent() {
 // Main component with providers
 export default function Home() {
   return (
-    <WalkingRadiusProvider>
-      <GeoDataProvider>
-        <PointCategoriesProvider>
-          <ListsProvider>
-            <HiddenPoisProvider>
-              <ScoutingTripsProvider>
-                <LinkingProvider>
-                  <SheetProvider>
-                    <ToastProvider>
-                      <ShapeDataProvider>
-                        <HomeContent />
-                      </ShapeDataProvider>
-                    </ToastProvider>
-                  </SheetProvider>
-                </LinkingProvider>
-              </ScoutingTripsProvider>
-            </HiddenPoisProvider>
-          </ListsProvider>
-        </PointCategoriesProvider>
-      </GeoDataProvider>
-    </WalkingRadiusProvider>
+    <AuthProvider>
+      <WalkingRadiusProvider>
+        <GeoDataProvider>
+          <PointCategoriesProvider>
+            <ListsProvider>
+              <HiddenPoisProvider>
+                <ScoutingTripsProvider>
+                  <LinkingProvider>
+                    <SheetProvider>
+                      <ToastProvider>
+                        <ShapeDataProvider>
+                          <HomeContent />
+                        </ShapeDataProvider>
+                      </ToastProvider>
+                    </SheetProvider>
+                  </LinkingProvider>
+                </ScoutingTripsProvider>
+              </HiddenPoisProvider>
+            </ListsProvider>
+          </PointCategoriesProvider>
+        </GeoDataProvider>
+      </WalkingRadiusProvider>
+    </AuthProvider>
   );
 }

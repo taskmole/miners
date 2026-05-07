@@ -2,22 +2,27 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import type { ShapeMetadata, ShapeComment } from '@/types/draw';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api-client';
 import { getCurrentUserId } from '@/lib/browser-session';
 import type { Attachment } from '@/types/attachments';
 
-async function loadMetadataFromSupabase(): Promise<Record<string, ShapeMetadata> | null> {
-  if (!isSupabaseConfigured() || !supabase) return null;
-
+async function loadMetadataFromApi(): Promise<Record<string, ShapeMetadata> | null> {
   try {
     const userId = getCurrentUserId();
+    const data = await apiFetch<Array<{
+      id: string;
+      name: string | null;
+      color: string | null;
+      tags: string[] | null;
+      link: string | null;
+      category_id: string | null;
+      address: string | null;
+      address_coords: [number, number] | null;
+      created_by: string | null;
+      attachments: Attachment[] | null;
+    }>>(`/api/db/drawn-features?user_id=${encodeURIComponent(userId)}`);
 
-    const { data, error } = await supabase
-      .from('drawn_features')
-      .select('id, name, color, tags, link, category_id, address, address_coords, created_by, attachments')
-      .eq('user_id', userId);
-
-    if (error || !data) return null;
+    if (!data) return null;
 
     const result: Record<string, ShapeMetadata> = {};
     for (const row of data) {
@@ -35,22 +40,18 @@ async function loadMetadataFromSupabase(): Promise<Record<string, ShapeMetadata>
     }
     return result;
   } catch (error) {
-    console.error('Error loading metadata from Supabase:', error);
+    console.error('Error loading metadata from API:', error);
     return null;
   }
 }
 
 async function loadCommentsForShape(shapeId: string): Promise<ShapeComment[]> {
-  if (!isSupabaseConfigured() || !supabase) return [];
-
   try {
-    const { data, error } = await supabase
-      .from('comments')
-      .select('id, content, created_at')
-      .eq('entity_type', 'drawn_feature')
-      .eq('entity_id', shapeId);
+    const data = await apiFetch<any[]>(
+      `/api/db/comments?entity_type=drawn_feature&entity_id=${encodeURIComponent(shapeId)}`
+    );
 
-    if (error || !data) return [];
+    if (!data) return [];
 
     return data.map(row => ({
       id: row.id,
@@ -58,7 +59,7 @@ async function loadCommentsForShape(shapeId: string): Promise<ShapeComment[]> {
       createdAt: row.created_at,
     }));
   } catch (error) {
-    console.error('Error loading comments from Supabase:', error);
+    console.error('Error loading comments:', error);
     return [];
   }
 }
@@ -86,7 +87,7 @@ export function ShapeDataProvider({ children }: { children: ReactNode }) {
     initialLoadDone.current = true;
 
     async function load() {
-      const sbMetadata = await loadMetadataFromSupabase();
+      const sbMetadata = await loadMetadataFromApi();
       if (sbMetadata && Object.keys(sbMetadata).length > 0) {
         setAllMetadata(sbMetadata);
       }

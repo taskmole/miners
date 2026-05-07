@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, Download, RefreshCw } from 'lucide-react';
 import { useUserProfiles } from '@/hooks/useUserProfiles';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api-client';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -434,21 +434,16 @@ function AdminContent() {
 
   const handleApprove = async (pitchId: string) => {
     setActionError(null);
-    if (!isSupabaseConfigured() || !supabase) {
-      setActionError('Database not configured');
-      return;
-    }
     try {
-      const { error } = await supabase
-        .from('pitches')
-        .update({
+      await apiFetch('/api/db/pitches', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          id: pitchId,
           status: 'approved',
           reviewed_by: 'Admin',
           final_reviewed_at: new Date().toISOString(),
-        })
-        .eq('id', pitchId);
-
-      if (error) throw error;
+        }),
+      });
       refetchSubmissions();
     } catch {
       setActionError('Failed to approve');
@@ -461,22 +456,17 @@ function AdminContent() {
       setActionError('Please enter rejection notes');
       return;
     }
-    if (!isSupabaseConfigured() || !supabase) {
-      setActionError('Database not configured');
-      return;
-    }
     try {
-      const { error } = await supabase
-        .from('pitches')
-        .update({
+      await apiFetch('/api/db/pitches', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          id: pitchId,
           status: 'rejected',
           rejection_notes: rejectNotes,
           reviewed_by: 'Admin',
           final_reviewed_at: new Date().toISOString(),
-        })
-        .eq('id', pitchId);
-
-      if (error) throw error;
+        }),
+      });
       setRejectingId(null);
       setRejectNotes('');
       refetchSubmissions();
