@@ -11,6 +11,7 @@ import {
   useEffect,
   useId,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -460,6 +461,7 @@ function MarkerPopup({
   const { marker, map } = useMarkerContext();
   const container = useMemo(() => document.createElement("div"), []);
   const prevPopupOptions = useRef(popupOptions);
+  const [isOpen, setIsOpen] = useState(false);
 
   const popup = useMemo(() => {
     const popupInstance = new MapLibreGL.Popup({
@@ -482,12 +484,19 @@ function MarkerPopup({
     popup.setDOMContent(container);
     marker.setPopup(popup);
 
-    // Listen for popup close event (triggered by clicking elsewhere or close button)
-    const handlePopupClose = () => onClose?.();
+    const handlePopupOpen = () => setIsOpen(true);
+    const handlePopupClose = () => {
+      setIsOpen(false);
+      onClose?.();
+    };
+
+    popup.on("open", handlePopupOpen);
     popup.on("close", handlePopupClose);
 
     return () => {
+      popup.off("open", handlePopupOpen);
       popup.off("close", handlePopupClose);
+      setIsOpen(false);
       marker.setPopup(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -522,7 +531,7 @@ function MarkerPopup({
         className
       )}
     >
-      {closeButton && (
+      {isOpen && closeButton && (
         <button
           type="button"
           onClick={handleClose}
@@ -533,7 +542,7 @@ function MarkerPopup({
           <span className="sr-only">Close</span>
         </button>
       )}
-      {children}
+      {isOpen && children}
     </div>,
     container
   );
@@ -904,7 +913,9 @@ function MapPopup({
 
   usePopupAutoPan(map, popup);
 
-  useEffect(() => {
+  // useLayoutEffect ensures the container is in the document before the browser
+  // processes image loads (prevents onError firing for imgs in detached DOM)
+  useLayoutEffect(() => {
     if (!map) return;
 
     const onCloseProp = () => onClose?.();
