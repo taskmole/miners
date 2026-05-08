@@ -1166,7 +1166,7 @@ function getPriceChange(property: PropertyData): { direction: "up" | "down"; per
     if (percent < 0.5) return null;
     return {
         direction: property.price > lastOldPrice ? "up" : "down",
-        percent: Math.min(percent, 99),
+        percent,
     };
 }
 
@@ -1213,6 +1213,9 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
 
     React.useEffect(() => { setPhotoIndex(0); }, [property.latitude, property.longitude]);
 
+    const [imgError, setImgError] = React.useState(false);
+    React.useEffect(() => { setImgError(false); }, [safeIndex, property.latitude, property.longitude]);
+
     const [activeTooltip, setActiveTooltip] = React.useState<string | null>(null);
     React.useEffect(() => {
         if (!activeTooltip) return;
@@ -1233,7 +1236,11 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             {/* Image section with carousel */}
             {photos.length > 0 && (
                 <div className="popup-image medium">
-                    <img src={photos[safeIndex]} alt={property.title} />
+                    {imgError ? (
+                        <div className="popup-image-placeholder">No photo available</div>
+                    ) : (
+                        <img src={photos[safeIndex]} alt={property.title} onError={() => setImgError(true)} />
+                    )}
                     <div className="image-badges">
                         {typeof property.score === "number" && (
                             <span className="score-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "score" ? null : "score"); }}>
@@ -1315,9 +1322,10 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                         )}
                     </div>
                     {priceChange && (
-                        <span className={`popup-price-change ${priceChange.direction}`}>
+                        <span className={`popup-price-change ${priceChange.direction}`} onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "priceChange" ? null : "priceChange"); }}>
                             {priceChange.direction === "down" ? <TrendingDown size={13} /> : <TrendingUp size={13} />}
-                            {priceChange.percent >= 99 ? ">99" : priceChange.percent.toFixed(1)}%
+                            {priceChange.percent >= 10 ? Math.round(priceChange.percent) : priceChange.percent.toFixed(1)}%
+                            <span className={`badge-tooltip badge-tooltip-right ${activeTooltip === "priceChange" ? "visible" : ""}`}>Price changed since last data refresh</span>
                         </span>
                     )}
                     {property.transfer && (
