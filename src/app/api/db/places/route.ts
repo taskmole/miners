@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         const supabase = createPublicServerSupabase();
         const { data, error } = await supabase
             .from("places")
-            .select("name, address, location, source, metadata, photos, updated_at")
+            .select("name, address, location, source, metadata, photos, updated_at, created_at")
             .eq("city_id", cityId)
             .in("source", ["idealista", "idealista_transfer", "sreality"])
             .eq("status", "active");
@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
                     hasStorefront: meta.hasStorefront === true,
                     image_url: p.photos?.[0] || undefined,
                     priceHistory: meta.price_history || undefined,
+                    createdAt: p.created_at || undefined,
                     updatedAt: p.updated_at || undefined,
                     photos: p.photos?.length ? p.photos : undefined,
                 };
