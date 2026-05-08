@@ -56,7 +56,11 @@ I'm not technical - I don't read or understand code.
 # Quick Commands
 When the user types any of these, immediately execute the action - no questions asked:
 - **`.help`** → List all available quick commands with descriptions. Just print the table below, nothing else.
-- **`.3`** → Kill anything on port 3000, then run `npm run dev` in the background. Confirm it started.
+- **`.3`** → Start the dev server on the first available port. Steps:
+  1. Check ports 3000-3009 and pick the first one not in use
+  2. If this is the main repo (not a worktree), prefer port 3000: kill anything on 3000 first, then use it
+  3. Run `PORT={port} npm run dev` in the background
+  4. Confirm it started and print the URL with the actual port number
 - **`.p`** → Prep for shipping. Run in this exact order:
   1. Run `/simplify` on all changed files to clean up the code
   2. Run `npm run build` to verify nothing broke
@@ -71,6 +75,7 @@ When the user types any of these, immediately execute the action - no questions 
   4. Switch back to the previous branch and merge main into it so the working branch stays up to date
   5. Check the Vercel deployment status and confirm the production build succeeded (or report any errors)
   6. If this folder is a git worktree (not the main repo), clean it up: switch back to the main repo folder, run `git worktree remove` on this folder, and confirm cleanup
+  7. After pushing main, check for other active worktrees (`git worktree list`). For each one, run `git -C {worktree_path} merge origin/main` to bring them up to date. Report which worktrees were synced and any merge conflicts.
   If already on `main`, skip steps 3-4 and just commit + push main directly.
 - **`.t`** → Deep testing. Run `/qa` (full QA with headless browser) and a parallel codebase audit (dead code, type safety, component complexity, CSS issues). Combine everything into one prioritized summary with a health score.
 - **`.ceo`** → First read `docs/product-spec-v1.md` to ground yourself in the product goals, non-goals, and build sequence. Then run `/plan-ceo-review` on the current plan. Challenge assumptions against the spec, push for a better product, ask if this is the best version of the idea.
@@ -81,8 +86,8 @@ When the user types any of these, immediately execute the action - no questions 
   1. Create a new branch `feat/feature-name` from the current `main`
   2. Run `git worktree add "../Miners Location Scout NEW-feature-name" feat/feature-name`
   3. Print the full path to the new folder so the user can open a new conversation there
-  4. Remind the user: "Open a new Claude Code conversation in that folder to start working."
-- **`.kill`** → Kill the local dev server. If port numbers are given (e.g. `.kill 3000 3001`), only kill those. If no port is given, kill all ports used by this project (3000, 3001, etc.). Confirm what was stopped.
+  4. Remind the user: "Open a new Claude Code conversation in that folder to start working. Run `.3` there to start the dev server (it auto-picks a free port)."
+- **`.kill`** → Kill the local dev server. If port numbers are given (e.g. `.kill 3000 3001`), only kill those. If no port is given, scan ports 3000-3009, kill all that have a process, and confirm what was stopped.
 
 # Available Tools & Skills
 - Code simplifier plugin
