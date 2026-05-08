@@ -4,8 +4,9 @@
 // No API key needed.
 //
 // Outputs:
-//   public/data/osm_pois_prague.csv   - train stations, universities, shopping centers, dorms
+//   public/data/osm_pois_prague.csv   - train stations, universities, shopping, dorms, coworking, high streets
 //   public/data/metro_prague.geojson  - metro stations (separate, same shape as madrid metro.geojson)
+//   public/data/gyms_prague.csv       - gyms (same column format as gyms_madrid.csv)
 //
 // Usage: npm run fetch:osm-pois
 
@@ -30,6 +31,10 @@ const QUERY = `
   way["shop"="mall"](${BBOX});
   node["building"="dormitory"](${BBOX});
   way["building"="dormitory"](${BBOX});
+  node["leisure"="fitness_centre"](${BBOX});
+  way["leisure"="fitness_centre"](${BBOX});
+  node["amenity"="coworking_space"](${BBOX});
+  way["amenity"="coworking_space"](${BBOX});
 );
 out center;
 `;
@@ -50,6 +55,16 @@ interface CsvRow {
   lon: number;
   address: string;
   mapsUrl: string;
+}
+
+interface GymRow {
+  name: string;
+  address: string;
+  lat: number;
+  lon: number;
+  website: string;
+  googleMapsUrl: string;
+  fetchedAt: string;
 }
 
 interface GeoJsonFeature {
@@ -109,8 +124,10 @@ async function main() {
   console.log(`Got ${elements.length} raw elements from Overpass`);
 
   const csvRows: CsvRow[] = [];
+  const gymRows: GymRow[] = [];
   const metroFeatures: GeoJsonFeature[] = [];
   const seen = new Set<string>();
+  const fetchedAt = new Date().toISOString();
 
   for (const el of elements) {
     const coords = getCoords(el);
@@ -205,6 +222,56 @@ async function main() {
         });
       }
     }
+
+    // Gyms (filter out Czech "gymnázium" = grammar school, not a gym)
+    if (tags.leisure === "fitness_centre" && name && !name.toLowerCase().includes("gymnázium") && !name.toLowerCase().includes("gymnazium")) {
+      const key = `gym:${name}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        gymRows.push({
+          name,
+          address: getAddress(tags),
+          lat: coords.lat,
+          lon: coords.lon,
+          website: tags.website || "",
+          googleMapsUrl: googleMapsUrl(coords.lat, coords.lon),
+          fetchedAt,
+        });
+      }
+    }
+
+    // Coworking spaces (mapped as "Office Center" in the app)
+    if (tags.amenity === "coworking_space" && name) {
+      const key = `cowork:${name}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        csvRows.push({
+          category: "Office Center",
+          name,
+          lat: coords.lat,
+          lon: coords.lon,
+          address: getAddress(tags),
+          mapsUrl: googleMapsUrl(coords.lat, coords.lon),
+        });
+      }
+    }
+  }
+
+  // Manually curated high streets
+  const highStreets = [
+    { name: "Pařížská", lat: 50.0896964, lon: 14.4192367 },
+    { name: "Na Příkopě", lat: 50.08556, lon: 14.425694 },
+    { name: "Václavské náměstí", lat: 50.07550, lon: 14.42316 },
+  ];
+  for (const hs of highStreets) {
+    csvRows.push({
+      category: "High Street",
+      name: hs.name,
+      lat: hs.lat,
+      lon: hs.lon,
+      address: "",
+      mapsUrl: googleMapsUrl(hs.lat, hs.lon),
+    });
   }
 
   // Write CSV (same format as Madrid's other.csv)
@@ -229,6 +296,15 @@ async function main() {
   fs.writeFileSync(geojsonPath, JSON.stringify(geojson, null, 2) + "\n");
   console.log(`Wrote ${metroFeatures.length} metro stations to metro_prague.geojson`);
 
+  // Write gym CSV (same columns as gyms_madrid.csv)
+  const gymHeader = "name,address,lat,lon,rating,reviewCount,website,openingHours,source_id,category,primaryType,fetchedAt,googleMapsUrl";
+  const gymLines = gymRows.map(g =>
+    [escapeCsv(g.name), escapeCsv(g.address), g.lat, g.lon, "", "", escapeCsv(g.website), "", "", "Gym", "fitness_center", g.fetchedAt, escapeCsv(g.googleMapsUrl)].join(",")
+  );
+  const gymPath = path.join(outDir, "gyms_prague.csv");
+  fs.writeFileSync(gymPath, [gymHeader, ...gymLines].join("\n") + "\n");
+  console.log(`Wrote ${gymRows.length} gyms to gyms_prague.csv`);
+
   // Print summary
   const counts = new Map<string, number>();
   for (const r of csvRows) {
@@ -236,8 +312,9 @@ async function main() {
   }
   console.log("\nSummary:");
   console.log(`  Metro stations: ${metroFeatures.length} (GeoJSON)`);
+  console.log(`  Gyms: ${gymRows.length} (gyms_prague.csv)`);
   for (const [cat, count] of counts) {
-    console.log(`  ${cat}: ${count} (CSV)`);
+    console.log(`  ${cat}: ${count} (osm_pois_prague.csv)`);
   }
 }
 
