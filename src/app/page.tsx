@@ -37,7 +37,7 @@ import { setAuthUserId } from "@/lib/browser-session";
 import { migrateAnonymousData } from "@/lib/supabaseHelpers";
 import type { User } from "@supabase/supabase-js";
 import type { ScoutingTrip, LinkedItem } from "@/types/scouting";
-import type { EuctFilter } from "@/types/filters";
+import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter } from "@/types/filters";
 
 // Default active filters - empty (Miners cafes are always shown separately)
 const DEFAULT_FILTERS = new Set<string>([]);
@@ -132,6 +132,9 @@ function HomeContent() {
   const [ratingFilter, setRatingFilter] = useState(0);
   const [scoreFilter, setScoreFilter] = useState(0);
   const [euctFilter, setEuctFilter] = useState<EuctFilter>("all");
+  const [propertyPostedFilter, setPropertyPostedFilter] = useState<PropertyPostedFilter>("all");
+  const [propertyTransferFilter, setPropertyTransferFilter] = useState<PropertyTransferFilter>("all");
+  const [propertyPriceChangeFilter, setPropertyPriceChangeFilter] = useState<PropertyPriceChangeFilter>("all");
   const [showHiddenPois, setShowHiddenPois] = useState(false);
   const [showNewOnly, setShowNewOnly] = useState(false);
 
@@ -262,6 +265,9 @@ function HomeContent() {
           showHiddenPois={showHiddenPois}
           showNewOnly={showNewOnly}
           gravityEnabled={gravityEnabled}
+          propertyPostedFilter={propertyPostedFilter}
+          propertyTransferFilter={propertyTransferFilter}
+          propertyPriceChangeFilter={propertyPriceChangeFilter}
         />
       </div>
 
@@ -307,6 +313,12 @@ function HomeContent() {
             onShowNewOnlyToggle={setShowNewOnly}
             gravityEnabled={gravityEnabled}
             onGravityToggle={setGravityEnabled}
+            propertyPostedFilter={propertyPostedFilter}
+            onPropertyPostedFilterChange={setPropertyPostedFilter}
+            propertyTransferFilter={propertyTransferFilter}
+            onPropertyTransferFilterChange={setPropertyTransferFilter}
+            propertyPriceChangeFilter={propertyPriceChangeFilter}
+            onPropertyPriceChangeFilterChange={setPropertyPriceChangeFilter}
           />
           <ActivityLog />
           <ListsPanel

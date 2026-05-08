@@ -27,10 +27,10 @@ import { CreateTripButton } from "@/components/CreateTripButton";
 import { PopupActionBar } from "@/components/PopupActionBar";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import type { PlaceInfo } from "@/types/lists";
-import type { EuctFilter } from "@/types/filters";
+import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter } from "@/types/filters";
 import { TrafficValueCard } from "@/components/TrafficValueCard";
-import { isRecentlyAdded } from "@/lib/dateUtils";
-import { useMapData, CafeData, PropertyData, OtherPoiData, LocationData } from "@/hooks/useMapData";
+import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
+import { useMapData, CafeData, PropertyData, OtherPoiData, LocationData, hasChangedPrice } from "@/hooks/useMapData";
 import { useOverlayData } from "@/hooks/useOverlayData";
 import { useAttachments } from "@/hooks/useAttachments";
 import { useWalkingRadius } from "@/contexts/WalkingRadiusContext";
@@ -1853,6 +1853,9 @@ interface EnhancedMapContainerProps {
     showHiddenPois?: boolean;
     showNewOnly?: boolean;
     gravityEnabled?: boolean;
+    propertyPostedFilter?: PropertyPostedFilter;
+    propertyTransferFilter?: PropertyTransferFilter;
+    propertyPriceChangeFilter?: PropertyPriceChangeFilter;
 }
 
 export function EnhancedMapContainer({
@@ -1873,6 +1876,9 @@ export function EnhancedMapContainer({
     showHiddenPois = false,
     showNewOnly = false,
     gravityEnabled = false,
+    propertyPostedFilter = "all",
+    propertyTransferFilter = "all",
+    propertyPriceChangeFilter = "all",
 }: EnhancedMapContainerProps) {
     const { cafes, properties, otherPois, isLoading, error, retry } = useMapData(selectedCity?.id);
     const {
@@ -1975,11 +1981,20 @@ export function EnhancedMapContainer({
 
     const visibleProperties = useMemo(() => {
         const base = isLinkingMode || showHiddenPois || activeFilters.has("property") ? properties : [];
-        if (scoreFilter <= 0) return base;
-        // Keep properties without a score (no gravity data for this city) so the
-        // slider is a no-op there. Otherwise require score >= threshold.
-        return base.filter(p => p.score === undefined || p.score >= scoreFilter);
-    }, [properties, activeFilters, isLinkingMode, showHiddenPois, scoreFilter]);
+        return base.filter(p => {
+            if (scoreFilter > 0 && p.score !== undefined && p.score < scoreFilter) return false;
+            if (propertyPostedFilter === "last7days" && !isNewPoi(p.createdAt, 7)) return false;
+            if (propertyPostedFilter === "over7days" && isNewPoi(p.createdAt, 7)) return false;
+            if (propertyTransferFilter === "yes" && !(p.transfer && p.transfer > 0)) return false;
+            if (propertyTransferFilter === "no" && p.transfer && p.transfer > 0) return false;
+            if (propertyPriceChangeFilter !== "all") {
+                const changed = hasChangedPrice(p);
+                if (propertyPriceChangeFilter === "yes" && !changed) return false;
+                if (propertyPriceChangeFilter === "no" && changed) return false;
+            }
+            return true;
+        });
+    }, [properties, activeFilters, isLinkingMode, showHiddenPois, scoreFilter, propertyPostedFilter, propertyTransferFilter, propertyPriceChangeFilter]);
 
     const visibleOtherPois = useMemo(
         () => (isLinkingMode || showHiddenPois) ? otherPois : otherPois.filter((poi) => activeFilters.has(poi.type)),
