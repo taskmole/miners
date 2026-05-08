@@ -11,6 +11,7 @@ import { ScoutingTripUpload } from "@/components/ScoutingTripUpload";
 import { ScoutingTripDetail } from "@/components/ScoutingTripDetail";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { FootfallTimePicker } from "@/components/FootfallTimePicker";
+import { FeedbackButton } from "@/components/FeedbackButton";
 import { EnhancedMapContainer } from "@/components/EnhancedMapContainer";
 import { LandingPage } from "@/components/LandingPage";
 import { CityPicker } from "@/components/CityPicker";
@@ -332,6 +333,7 @@ function HomeContent() {
             onTrafficHourChange={setTrafficHour}
           />
           <MobileBottomNav />
+          <FeedbackButton selectedCity={selectedCity} user={user} />
         </>
       )}
 
