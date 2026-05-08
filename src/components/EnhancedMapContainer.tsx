@@ -2177,6 +2177,9 @@ export function EnhancedMapContainer({
         coordinates: [number, number];
     } | null>(null);
 
+    // Saved coordinates for returning to disambiguation after closing a detail popup
+    const [savedDisambiguationCoords, setSavedDisambiguationCoords] = useState<[number, number] | null>(null);
+
     // Track whether to show icons (zoomed in) or clusters (zoomed out)
     const [showIcons, setShowIcons] = useState(false);
 
@@ -2217,6 +2220,7 @@ export function EnhancedMapContainer({
         }
 
         const colocated = getColocatedPois(lat, lon);
+        setSavedDisambiguationCoords(null);
 
         if (colocated.length > 1) {
             // Multiple POIs at this location - show disambiguation
@@ -2233,6 +2237,10 @@ export function EnhancedMapContainer({
 
     // Handle selection from disambiguation popup
     const handleDisambiguationSelect = React.useCallback((poi: LocationData) => {
+        // Save coordinates so we can return to disambiguation after detail popup closes
+        if (disambiguationData) {
+            setSavedDisambiguationCoords(disambiguationData.coordinates);
+        }
         // Close disambiguation popup
         setDisambiguationData(null);
 
@@ -2256,6 +2264,28 @@ export function EnhancedMapContainer({
                 coordinates: [otherPoi.lon, otherPoi.lat]
             });
         }
+    }, [disambiguationData]);
+
+    // Close detail popup and return to disambiguation menu if opened from one
+    const handleDetailPopupClose = React.useCallback(() => {
+        setSelectedCafe(null);
+        setSelectedProperty(null);
+        setSelectedPoi(null);
+
+        if (savedDisambiguationCoords) {
+            const [lon, lat] = savedDisambiguationCoords;
+            const colocated = getColocatedPois(lat, lon);
+            if (colocated.length > 1) {
+                setDisambiguationData({ pois: colocated, coordinates: savedDisambiguationCoords });
+            }
+            setSavedDisambiguationCoords(null);
+        }
+    }, [savedDisambiguationCoords, getColocatedPois]);
+
+    // Dismiss disambiguation menu and clear saved coordinates
+    const handleDisambiguationClose = React.useCallback(() => {
+        setDisambiguationData(null);
+        setSavedDisambiguationCoords(null);
     }, []);
 
     // Helper to parse coordinates from placeId (handles negative numbers)
@@ -2280,6 +2310,7 @@ export function EnhancedMapContainer({
             coordsMatch(cafe.lat, coords.lat) && coordsMatch(cafe.lon, coords.lon)
         );
         if (matchingCafe) {
+            setSavedDisambiguationCoords(null);
             setSelectedCafe({
                 cafe: matchingCafe,
                 coordinates: [matchingCafe.lon, matchingCafe.lat]
@@ -2295,6 +2326,7 @@ export function EnhancedMapContainer({
             coordsMatch(p.latitude, coords.lat) && coordsMatch(p.longitude, coords.lon)
         );
         if (matchingProperty) {
+            setSavedDisambiguationCoords(null);
             setSelectedProperty({
                 property: matchingProperty,
                 coordinates: [matchingProperty.longitude, matchingProperty.latitude]
@@ -2310,6 +2342,7 @@ export function EnhancedMapContainer({
             coordsMatch(poi.lat, coords.lat) && coordsMatch(poi.lon, coords.lon)
         );
         if (matchingPoi) {
+            setSavedDisambiguationCoords(null);
             setSelectedPoi({
                 poi: matchingPoi,
                 coordinates: [matchingPoi.lon, matchingPoi.lat]
@@ -2798,11 +2831,11 @@ export function EnhancedMapContainer({
                     <MapPopup
                         longitude={selectedCafe.coordinates[0]}
                         latitude={selectedCafe.coordinates[1]}
-                        onClose={() => setSelectedCafe(null)}
+                        onClose={handleDetailPopupClose}
                         anchor="top"
                         className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
                     >
-                        <CafePopupContent cafe={selectedCafe.cafe} onClose={() => setSelectedCafe(null)} />
+                        <CafePopupContent cafe={selectedCafe.cafe} onClose={handleDetailPopupClose} />
                     </MapPopup>
                 )}
 
@@ -2810,11 +2843,11 @@ export function EnhancedMapContainer({
                     <MapPopup
                         longitude={selectedProperty.coordinates[0]}
                         latitude={selectedProperty.coordinates[1]}
-                        onClose={() => setSelectedProperty(null)}
+                        onClose={handleDetailPopupClose}
                         anchor="top"
                         className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
                     >
-                        <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={() => setSelectedProperty(null)} />
+                        <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={handleDetailPopupClose} />
                     </MapPopup>
                 )}
 
@@ -2822,11 +2855,11 @@ export function EnhancedMapContainer({
                     <MapPopup
                         longitude={selectedPoi.coordinates[0]}
                         latitude={selectedPoi.coordinates[1]}
-                        onClose={() => setSelectedPoi(null)}
+                        onClose={handleDetailPopupClose}
                         anchor="top"
                         className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
                     >
-                        <OtherPoiPopupContent poi={selectedPoi.poi} onClose={() => setSelectedPoi(null)} />
+                        <OtherPoiPopupContent poi={selectedPoi.poi} onClose={handleDetailPopupClose} />
                     </MapPopup>
                 )}
 
@@ -2836,33 +2869,33 @@ export function EnhancedMapContainer({
             {isMobile && selectedCafe && (
                 <BottomSheet
                     isOpen={true}
-                    onClose={() => setSelectedCafe(null)}
+                    onClose={handleDetailPopupClose}
                     snapPoint="partial"
                     showCloseButton={false}
                 >
-                    <CafePopupContent cafe={selectedCafe.cafe} onClose={() => setSelectedCafe(null)} />
+                    <CafePopupContent cafe={selectedCafe.cafe} onClose={handleDetailPopupClose} />
                 </BottomSheet>
             )}
 
             {isMobile && selectedProperty && (
                 <BottomSheet
                     isOpen={true}
-                    onClose={() => setSelectedProperty(null)}
+                    onClose={handleDetailPopupClose}
                     snapPoint="partial"
                     showCloseButton={false}
                 >
-                    <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={() => setSelectedProperty(null)} />
+                    <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={handleDetailPopupClose} />
                 </BottomSheet>
             )}
 
             {isMobile && selectedPoi && (
                 <BottomSheet
                     isOpen={true}
-                    onClose={() => setSelectedPoi(null)}
+                    onClose={handleDetailPopupClose}
                     snapPoint="partial"
                     showCloseButton={false}
                 >
-                    <OtherPoiPopupContent poi={selectedPoi.poi} onClose={() => setSelectedPoi(null)} />
+                    <OtherPoiPopupContent poi={selectedPoi.poi} onClose={handleDetailPopupClose} />
                 </BottomSheet>
             )}
 
@@ -2870,7 +2903,7 @@ export function EnhancedMapContainer({
             {isMobile && disambiguationData && (
                 <BottomSheet
                     isOpen={true}
-                    onClose={() => setDisambiguationData(null)}
+                    onClose={handleDisambiguationClose}
                     snapPoint="auto"
                 >
                     <DisambiguationPopup
@@ -2885,7 +2918,7 @@ export function EnhancedMapContainer({
                     className="absolute inset-0 z-50 flex items-center justify-center"
                     onClick={(e) => {
                         if (e.target === e.currentTarget) {
-                            setDisambiguationData(null);
+                            handleDisambiguationClose();
                         }
                     }}
                 >
@@ -2896,7 +2929,7 @@ export function EnhancedMapContainer({
                             onSelect={handleDisambiguationSelect}
                         />
                         <button
-                            onClick={() => setDisambiguationData(null)}
+                            onClick={handleDisambiguationClose}
                             className="absolute -top-2 -right-2 w-7 h-7 bg-white rounded-full shadow-lg
                                        flex items-center justify-center hover:bg-gray-100 transition-colors"
                         >
