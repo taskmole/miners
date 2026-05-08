@@ -216,13 +216,18 @@ async function loadMadridCafes(): Promise<CafeData[]> {
             };
         });
 
-    await applyGoogleEnrichment(madridCafes, googleEnrichmentRes);
+    const minersCafeInfo = (cafeInfoRaw as any[]).filter(
+        (c: any) => c.name?.toLowerCase().includes("miners")
+    );
+    const minersCafes = mapEuctCsvCafes(minersCafeInfo, "madrid");
+
+    await applyGoogleEnrichment([...madridCafes, ...minersCafes], googleEnrichmentRes);
 
     const googleCafes = googleMadridRes.ok
         ? mapGooglePlacesCafes(await googleMadridRes.json(), "madrid")
         : [];
 
-    return [...madridCafes, ...googleCafes];
+    return [...madridCafes, ...minersCafes, ...googleCafes];
 }
 
 async function loadBarcelonaCafes(): Promise<CafeData[]> {
