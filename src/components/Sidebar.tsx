@@ -26,7 +26,7 @@ import { MobilePanel } from "@/components/ui/mobile-panel";
 import { useMobile } from "@/hooks/useMobile";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { cn } from "@/lib/utils";
-import type { EuctFilter } from "@/types/filters";
+import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter } from "@/types/filters";
 
 interface SidebarProps {
     counts?: {
@@ -36,6 +36,9 @@ interface SidebarProps {
         premiumEuCoffeeTrip: number;
         newEuCoffeeTrip: number;
         property: number;
+        propertyLast7d: number;
+        propertyWithTransfer: number;
+        propertyPriceChanged: number;
         transit: number;
         metro: number;
         office: number;
@@ -75,6 +78,13 @@ interface SidebarProps {
     // Gravity model / Location Score
     gravityEnabled?: boolean;
     onGravityToggle?: (enabled: boolean) => void;
+    // Property sub-filters
+    propertyPostedFilter?: PropertyPostedFilter;
+    onPropertyPostedFilterChange?: (filter: PropertyPostedFilter) => void;
+    propertyTransferFilter?: PropertyTransferFilter;
+    onPropertyTransferFilterChange?: (filter: PropertyTransferFilter) => void;
+    propertyPriceChangeFilter?: PropertyPriceChangeFilter;
+    onPropertyPriceChangeFilterChange?: (filter: PropertyPriceChangeFilter) => void;
 }
 
 const placeCategories = [
@@ -106,6 +116,59 @@ const euctFilterOptions: { value: EuctFilter; label: string; countKey: string }[
     { value: "premium", label: "Premium", countKey: "premiumEuCoffeeTrip" },
 ];
 
+const propertyAddedOptions: { value: PropertyPostedFilter; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "last7days", label: "Last 7d" },
+    { value: "over7days", label: "Over 7d" },
+];
+
+const propertyTransferOptions: { value: PropertyTransferFilter; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+];
+
+const propertyPriceChangeOptions: { value: PropertyPriceChangeFilter; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "yes", label: "Change" },
+    { value: "no", label: "No change" },
+];
+
+// Reusable segmented toggle row used by property sub-filters
+function SegmentedFilterRow<T extends string>({
+    label,
+    options,
+    value,
+    onChange,
+}: {
+    label: string;
+    options: { value: T; label: string }[];
+    value: T;
+    onChange?: (v: T) => void;
+}) {
+    return (
+        <div className="pr-3 flex items-center gap-2">
+            <span className="text-[10px] font-medium text-zinc-500 shrink-0 w-10">{label}</span>
+            <div className="flex bg-zinc-300/60 rounded-lg p-0.5 flex-1">
+                {options.map((opt) => (
+                    <button
+                        key={opt.value}
+                        onClick={() => onChange?.(opt.value)}
+                        className={cn(
+                            "flex-1 text-[11px] font-semibold px-2 py-2 md:py-1.5 rounded-md transition-all whitespace-nowrap text-center",
+                            value === opt.value
+                                ? "bg-white text-zinc-900 shadow-sm"
+                                : "text-zinc-500 hover:text-zinc-700"
+                        )}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export function Sidebar({
     counts,
     activeFilters,
@@ -136,6 +199,12 @@ export function Sidebar({
     onShowNewOnlyToggle,
     gravityEnabled = false,
     onGravityToggle,
+    propertyPostedFilter = "all",
+    onPropertyPostedFilterChange,
+    propertyTransferFilter = "all",
+    onPropertyTransferFilterChange,
+    propertyPriceChangeFilter = "all",
+    onPropertyPriceChangeFilterChange,
 }: SidebarProps) {
     // Get hidden POIs count from context
     const { hiddenCount } = useHiddenPoisContext();
@@ -234,6 +303,15 @@ export function Sidebar({
             onEuctFilterChange?.("all");
         }
     }, [activeFilters, euctFilter, onEuctFilterChange]);
+
+    // Reset property sub-filters to "all" when Places for rent is unchecked
+    useEffect(() => {
+        if (!activeFilters.has("property")) {
+            if (propertyPostedFilter !== "all") onPropertyPostedFilterChange?.("all");
+            if (propertyTransferFilter !== "all") onPropertyTransferFilterChange?.("all");
+            if (propertyPriceChangeFilter !== "all") onPropertyPriceChangeFilterChange?.("all");
+        }
+    }, [activeFilters, propertyPostedFilter, propertyTransferFilter, propertyPriceChangeFilter, onPropertyPostedFilterChange, onPropertyTransferFilterChange, onPropertyPriceChangeFilterChange]);
 
     // Click outside handling is now done by MobilePanel
 
@@ -631,6 +709,32 @@ export function Sidebar({
                                                                             step={5}
                                                                         />
                                                                     </div>
+
+                                                                    {/* Added filter */}
+                                                                    <SegmentedFilterRow
+                                                                        label="Added"
+                                                                        options={propertyAddedOptions}
+                                                                        value={propertyPostedFilter}
+                                                                        onChange={onPropertyPostedFilterChange}
+                                                                    />
+
+                                                                    {/* Transfer filter - only shown when city has transfer listings */}
+                                                                    {getCount("propertyWithTransfer") > 0 && (
+                                                                        <SegmentedFilterRow
+                                                                            label="Transfer"
+                                                                            options={propertyTransferOptions}
+                                                                            value={propertyTransferFilter}
+                                                                            onChange={onPropertyTransferFilterChange}
+                                                                        />
+                                                                    )}
+
+                                                                    {/* Price Change filter */}
+                                                                    <SegmentedFilterRow
+                                                                        label="Price"
+                                                                        options={propertyPriceChangeOptions}
+                                                                        value={propertyPriceChangeFilter}
+                                                                        onChange={onPropertyPriceChangeFilterChange}
+                                                                    />
                                                                 </div>
                                                             </div>
                                                         </div>

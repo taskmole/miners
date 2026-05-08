@@ -56,6 +56,7 @@ export interface PropertyData {
     score?: number;
     image_url?: string;
     priceHistory?: { price: number; date: string }[];
+    createdAt?: string;
     updatedAt?: string;
     photos?: string[];
 }
@@ -73,6 +74,13 @@ export interface OtherPoiData {
 }
 
 export type LocationData = CafeData | PropertyData | OtherPoiData;
+
+/** True when the current price differs from the oldest recorded price by at least 0.5% */
+export function hasChangedPrice(p: PropertyData): boolean {
+    const h = p.priceHistory;
+    const oldPrice = h?.[h.length - 1]?.price;
+    return oldPrice != null && oldPrice !== p.price && Math.abs((p.price - oldPrice) / oldPrice) >= 0.005;
+}
 
 const categoryMap: Record<string, OtherPoiData["type"]> = {
     "Train Station": "transit",
@@ -243,7 +251,7 @@ async function loadProperties(cityId: string): Promise<PropertyData[]> {
     try {
         const res = await withTimeout(
             dataSupabase.from("places")
-                .select("name, address, location, source, metadata, photos, updated_at")
+                .select("name, address, location, source, metadata, photos, updated_at, created_at")
                 .eq("city_id", cityId)
                 .in("source", ["idealista", "idealista_transfer", "sreality"])
                 .eq("status", "active") as unknown as Promise<{ data: any[] | null; error: any }>,
@@ -277,6 +285,7 @@ async function loadProperties(cityId: string): Promise<PropertyData[]> {
                     score: getScoreAt(coords.lat, coords.lon, cityId),
                     image_url: p.photos?.[0] || undefined,
                     priceHistory: meta.price_history || undefined,
+                    createdAt: p.created_at || undefined,
                     updatedAt: p.updated_at || undefined,
                     photos: p.photos?.length ? p.photos : undefined,
                 };
@@ -412,6 +421,15 @@ export function useMapData(cityId?: string) {
             if (p.type === "gym" && isNewPoi(p.fetchedAt)) newPoisCount++;
         }
 
+        let propertyLast7d = 0;
+        let propertyWithTransfer = 0;
+        let propertyPriceChanged = 0;
+        for (const prop of properties) {
+            if (isNewPoi(prop.createdAt, 7)) propertyLast7d++;
+            if (prop.transfer && prop.transfer > 0) propertyWithTransfer++;
+            if (hasChangedPrice(prop)) propertyPriceChanged++;
+        }
+
         return {
             cafe: cityCafes.length,
             euCoffeeTrip: euctCafes.length,
@@ -419,6 +437,9 @@ export function useMapData(cityId?: string) {
             premiumEuCoffeeTrip,
             newEuCoffeeTrip,
             property: properties.length,
+            propertyLast7d,
+            propertyWithTransfer,
+            propertyPriceChanged,
             transit: poiCounts["transit"] || 0,
             metro: poiCounts["metro"] || 0,
             office: poiCounts["office"] || 0,
