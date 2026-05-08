@@ -2,7 +2,7 @@
   "type": "FeatureCollection",
   "generator": "fetch-overpass-pois.ts",
   "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.",
-  "timestamp": "2026-05-08T14:39:14.439Z",
+  "timestamp": "2026-05-08T16:28:24.636Z",
   "features": [
     {
       "type": "Feature",
