@@ -323,10 +323,58 @@ async function loadMadridOtherPois(): Promise<OtherPoiData[]> {
     return parsedOther;
 }
 
+async function loadPragueOtherPois(): Promise<OtherPoiData[]> {
+    const [osmRaw, gymsRaw, metroData] = await Promise.all([
+        fetchWithTimeout("/api/data?type=osm_pois_prague").then(r => r.ok ? r.json() : []).catch(() => []),
+        fetchWithTimeout("/api/data?type=gyms_prague").then(r => r.ok ? r.json() : []).catch(() => []),
+        fetchWithTimeout("/api/data?type=metro&city=prague").then(r => r.ok ? r.json() : { features: [] }).catch(() => ({ features: [] })),
+    ]);
+
+    const parsedOsm: OtherPoiData[] = (osmRaw as any[])
+        .filter((o: any) => o.Lat && o.Lon)
+        .map((o: any) => ({
+            type: categoryMap[o.Category] || "office",
+            category: o.Category || "",
+            name: o.Name || "",
+            lat: parseFloat(o.Lat),
+            lon: parseFloat(o.Lon),
+            address: o.Address || "",
+            mapsUrl: o.MapsURL || "",
+        }));
+
+    const gyms: OtherPoiData[] = (gymsRaw as any[])
+        .filter((g: any) => g.lat && g.lon)
+        .map((g: any) => ({
+            type: "gym" as const,
+            category: "Gym",
+            name: g.name || "Gym",
+            lat: parseFloat(g.lat),
+            lon: parseFloat(g.lon),
+            address: g.address || "",
+            mapsUrl: g.googleMapsUrl || "",
+            website: g.website || undefined,
+            fetchedAt: g.fetchedAt || undefined,
+        }));
+    parsedOsm.push(...gyms);
+
+    const metroStations: OtherPoiData[] = ((metroData as any).features || []).map((feature: any) => ({
+        type: "metro" as const,
+        category: "Metro Station",
+        name: feature.properties.name || "Metro Station",
+        lat: feature.geometry.coordinates[1],
+        lon: feature.geometry.coordinates[0],
+        address: "",
+        mapsUrl: "",
+        website: feature.properties.website || "",
+    }));
+    parsedOsm.push(...metroStations);
+
+    return parsedOsm;
+}
+
 async function loadOtherPois(cityId: string): Promise<OtherPoiData[]> {
-    if (cityId === "madrid") {
-        return loadMadridOtherPois();
-    }
+    if (cityId === "madrid") return loadMadridOtherPois();
+    if (cityId === "prague") return loadPragueOtherPois();
     return [];
 }
 
