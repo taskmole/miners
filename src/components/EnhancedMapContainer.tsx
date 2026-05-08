@@ -4,7 +4,6 @@ import React, { useMemo, useState, useEffect } from "react";
 import MapLibreGL from "maplibre-gl";
 import {
     Map,
-    MapControls,
     MapMarker,
     MarkerContent,
     MarkerPopup,
@@ -2431,7 +2430,6 @@ export function EnhancedMapContainer({
                 zoom={13}
                 className="w-full h-full"
             >
-                <MapControls position="bottom-right" showZoom showLocate showCompass />
                 <MapStyleSwitcher onStyleChange={() => setMapStyleKey(k => k + 1)} trafficEnabled={trafficEnabled} />
 
                 {/* Navigation event listener for ActivityLog and ListsPanel clicks */}
