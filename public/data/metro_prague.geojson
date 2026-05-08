@@ -1,0 +1,1034 @@
+{
+  "type": "FeatureCollection",
+  "generator": "fetch-overpass-pois.ts",
+  "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.",
+  "timestamp": "2026-05-08T14:39:14.439Z",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/24569684",
+        "name": "I. P. Pavlova",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4303111,
+          50.0743299
+        ]
+      },
+      "id": "node/24569684"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/24569759",
+        "name": "Kobylisy",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4542345,
+          50.1241376
+        ]
+      },
+      "id": "node/24569759"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/24569897",
+        "name": "Main Station",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4341259,
+          50.0835035
+        ]
+      },
+      "id": "node/24569897"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/24569983",
+        "name": "Vyšehrad",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4305202,
+          50.0631724
+        ]
+      },
+      "id": "node/24569983"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/24570070",
+        "name": "Pankrác",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4396298,
+          50.0510768
+        ]
+      },
+      "id": "node/24570070"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/24570126",
+        "name": "Budějovická",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4487606,
+          50.0444173
+        ]
+      },
+      "id": "node/24570126"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/24570143",
+        "name": "Kačerov",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4592925,
+          50.0418449
+        ]
+      },
+      "id": "node/24570143"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/24570180",
+        "name": "Roztyly",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4770932,
+          50.0375574
+        ]
+      },
+      "id": "node/24570180"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/24570253",
+        "name": "Chodov",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4911419,
+          50.0315824
+        ]
+      },
+      "id": "node/24570253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/24570269",
+        "name": "Opatov",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.5092069,
+          50.0278977
+        ]
+      },
+      "id": "node/24570269"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/263891378",
+        "name": "Střížkov",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4895918,
+          50.1261737
+        ]
+      },
+      "id": "node/263891378"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/263891381",
+        "name": "Prosek",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.498497,
+          50.1193336
+        ]
+      },
+      "id": "node/263891381"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/263891398",
+        "name": "Letňany",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.5162153,
+          50.1247337
+        ]
+      },
+      "id": "node/263891398"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5257756517",
+        "name": "Nádraží Holešovice",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4401336,
+          50.1090092
+        ]
+      },
+      "id": "node/5257756517"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5257756518",
+        "name": "Vltavská",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4385486,
+          50.1001646
+        ]
+      },
+      "id": "node/5257756518"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5257778141",
+        "name": "Luka",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.3213783,
+          50.0456749
+        ]
+      },
+      "id": "node/5257778141"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5451432338",
+        "name": "Ládví",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4695788,
+          50.1266372
+        ]
+      },
+      "id": "node/5451432338"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545196",
+        "name": "Hostivař depot",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.5151526,
+          50.075044
+        ]
+      },
+      "id": "node/5460545196"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545197",
+        "name": "Skalka",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.5079667,
+          50.0684647
+        ]
+      },
+      "id": "node/5460545197"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545198",
+        "name": "Strašnická",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4907502,
+          50.072965
+        ]
+      },
+      "id": "node/5460545198"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545199",
+        "name": "Želivského",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4759414,
+          50.078171
+        ]
+      },
+      "id": "node/5460545199"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545201",
+        "name": "Jiřího z Poděbrad",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4507304,
+          50.0777115
+        ]
+      },
+      "id": "node/5460545201"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545203",
+        "name": "Museum",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4316586,
+          50.0794841
+        ]
+      },
+      "id": "node/5460545203"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545204",
+        "name": "Můstek",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4243604,
+          50.0836872
+        ]
+      },
+      "id": "node/5460545204"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545205",
+        "name": "Staroměstská",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.417628,
+          50.0882161
+        ]
+      },
+      "id": "node/5460545205"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545206",
+        "name": "Malostranská",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4093203,
+          50.0915233
+        ]
+      },
+      "id": "node/5460545206"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545207",
+        "name": "Hradčanská",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4031773,
+          50.097441
+        ]
+      },
+      "id": "node/5460545207"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545208",
+        "name": "Dejvická",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.3930646,
+          50.1004626
+        ]
+      },
+      "id": "node/5460545208"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545209",
+        "name": "Bořislavka",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.3628828,
+          50.0983787
+        ]
+      },
+      "id": "node/5460545209"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545210",
+        "name": "Nádraží Veleslavín",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.3484912,
+          50.0959181
+        ]
+      },
+      "id": "node/5460545210"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545211",
+        "name": "Petřiny",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.3450627,
+          50.086635
+        ]
+      },
+      "id": "node/5460545211"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460545212",
+        "name": "Nemocnice Motol",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.3412984,
+          50.0753131
+        ]
+      },
+      "id": "node/5460545212"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5460580012",
+        "name": "Florenc",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4392619,
+          50.0902191
+        ]
+      },
+      "id": "node/5460580012"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5463105928",
+        "name": "Jinonice",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.3697689,
+          50.0541763
+        ]
+      },
+      "id": "node/5463105928"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5463105929",
+        "name": "Nové Butovice",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.3521341,
+          50.0508464
+        ]
+      },
+      "id": "node/5463105929"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5463105930",
+        "name": "Hůrka",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.3427888,
+          50.0500112
+        ]
+      },
+      "id": "node/5463105930"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5463105931",
+        "name": "Lužiny",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.3304805,
+          50.0445043
+        ]
+      },
+      "id": "node/5463105931"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5463105932",
+        "name": "Stodůlky",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.3062169,
+          50.0466765
+        ]
+      },
+      "id": "node/5463105932"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5463105939",
+        "name": "Zličín",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.2911648,
+          50.0532419
+        ]
+      },
+      "id": "node/5463105939"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5463129256",
+        "name": "Anděl",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4039192,
+          50.0702468
+        ]
+      },
+      "id": "node/5463129256"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5463129257",
+        "name": "Smíchovské nádraží",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4090904,
+          50.061198
+        ]
+      },
+      "id": "node/5463129257"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5463129258",
+        "name": "Radlická",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.3877504,
+          50.0581147
+        ]
+      },
+      "id": "node/5463129258"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5471247109",
+        "name": "Invalidovna",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4635262,
+          50.096951
+        ]
+      },
+      "id": "node/5471247109"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5471247110",
+        "name": "Křižíkova",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4517852,
+          50.0933902
+        ]
+      },
+      "id": "node/5471247110"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5471247112",
+        "name": "Republic Square",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4306385,
+          50.0887989
+        ]
+      },
+      "id": "node/5471247112"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5471247114",
+        "name": "Národní třída",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4202946,
+          50.0799521
+        ]
+      },
+      "id": "node/5471247114"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5471247115",
+        "name": "Charles Square",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4169281,
+          50.074583
+        ]
+      },
+      "id": "node/5471247115"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5473344329",
+        "name": "Háje",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.5272352,
+          50.0308672
+        ]
+      },
+      "id": "node/5473344329"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5482731178",
+        "name": "Černý Most",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.5767773,
+          50.1089325
+        ]
+      },
+      "id": "node/5482731178"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5482731179",
+        "name": "Rajská zahrada",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.5604991,
+          50.1068437
+        ]
+      },
+      "id": "node/5482731179"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5482731180",
+        "name": "Hloubětín",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.5366464,
+          50.1066501
+        ]
+      },
+      "id": "node/5482731180"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5482731181",
+        "name": "Kolbenova",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.5165792,
+          50.1103835
+        ]
+      },
+      "id": "node/5482731181"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5482731182",
+        "name": "Vysočanská",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.5012716,
+          50.1101153
+        ]
+      },
+      "id": "node/5482731182"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5482731183",
+        "name": "Českomoravská",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4916253,
+          50.1060814
+        ]
+      },
+      "id": "node/5482731183"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5482731184",
+        "name": "Palmovka",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4743404,
+          50.10392
+        ]
+      },
+      "id": "node/5482731184"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/6256535951",
+        "name": "Pražského povstání",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4333624,
+          50.0568262
+        ]
+      },
+      "id": "node/6256535951"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/7425340751",
+        "name": "Náměstí Míru",
+        "public_transport": "station",
+        "railway": "station",
+        "station": "subway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4390755,
+          50.0752993
+        ]
+      },
+      "id": "node/7425340751"
+    }
+  ]
+}
