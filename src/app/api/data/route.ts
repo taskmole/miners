@@ -22,6 +22,7 @@ const FILE_MAP: Record<string, { fileName: string; delimiter?: string }> = {
     gyms_prague: { fileName: "gyms_prague.csv" },
     prague_cafes: { fileName: "prague_cafe_info.csv" },
     google_enrichment_prague: { fileName: "google_places_enrichment_prague.csv" },
+    osm_pois_prague: { fileName: "osm_pois_prague.csv" },
 };
 
 export async function GET(request: NextRequest) {
@@ -29,9 +30,11 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type") || "cafes";
 
     try {
-        // Handle GeoJSON file for metro stations
+        // Handle GeoJSON file for metro stations (city-aware)
         if (type === "metro") {
-            const filePath = path.join(process.cwd(), "public", "data", "metro.geojson");
+            const city = searchParams.get("city");
+            const fileName = city === "prague" ? "metro_prague.geojson" : "metro.geojson";
+            const filePath = path.join(process.cwd(), "public", "data", fileName);
             if (!fs.existsSync(filePath)) {
                 return NextResponse.json({ error: "Metro data not found" }, { status: 404 });
             }
