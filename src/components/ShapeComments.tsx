@@ -1027,7 +1027,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[240px] p-0" align="start" side="top" sideOffset={4}>
+                  <PopoverContent className="w-[240px] p-0 z-[200]" align="start" side="top" sideOffset={4}>
                     <div className="max-h-[300px] overflow-y-auto">
                       {/* None option */}
                       <button
