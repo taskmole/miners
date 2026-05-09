@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { CitySelector, cities, type City } from "@/components/CitySelector";
 import { Sidebar, CITY_OVERLAYS, DEFAULT_OVERLAYS } from "@/components/Sidebar";
 import { ActivityLog } from "@/components/ActivityLog";
@@ -47,6 +47,8 @@ const DEFAULT_FILTERS = new Set<string>([]);
 
 // Inner component that uses the linking context
 function HomeContent() {
+  const feedbackOpenRef = useRef<(() => void) | null>(null);
+  const handleExposeOpen = useCallback((fn: () => void) => { feedbackOpenRef.current = fn; }, []);
   const [selectedCity, setSelectedCity] = useState<City>(
     () => cities.find(c => c.id === "madrid") ?? cities[0]
   );
@@ -355,8 +357,8 @@ function HomeContent() {
             trafficHour={trafficHour}
             onTrafficHourChange={setTrafficHour}
           />
-          <MobileBottomNav />
-          <FeedbackButton selectedCity={selectedCity} user={user} />
+          <MobileBottomNav onFeedbackOpen={() => feedbackOpenRef.current?.()} />
+          <FeedbackButton selectedCity={selectedCity} user={user} onExposeOpen={handleExposeOpen} />
         </>
       )}
 
