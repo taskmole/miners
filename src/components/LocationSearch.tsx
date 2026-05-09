@@ -216,7 +216,7 @@ export function LocationSearch({
       <button
         ref={buttonRef}
         onClick={handleOpen}
-        className="glass flex items-center justify-center p-2.5 rounded-2xl md:px-3 md:py-2 md:rounded-xl border border-white/40 hover:bg-white/20 transition-all"
+        className="glass flex items-center justify-center p-2.5 rounded-2xl md:px-3 md:py-2 md:rounded-xl hover:bg-white/20 transition-all"
         aria-label="Search locations"
       >
         <Search className="w-5 h-5 md:w-4 md:h-4 text-zinc-500" />
@@ -247,7 +247,7 @@ export function LocationSearch({
         style={isMobile ? undefined : { left: `${expandedLeft}px` }}
       >
         {/* Search input bar */}
-        <div className="glass flex items-center gap-3 px-4 h-12 rounded-2xl border border-white/40">
+        <div className="glass flex items-center gap-3 px-4 h-12 rounded-2xl">
           <Search className="w-5 h-5 text-zinc-400 shrink-0" />
           <input
             ref={inputRef}
@@ -277,7 +277,7 @@ export function LocationSearch({
         {query.length >= 2 && (
           <div
             ref={resultsRef}
-            className="mt-2 glass rounded-2xl border border-white/40 overflow-hidden"
+            className="mt-2 glass rounded-2xl overflow-hidden"
             style={{
               maxHeight: isMobile ? "calc(100vh - 120px)" : "400px",
               overflowY: "auto",
@@ -341,7 +341,7 @@ export function LocationSearch({
 
         {/* Hint when query is too short */}
         {query.length === 1 && (
-          <div className="mt-2 glass rounded-2xl border border-white/40 px-4 py-3 text-center text-sm text-zinc-500">
+          <div className="mt-2 glass rounded-2xl px-4 py-3 text-center text-sm text-zinc-500">
             Type at least 2 characters
           </div>
         )}
