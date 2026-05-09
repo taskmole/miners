@@ -12,13 +12,14 @@ import type { City } from "@/components/CitySelector";
 interface FeedbackButtonProps {
   selectedCity: City;
   user: User | null;
+  onExposeOpen?: (openFn: () => void) => void;
 }
 
 const MAX_CHARS = 1000;
 const MAX_FILES = 3;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-export function FeedbackButton({ selectedCity, user }: FeedbackButtonProps) {
+export function FeedbackButton({ selectedCity, user, onExposeOpen }: FeedbackButtonProps) {
   const isMobile = useMobile();
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -40,19 +41,16 @@ export function FeedbackButton({ selectedCity, user }: FeedbackButtonProps) {
     });
   }, []);
 
-  useEffect(() => {
-    return () => {
-      previews.forEach((url) => URL.revokeObjectURL(url));
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const handleOpen = useCallback(() => {
     setIsOpen(true);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setIsAnimating(true));
     });
   }, []);
+
+  useEffect(() => {
+    onExposeOpen?.(handleOpen);
+  }, [onExposeOpen, handleOpen]);
 
   const handleClose = useCallback(() => {
     setIsAnimating(false);
@@ -249,25 +247,14 @@ export function FeedbackButton({ selectedCity, user }: FeedbackButtonProps) {
 
   return (
     <>
-      {isMobile ? (
+      {!isMobile && !isOpen && (
         <button
           onClick={handleOpen}
-          className="fixed right-3 z-40 w-10 h-10 flex items-center justify-center rounded-full bg-zinc-900 shadow-lg active:scale-95 transition-transform"
-          style={{ bottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
-          aria-label="Send feedback"
+          className="fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-zinc-900 shadow-lg hover:bg-zinc-800 hover:scale-105 active:scale-95 transition-all"
         >
-          <MessageSquareText className="w-5 h-5 text-white" />
+          <MessageSquareText className="w-4 h-4 text-white" />
+          <span className="text-sm font-medium text-white">Feedback</span>
         </button>
-      ) : (
-        !isOpen && (
-          <button
-            onClick={handleOpen}
-            className="fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-zinc-900 shadow-lg hover:bg-zinc-800 hover:scale-105 active:scale-95 transition-all"
-          >
-            <MessageSquareText className="w-4 h-4 text-white" />
-            <span className="text-sm font-medium text-white">Feedback</span>
-          </button>
-        )
       )}
 
       {!isMobile && isOpen && (

@@ -47,9 +47,7 @@ export function CitySelector({ selectedCity, onCityChange }: CitySelectorProps) 
     <div className="z-50">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          {/* Trigger button - glassmorphism style matching MapStyleSwitcher */}
-          <button className="glass flex items-center gap-2 px-4 py-2 rounded-2xl md:px-3 md:py-1.5 md:rounded-xl border border-white/40 hover:bg-white/20 transition-all text-base md:text-sm font-semibold text-zinc-900">
-            {/* Flag in trigger - remove to revert */}
+          <button className="glass flex items-center gap-2 px-4 py-2 rounded-2xl md:px-3 md:py-1.5 md:rounded-xl hover:bg-white/20 transition-all text-[15px] md:text-sm font-semibold text-zinc-900 font-heading">
             {FLAGS[selectedCity.countryCode] && (
               <span className="w-5 h-4 md:w-4 md:h-3 rounded-[2px] overflow-hidden flex-shrink-0">
                 {React.createElement(FLAGS[selectedCity.countryCode], { className: "w-full h-full" })}
@@ -59,8 +57,7 @@ export function CitySelector({ selectedCity, onCityChange }: CitySelectorProps) 
             <ChevronDown className="w-5 h-5 md:w-4 md:h-4 text-zinc-500" />
           </button>
         </DropdownMenuTrigger>
-        {/* Dropdown content - simple list of city names */}
-        <DropdownMenuContent align="start" className="glass border-white/40 p-1 rounded-xl min-w-[140px]">
+        <DropdownMenuContent align="start" className="glass border-none p-1 rounded-xl min-w-[140px]">
           {cities.map((city) => (
             <DropdownMenuItem
               key={city.id}
@@ -77,17 +74,14 @@ export function CitySelector({ selectedCity, onCityChange }: CitySelectorProps) 
                 }
               }}
             >
-              {/* Flag icon - remove this block to revert to no flags */}
               {FLAGS[city.countryCode] && (
                 <span className="w-4 h-3 rounded-[2px] overflow-hidden flex-shrink-0">
                   {React.createElement(FLAGS[city.countryCode], { className: "w-full h-full" })}
                 </span>
               )}
-              {/* City name */}
-              <span className="text-sm font-semibold text-zinc-900">
+              <span className="text-[15px] font-semibold text-zinc-900 font-heading">
                 {city.name}
               </span>
-              {/* Status chip (NEW or COMING SOON) */}
               {city.chip && (
                 <span
                   className={cn(
