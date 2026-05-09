@@ -216,10 +216,10 @@ export function LocationSearch({
       <button
         ref={buttonRef}
         onClick={handleOpen}
-        className="glass flex items-center justify-center px-3 py-2 rounded-xl border border-white/40 hover:bg-white/20 transition-all"
+        className="glass flex items-center justify-center p-2.5 rounded-2xl md:px-3 md:py-2 md:rounded-xl border border-white/40 hover:bg-white/20 transition-all"
         aria-label="Search locations"
       >
-        <Search className="w-4 h-4 text-zinc-500" />
+        <Search className="w-5 h-5 md:w-4 md:h-4 text-zinc-500" />
       </button>
     );
   }
@@ -228,8 +228,8 @@ export function LocationSearch({
   return (
     <>
       {/* Spacer to keep flex row from collapsing */}
-      <div className="px-3 py-2 invisible">
-        <Search className="w-4 h-4" />
+      <div className="p-2.5 md:px-3 md:py-2 invisible">
+        <Search className="w-5 h-5 md:w-4 md:h-4" />
       </div>
 
       {/* Backdrop fade */}
