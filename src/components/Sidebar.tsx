@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter } from "@/types/filters";
 
 interface SidebarProps {
+    cityId?: string;
     counts?: {
         cafe: number;
         euCoffeeTrip: number;
@@ -73,8 +74,6 @@ interface SidebarProps {
     onTrafficHourChange?: (hour: number) => void;
     showHiddenPois?: boolean;
     onShowHiddenPoisToggle?: (show: boolean) => void;
-    showNewOnly?: boolean;
-    onShowNewOnlyToggle?: (show: boolean) => void;
     // Gravity model / Location Score
     gravityEnabled?: boolean;
     onGravityToggle?: (enabled: boolean) => void;
@@ -108,6 +107,16 @@ const placeCategories = [
     { id: "university", label: "University", icon: GraduationCap, countKey: "university" },
     { id: "gym", label: "Gym", icon: Dumbbell, countKey: "gym" },
 ];
+
+// Which overlay data layers are available per city
+export const DEFAULT_OVERLAYS = { traffic: false, population: false, income: false, locationScore: false };
+export type CityOverlays = typeof DEFAULT_OVERLAYS;
+export const CITY_OVERLAYS: Record<string, CityOverlays> = {
+    madrid: { traffic: true, population: true, income: true, locationScore: true },
+    prague: DEFAULT_OVERLAYS,
+    barcelona: DEFAULT_OVERLAYS,
+    seville: DEFAULT_OVERLAYS,
+};
 
 // Options for the EUCT sub-filter segmented toggle
 const euctFilterOptions: { value: EuctFilter; label: string; countKey: string }[] = [
@@ -170,6 +179,7 @@ function SegmentedFilterRow<T extends string>({
 }
 
 export function Sidebar({
+    cityId,
     counts,
     activeFilters,
     onFilterChange,
@@ -195,8 +205,6 @@ export function Sidebar({
     onTrafficHourChange,
     showHiddenPois = false,
     onShowHiddenPoisToggle,
-    showNewOnly = false,
-    onShowNewOnlyToggle,
     gravityEnabled = false,
     onGravityToggle,
     propertyPostedFilter = "all",
@@ -218,6 +226,24 @@ export function Sidebar({
     const [expandedSections, setExpandedSections] = React.useState<Set<string>>(new Set());
     // Which place categories are expanded (for cafe subcategories)
     const [expandedCategories, setExpandedCategories] = React.useState<Set<string>>(new Set(["cafe"]));
+
+    // Overlay availability per city
+    const overlays = CITY_OVERLAYS[cityId ?? "madrid"] ?? DEFAULT_OVERLAYS;
+    const hasTraffic = overlays.traffic;
+    const hasPopulation = overlays.population;
+    const hasIncome = overlays.income;
+    const hasLocationScore = overlays.locationScore;
+
+    // Collapse overlay sections when they become unavailable (e.g. city switch)
+    useEffect(() => {
+        setExpandedSections(prev => {
+            const next = new Set(prev);
+            if (!hasTraffic) next.delete('traffic');
+            if (!hasPopulation) next.delete('population');
+            if (!hasIncome) next.delete('income');
+            return next.size !== prev.size ? next : prev;
+        });
+    }, [hasTraffic, hasPopulation, hasIncome]);
 
     // Local state for debounced sliders
     const [localRating, setLocalRating] = useState(ratingFilter);
@@ -336,25 +362,29 @@ export function Sidebar({
         onFilterChange(newFilters);
     };
 
+    const getCount = (key: string) => {
+        if (!counts) return 0;
+        return counts[key as keyof typeof counts] ?? 0;
+    };
+
+    // Only include filter IDs for categories that have data (count > 0)
+    const visibleFilterIds = placeCategories.flatMap(cat => {
+        if (cat.hasSubcategories && cat.subcategories) {
+            return cat.subcategories
+                .filter(sub => getCount(sub.countKey) > 0)
+                .map(sub => sub.id);
+        }
+        return getCount(cat.countKey || cat.id) > 0 ? [cat.id] : [];
+    });
+
     const handleSelectAll = () => {
-        const allFilters = new Set([
-            ...placeCategories
-                .filter(c => !c.hasSubcategories)
-                .map(c => c.id),
-            "eu_coffee_trip",
-            "regular_cafe"
-        ]);
-        onFilterChange(allFilters);
-        // Turn off special modes when selecting all
+        onFilterChange(new Set(visibleFilterIds));
         onShowHiddenPoisToggle?.(false);
-        onShowNewOnlyToggle?.(false);
     };
 
     const handleClearAll = () => {
         onFilterChange(new Set<string>());
-        // Turn off special modes when clearing all
         onShowHiddenPoisToggle?.(false);
-        onShowNewOnlyToggle?.(false);
     };
 
     const toggleCategoryExpand = (id: string) => {
@@ -367,18 +397,9 @@ export function Sidebar({
         setExpandedCategories(newExpanded);
     };
 
-    // Count only actual filter IDs (subcategories count individually, parent is just a UI toggle)
     const activeCount = activeFilters.size;
-
-    // Calculate total number of filters for state detection
-    const totalFilters = placeCategories.filter(c => !c.hasSubcategories).length + 2; // +2 for cafe subcategories
-    const isAllSelected = activeFilters.size >= totalFilters;
+    const isAllSelected = visibleFilterIds.length > 0 && visibleFilterIds.every(id => activeFilters.has(id));
     const isNoneSelected = activeFilters.size === 0;
-
-    const getCount = (key: string) => {
-        if (!counts) return 0;
-        return counts[key as keyof typeof counts] ?? 0;
-    };
 
     // Format density value for display (e.g., 26000 → "26k/km²")
     const formatDensity = (value: number) => {
@@ -464,48 +485,27 @@ export function Sidebar({
                                                 onClick={handleSelectAll}
                                                 className={cn(
                                                     "flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all",
-                                                    isAllSelected && !showHiddenPois && !showNewOnly
+                                                    isAllSelected && !showHiddenPois
                                                         ? "bg-white text-zinc-900 shadow-sm"
                                                         : "text-zinc-500 hover:text-zinc-700"
                                                 )}
                                             >
-                                                Select All
+                                                Show All
                                             </button>
                                             <button
                                                 onClick={handleClearAll}
                                                 className={cn(
                                                     "flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all",
-                                                    isNoneSelected && !showHiddenPois && !showNewOnly
+                                                    isNoneSelected && !showHiddenPois
                                                         ? "bg-white text-zinc-900 shadow-sm"
                                                         : "text-zinc-500 hover:text-zinc-700"
                                                 )}
                                             >
-                                                Clear All
+                                                Clear
                                             </button>
-                                            {/* New button - shows only recently-added POIs when clicked */}
-                                            {(counts?.newPois ?? 0) > 0 && (
-                                                <button
-                                                    onClick={() => {
-                                                        // Clear other special modes and enable new-only filter
-                                                        onShowHiddenPoisToggle?.(false);
-                                                        onShowNewOnlyToggle?.(!showNewOnly);
-                                                    }}
-                                                    className={cn(
-                                                        "flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all",
-                                                        showNewOnly
-                                                            ? "bg-white text-zinc-900 shadow-sm"
-                                                            : "text-zinc-500 hover:text-zinc-700"
-                                                    )}
-                                                >
-                                                    New ({counts?.newPois})
-                                                </button>
-                                            )}
-                                            {/* Hidden button - shows only hidden POIs when clicked */}
                                             {hiddenCount > 0 && (
                                                 <button
                                                     onClick={() => {
-                                                        // Clear other special modes and show only hidden POIs
-                                                        onShowNewOnlyToggle?.(false);
                                                         onFilterChange(new Set<string>());
                                                         onShowHiddenPoisToggle?.(true);
                                                     }}
@@ -525,15 +525,16 @@ export function Sidebar({
                                     {/* Category List */}
                                     <div className="p-3 space-y-2 md:space-y-1">
                                         {placeCategories.map((cat) => {
-                                            // For categories with subcategories, derive checked state from children
-                                            const isActive = cat.hasSubcategories && cat.subcategories
-                                                ? cat.subcategories.some(sub => activeFilters.has(sub.id))
-                                                : activeFilters.has(cat.id);
-                                            const isCatExpanded = expandedCategories.has(cat.id);
                                             const count = cat.hasSubcategories
                                                 ? getCount("cafe")
                                                 : getCount(cat.countKey || cat.id);
 
+                                            if (count === 0) return null;
+
+                                            const isActive = cat.hasSubcategories && cat.subcategories
+                                                ? cat.subcategories.some(sub => activeFilters.has(sub.id))
+                                                : activeFilters.has(cat.id);
+                                            const isCatExpanded = expandedCategories.has(cat.id);
                                             const isExpandable = cat.hasSubcategories || cat.hasScoreControls;
                                             return (
                                                 <div key={cat.id}>
@@ -554,10 +555,10 @@ export function Sidebar({
                                                                 id={cat.id}
                                                                 checked={isActive}
                                                                 onCheckedChange={(checked) => {
-                                                                    // Batch all changes into single state update
                                                                     if (cat.hasSubcategories && cat.subcategories) {
                                                                         const newFilters = new Set(activeFilters);
                                                                         cat.subcategories.forEach(sub => {
+                                                                            if (getCount(sub.countKey) === 0) return;
                                                                             if (checked) {
                                                                                 newFilters.add(sub.id);
                                                                             } else {
@@ -615,10 +616,12 @@ export function Sidebar({
                                                                     </div>
 
                                                                     {cat.subcategories.map((sub) => {
+                                                                        const baseCount = getCount(sub.countKey);
+                                                                        if (baseCount === 0) return null;
+
                                                                         const subActive = activeFilters.has(sub.id);
                                                                         const isEuct = sub.id === "eu_coffee_trip";
 
-                                                                        // Show filtered count when EUCT sub-filter is active
                                                                         let subCountKey = sub.countKey;
                                                                         if (isEuct && euctFilter === "premium") {
                                                                             subCountKey = "premiumEuCoffeeTrip";
@@ -749,11 +752,10 @@ export function Sidebar({
                     </div>
 
                     {/* ===== TRAFFIC SECTION ===== */}
+                    {hasTraffic && (
                     <div className="border-b border-white/10">
-                        {/* Traffic header row */}
                         <button
                             onClick={() => {
-                                // Clicking the row expands AND enables traffic
                                 if (!isTrafficExpanded) {
                                     toggleSection('traffic');
                                     if (!trafficEnabled) {
@@ -828,13 +830,13 @@ export function Sidebar({
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* ===== POPULATION SECTION ===== */}
+                    {hasPopulation && (
                     <div className="border-b border-white/10">
-                        {/* Population header row */}
                         <button
                             onClick={() => {
-                                // Clicking the row expands AND enables population
                                 if (!isPopulationExpanded) {
                                     toggleSection('population');
                                     if (!populationEnabled) {
@@ -891,13 +893,13 @@ export function Sidebar({
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* ===== INCOME SECTION ===== */}
+                    {hasIncome && (
                     <div>
-                        {/* Income header row */}
                         <button
                             onClick={() => {
-                                // Clicking the row expands AND enables income
                                 if (!isIncomeExpanded) {
                                     toggleSection('income');
                                     if (!incomeEnabled) {
@@ -972,27 +974,45 @@ export function Sidebar({
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* ===== LOCATION SCORE SECTION ===== */}
                     <div className="border-b border-white/10">
                         <div
-                            onClick={() => onGravityToggle?.(!gravityEnabled)}
-                            className="w-full p-4 flex items-center justify-between hover:bg-white/20 transition-colors cursor-pointer"
+                            onClick={() => hasLocationScore && onGravityToggle?.(!gravityEnabled)}
+                            className={cn(
+                                "w-full p-4 flex items-center justify-between transition-colors",
+                                hasLocationScore
+                                    ? "hover:bg-white/20 cursor-pointer"
+                                    : "opacity-50 cursor-default"
+                            )}
                         >
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-zinc-900 font-heading">Location Score</span>
-                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-amber-100 text-amber-700 uppercase">Beta</span>
+                                <span className={cn(
+                                    "text-sm font-bold font-heading",
+                                    hasLocationScore ? "text-zinc-900" : "text-zinc-400"
+                                )}>Location Score</span>
+                                <span className={cn(
+                                    "px-1.5 py-0.5 text-[9px] font-bold rounded-full uppercase",
+                                    hasLocationScore
+                                        ? "bg-amber-100 text-amber-700"
+                                        : "bg-zinc-200 text-zinc-400"
+                                )}>
+                                    {hasLocationScore ? "Beta" : "Coming Soon"}
+                                </span>
                             </div>
-                            <span
-                                className={cn(
-                                    "px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full transition-colors",
-                                    gravityEnabled
-                                        ? "bg-green-100/50 text-green-700"
-                                        : "bg-zinc-200/60 text-zinc-500"
-                                )}
-                            >
-                                {gravityEnabled ? "On" : "Off"}
-                            </span>
+                            {hasLocationScore && (
+                                <span
+                                    className={cn(
+                                        "px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full transition-colors",
+                                        gravityEnabled
+                                            ? "bg-green-100/50 text-green-700"
+                                            : "bg-zinc-200/60 text-zinc-500"
+                                    )}
+                                >
+                                    {gravityEnabled ? "On" : "Off"}
+                                </span>
+                            )}
                         </div>
                     </div>
                     {/* Admin button - visible to all dashboard-eligible roles */}
