@@ -1145,6 +1145,26 @@ function buildGoogleMapsUrl(name: string, storedUrl: string | undefined, lat: nu
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name}, ${address}`)}`;
 }
 
+// MapLibre serializes GeoJSON feature properties to flat values when rendering.
+// Numbers become strings, booleans become "true"/"false", arrays become JSON strings.
+// This restores PropertyData fields after extracting from a cluster layer click.
+function rehydratePropertyData(raw: any): PropertyData {
+    const p = { ...raw };
+    for (const k of ['latitude', 'longitude', 'price', 'size', 'priceByArea', 'transfer', 'score'] as const) {
+        if (typeof p[k] === 'string') p[k] = Number(p[k]);
+    }
+    for (const k of ['hasAirConditioning', 'hasBathroom', 'hasStorefront'] as const) {
+        if (typeof p[k] === 'string') p[k] = p[k] === 'true';
+    }
+    if (typeof p.photos === 'string') {
+        try { p.photos = JSON.parse(p.photos); } catch { p.photos = []; }
+    }
+    if (typeof p.priceHistory === 'string') {
+        try { p.priceHistory = JSON.parse(p.priceHistory); } catch { p.priceHistory = []; }
+    }
+    return p as PropertyData;
+}
+
 // Helper to capitalize first letter of address
 function capitalizeFirst(str: string): string {
     if (!str) return str;
@@ -1627,7 +1647,7 @@ function NavigationEventListener({
                     if (type === 'cafe' || type === 'eu_coffee_trip' || type === 'regular_cafe') {
                         setSelectedCafe?.({ cafe: data, coordinates: [lon, lat] });
                     } else if (type === 'property') {
-                        setSelectedProperty?.({ property: data, coordinates: [lon, lat] });
+                        setSelectedProperty?.({ property: rehydratePropertyData(data), coordinates: [lon, lat] });
                     } else {
                         setSelectedPoi?.({ poi: data, coordinates: [lon, lat] });
                     }
@@ -2724,7 +2744,7 @@ export function EnhancedMapContainer({
                                 pointColor="#78C500"
                                 styleKey={mapStyleKey}
                                 onPointClick={(feature, coordinates) => {
-                                    const property = feature.properties as unknown as PropertyData;
+                                    const property = rehydratePropertyData(feature.properties);
                                     if (isLinkingMode) {
                                         handleLinkingClick({
                                             type: 'place',
