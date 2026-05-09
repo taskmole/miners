@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { CitySelector, cities, type City } from "@/components/CitySelector";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar, CITY_OVERLAYS, DEFAULT_OVERLAYS } from "@/components/Sidebar";
 import { ActivityLog } from "@/components/ActivityLog";
 import { ListsPanel } from "@/components/ListsPanel";
 import { ScoutingPanel } from "@/components/ScoutingPanel";
@@ -138,7 +138,6 @@ function HomeContent() {
   const [propertyTransferFilter, setPropertyTransferFilter] = useState<PropertyTransferFilter>("all");
   const [propertyPriceChangeFilter, setPropertyPriceChangeFilter] = useState<PropertyPriceChangeFilter>("all");
   const [showHiddenPois, setShowHiddenPois] = useState(false);
-  const [showNewOnly, setShowNewOnly] = useState(false);
 
   // Location Score toggle state
   const [gravityEnabled, setGravityEnabled] = useState(false);
@@ -265,7 +264,6 @@ function HomeContent() {
           selectedCity={selectedCity}
           isLinkingMode={isLinking}
           showHiddenPois={showHiddenPois}
-          showNewOnly={showNewOnly}
           gravityEnabled={gravityEnabled}
           propertyPostedFilter={propertyPostedFilter}
           propertyTransferFilter={propertyTransferFilter}
@@ -283,9 +281,15 @@ function HomeContent() {
               if (user) {
                 void saveDefaultCity(user, city.id);
               }
+              const cityOverlays = CITY_OVERLAYS[city.id] ?? DEFAULT_OVERLAYS;
+              if (!cityOverlays.traffic) { setTrafficEnabled(false); setTrafficValuesEnabled(false); }
+              if (!cityOverlays.population) { setPopulationEnabled(false); setPopulationDensityFilter(0); }
+              if (!cityOverlays.income) { setIncomeEnabled(false); setIncomeWealthyFilter(0); }
+              if (!cityOverlays.locationScore) { setGravityEnabled(false); }
             }}
           />
           <Sidebar
+            cityId={selectedCity.id}
             counts={counts}
             activeFilters={activeFilters}
             onFilterChange={handleFilterChange}
@@ -311,8 +315,6 @@ function HomeContent() {
             onTrafficHourChange={setTrafficHour}
             showHiddenPois={showHiddenPois}
             onShowHiddenPoisToggle={setShowHiddenPois}
-            showNewOnly={showNewOnly}
-            onShowNewOnlyToggle={setShowNewOnly}
             gravityEnabled={gravityEnabled}
             onGravityToggle={setGravityEnabled}
             propertyPostedFilter={propertyPostedFilter}
