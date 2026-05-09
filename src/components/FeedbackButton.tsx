@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, type ChangeEvent, type KeyboardEvent } from "react";
-import { MessageSquareText, Upload, X, Loader2 } from "lucide-react";
+import { MessageSquareText, Paperclip, X, Loader2 } from "lucide-react";
 import { useMobile } from "@/hooks/useMobile";
 import { useToast } from "@/contexts/ToastContext";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -174,7 +174,8 @@ export function FeedbackButton({ selectedCity, user }: FeedbackButtonProps) {
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Write something..."
-          className={`w-full p-3 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-900 placeholder:text-zinc-400 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all ${isMobile ? "min-h-[240px]" : "min-h-[120px]"}`}
+          className="w-full p-3 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-900 placeholder:text-zinc-400 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all"
+          style={{ minHeight: isMobile ? "40vh" : "120px" }}
           autoFocus={!isMobile}
         />
         <span
@@ -210,11 +211,11 @@ export function FeedbackButton({ selectedCity, user }: FeedbackButtonProps) {
           disabled={files.length >= MAX_FILES}
           className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          <Upload className="w-4 h-4" />
+          <Paperclip className="w-4 h-4" />
           <span>
             {files.length >= MAX_FILES
               ? `${MAX_FILES}/${MAX_FILES}`
-              : "Upload"}
+              : "Add attachment"}
           </span>
         </button>
 
