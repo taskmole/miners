@@ -111,14 +111,12 @@ export function LocationSearch({
     if (!isOpen) return;
     function onPointerDown(e: PointerEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-        reset();
+        handleClose();
       }
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [isOpen, reset]);
+  }, [isOpen, handleClose]);
 
   // Reset search when city changes
   const cityIdRef = useRef(selectedCity.id);
@@ -241,10 +239,12 @@ export function LocationSearch({
       {/* Fixed search overlay */}
       <div
         ref={containerRef}
-        className={`fixed top-6 z-[70] ${
-          isMobile ? "left-6 right-4" : "w-[420px]"
-        }`}
-        style={isMobile ? undefined : { left: `${expandedLeft}px` }}
+        className={`fixed z-[70] ${isMobile ? "left-6 right-4" : "w-[420px]"}`}
+        style={
+          isMobile
+            ? { top: "calc(24px + env(safe-area-inset-top, 0px))" }
+            : { top: "24px", left: `${expandedLeft}px` }
+        }
       >
         {/* Search input bar */}
         <div className="glass flex items-center gap-3 px-4 h-12 rounded-2xl">
