@@ -124,13 +124,10 @@
 
   .glass {
     position: relative;
-    background: rgba(255, 255, 255, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(8px) saturate(180%);
-    /* Outer dark outline (12% black) + depth shadow + inner highlight */
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12),
-      0 8px 32px rgba(31, 38, 135, 0.15),
-      inset 0 4px 20px rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.58);
+    border: none;
+    backdrop-filter: blur(36px) saturate(180%);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
   }
 
   .glass-dark {
@@ -174,6 +171,19 @@
 
   .maplibregl-ctrl-logo {
     display: none !important;
+  }
+
+  .maplibregl-ctrl-bottom-right {
+    bottom: 0 !important;
+    right: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .maplibregl-ctrl-attrib {
+    opacity: 0.4 !important;
+    font-size: 8px !important;
+    margin: 0 !important;
   }
 }
 
