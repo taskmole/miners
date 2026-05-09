@@ -140,7 +140,7 @@ export function MobilePanelHeader({
   // On mobile, the BottomSheet handles the title, so we just render children
   if (isMobile) {
     return children ? (
-      <div className="p-4 flex items-center justify-end gap-2 border-b border-zinc-100">
+      <div className="p-4 flex items-center justify-end gap-2">
         {children}
       </div>
     ) : null;

@@ -242,7 +242,7 @@ export function BottomSheet({
           }}
         >
           {title && (
-            <div className="px-4 pb-3 pr-16 border-b border-zinc-100 sticky top-0 bg-white z-[5]">
+            <div className="px-4 pb-3 pr-16 sticky top-0 bg-white z-[5]">
               <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
             </div>
           )}

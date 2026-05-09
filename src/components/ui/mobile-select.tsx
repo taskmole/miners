@@ -163,7 +163,7 @@ export function MobileSelect({
       >
         {/* Search input */}
         {searchable && (
-          <div className="p-4 border-b border-zinc-100">
+          <div className="p-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
               <input
@@ -197,7 +197,6 @@ export function MobileSelect({
                 onClick={() => handleSelect(opt.value)}
                 className={cn(
                   "w-full h-14 px-4 flex items-center gap-3 text-left",
-                  "border-b border-zinc-100 last:border-b-0",
                   "active:bg-zinc-100 transition-colors",
                   opt.value === value && "bg-zinc-50"
                 )}

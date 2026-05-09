@@ -201,7 +201,7 @@ export function ScoutingPanel({
 
       {/* Mobile action buttons */}
       {isMobile && (
-        <div className="p-4 border-b border-zinc-100">
+        <div className="p-4">
           <div className="flex gap-2">
             <Button
               onClick={handleCreateNew}
@@ -223,53 +223,53 @@ export function ScoutingPanel({
       )}
 
       {/* Status summary */}
-        {counts.total > 0 && (
-          <div className="px-4 py-2 bg-zinc-50/50 border-b border-white/10 flex gap-3 text-[10px]">
-            {counts.draft > 0 && (
-              <span className="text-zinc-500">
-                <span className="font-medium text-zinc-700">{counts.draft}</span> draft
-              </span>
-            )}
-            {counts.submitted > 0 && (
-              <span className="text-blue-500">
-                <span className="font-medium">{counts.submitted}</span> submitted
-              </span>
-            )}
-            {counts.approved > 0 && (
-              <span className="text-green-500">
-                <span className="font-medium">{counts.approved}</span> approved
-              </span>
-            )}
-            {counts.rejected > 0 && (
-              <span className="text-red-500">
-                <span className="font-medium">{counts.rejected}</span> rejected
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Trips list */}
-        <div className="max-h-[350px] overflow-y-auto">
-          {!isLoaded ? (
-            <div className="p-4 text-center text-zinc-500 text-sm">Loading...</div>
-          ) : trips.length === 0 ? (
-            <div className="p-6 text-center">
-              <Route className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-              <p className="text-sm text-zinc-500">No scouting trips yet</p>
-              <p className="text-xs text-zinc-400 mt-1">
-                Create a new trip or upload a document
-              </p>
-            </div>
-          ) : (
-            trips.map(trip => (
-              <TripCard
-                key={trip.id}
-                trip={trip}
-                onClick={() => handleSelectTrip(trip)}
-              />
-            ))
+      {counts.total > 0 && (
+        <div className="px-4 py-2 bg-zinc-50/50 border-b border-white/10 flex gap-3 text-[10px]">
+          {counts.draft > 0 && (
+            <span className="text-zinc-500">
+              <span className="font-medium text-zinc-700">{counts.draft}</span> draft
+            </span>
+          )}
+          {counts.submitted > 0 && (
+            <span className="text-blue-500">
+              <span className="font-medium">{counts.submitted}</span> submitted
+            </span>
+          )}
+          {counts.approved > 0 && (
+            <span className="text-green-500">
+              <span className="font-medium">{counts.approved}</span> approved
+            </span>
+          )}
+          {counts.rejected > 0 && (
+            <span className="text-red-500">
+              <span className="font-medium">{counts.rejected}</span> rejected
+            </span>
           )}
         </div>
+      )}
+
+      {/* Trips list */}
+      <div className="max-h-[350px] overflow-y-auto">
+        {!isLoaded ? (
+          <div className="p-4 text-center text-zinc-500 text-sm">Loading...</div>
+        ) : trips.length === 0 ? (
+          <div className="p-6 text-center">
+            <Route className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+            <p className="text-sm text-zinc-500">No scouting trips yet</p>
+            <p className="text-xs text-zinc-400 mt-1">
+              Create a new trip or upload a document
+            </p>
+          </div>
+        ) : (
+          trips.map(trip => (
+            <TripCard
+              key={trip.id}
+              trip={trip}
+              onClick={() => handleSelectTrip(trip)}
+            />
+          ))
+        )}
+      </div>
     </MobilePanel>
   );
 }
