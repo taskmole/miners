@@ -33,8 +33,6 @@ import { useMapData, CafeData, PropertyData, OtherPoiData, LocationData, hasChan
 import { useOverlayData } from "@/hooks/useOverlayData";
 import { useAttachments } from "@/hooks/useAttachments";
 import { useWalkingRadius } from "@/contexts/WalkingRadiusContext";
-import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
-import { point as turfPoint } from "@turf/helpers";
 import { AttachmentGallery } from "@/components/attachments";
 import { PopupCommentsSection } from "@/components/PopupCommentsSection";
 import { DisambiguationPopup } from "@/components/DisambiguationPopup";
@@ -1942,22 +1940,6 @@ export function EnhancedMapContainer({
     // Hidden POIs context
     const { isHidden } = useHiddenPoisContext();
 
-    // Walking radius context for filtering POIs by distance
-    const { radiusPolygon } = useWalkingRadius();
-
-    // Helper to check if a POI is within the active walking radius
-    const isInsideRadius = React.useCallback((lon: number, lat: number): boolean => {
-        if (!radiusPolygon) return true; // No radius active, show all
-        try {
-            const pt = turfPoint([lon, lat]);
-            const inside = booleanPointInPolygon(pt, radiusPolygon);
-            return inside;
-        } catch (e) {
-            console.error('[RadiusFilter] Error:', e);
-            return true; // On error, don't filter out
-        }
-    }, [radiusPolygon]);
-
     // Handler for marker click in linking mode
     const handleLinkingClick = React.useCallback((item: {
         type: 'place' | 'area';
@@ -1971,12 +1953,11 @@ export function EnhancedMapContainer({
         }
     }, [isLinkingMode, addLinkingItem]);
 
-    // Miners cafes - ALWAYS visible regardless of filters (filtered by city and walking radius)
+    // Miners cafes - ALWAYS visible regardless of filters (filtered by city only)
     const minersCafes = useMemo(
         () => cafes
-            .filter(c => c.franchisePartner && c.city === selectedCity?.id)
-            .filter(c => isInsideRadius(c.lon, c.lat)),
-        [cafes, selectedCity, isInsideRadius, radiusPolygon]
+            .filter(c => c.franchisePartner && c.city === selectedCity?.id),
+        [cafes, selectedCity]
     );
 
     // Filter visible markers based on active filters, rating, and city (excluding Miners cafes)
@@ -2022,63 +2003,54 @@ export function EnhancedMapContainer({
 
     // Convert cafes to GeoJSON for cluster layers (split by type for different colors)
     // When showHiddenPois is true, only include hidden POIs
-    // When walking radius is active, filter to only POIs inside the radius
     const euCoffeeTripGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
         type: "FeatureCollection",
         features: visibleCafes
-            .filter(c => c.link?.includes("europeancoffeetrip"))
             .filter(cafe => {
+                if (!cafe.link?.includes("europeancoffeetrip")) return false;
                 if (!showHiddenPois) return true;
-                const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon);
-                return isHidden(placeId);
+                return isHidden(generatePlaceId('cafe', cafe.lat, cafe.lon));
             })
-            .filter(cafe => isInsideRadius(cafe.lon, cafe.lat))
             .map(cafe => ({
                 type: "Feature" as const,
                 geometry: { type: "Point" as const, coordinates: [cafe.lon, cafe.lat] },
                 properties: { ...cafe }
             }))
-    }), [visibleCafes, showHiddenPois, isHidden, isInsideRadius, radiusPolygon]);
+    }), [visibleCafes, showHiddenPois, isHidden]);
 
     const regularCafeGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
         type: "FeatureCollection",
         features: visibleCafes
-            .filter(c => !c.link?.includes("europeancoffeetrip"))
             .filter(cafe => {
+                if (cafe.link?.includes("europeancoffeetrip")) return false;
                 if (!showHiddenPois) return true;
-                const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon);
-                return isHidden(placeId);
+                return isHidden(generatePlaceId('cafe', cafe.lat, cafe.lon));
             })
-            .filter(cafe => isInsideRadius(cafe.lon, cafe.lat))
             .map(cafe => ({
                 type: "Feature" as const,
                 geometry: { type: "Point" as const, coordinates: [cafe.lon, cafe.lat] },
                 properties: { ...cafe }
             }))
-    }), [visibleCafes, showHiddenPois, isHidden, isInsideRadius, radiusPolygon]);
+    }), [visibleCafes, showHiddenPois, isHidden]);
 
     // Convert properties to GeoJSON
     // When showHiddenPois is true, only include hidden POIs
-    // When walking radius is active, filter to only POIs inside the radius
     const propertyGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
         type: "FeatureCollection",
         features: visibleProperties
             .filter(property => {
                 if (!showHiddenPois) return true;
-                const placeId = generatePlaceId('property', property.latitude, property.longitude);
-                return isHidden(placeId);
+                return isHidden(generatePlaceId('property', property.latitude, property.longitude));
             })
-            .filter(property => isInsideRadius(property.longitude, property.latitude))
             .map(p => ({
                 type: "Feature" as const,
                 geometry: { type: "Point" as const, coordinates: [p.longitude, p.latitude] },
                 properties: { ...p }
             }))
-    }), [visibleProperties, showHiddenPois, isHidden, isInsideRadius, radiusPolygon]);
+    }), [visibleProperties, showHiddenPois, isHidden]);
 
     // Convert other POIs to GeoJSON by type
     // When showHiddenPois is true, only include hidden POIs
-    // When walking radius is active, filter to only POIs inside the radius
     const poiGeoJSONByType = useMemo(() => {
         const types = ["transit", "metro", "office", "shopping", "high_street", "dorm", "university", "gym"] as const;
         const byType: Record<string, GeoJSON.FeatureCollection<GeoJSON.Point>> = {};
@@ -2086,13 +2058,11 @@ export function EnhancedMapContainer({
             byType[type] = {
                 type: "FeatureCollection",
                 features: visibleOtherPois
-                    .filter(p => p.type === type)
                     .filter(poi => {
+                        if (poi.type !== type) return false;
                         if (!showHiddenPois) return true;
-                        const placeId = generatePlaceId(poi.type, poi.lat, poi.lon);
-                        return isHidden(placeId);
+                        return isHidden(generatePlaceId(poi.type, poi.lat, poi.lon));
                     })
-                    .filter(poi => isInsideRadius(poi.lon, poi.lat))
                     .map(poi => ({
                         type: "Feature" as const,
                         geometry: { type: "Point" as const, coordinates: [poi.lon, poi.lat] },
@@ -2101,7 +2071,7 @@ export function EnhancedMapContainer({
             };
         });
         return byType;
-    }, [visibleOtherPois, showHiddenPois, isHidden, isInsideRadius, radiusPolygon]);
+    }, [visibleOtherPois, showHiddenPois, isHidden]);
 
     // Cluster colors by POI type (matching iconConfig)
     const clusterColorsByType: Record<string, [string, string, string]> = {
