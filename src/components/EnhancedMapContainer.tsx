@@ -1858,7 +1858,6 @@ interface EnhancedMapContainerProps {
     selectedCity?: City;
     isLinkingMode?: boolean;
     showHiddenPois?: boolean;
-    showNewOnly?: boolean;
     gravityEnabled?: boolean;
     propertyPostedFilter?: PropertyPostedFilter;
     propertyTransferFilter?: PropertyTransferFilter;
@@ -1881,7 +1880,6 @@ export function EnhancedMapContainer({
     selectedCity,
     isLinkingMode = false,
     showHiddenPois = false,
-    showNewOnly = false,
     gravityEnabled = false,
     propertyPostedFilter = "all",
     propertyTransferFilter = "all",
