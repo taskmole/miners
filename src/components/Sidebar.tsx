@@ -128,7 +128,6 @@ const euctFilterOptions: { value: EuctFilter; label: string; countKey: string }[
 const propertyAddedOptions: { value: PropertyPostedFilter; label: string }[] = [
     { value: "all", label: "All" },
     { value: "last7days", label: "Last 7d" },
-    { value: "over7days", label: "Over 7d" },
 ];
 
 const propertyTransferOptions: { value: PropertyTransferFilter; label: string }[] = [
@@ -140,7 +139,6 @@ const propertyTransferOptions: { value: PropertyTransferFilter; label: string }[
 const propertyPriceChangeOptions: { value: PropertyPriceChangeFilter; label: string }[] = [
     { value: "all", label: "All" },
     { value: "yes", label: "Change" },
-    { value: "no", label: "No change" },
 ];
 
 // Reusable segmented toggle row used by property sub-filters
@@ -149,28 +147,40 @@ function SegmentedFilterRow<T extends string>({
     options,
     value,
     onChange,
+    counts,
 }: {
     label: string;
     options: { value: T; label: string }[];
     value: T;
     onChange?: (v: T) => void;
+    counts?: number[];
 }) {
     return (
-        <div className="pr-3 flex items-center gap-2">
-            <span className="text-[10px] font-medium text-zinc-500 shrink-0 w-10">{label}</span>
-            <div className="flex bg-zinc-300/60 rounded-lg p-0.5 flex-1">
-                {options.map((opt) => (
+        <div className="pr-3">
+            <span className="text-[10px] font-medium text-zinc-500 mb-1 block">{label}</span>
+            <div className="flex bg-zinc-300/60 rounded-lg p-1">
+                {options.map((opt, i) => (
                     <button
                         key={opt.value}
                         onClick={() => onChange?.(opt.value)}
                         className={cn(
-                            "flex-1 text-[11px] font-semibold px-2 py-2 md:py-1.5 rounded-md transition-all whitespace-nowrap text-center",
+                            "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all whitespace-nowrap text-center",
                             value === opt.value
                                 ? "bg-white text-zinc-900 shadow-sm"
                                 : "text-zinc-500 hover:text-zinc-700"
                         )}
                     >
                         {opt.label}
+                        {counts && counts[i] != null && (
+                            <span className={cn(
+                                "ml-1.5 text-[10px] font-medium",
+                                value === opt.value
+                                    ? "text-zinc-400"
+                                    : "text-zinc-400/60"
+                            )}>
+                                {counts[i]}
+                            </span>
+                        )}
                     </button>
                 ))}
             </div>
@@ -474,7 +484,7 @@ export function Sidebar({
                         {/* Places header row */}
                         <button
                             onClick={() => toggleSection('places')}
-                            className="w-full p-4 flex items-center justify-between hover:bg-white/20 transition-colors"
+                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/20 transition-colors"
                         >
                             <div className="flex items-center gap-2">
                                 <ChevronRight className={cn(
@@ -483,7 +493,7 @@ export function Sidebar({
                                 )} />
                                 <span className="text-sm font-bold text-zinc-900 font-heading">Places</span>
                             </div>
-                            <span className="px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] bg-zinc-900 text-white font-bold rounded-full">
+                            <span className="px-2.5 py-1 text-[11px] md:px-2 md:py-0.5 md:text-[10px] bg-zinc-900 text-white font-bold rounded-full">
                                 {activeCount} active
                             </span>
                         </button>
@@ -501,7 +511,7 @@ export function Sidebar({
                                             <button
                                                 onClick={handleSelectAll}
                                                 className={cn(
-                                                    "flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all",
+                                                    "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
                                                     isAllSelected && !showHiddenPois
                                                         ? "bg-white text-zinc-900 shadow-sm"
                                                         : "text-zinc-500 hover:text-zinc-700"
@@ -512,7 +522,7 @@ export function Sidebar({
                                             <button
                                                 onClick={handleClearAll}
                                                 className={cn(
-                                                    "flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all",
+                                                    "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
                                                     isNoneSelected && !showHiddenPois
                                                         ? "bg-white text-zinc-900 shadow-sm"
                                                         : "text-zinc-500 hover:text-zinc-700"
@@ -527,7 +537,7 @@ export function Sidebar({
                                                         onShowHiddenPoisToggle?.(true);
                                                     }}
                                                     className={cn(
-                                                        "flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all",
+                                                        "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
                                                         showHiddenPois
                                                             ? "bg-white text-zinc-900 shadow-sm"
                                                             : "text-zinc-500 hover:text-zinc-700"
@@ -540,7 +550,7 @@ export function Sidebar({
                                     </div>
 
                                     {/* Category List */}
-                                    <div className="p-3 space-y-2 md:space-y-1">
+                                    <div className="p-3 space-y-1">
                                         {placeCategories.map((cat) => {
                                             const count = cat.hasSubcategories
                                                 ? getCount("cafe")
@@ -556,7 +566,7 @@ export function Sidebar({
                                             return (
                                                 <div key={cat.id}>
                                                     <div
-                                                        className="flex items-center justify-between py-3 md:py-1.5 px-2 rounded-lg hover:bg-black/10 transition-colors cursor-pointer group"
+                                                        className="flex items-center justify-between py-2 md:py-1.5 px-2 rounded-lg hover:bg-black/10 transition-colors cursor-pointer group"
                                                         onClick={() => {
                                                         if (isExpandable) {
                                                             // Only expand/collapse - checkbox handles toggling
@@ -584,8 +594,16 @@ export function Sidebar({
                                                                             }
                                                                         });
                                                                         onFilterChange(newFilters);
+                                                                        if (checked && cat.id === "cafe") {
+                                                                            onEuctFilterChange?.("all");
+                                                                        }
                                                                     } else {
                                                                         handleToggle(cat.id, !!checked);
+                                                                    }
+                                                                    if (checked && cat.id === "property") {
+                                                                        onPropertyPostedFilterChange?.("all");
+                                                                        onPropertyTransferFilterChange?.("all");
+                                                                        onPropertyPriceChangeFilterChange?.("all");
                                                                     }
                                                                     // Expand section when checked, collapse when unchecked
                                                                     if (isExpandable) {
@@ -593,7 +611,7 @@ export function Sidebar({
                                                                     }
                                                                 }}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                className="size-[22px] md:size-4 border-zinc-300 data-[state=checked]:bg-zinc-800 data-[state=checked]:border-zinc-800"
+                                                                className="size-5 md:size-4 border-zinc-300 data-[state=checked]:bg-zinc-800 data-[state=checked]:border-zinc-800"
                                                             />
                                                             <span className={cn(
                                                                 "text-sm font-medium",
@@ -655,7 +673,7 @@ export function Sidebar({
                                                                         return (
                                                                             <React.Fragment key={sub.id}>
                                                                                 <div
-                                                                                    className="flex items-center justify-between py-2.5 md:py-1 px-2 rounded hover:bg-black/10"
+                                                                                    className="flex items-center justify-between py-1.5 md:py-1 px-2 rounded hover:bg-black/10"
                                                                                 >
                                                                                     <div className="flex items-center gap-2">
                                                                                         <Checkbox
@@ -679,13 +697,13 @@ export function Sidebar({
                                                                                         style={{ gridTemplateRows: subActive ? '1fr' : '0fr' }}
                                                                                     >
                                                                                         <div className="overflow-hidden">
-                                                                                            <div className="flex bg-zinc-300/60 rounded-lg p-1 ml-6 mr-2 my-1">
+                                                                                            <div className="flex bg-zinc-300/60 rounded-lg p-1 mr-2 my-1">
                                                                                                 {euctFilterOptions.map((opt) => (
                                                                                                     <button
                                                                                                         key={opt.value}
                                                                                                         onClick={() => onEuctFilterChange?.(opt.value)}
                                                                                                         className={cn(
-                                                                                                            "flex-1 text-xs font-semibold px-3 py-2.5 md:py-1.5 rounded-md transition-all",
+                                                                                                            "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
                                                                                                             euctFilter === opt.value
                                                                                                                 ? "bg-white text-zinc-900 shadow-sm"
                                                                                                                 : "text-zinc-500 hover:text-zinc-700"
@@ -741,6 +759,7 @@ export function Sidebar({
                                                                         options={propertyAddedOptions}
                                                                         value={propertyPostedFilter}
                                                                         onChange={onPropertyPostedFilterChange}
+                                                                        counts={[getCount("property"), getCount("propertyLast7d")]}
                                                                     />
 
                                                                     {/* Transfer filter - only shown when city has transfer listings */}
@@ -759,6 +778,7 @@ export function Sidebar({
                                                                         options={propertyPriceChangeOptions}
                                                                         value={propertyPriceChangeFilter}
                                                                         onChange={onPropertyPriceChangeFilterChange}
+                                                                        counts={[getCount("property"), getCount("propertyPriceChanged")]}
                                                                     />
                                                                 </div>
                                                             </div>
@@ -787,7 +807,7 @@ export function Sidebar({
                                     toggleSection('traffic');
                                 }
                             }}
-                            className="w-full p-4 flex items-center justify-between hover:bg-white/20 transition-colors"
+                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/20 transition-colors"
                         >
                             <div className="flex items-center gap-2">
                                 <ChevronRight className={cn(
@@ -802,7 +822,7 @@ export function Sidebar({
                                     onTrafficToggle?.(!trafficEnabled);
                                 }}
                                 className={cn(
-                                    "px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full cursor-pointer transition-colors",
+                                    "px-2.5 py-1 text-[11px] md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full cursor-pointer transition-colors",
                                     trafficEnabled
                                         ? "bg-green-100/50 text-green-700 hover:bg-green-200/50"
                                         : "bg-zinc-200/60 text-zinc-500 hover:bg-zinc-200"
@@ -836,14 +856,14 @@ export function Sidebar({
                                         <button
                                             onClick={() => onTrafficValuesToggle?.(!trafficValuesEnabled)}
                                             className={cn(
-                                                "relative inline-flex h-7 w-12 md:h-5 md:w-9 items-center rounded-full transition-colors",
+                                                "relative inline-flex h-6 w-10 md:h-5 md:w-9 items-center rounded-full transition-colors",
                                                 trafficValuesEnabled ? "bg-green-500" : "bg-zinc-300"
                                             )}
                                         >
                                             <span
                                                 className={cn(
-                                                    "inline-block h-6 w-6 md:h-4 md:w-4 transform rounded-full bg-white shadow-sm transition-transform",
-                                                    trafficValuesEnabled ? "translate-x-5 md:translate-x-4" : "translate-x-0.5"
+                                                    "inline-block h-5 w-5 md:h-4 md:w-4 transform rounded-full bg-white shadow-sm transition-transform",
+                                                    trafficValuesEnabled ? "translate-x-4 md:translate-x-4" : "translate-x-0.5"
                                                 )}
                                             />
                                         </button>
@@ -868,7 +888,7 @@ export function Sidebar({
                                     toggleSection('population');
                                 }
                             }}
-                            className="w-full p-4 flex items-center justify-between hover:bg-white/20 transition-colors"
+                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/20 transition-colors"
                         >
                             <div className="flex items-center gap-2">
                                 <ChevronRight className={cn(
@@ -883,7 +903,7 @@ export function Sidebar({
                                     onPopulationToggle?.(!populationEnabled);
                                 }}
                                 className={cn(
-                                    "px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full cursor-pointer transition-colors",
+                                    "px-2.5 py-1 text-[11px] md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full cursor-pointer transition-colors",
                                     populationEnabled
                                         ? "bg-green-100/50 text-green-700 hover:bg-green-200/50"
                                         : "bg-zinc-200/60 text-zinc-500 hover:bg-zinc-200"
@@ -931,7 +951,7 @@ export function Sidebar({
                                     toggleSection('income');
                                 }
                             }}
-                            className="w-full p-4 flex items-center justify-between hover:bg-white/20 transition-colors"
+                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/20 transition-colors"
                         >
                             <div className="flex items-center gap-2">
                                 <ChevronRight className={cn(
@@ -964,7 +984,7 @@ export function Sidebar({
                                     onIncomeToggle?.(!incomeEnabled);
                                 }}
                                 className={cn(
-                                    "px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full cursor-pointer transition-colors",
+                                    "px-2.5 py-1 text-[11px] md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full cursor-pointer transition-colors",
                                     incomeEnabled
                                         ? "bg-green-100/50 text-green-700 hover:bg-green-200/50"
                                         : "bg-zinc-200/60 text-zinc-500 hover:bg-zinc-200"
@@ -1003,7 +1023,7 @@ export function Sidebar({
                         <div
                             onClick={() => hasLocationScore && onGravityToggle?.(!gravityEnabled)}
                             className={cn(
-                                "w-full p-4 flex items-center justify-between transition-colors",
+                                "w-full px-4 py-3 flex items-center justify-between transition-colors",
                                 hasLocationScore
                                     ? "hover:bg-white/20 cursor-pointer"
                                     : "opacity-50 cursor-default"
@@ -1026,7 +1046,7 @@ export function Sidebar({
                             {hasLocationScore && (
                                 <span
                                     className={cn(
-                                        "px-3 py-1.5 text-xs md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full transition-colors",
+                                        "px-2.5 py-1 text-[11px] md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full transition-colors",
                                         gravityEnabled
                                             ? "bg-green-100/50 text-green-700"
                                             : "bg-zinc-200/60 text-zinc-500"
