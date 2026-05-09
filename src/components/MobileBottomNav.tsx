@@ -26,23 +26,27 @@ export function MobileBottomNav() {
     { id: "activity", label: "Activity", icon: Activity, sheet: activity },
   ];
 
-  // Design system: 56px height, glass background, 24px icons, 11px labels
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-t border-zinc-200 safe-area-pb">
-      <div className="flex items-center justify-around h-14">
-        {navItems.map(({ id, label, icon: Icon, sheet }) => (
+    <div className="fixed bottom-4 left-0 right-0 z-50 safe-area-pb flex justify-center">
+      <div className="flex items-center gap-2 px-2 py-2">
+        {navItems.map(({ id, icon: Icon, sheet }) => (
           <button
             key={id}
             onClick={sheet.toggle}
             className={cn(
-              "flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors",
-              sheet.isOpen
-                ? "text-blue-600"
-                : "text-zinc-500 active:text-zinc-900"
+              "flex items-center justify-center w-14 h-14 rounded-[22px] transition-all active:scale-95",
+              sheet.isOpen ? "text-white" : "text-white/90"
             )}
+            style={{
+              background: sheet.isOpen
+                ? "rgba(255, 255, 255, 0.25)"
+                : "rgba(255, 255, 255, 0.12)",
+              backdropFilter: "blur(24px) saturate(180%)",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1)",
+            }}
           >
-            <Icon className="w-6 h-6" />
-            <span className="text-[11px] font-medium">{label}</span>
+            <Icon className="w-6 h-6" strokeWidth={sheet.isOpen ? 2.5 : 2} />
           </button>
         ))}
       </div>

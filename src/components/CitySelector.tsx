@@ -44,7 +44,7 @@ interface CitySelectorProps {
 
 export function CitySelector({ selectedCity, onCityChange }: CitySelectorProps) {
   return (
-    <div className="fixed top-6 left-6 z-50">
+    <div className="z-50">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           {/* Trigger button - glassmorphism style matching MapStyleSwitcher */}
