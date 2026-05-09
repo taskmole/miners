@@ -53,7 +53,12 @@ export function MobilePanel({
     if (isMobile || !isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement;
+      if (panelRef.current && !panelRef.current.contains(target)) {
+        // Don't close when clicking inside Radix portals (dropdowns, dialogs)
+        if (target.closest("[data-radix-popper-content-wrapper], [role='dialog'], [role='menu']")) {
+          return;
+        }
         onClose();
       }
     };
