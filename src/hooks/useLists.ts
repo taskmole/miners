@@ -226,16 +226,6 @@ export function useLists() {
         });
       });
 
-      localLists.forEach(localList => {
-        if (!serverListsMap.has(localList.id)) {
-          mergedLists.push(localList);
-          syncCreateToServer(localList);
-          localList.items.forEach(item => {
-            syncAddItemToServer(localList.id, item);
-          });
-        }
-      });
-
       setLists(mergedLists);
       setIsLoaded(true);
 
