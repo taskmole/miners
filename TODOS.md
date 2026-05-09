@@ -36,3 +36,10 @@ Removed the join query that was causing the foreign key error. Now fetches pitch
 
 ### ✓ Create migrate_anonymous_user Supabase function (Resolved 2026-05-04)
 The function did exist (migration `20260501000001_create_drawn_features_and_rpcs.sql`) but had a uuid/text type mismatch that returned 42883 wrapped as 404. Fixed in migration `20260504000001_fix_migrate_anonymous_user.sql`, which also closed an auth-bypass bug.
+
+### Improve service worker caching strategy
+**What:** Add cache size limits and expiration to `public/sw.js`.
+**Why:** The current implementation caches every GET request indefinitely with no size cap. For a map app loading tile images and CSV data, the cache can grow very large on mobile devices with limited storage.
+**Pros:** Prevents unbounded cache growth on phones. Ensures users get fresh data after updates.
+**Cons:** Requires choosing sensible limits (max entries, max age) and possibly different strategies per resource type (tiles vs. API data vs. static assets).
+**Where to start:** `public/sw.js`. Consider using a network-first strategy for API/data routes, cache-first for static assets, and adding a max-entries limit.

@@ -1,5 +1,5 @@
 // Service Worker for Miners Location Scout
-// Provides basic offline support and caching
+// Only caches static assets (JS, CSS, images). API routes are never cached.
 
 const CACHE_NAME = 'miners-scout-v1';
 const STATIC_ASSETS = [
@@ -9,7 +9,6 @@ const STATIC_ASSETS = [
   '/assets/map-style-color.png',
 ];
 
-// Install event - cache static assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -19,7 +18,6 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -33,10 +31,16 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
-  // Skip non-GET requests
   if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+
+  // Never cache API routes or auth endpoints
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) return;
+
+  // Only cache same-origin requests
+  if (url.origin !== self.location.origin) return;
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
@@ -45,7 +49,6 @@ self.addEventListener('fetch', (event) => {
       }
 
       return fetch(event.request).then((response) => {
-        // Cache successful responses
         if (response.ok) {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
