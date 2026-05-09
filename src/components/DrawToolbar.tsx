@@ -91,42 +91,44 @@ export function DrawToolbar() {
         </div>
       )}
 
-        {/* Draw mode buttons */}
-        <div className="p-3">
-          <div className="grid grid-cols-2 gap-2">
-            {DRAW_BUTTONS.map((button) => {
-              const isActive = isButtonActive(button);
-              return (
-                <button
-                  key={button.label}
-                  onClick={() => handleButtonClick(button)}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl transition-colors cursor-pointer",
-                    isActive
-                      ? "bg-teal-500/20 text-teal-700"
-                      : "hover:bg-white/30 text-zinc-700"
-                  )}
-                >
-                  <button.icon className={cn(
-                    "w-5 h-5",
-                    isActive ? "text-teal-600" : "text-zinc-400"
-                  )} />
-                  <span className={cn(
-                    "text-xs font-medium",
-                    isActive ? "text-teal-700" : "text-zinc-700"
-                  )}>
-                    {button.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+      {/* Draw mode buttons */}
+      <div className="p-3">
+        <div className="grid grid-cols-2 gap-2">
+          {DRAW_BUTTONS.map((button) => {
+            const isActive = isButtonActive(button);
+            return (
+              <button
+                key={button.label}
+                onClick={() => handleButtonClick(button)}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl transition-colors cursor-pointer",
+                  isActive
+                    ? "bg-teal-500/20 text-teal-700"
+                    : "hover:bg-white/30 text-zinc-700"
+                )}
+              >
+                <button.icon className={cn(
+                  "w-5 h-5",
+                  isActive ? "text-teal-600" : "text-zinc-400"
+                )} />
+                <span className={cn(
+                  "text-xs font-medium",
+                  isActive ? "text-teal-700" : "text-zinc-700"
+                )}>
+                  {button.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
+      </div>
 
-        {/* Hint text at bottom */}
-        <div className="px-4 py-2.5 text-[10px] text-zinc-500">
-          Click to start drawing. Double-click to finish. Right-click to adjust borders.
-        </div>
+      {/* Hint text at bottom */}
+      <div className="px-4 py-2.5 text-[10px] text-zinc-500 text-center">
+        {isMobile
+          ? "Tap to draw. Double-tap to finish. Long-press to adjust."
+          : "Click to start drawing. Double-click to finish. Right-click to adjust."}
+      </div>
     </MobilePanel>
   );
 
