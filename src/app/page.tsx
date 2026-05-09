@@ -12,6 +12,7 @@ import { ScoutingTripDetail } from "@/components/ScoutingTripDetail";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { FootfallTimePicker } from "@/components/FootfallTimePicker";
 import { FeedbackButton } from "@/components/FeedbackButton";
+import { LocationSearch } from "@/components/LocationSearch";
 import { EnhancedMapContainer } from "@/components/EnhancedMapContainer";
 import { LandingPage } from "@/components/LandingPage";
 import { CityPicker } from "@/components/CityPicker";
@@ -49,7 +50,7 @@ function HomeContent() {
   const [selectedCity, setSelectedCity] = useState<City>(
     () => cities.find(c => c.id === "madrid") ?? cities[0]
   );
-  const { counts } = useMapData(selectedCity.id);
+  const { cafes, properties, otherPois, counts } = useMapData(selectedCity.id);
   const { startLinking, isLinking } = useLinking();
 
   // Auth state
@@ -274,20 +275,28 @@ function HomeContent() {
       {/* UI Overlays - hide when in linking mode */}
       {!isLinking && (
         <>
-          <CitySelector
-            selectedCity={selectedCity}
-            onCityChange={(city) => {
-              setSelectedCity(city);
-              if (user) {
-                void saveDefaultCity(user, city.id);
-              }
-              const cityOverlays = CITY_OVERLAYS[city.id] ?? DEFAULT_OVERLAYS;
-              if (!cityOverlays.traffic) { setTrafficEnabled(false); setTrafficValuesEnabled(false); }
-              if (!cityOverlays.population) { setPopulationEnabled(false); setPopulationDensityFilter(0); }
-              if (!cityOverlays.income) { setIncomeEnabled(false); setIncomeWealthyFilter(0); }
-              if (!cityOverlays.locationScore) { setGravityEnabled(false); }
-            }}
-          />
+          <div className="fixed top-6 left-6 z-50 flex items-center gap-2">
+            <CitySelector
+              selectedCity={selectedCity}
+              onCityChange={(city) => {
+                setSelectedCity(city);
+                if (user) {
+                  void saveDefaultCity(user, city.id);
+                }
+                const cityOverlays = CITY_OVERLAYS[city.id] ?? DEFAULT_OVERLAYS;
+                if (!cityOverlays.traffic) { setTrafficEnabled(false); setTrafficValuesEnabled(false); }
+                if (!cityOverlays.population) { setPopulationEnabled(false); setPopulationDensityFilter(0); }
+                if (!cityOverlays.income) { setIncomeEnabled(false); setIncomeWealthyFilter(0); }
+                if (!cityOverlays.locationScore) { setGravityEnabled(false); }
+              }}
+            />
+            <LocationSearch
+              cafes={cafes}
+              properties={properties}
+              otherPois={otherPois}
+              selectedCity={selectedCity}
+            />
+          </div>
           <Sidebar
             cityId={selectedCity.id}
             counts={counts}
