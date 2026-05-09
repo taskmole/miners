@@ -277,7 +277,7 @@ function HomeContent() {
       {/* UI Overlays - hide when in linking mode */}
       {!isLinking && (
         <>
-          <div className="fixed top-6 left-6 z-50 flex items-center gap-2">
+          <div className="fixed left-6 z-50 flex items-center gap-2" style={{ top: "calc(24px + env(safe-area-inset-top, 0px))" }}>
             <CitySelector
               selectedCity={selectedCity}
               onCityChange={(city) => {
