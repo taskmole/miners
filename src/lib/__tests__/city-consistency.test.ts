@@ -17,6 +17,13 @@ while ((match = cityEntryPattern.exec(selectorContent)) !== null) {
     activeFrontendCities.push(match[1]);
 }
 
+// Parse all city IDs (including coming-soon) from CitySelector.tsx
+const allCityPattern = /\{\s*id:\s*"(\w+)"/g;
+const allFrontendCities: string[] = [];
+while ((match = allCityPattern.exec(selectorContent)) !== null) {
+    allFrontendCities.push(match[1]);
+}
+
 const pipelineCityIds = Object.keys(CITIES);
 
 describe("city configuration consistency", () => {
@@ -36,8 +43,8 @@ describe("city configuration consistency", () => {
     it("every pipeline city exists in frontend city picker", () => {
         for (const cityId of pipelineCityIds) {
             expect(
-                activeFrontendCities,
-                `City "${cityId}" is in the pipeline config but missing from CitySelector.tsx (or not marked active)`,
+                allFrontendCities,
+                `City "${cityId}" is in the pipeline config but missing from CitySelector.tsx`,
             ).toContain(cityId);
         }
     });

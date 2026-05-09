@@ -921,6 +921,10 @@
   overflow: hidden;
 }
 
+.popup-btn-icon.has-bg img {
+  padding: 8px;
+}
+
 .popup-btn-icon img {
   width: 100%;
   height: 100%;
@@ -1056,6 +1060,11 @@
     width: 32px;
     height: 32px;
     object-fit: contain;
+  }
+
+  .popup-btn-icon.has-bg img {
+    width: 28px;
+    height: 28px;
   }
 
   /* Square logos fill the entire button */
