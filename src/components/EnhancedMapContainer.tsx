@@ -890,7 +890,6 @@ const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ pl
 // EU Coffee Trip Popup - Uses universal popup base classes - memoized to prevent re-renders
 const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose }: { cafe: CafeData; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(cafe.name, cafe.googleMapsUrl, cafe.lat, cafe.lon, cafe.address);
-    const recentlyAdded = isRecentlyAdded(cafe.datePublished);
     const commentCount = 0; // TODO: Get from data when available
     const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
     const [activeTooltip, setActiveTooltip] = React.useState<string | null>(null);
@@ -917,11 +916,6 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
                                 <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>{freshTooltipText(cafe.fetchedAt)}</span>
                             </span>
                         </div>
-                    )}
-
-                    {/* New ribbon */}
-                    {recentlyAdded && (
-                        <div className="popup-new-ribbon">Added in the last 3 months</div>
                     )}
 
                     {/* Chips on image */}
