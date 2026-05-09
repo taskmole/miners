@@ -59,8 +59,9 @@ When the user types any of these, immediately execute the action - no questions 
 - **`.3`** → Start the dev server on the first available port. Steps:
   1. Check ports 3000-3009 and pick the first one not in use
   2. If this is the main repo (not a worktree), prefer port 3000: kill anything on 3000 first, then use it
-  3. Run `PORT={port} npm run dev` in the background
-  4. Confirm it started and print the URL with the actual port number
+  3. If this is a worktree and `.env.local` is missing, copy it from the main repo
+  4. Run `PORT={port} npm run dev` in the background
+  5. Confirm it started and print the URL with the actual port number
 - **`.p`** → Prep for shipping. Run in this exact order:
   1. Run `/simplify` on all changed files to clean up the code
   2. Run `npm run build` to verify nothing broke
