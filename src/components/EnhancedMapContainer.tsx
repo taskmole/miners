@@ -2002,14 +2002,14 @@ export function EnhancedMapContainer({
     );
 
     // Convert cafes to GeoJSON for cluster layers (split by type for different colors)
-    // When showHiddenPois is true, only include hidden POIs
+    // Excludes hidden POIs in normal mode; shows only hidden POIs in hidden mode
     const euCoffeeTripGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
         type: "FeatureCollection",
         features: visibleCafes
             .filter(cafe => {
                 if (!cafe.link?.includes("europeancoffeetrip")) return false;
-                if (!showHiddenPois) return true;
-                return isHidden(generatePlaceId('cafe', cafe.lat, cafe.lon));
+                const hidden = isHidden(generatePlaceId('cafe', cafe.lat, cafe.lon));
+                return showHiddenPois ? hidden : !hidden;
             })
             .map(cafe => ({
                 type: "Feature" as const,
@@ -2023,8 +2023,8 @@ export function EnhancedMapContainer({
         features: visibleCafes
             .filter(cafe => {
                 if (cafe.link?.includes("europeancoffeetrip")) return false;
-                if (!showHiddenPois) return true;
-                return isHidden(generatePlaceId('cafe', cafe.lat, cafe.lon));
+                const hidden = isHidden(generatePlaceId('cafe', cafe.lat, cafe.lon));
+                return showHiddenPois ? hidden : !hidden;
             })
             .map(cafe => ({
                 type: "Feature" as const,
@@ -2034,13 +2034,13 @@ export function EnhancedMapContainer({
     }), [visibleCafes, showHiddenPois, isHidden]);
 
     // Convert properties to GeoJSON
-    // When showHiddenPois is true, only include hidden POIs
+    // Excludes hidden POIs in normal mode; shows only hidden POIs in hidden mode
     const propertyGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
         type: "FeatureCollection",
         features: visibleProperties
             .filter(property => {
-                if (!showHiddenPois) return true;
-                return isHidden(generatePlaceId('property', property.latitude, property.longitude));
+                const hidden = isHidden(generatePlaceId('property', property.latitude, property.longitude));
+                return showHiddenPois ? hidden : !hidden;
             })
             .map(p => ({
                 type: "Feature" as const,
@@ -2050,7 +2050,7 @@ export function EnhancedMapContainer({
     }), [visibleProperties, showHiddenPois, isHidden]);
 
     // Convert other POIs to GeoJSON by type
-    // When showHiddenPois is true, only include hidden POIs
+    // Excludes hidden POIs in normal mode; shows only hidden POIs in hidden mode
     const poiGeoJSONByType = useMemo(() => {
         const types = ["transit", "metro", "office", "shopping", "high_street", "dorm", "university", "gym"] as const;
         const byType: Record<string, GeoJSON.FeatureCollection<GeoJSON.Point>> = {};
@@ -2060,8 +2060,8 @@ export function EnhancedMapContainer({
                 features: visibleOtherPois
                     .filter(poi => {
                         if (poi.type !== type) return false;
-                        if (!showHiddenPois) return true;
-                        return isHidden(generatePlaceId(poi.type, poi.lat, poi.lon));
+                        const hidden = isHidden(generatePlaceId(poi.type, poi.lat, poi.lon));
+                        return showHiddenPois ? hidden : !hidden;
                     })
                     .map(poi => ({
                         type: "Feature" as const,
