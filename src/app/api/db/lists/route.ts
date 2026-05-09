@@ -131,10 +131,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (type === "list") {
-      const { error } = await supabase.from("lists").delete().eq("id", id);
+      const { error, count } = await supabase.from("lists").delete({ count: "exact" }).eq("id", id);
       if (error) {
         console.error("[api/db/lists] delete list error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      // 0 rows affected means RLS blocked the delete (user doesn't own the list)
+      if ((count ?? 0) === 0) {
+        return NextResponse.json({ error: "Delete affected 0 rows" }, { status: 403 });
       }
       return new NextResponse(null, { status: 204 });
     }
@@ -145,6 +149,8 @@ export async function DELETE(request: NextRequest) {
         console.error("[api/db/lists] delete item error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
+      // Items may exist only in localStorage and never have been synced,
+      // so 0 rows affected is expected and not an error.
       return new NextResponse(null, { status: 204 });
     }
 
