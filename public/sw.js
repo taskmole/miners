@@ -1,7 +1,8 @@
 // Service Worker for Miners Location Scout
-// Only caches static assets (JS, CSS, images). API routes are never cached.
+// Network-first for pages, cache-first for static assets. API routes never cached.
 
-const CACHE_NAME = 'miners-scout-v1';
+const CACHE_VERSION = 2;
+const CACHE_NAME = `miners-scout-v${CACHE_VERSION}`;
 const STATIC_ASSETS = [
   '/',
   '/assets/logo_white.webp',
@@ -31,6 +32,12 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Store a response clone in the cache (fire-and-forget)
+function cacheResponse(request, response) {
+  const clone = response.clone();
+  caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+}
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
@@ -42,21 +49,31 @@ self.addEventListener('fetch', (event) => {
   // Only cache same-origin requests
   if (url.origin !== self.location.origin) return;
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+  const isNavigationRequest =
+    event.request.mode === 'navigate' ||
+    event.request.destination === 'document';
 
-      return fetch(event.request).then((response) => {
-        if (response.ok) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
-        }
-        return response;
-      });
-    })
-  );
+  if (isNavigationRequest) {
+    // Network-first for HTML pages: try fresh content, fall back to cache when offline
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) cacheResponse(event.request, response);
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+  } else {
+    // Cache-first for static assets (JS, CSS, images, fonts)
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+
+        return fetch(event.request).then((response) => {
+          if (response.ok) cacheResponse(event.request, response);
+          return response;
+        });
+      })
+    );
+  }
 });
