@@ -225,7 +225,7 @@ export function Sidebar({
     // Which main sections are expanded (places, traffic)
     const [expandedSections, setExpandedSections] = React.useState<Set<string>>(new Set());
     // Which place categories are expanded (for cafe subcategories)
-    const [expandedCategories, setExpandedCategories] = React.useState<Set<string>>(new Set(["cafe"]));
+    const [expandedCategories, setExpandedCategories] = React.useState<Set<string>>(new Set());
 
     // Overlay availability per city
     const overlays = CITY_OVERLAYS[cityId ?? "madrid"] ?? DEFAULT_OVERLAYS;
@@ -343,13 +343,15 @@ export function Sidebar({
 
     // Toggle a main section (places, traffic)
     const toggleSection = (section: string) => {
-        const newExpanded = new Set(expandedSections);
-        if (newExpanded.has(section)) {
-            newExpanded.delete(section);
-        } else {
-            newExpanded.add(section);
-        }
-        setExpandedSections(newExpanded);
+        setExpandedSections(prev => {
+            const next = new Set(prev);
+            if (next.has(section)) {
+                next.delete(section);
+            } else {
+                next.add(section);
+            }
+            return next;
+        });
     };
 
     const handleToggle = (id: string, checked: boolean) => {
@@ -388,13 +390,28 @@ export function Sidebar({
     };
 
     const toggleCategoryExpand = (id: string) => {
-        const newExpanded = new Set(expandedCategories);
-        if (newExpanded.has(id)) {
-            newExpanded.delete(id);
-        } else {
-            newExpanded.add(id);
-        }
-        setExpandedCategories(newExpanded);
+        setExpandedCategories(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    // Explicitly expand or collapse a category (used by checkbox to sync state)
+    const setCategoryExpanded = (id: string, expanded: boolean) => {
+        setExpandedCategories(prev => {
+            const next = new Set(prev);
+            if (expanded) {
+                next.add(id);
+            } else {
+                next.delete(id);
+            }
+            return next;
+        });
     };
 
     const activeCount = activeFilters.size;
@@ -555,6 +572,7 @@ export function Sidebar({
                                                                 id={cat.id}
                                                                 checked={isActive}
                                                                 onCheckedChange={(checked) => {
+                                                                    // Toggle all subcategory filters, or single filter
                                                                     if (cat.hasSubcategories && cat.subcategories) {
                                                                         const newFilters = new Set(activeFilters);
                                                                         cat.subcategories.forEach(sub => {
@@ -568,6 +586,10 @@ export function Sidebar({
                                                                         onFilterChange(newFilters);
                                                                     } else {
                                                                         handleToggle(cat.id, !!checked);
+                                                                    }
+                                                                    // Expand section when checked, collapse when unchecked
+                                                                    if (isExpandable) {
+                                                                        setCategoryExpanded(cat.id, !!checked);
                                                                     }
                                                                 }}
                                                                 onClick={(e) => e.stopPropagation()}
