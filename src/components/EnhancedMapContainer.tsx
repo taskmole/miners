@@ -1127,7 +1127,7 @@ function CafePopupContent({ cafe, onClose }: { cafe: CafeData; onClose?: () => v
 
 // Build a Google Maps URL that works reliably on mobile + desktop.
 // Stored URLs use `?q=place_id:X` which breaks on mobile Safari — convert to the official Maps URLs API.
-function buildGoogleMapsUrl(name: string, storedUrl: string | undefined, lat: number, lon: number, address?: string): string {
+function buildGoogleMapsUrl(name: string, storedUrl: string | undefined, lat: number, lon: number, address?: string, preferCoordinates?: boolean): string {
     // Try to extract a Place ID from the stored URL (format: place_id:ChIJ...)
     if (storedUrl) {
         const match = storedUrl.match(/place_id:([A-Za-z0-9_-]+)/);
@@ -1135,14 +1135,14 @@ function buildGoogleMapsUrl(name: string, storedUrl: string | undefined, lat: nu
             const query = encodeURIComponent(name);
             return `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${match[1]}`;
         }
-        // If the stored URL doesn't contain a Place ID, use it as-is (e.g. address-based search URLs)
         return storedUrl;
     }
-    // No stored URL — search by name + address for better context than bare coordinates
-    const query = address
-        ? encodeURIComponent(`${name}, ${address}`)
-        : encodeURIComponent(`${name} ${lat},${lon}`);
-    return `https://www.google.com/maps/search/?api=1&query=${query}`;
+    // Properties and POIs without address: drop a pin at exact coordinates
+    if (preferCoordinates || !address) {
+        return `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+    }
+    // Named businesses with address: search by name for the full Google business card
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name}, ${address}`)}`;
 }
 
 // Helper to capitalize first letter of address
@@ -1187,7 +1187,7 @@ function freshTooltipText(dateStr: string): string {
 
 // Property popup content - Uses universal popup base - memoized
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
-    const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address);
+    const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address, true);
     const placeId = `property-${property.latitude.toFixed(5)}-${property.longitude.toFixed(5)}`;
 
     // Build features array
