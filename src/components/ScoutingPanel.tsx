@@ -147,10 +147,10 @@ export function ScoutingPanel({
   const collapsedButton = (
     <button
       onClick={open}
-      className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
+      className="glass w-9 h-9 rounded-lg border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
       title="Scouting Trips"
     >
-      <MapPinned className="w-5 h-5 text-zinc-500" />
+      <MapPinned className="w-[18px] h-[18px] text-zinc-500" />
     </button>
   );
 
@@ -158,7 +158,7 @@ export function ScoutingPanel({
     <MobilePanel
       isOpen={isExpanded}
       onClose={close}
-      desktopPosition={{ top: "136px", right: "24px" }}
+      desktopPosition={{ top: "112px", right: "24px" }}
       title="Scouting Trips"
       collapsedButton={collapsedButton}
       snapPoint="partial"

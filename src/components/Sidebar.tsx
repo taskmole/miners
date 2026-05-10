@@ -14,9 +14,7 @@ import {
     Funnel,
     X,
     Dumbbell,
-    Shield,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import { useSheetState } from "@/contexts/SheetContext";
 import { Slider } from "@/components/ui/slider";
@@ -24,7 +22,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MobilePanel } from "@/components/ui/mobile-panel";
 import { useMobile } from "@/hooks/useMobile";
-import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { cn } from "@/lib/utils";
 import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter } from "@/types/filters";
 
@@ -229,9 +226,6 @@ export function Sidebar({
     // Use SheetContext for coordinated open/close
     const { isOpen, open, close } = useSheetState("filters");
     const isMobile = useMobile();
-    const router = useRouter();
-    // Admin access check
-    const { canAccessDashboard } = useUserProfiles();
     // Which main sections are expanded (places, traffic)
     const [expandedSections, setExpandedSections] = React.useState<Set<string>>(new Set());
     // Which place categories are expanded (for cafe subcategories)
@@ -447,10 +441,10 @@ export function Sidebar({
     const collapsedButton = (
         <button
             onClick={open}
-            className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200"
+            className="glass w-9 h-9 rounded-lg border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200"
             title="Open filters"
         >
-            <Funnel className="w-5 h-5 text-zinc-500" />
+            <Funnel className="w-[18px] h-[18px] text-zinc-500" />
         </button>
     );
 
@@ -1018,66 +1012,32 @@ export function Sidebar({
                     </div>
                     )}
 
-                    {/* ===== LOCATION SCORE SECTION ===== */}
+                    {/* ===== LOCATION SCORE SECTION (only when city supports it) ===== */}
+                    {hasLocationScore && (
                     <div className="border-b border-white/10">
                         <div
-                            onClick={() => hasLocationScore && onGravityToggle?.(!gravityEnabled)}
-                            className={cn(
-                                "w-full px-4 py-3 flex items-center justify-between transition-colors",
-                                hasLocationScore
-                                    ? "hover:bg-white/20 cursor-pointer"
-                                    : "opacity-50 cursor-default"
-                            )}
+                            onClick={() => onGravityToggle?.(!gravityEnabled)}
+                            className="w-full px-4 py-3 flex items-center justify-between transition-colors hover:bg-white/20 cursor-pointer"
                         >
                             <div className="flex items-center gap-2">
-                                <span className={cn(
-                                    "text-sm font-bold font-heading",
-                                    hasLocationScore ? "text-zinc-900" : "text-zinc-400"
-                                )}>Location Score</span>
-                                <span className={cn(
-                                    "px-1.5 py-0.5 text-[9px] font-bold rounded-full uppercase",
-                                    hasLocationScore
-                                        ? "bg-amber-100 text-amber-700"
-                                        : "bg-zinc-200 text-zinc-400"
-                                )}>
-                                    {hasLocationScore ? "Beta" : "Coming Soon"}
+                                <span className="text-sm font-bold font-heading text-zinc-900">Location Score</span>
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full uppercase bg-amber-100 text-amber-700">
+                                    Beta
                                 </span>
                             </div>
-                            {hasLocationScore && (
-                                <span
-                                    className={cn(
-                                        "px-2.5 py-1 text-[11px] md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full transition-colors",
-                                        gravityEnabled
-                                            ? "bg-green-100/50 text-green-700"
-                                            : "bg-zinc-200/60 text-zinc-500"
-                                    )}
-                                >
-                                    {gravityEnabled ? "On" : "Off"}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                    {/* Admin button - visible to all dashboard-eligible roles */}
-                    {canAccessDashboard && (
-                        <div className="border-t border-white/10 p-4">
-                            <button
-                                onClick={() => router.push('/admin')}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-zinc-900 text-white text-sm font-semibold rounded-lg hover:bg-zinc-800 transition-colors"
+                            <span
+                                className={cn(
+                                    "px-2.5 py-1 text-[11px] md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full transition-colors",
+                                    gravityEnabled
+                                        ? "bg-green-100/50 text-green-700"
+                                        : "bg-zinc-200/60 text-zinc-500"
+                                )}
                             >
-                                <Shield className="w-4 h-4" />
-                                Admin Dashboard
-                            </button>
+                                {gravityEnabled ? "On" : "Off"}
+                            </span>
                         </div>
-                    )}
-                    {/* User Guide link - visible to all roles */}
-                    <div className="border-t border-white/10 px-4 py-3">
-                        <button
-                            onClick={() => router.push('/user-guide')}
-                            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
-                        >
-                            User Guide →
-                        </button>
                     </div>
+                    )}
                     {/* Bottom spacer for mobile scroll */}
                     <div className="h-24 md:h-0" />
             </ScrollArea>

@@ -40,7 +40,7 @@ export function MapStyleSwitcher({ onStyleChange, trafficEnabled }: { onStyleCha
             trafficEnabled && "md:bottom-6"
         )}>
             {/* Horizontal toggle with glassmorphism */}
-            <div className="glass relative flex gap-1.5 p-1 rounded-xl border border-white/40 shadow-[0_0_0_1.5px_rgba(0,0,0,0.3),0_8px_32px_rgba(31,38,135,0.15),inset_0_4px_20px_rgba(255,255,255,0.4)]">
+            <div className="glass relative flex gap-1.5 p-1 rounded-xl border border-white/40 shadow-[0_4px_20px_rgba(0,0,0,0.22)]">
                 {/* Sliding white pill indicator - responsive sizing */}
                 <div
                     className={cn(

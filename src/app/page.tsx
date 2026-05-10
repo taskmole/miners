@@ -12,6 +12,7 @@ import { ScoutingTripDetail } from "@/components/ScoutingTripDetail";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { FootfallTimePicker } from "@/components/FootfallTimePicker";
 import { FeedbackButton } from "@/components/FeedbackButton";
+import { ProfileMenu } from "@/components/ProfileMenu";
 import { LocationSearch } from "@/components/LocationSearch";
 import { EnhancedMapContainer } from "@/components/EnhancedMapContainer";
 import { LandingPage } from "@/components/LandingPage";
@@ -363,6 +364,7 @@ function HomeContent() {
           />
           <MobileBottomNav onFeedbackOpen={() => feedbackOpenRef.current?.()} />
           <FeedbackButton selectedCity={selectedCity} user={user} onExposeOpen={handleExposeOpen} />
+          <ProfileMenu />
         </>
       )}
 
