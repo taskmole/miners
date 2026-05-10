@@ -126,10 +126,10 @@ export function ActivityLog() {
     const collapsedButton = (
         <button
             onClick={open}
-            className="glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
+            className="glass w-9 h-9 rounded-lg border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
             title="Activity log"
         >
-            <Activity className="w-5 h-5 text-zinc-500" />
+            <Activity className="w-[18px] h-[18px] text-zinc-500" />
             {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                     {unreadCount > 9 ? '9+' : unreadCount}
@@ -142,7 +142,7 @@ export function ActivityLog() {
         <MobilePanel
             isOpen={isExpanded}
             onClose={close}
-            desktopPosition={{ top: "248px", right: "24px" }}
+            desktopPosition={{ top: "200px", right: "24px" }}
             title="Activity Log"
             collapsedButton={collapsedButton}
             snapPoint="partial"

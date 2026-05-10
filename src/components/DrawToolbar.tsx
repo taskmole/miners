@@ -54,13 +54,13 @@ export function DrawToolbar() {
     <button
       onClick={open}
       className={cn(
-        "glass w-11 h-11 rounded-xl border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200",
+        "glass w-9 h-9 rounded-lg border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200",
         isDrawing && "ring-2 ring-teal-500/50"
       )}
       title="Draw tools"
     >
       <Pencil className={cn(
-        "w-5 h-5",
+        "w-[18px] h-[18px]",
         isDrawing ? "text-teal-600" : "text-zinc-500"
       )} />
     </button>
@@ -71,7 +71,7 @@ export function DrawToolbar() {
     <MobilePanel
       isOpen={isExpanded}
       onClose={close}
-      desktopPosition={{ top: "192px", right: "24px" }}
+      desktopPosition={{ top: "156px", right: "24px" }}
       title="Draw"
       collapsedButton={collapsedButton}
       desktopWidth="w-72"

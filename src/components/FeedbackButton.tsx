@@ -173,7 +173,7 @@ export function FeedbackButton({ selectedCity, user, onExposeOpen }: FeedbackBut
           onKeyDown={handleKeyDown}
           placeholder="Write something..."
           className="w-full p-3 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-900 placeholder:text-zinc-400 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all"
-          style={{ minHeight: isMobile ? "40vh" : "120px" }}
+          style={{ minHeight: isMobile ? "24vh" : "120px" }}
           autoFocus={!isMobile}
         />
         <span
@@ -250,10 +250,14 @@ export function FeedbackButton({ selectedCity, user, onExposeOpen }: FeedbackBut
       {!isMobile && !isOpen && (
         <button
           onClick={handleOpen}
-          className="fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-zinc-900 shadow-lg hover:bg-zinc-800 hover:scale-105 active:scale-95 transition-all"
+          className="group fixed bottom-4 right-[60px] z-40 grid grid-cols-[36px_0fr] hover:grid-cols-[36px_1fr] h-9 rounded-lg bg-zinc-900 shadow-[0_4px_20px_rgba(0,0,0,0.22)] hover:bg-zinc-800 active:scale-95 transition-all duration-300 ease-in-out"
         >
-          <MessageSquareText className="w-4 h-4 text-white" />
-          <span className="text-sm font-medium text-white">Feedback</span>
+          <span className="flex items-center justify-center h-full">
+            <MessageSquareText className="w-[18px] h-[18px] text-white" />
+          </span>
+          <span className="overflow-hidden min-w-0 flex items-center">
+            <span className="text-xs font-medium text-white whitespace-nowrap pl-0.5 pr-3">Feedback</span>
+          </span>
         </button>
       )}
 
