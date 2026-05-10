@@ -127,7 +127,7 @@
     background: rgba(255, 255, 255, 0.58);
     border: none;
     backdrop-filter: blur(36px) saturate(180%);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22);
   }
 
   .glass-dark {
@@ -175,7 +175,8 @@
 
   .maplibregl-ctrl-bottom-right {
     bottom: 0 !important;
-    right: 0 !important;
+    right: 50% !important;
+    transform: translateX(50%) !important;
     padding: 0 !important;
     margin: 0 !important;
   }
