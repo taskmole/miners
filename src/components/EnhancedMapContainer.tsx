@@ -148,6 +148,35 @@ function generatePlaceId(type: string, lat: number, lon: number): string {
     return `${type}-${lat.toFixed(5)}-${lon.toFixed(5)}`;
 }
 
+// FNV-1a hash for creating short unique suffixes from URLs
+function hashUrl(url: string): string {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < url.length; i++) {
+        h ^= url.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+    }
+    return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+// Property-specific placeId that includes a URL hash to disambiguate
+// co-located listings at the same address
+function generatePropertyPlaceId(property: { latitude: number; longitude: number; url: string }): string {
+    return `property-${property.latitude.toFixed(5)}-${property.longitude.toFixed(5)}-${hashUrl(property.url)}`;
+}
+
+// Handles negative numbers and optional URL-hash suffix
+function parseCoordinatesFromPlaceId(placeId: string): { lat: number; lon: number } | null {
+    const match = placeId.match(/^[a-z_]+-(-?\d+\.?\d*)-(-?\d+\.?\d*)(?:-[0-9a-f]+)?$/i);
+    if (match) {
+        return { lat: parseFloat(match[1]), lon: parseFloat(match[2]) };
+    }
+    return null;
+}
+
+function coordsMatch(a: number, b: number, tolerance = 0.0001) {
+    return Math.abs(a - b) < tolerance;
+}
+
 // Adaptive popup container - renders MapPopup on desktop, BottomSheet on mobile
 interface AdaptivePopupProps {
     coordinates: [number, number];
@@ -1011,7 +1040,7 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
                 {/* Hide "Add to list" for Miners' own cafes */}
                 {!cafe.franchisePartner && (
                     <AddToListButton place={{
-                        placeId: `cafe-${cafe.lat}-${cafe.lon}`,
+                        placeId: `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`,
                         placeType: 'eu_coffee_trip',
                         placeName: cafe.name,
                         placeAddress: cafe.address,
@@ -1206,7 +1235,7 @@ function freshTooltipText(dateStr: string): string {
 // Property popup content - Uses universal popup base - memoized
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address, true);
-    const placeId = `property-${property.latitude.toFixed(5)}-${property.longitude.toFixed(5)}`;
+    const placeId = generatePropertyPlaceId(property);
 
     // Build features array
     const features: string[] = [];
@@ -1380,7 +1409,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                 <div className="flex gap-2 min-w-0">
                     <CreateTripButton
                         property={{
-                            id: `property-${property.latitude}-${property.longitude}`,
+                            id: placeId,
                             name: property.title,
                             address: property.address,
                             type: 'place',
@@ -1390,7 +1419,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                         onClose={onClose}
                     />
                     <AddToListButton place={{
-                        placeId: `property-${property.latitude}-${property.longitude}`,
+                        placeId: placeId,
                         placeType: 'property',
                         placeName: property.title,
                         placeAddress: property.address,
@@ -2041,7 +2070,7 @@ export function EnhancedMapContainer({
         type: "FeatureCollection",
         features: visibleProperties
             .filter(property => {
-                const hidden = isHidden(generatePlaceId('property', property.latitude, property.longitude));
+                const hidden = isHidden(generatePropertyPlaceId(property));
                 return showHiddenPois ? hidden : !hidden;
             })
             .map(p => ({
@@ -2138,7 +2167,7 @@ export function EnhancedMapContainer({
             return `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
         } else if (poi.type === "property") {
             const prop = poi as PropertyData;
-            return `property-${prop.latitude.toFixed(5)}-${prop.longitude.toFixed(5)}`;
+            return generatePropertyPlaceId(prop);
         } else {
             const other = poi as OtherPoiData;
             return `${other.type}-${other.lat.toFixed(5)}-${other.lon.toFixed(5)}`;
@@ -2150,12 +2179,12 @@ export function EnhancedMapContainer({
     const getColocatedPois = React.useCallback((lat: number, lon: number): LocationData[] => {
         const key = `${lat.toFixed(5)}_${lon.toFixed(5)}`;
         const allPois = locationIndex[key] || [];
-        // Filter out hidden POIs AND POIs whose type filter is not active
-        return allPois.filter(poi =>
-            !isHidden(getPlaceId(poi)) &&
-            isPoiFilterActive(poi, activeFilters, ratingFilter, euctFilter)
-        );
-    }, [locationIndex, isHidden, getPlaceId, activeFilters, ratingFilter, euctFilter]);
+        return allPois.filter(poi => {
+            const hidden = isHidden(getPlaceId(poi));
+            const hiddenMatch = showHiddenPois ? hidden : !hidden;
+            return hiddenMatch && (showHiddenPois || isPoiFilterActive(poi, activeFilters, ratingFilter, euctFilter));
+        });
+    }, [locationIndex, isHidden, getPlaceId, activeFilters, ratingFilter, euctFilter, showHiddenPois]);
 
     // State for selected popups
     const [selectedCafe, setSelectedCafe] = useState<{
@@ -2294,18 +2323,6 @@ export function EnhancedMapContainer({
         setSavedDisambiguationCoords(null);
     }, []);
 
-    // Helper to parse coordinates from placeId (handles negative numbers)
-    const parseCoordinatesFromPlaceId = (placeId: string): { lat: number; lon: number } | null => {
-        const match = placeId.match(/^[a-z_]+-(-?\d+\.?\d*)-(-?\d+\.?\d*)$/i);
-        if (match) {
-            return { lat: parseFloat(match[1]), lon: parseFloat(match[2]) };
-        }
-        return null;
-    };
-
-    // Helper to check if coordinates match within tolerance
-    const coordsMatch = (a: number, b: number, tolerance = 0.0001) => Math.abs(a - b) < tolerance;
-
     // Callbacks for opening popups from ListsPanel navigation
     const handleOpenCafePopup = React.useCallback((placeId: string) => {
         const coords = parseCoordinatesFromPlaceId(placeId);
@@ -2325,12 +2342,20 @@ export function EnhancedMapContainer({
     }, [minersCafes, cafes]);
 
     const handleOpenPropertyPopup = React.useCallback((placeId: string) => {
-        const coords = parseCoordinatesFromPlaceId(placeId);
-        if (!coords) return;
-
-        const matchingProperty = properties.find(p =>
-            coordsMatch(p.latitude, coords.lat) && coordsMatch(p.longitude, coords.lon)
+        // Try exact match first (new format with URL hash)
+        let matchingProperty = properties.find(p =>
+            generatePropertyPlaceId(p) === placeId
         );
+
+        // Fallback for old-format placeIds: match by coordinates
+        if (!matchingProperty) {
+            const coords = parseCoordinatesFromPlaceId(placeId);
+            if (!coords) return;
+            matchingProperty = properties.find(p =>
+                coordsMatch(p.latitude, coords.lat) && coordsMatch(p.longitude, coords.lon)
+            );
+        }
+
         if (matchingProperty) {
             setSavedDisambiguationCoords(null);
             setSelectedProperty({
@@ -2658,7 +2683,7 @@ export function EnhancedMapContainer({
                         {/* Zoomed in: Show icon markers */}
                         {visibleProperties.map((property, i) => {
                             const markerKey = `property-icon-${property.latitude}-${property.longitude}-${i}`;
-                            const placeId = generatePlaceId('property', property.latitude, property.longitude);
+                            const placeId = generatePropertyPlaceId(property);
                             const hidden = isHidden(placeId);
                             // In "Hidden" mode, only show hidden POIs
                             if (showHiddenPois && !hidden) return null;
@@ -2720,7 +2745,7 @@ export function EnhancedMapContainer({
                                     if (isLinkingMode) {
                                         handleLinkingClick({
                                             type: 'place',
-                                            id: generatePlaceId('property', property.latitude, property.longitude),
+                                            id: generatePropertyPlaceId(property),
                                             name: property.title,
                                             address: property.address,
                                             data: property,
