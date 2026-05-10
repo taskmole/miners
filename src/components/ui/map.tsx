@@ -1285,6 +1285,7 @@ function MapClusterLayer<
     const source = map.getSource(sourceId) as MapLibreGL.GeoJSONSource;
     if (source) {
       source.setData(data);
+      map.triggerRepaint();
     }
   }, [isLoaded, map, data, sourceId]);
 

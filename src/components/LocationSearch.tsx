@@ -277,13 +277,8 @@ export function LocationSearch({
         {query.length >= 2 && (
           <div
             ref={resultsRef}
-            className="mt-2 glass rounded-2xl overflow-hidden"
-            style={{
-              maxHeight: isMobile ? "calc(100vh - 120px)" : "400px",
-              overflowY: "auto",
-              WebkitOverflowScrolling: "touch",
-              overscrollBehavior: "contain",
-            }}
+            className="mt-2 glass rounded-2xl overflow-x-hidden overflow-y-auto overscroll-contain"
+            style={{ maxHeight: isMobile ? "calc(100vh - 120px)" : "400px" }}
           >
             {results.length === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-zinc-500">

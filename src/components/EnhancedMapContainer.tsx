@@ -1874,6 +1874,7 @@ interface EnhancedMapContainerProps {
     propertyPostedFilter?: PropertyPostedFilter;
     propertyTransferFilter?: PropertyTransferFilter;
     propertyPriceChangeFilter?: PropertyPriceChangeFilter;
+    demoMode?: boolean;
 }
 
 export function EnhancedMapContainer({
@@ -1896,6 +1897,7 @@ export function EnhancedMapContainer({
     propertyPostedFilter = "all",
     propertyTransferFilter = "all",
     propertyPriceChangeFilter = "all",
+    demoMode = false,
 }: EnhancedMapContainerProps) {
     const { cafes, properties, otherPois, isLoading, error, retry } = useMapData(selectedCity?.id);
     const {
@@ -2488,8 +2490,8 @@ export function EnhancedMapContainer({
                     );
                 })}
 
-                {/* MINERS CAFES - Always visible with nice icons */}
-                {minersCafes.map((cafe, i) => {
+                {/* MINERS CAFES - Always visible with nice icons (hidden in demo mode) */}
+                {!demoMode && minersCafes.map((cafe, i) => {
                     const markerKey = `miners-${cafe.lat}-${cafe.lon}-${i}`;
                     const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon);
                     const hidden = isHidden(placeId);
