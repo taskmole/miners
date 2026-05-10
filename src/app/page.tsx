@@ -40,6 +40,7 @@ import { setAuthUserId } from "@/lib/browser-session";
 import { migrateAnonymousData } from "@/lib/supabaseHelpers";
 import type { User } from "@supabase/supabase-js";
 import type { ScoutingTrip, LinkedItem } from "@/types/scouting";
+import { usePathname } from "next/navigation";
 import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter } from "@/types/filters";
 
 // Default active filters - empty (Miners cafes are always shown separately)
@@ -47,6 +48,8 @@ const DEFAULT_FILTERS = new Set<string>([]);
 
 // Inner component that uses the linking context
 function HomeContent() {
+  const pathname = usePathname();
+  const demoMode = pathname === "/demo";
   const feedbackOpenRef = useRef<(() => void) | null>(null);
   const handleExposeOpen = useCallback((fn: () => void) => { feedbackOpenRef.current = fn; }, []);
   const [selectedCity, setSelectedCity] = useState<City>(
@@ -271,6 +274,7 @@ function HomeContent() {
           propertyPostedFilter={propertyPostedFilter}
           propertyTransferFilter={propertyTransferFilter}
           propertyPriceChangeFilter={propertyPriceChangeFilter}
+          demoMode={demoMode}
         />
       </div>
 
