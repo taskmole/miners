@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useMemo, useCallback, type ReactNode } from 'react';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import type mapboxgl from 'mapbox-gl';
 import { useMap } from './map';
@@ -54,8 +54,12 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
   const [selectedFeatureIds, setSelectedFeatureIds] = useState<string[]>([]);
 
   // Walking radius context for hover behavior
-  const { setHoveredPoint, clearHoveredPoint, setDrawnPoints } = useWalkingRadius();
+  const { hoveredPointId, setHoveredPoint, clearHoveredPoint, setDrawnPoints } = useWalkingRadius();
   const isMobile = useMobile();
+
+  // Ref so event handlers can read current hoveredPointId without re-registering listeners
+  const hoveredPointIdRef = useRef(hoveredPointId);
+  hoveredPointIdRef.current = hoveredPointId;
 
   const syncAndPersist = useCallback((allFeatures: GeoJSON.FeatureCollection) => {
     const points = allFeatures.features
@@ -236,10 +240,14 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       syncAndPersist(allFeatures);
     };
 
-    const handleDelete = () => {
+    const handleDelete = (e: { features: GeoJSON.Feature[] }) => {
       const allFeatures = draw.getAll();
       setFeatures(allFeatures);
-      setSelectedFeatureIds([]); // Clear selection after delete
+      setSelectedFeatureIds([]);
+      // Clear walk circle if the deleted features include the currently-hovered point
+      if (hoveredPointIdRef.current && e.features.some(f => f.id === hoveredPointIdRef.current)) {
+        clearHoveredPoint();
+      }
       syncAndPersist(allFeatures);
     };
 
@@ -353,11 +361,15 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       const allFeatures = draw.getAll();
       setFeatures(allFeatures);
       setSelectedFeatureIds([]);
+      // Clear walk circle if the deleted feature is the currently-hovered point
+      if (hoveredPointIdRef.current === featureId) {
+        clearHoveredPoint();
+      }
       syncAndPersist(allFeatures);
     } catch (error) {
       console.error('Error deleting feature:', error);
     }
-  }, [draw, syncAndPersist]);
+  }, [draw, syncAndPersist, clearHoveredPoint]);
 
   // Clear selection (allows hover tooltip to show again)
   const clearSelection = useCallback(() => {
