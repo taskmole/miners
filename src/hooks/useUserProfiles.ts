@@ -29,9 +29,17 @@ export function useUserProfiles() {
   }, []);
 
   const fetchCurrentUserRole = useCallback(async () => {
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem('mls-user-role');
+      if (cached) setCurrentUserRole(cached as UserRole);
+    }
     try {
       const data = await apiFetch<{ role: string }>('/api/db/user-profiles?mode=current');
-      setCurrentUserRole((data?.role as UserRole) || 'franchisee');
+      const role = (data?.role as UserRole) || 'franchisee';
+      setCurrentUserRole(role);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('mls-user-role', role);
+      }
     } catch (err) {
       console.error('Error fetching current user role:', err);
     }
