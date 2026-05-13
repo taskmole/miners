@@ -35,7 +35,6 @@ import { WalkingRadiusProvider } from "@/contexts/WalkingRadiusContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { ShapeDataProvider } from "@/contexts/ShapeDataContext";
 import { PitchStatusProvider } from "@/contexts/PitchStatusContext";
-import { AuthProvider } from "@/contexts/AuthContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
 import { supabase } from "@/lib/supabase";
 import { setAuthUserId } from "@/lib/browser-session";
@@ -440,30 +439,28 @@ function HomeContent() {
 // Main component with providers
 export default function Home() {
   return (
-    <AuthProvider>
-      <WalkingRadiusProvider>
-        <GeoDataProvider>
-          <PointCategoriesProvider>
-            <ListsProvider>
-              <HiddenPoisProvider>
-                <ScoutingTripsProvider>
-                  <PitchStatusProvider>
-                  <LinkingProvider>
-                    <SheetProvider>
-                      <ToastProvider>
-                        <ShapeDataProvider>
-                          <HomeContent />
-                        </ShapeDataProvider>
-                      </ToastProvider>
-                    </SheetProvider>
-                  </LinkingProvider>
-                  </PitchStatusProvider>
-                </ScoutingTripsProvider>
-              </HiddenPoisProvider>
-            </ListsProvider>
-          </PointCategoriesProvider>
-        </GeoDataProvider>
-      </WalkingRadiusProvider>
-    </AuthProvider>
+    <WalkingRadiusProvider>
+      <GeoDataProvider>
+        <PointCategoriesProvider>
+          <ListsProvider>
+            <HiddenPoisProvider>
+              <ScoutingTripsProvider>
+                <PitchStatusProvider>
+                <LinkingProvider>
+                  <SheetProvider>
+                    <ToastProvider>
+                      <ShapeDataProvider>
+                        <HomeContent />
+                      </ShapeDataProvider>
+                    </ToastProvider>
+                  </SheetProvider>
+                </LinkingProvider>
+                </PitchStatusProvider>
+              </ScoutingTripsProvider>
+            </HiddenPoisProvider>
+          </ListsProvider>
+        </PointCategoriesProvider>
+      </GeoDataProvider>
+    </WalkingRadiusProvider>
   );
 }

@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, Download, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, Download, RefreshCw, Coffee, Save, UtensilsCrossed } from 'lucide-react';
 import { useUserProfiles } from '@/hooks/useUserProfiles';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
+import { useCafeProfiles, CafeProfile, CafeCategory, CATEGORY_LABELS } from '@/hooks/useCafeProfiles';
 import { apiFetch } from '@/lib/api-client';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ import {
   accessLabels,
 } from '@/types/scouting';
 
-type Tab = 'submissions' | 'users';
+type Tab = 'submissions' | 'users' | 'cafe-profiles';
 
 // Error Boundary to catch crashes and show a friendly error
 interface ErrorBoundaryState {
@@ -227,7 +228,7 @@ function SubmissionDetails({ pitch }: { pitch: AdminPitch }) {
   const totalChecklist = pitch.checklist?.length || 0;
 
   return (
-    <div className="mt-3 pt-3 border-t border-zinc-200 space-y-3 text-sm">
+    <div className="mt-3 pt-3 border-t border-zinc-100 space-y-3 text-sm">
       {/* Location info */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-2">
         {pitch.areaSqm && (
@@ -379,6 +380,159 @@ function SubmissionDetails({ pitch }: { pitch: AdminPitch }) {
   );
 }
 
+// Category badge colors
+const CATEGORY_COLORS: Record<CafeCategory, string> = {
+  to_go_mini: 'bg-blue-100 text-blue-700',
+  core: 'bg-amber-100 text-amber-700',
+  flagship: 'bg-purple-100 text-purple-700',
+};
+
+// City display labels
+const CITY_LABELS: Record<string, string> = {
+  madrid: 'Madrid',
+  barcelona: 'Barcelona',
+  prague: 'Prague',
+};
+
+// Inline edit form for a cafe profile
+function CafeProfileForm({
+  cafe,
+  canSeeRevenue,
+  onSave,
+}: {
+  cafe: CafeProfile;
+  canSeeRevenue: boolean;
+  onSave: (data: Record<string, unknown>) => Promise<void>;
+}) {
+  const [category, setCategory] = useState<CafeCategory>(cafe.category || 'core');
+  const [interiorSeats, setInteriorSeats] = useState(cafe.interiorSeats ?? 0);
+  const [exteriorSeats, setExteriorSeats] = useState(cafe.exteriorSeats ?? 0);
+  const [areaSqm, setAreaSqm] = useState(cafe.areaSqm ?? 0);
+  const [monthlyRevenue, setMonthlyRevenue] = useState(cafe.monthlyRevenue ?? 0);
+  const [hasKitchen, setHasKitchen] = useState(cafe.hasKitchen ?? false);
+  const [notes, setNotes] = useState(cafe.notes ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave({
+        placeId: cafe.placeId,
+        category,
+        interiorSeats,
+        exteriorSeats,
+        areaSqm: areaSqm || null,
+        monthlyRevenue: monthlyRevenue || null,
+        hasKitchen,
+        notes: notes || null,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-zinc-100 space-y-4 text-sm">
+      {/* Category */}
+      <div>
+        <label className="block text-zinc-500 mb-1">Category</label>
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value as CafeCategory)}
+          className="h-11 w-full px-3 border border-zinc-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
+        >
+          {(Object.keys(CATEGORY_LABELS) as CafeCategory[]).map((cat) => (
+            <option key={cat} value={cat}>{CATEGORY_LABELS[cat]}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Seating */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-zinc-500 mb-1">Interior seats</label>
+          <input
+            type="number"
+            min={0}
+            value={interiorSeats}
+            onChange={(e) => setInteriorSeats(Number(e.target.value))}
+            className="h-11 w-full px-3 border border-zinc-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
+          />
+        </div>
+        <div>
+          <label className="block text-zinc-500 mb-1">Exterior seats</label>
+          <input
+            type="number"
+            min={0}
+            value={exteriorSeats}
+            onChange={(e) => setExteriorSeats(Number(e.target.value))}
+            className="h-11 w-full px-3 border border-zinc-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
+          />
+        </div>
+      </div>
+
+      {/* Area + Kitchen */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-zinc-500 mb-1">Area (sqm)</label>
+          <input
+            type="number"
+            min={0}
+            value={areaSqm}
+            onChange={(e) => setAreaSqm(Number(e.target.value))}
+            className="h-11 w-full px-3 border border-zinc-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
+          />
+        </div>
+        <div>
+          <label className="block text-zinc-500 mb-1">Kitchen</label>
+          <div className="h-11 flex items-center gap-2">
+            <Switch
+              checked={hasKitchen}
+              onCheckedChange={setHasKitchen}
+            />
+            <span className="text-zinc-700">{hasKitchen ? 'Yes' : 'No'}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Revenue (finance roles only) */}
+      {canSeeRevenue && (
+        <div>
+          <label className="block text-zinc-500 mb-1">Monthly revenue (EUR, before admin fees)</label>
+          <input
+            type="number"
+            min={0}
+            value={monthlyRevenue}
+            onChange={(e) => setMonthlyRevenue(Number(e.target.value))}
+            className="h-11 w-full px-3 border border-zinc-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
+          />
+        </div>
+      )}
+
+      {/* Notes */}
+      <div>
+        <label className="block text-zinc-500 mb-1">Notes</label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Optional notes..."
+          className="w-full h-20 px-3 py-2 border border-zinc-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-zinc-400"
+        />
+      </div>
+
+      {/* Save */}
+      <Button
+        onClick={handleSave}
+        disabled={saving}
+        className="w-full bg-zinc-900 hover:bg-zinc-800 text-white h-12"
+      >
+        <Save className="w-4 h-4 mr-2" />
+        {saving ? 'Saving...' : 'Save Profile'}
+      </Button>
+    </div>
+  );
+}
+
 function AdminContent() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('submissions');
@@ -393,6 +547,7 @@ function AdminContent() {
     isAdmin,
     canAccessDashboard,
     canReviewSubmissions,
+    canSeeRevenue,
     loading: usersLoading,
     error: usersError,
     updateRole,
@@ -407,6 +562,15 @@ function AdminContent() {
     error: submissionsError,
     refetch: refetchSubmissions,
   } = useAdminSubmissions();
+
+  // Cafe profiles hook
+  const {
+    cafes: cafeProfiles,
+    loading: cafesLoading,
+    error: cafesError,
+    saveProfile: saveCafeProfile,
+    refetch: refetchCafes,
+  } = useCafeProfiles(activeTab === 'cafe-profiles');
 
   // Auth check - redirect users without dashboard access
   useEffect(() => {
@@ -533,42 +697,52 @@ function AdminContent() {
         </div>
       </header>
 
-      {/* Tabs - Submissions FIRST */}
-      <div className="bg-white border-b border-zinc-200">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="flex">
+      {/* Tabs */}
+      <div className="bg-white border-b border-zinc-200 overflow-x-auto scrollbar-hide">
+        <div className="max-w-4xl mx-auto px-4 flex gap-1 min-w-max">
+          <button
+            onClick={() => setActiveTab('submissions')}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+              activeTab === 'submissions'
+                ? "border-zinc-900 text-zinc-900"
+                : "border-transparent text-zinc-500 hover:text-zinc-700"
+            )}
+          >
+            <FileText className="w-4 h-4" />
+            Submissions
+            {pendingSubmissions.length > 0 && (
+              <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+                {pendingSubmissions.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('cafe-profiles')}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+              activeTab === 'cafe-profiles'
+                ? "border-zinc-900 text-zinc-900"
+                : "border-transparent text-zinc-500 hover:text-zinc-700"
+            )}
+          >
+            <Coffee className="w-4 h-4" />
+            Cafes
+          </button>
+          {isAdmin && (
             <button
-              onClick={() => setActiveTab('submissions')}
+              onClick={() => setActiveTab('users')}
               className={cn(
-                "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
-                activeTab === 'submissions'
+                "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                activeTab === 'users'
                   ? "border-zinc-900 text-zinc-900"
                   : "border-transparent text-zinc-500 hover:text-zinc-700"
               )}
             >
-              <FileText className="w-4 h-4" />
-              Submissions
-              {pendingSubmissions.length > 0 && (
-                <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-                  {pendingSubmissions.length}
-                </span>
-              )}
+              <Users className="w-4 h-4" />
+              Users
             </button>
-            {isAdmin && (
-              <button
-                onClick={() => setActiveTab('users')}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
-                  activeTab === 'users'
-                    ? "border-zinc-900 text-zinc-900"
-                    : "border-transparent text-zinc-500 hover:text-zinc-700"
-                )}
-              >
-                <Users className="w-4 h-4" />
-                User Roles
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
@@ -603,19 +777,19 @@ function AdminContent() {
 
             {/* New submissions */}
             <section>
-              <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">
-                New — Awaiting Review ({pendingSubmissions.length})
+              <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-2">
+                Awaiting Review ({pendingSubmissions.length})
               </h2>
               {pendingSubmissions.length === 0 ? (
-                <div className="bg-white rounded-lg border border-zinc-200 px-4 py-8 text-center text-zinc-500">
+                <div className="bg-white rounded-xl px-4 py-8 text-center text-zinc-400 text-sm">
                   No pending submissions
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="bg-white rounded-xl divide-y divide-zinc-100">
                   {pendingSubmissions.map((pitch) => (
                     <div
                       key={pitch.id}
-                      className="bg-white rounded-lg border border-zinc-200 p-4"
+                      className="p-4"
                     >
                       <div className="flex flex-col gap-3">
                         {/* Header with expand toggle */}
@@ -716,19 +890,19 @@ function AdminContent() {
 
             {/* Processed submissions */}
             <section>
-              <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">
+              <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-2">
                 Processed ({processedSubmissions.length})
               </h2>
               {processedSubmissions.length === 0 ? (
-                <div className="bg-white rounded-lg border border-zinc-200 px-4 py-8 text-center text-zinc-500">
+                <div className="bg-white rounded-xl px-4 py-8 text-center text-zinc-400 text-sm">
                   No processed submissions yet
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="bg-white rounded-xl divide-y divide-zinc-100">
                   {processedSubmissions.map((pitch) => (
                     <div
                       key={pitch.id}
-                      className="bg-white rounded-lg border border-zinc-200 p-4"
+                      className="p-4"
                     >
                       {/* Header with expand toggle */}
                       <div
@@ -775,14 +949,14 @@ function AdminContent() {
                       {expandedId === pitch.id && (
                         <>
                           <SubmissionDetails pitch={pitch} />
-                          <div className="mt-3 pt-3 border-t border-zinc-200">
+                          <div className="mt-3 pt-3 border-t border-zinc-100">
                             <Button
                               onClick={() => downloadPitchAsPdf(pitch)}
                               variant="outline"
-                              className="border-zinc-300 text-zinc-600 hover:bg-zinc-50"
+                              className="border-zinc-200 text-zinc-600 hover:bg-zinc-50"
                             >
                               <Download className="w-4 h-4 mr-2" />
-                              Download PDF
+                              PDF
                             </Button>
                           </div>
                         </>
@@ -795,8 +969,123 @@ function AdminContent() {
           </div>
         )}
 
+        {activeTab === 'cafe-profiles' && (
+          <div className="space-y-6">
+            {cafesError && (
+              <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
+                {cafesError}
+              </div>
+            )}
+
+            {cafesLoading && (
+              <div className="text-center py-8 text-zinc-500">Loading cafe profiles...</div>
+            )}
+
+            {!cafesLoading && cafeProfiles.length === 0 && (
+              <div className="bg-white rounded-xl px-4 py-8 text-center text-zinc-400 text-sm">
+                No Miners cafes found
+              </div>
+            )}
+
+            {/* Group by city */}
+            {!cafesLoading && Object.entries(
+              cafeProfiles.reduce<Record<string, CafeProfile[]>>((acc, cafe) => {
+                const city = cafe.cityId || 'unknown';
+                if (!acc[city]) acc[city] = [];
+                acc[city].push(cafe);
+                return acc;
+              }, {})
+            ).map(([cityId, cityCafes]) => (
+              <section key={cityId}>
+                <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-2">
+                  {CITY_LABELS[cityId] || cityId} ({cityCafes.length})
+                </h2>
+                <div className="bg-white rounded-xl divide-y divide-zinc-100">
+                  {cityCafes.map((cafe) => (
+                    <div
+                      key={cafe.placeId}
+                      className="p-4"
+                    >
+                      <div
+                        className="cursor-pointer"
+                        onClick={() => setExpandedId(expandedId === cafe.placeId ? null : cafe.placeId)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-zinc-900 truncate">
+                              {cafe.name}
+                            </div>
+                            <div className="text-sm text-zinc-500 truncate">
+                              {cafe.address}
+                            </div>
+                            {/* Summary row when collapsed */}
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              {cafe.category && (
+                                <span className={cn(
+                                  "px-2 py-0.5 text-xs font-semibold rounded-full",
+                                  CATEGORY_COLORS[cafe.category]
+                                )}>
+                                  {CATEGORY_LABELS[cafe.category]}
+                                </span>
+                              )}
+                              {(cafe.interiorSeats || cafe.exteriorSeats) ? (
+                                <span className="text-xs text-zinc-500">
+                                  {(cafe.interiorSeats || 0) + (cafe.exteriorSeats || 0)} seats
+                                </span>
+                              ) : null}
+                              {cafe.areaSqm ? (
+                                <span className="text-xs text-zinc-500">{cafe.areaSqm} sqm</span>
+                              ) : null}
+                              {cafe.hasKitchen && (
+                                <span className="text-xs text-zinc-500 flex items-center gap-0.5">
+                                  <UtensilsCrossed className="w-3 h-3" /> Kitchen
+                                </span>
+                              )}
+                              {canSeeRevenue && cafe.monthlyRevenue ? (
+                                <span className="text-xs text-green-600 font-medium">
+                                  €{cafe.monthlyRevenue.toLocaleString()}/mo
+                                </span>
+                              ) : null}
+                              {!cafe.category && (
+                                <span className="text-xs text-zinc-400 italic">No profile yet</span>
+                              )}
+                            </div>
+                          </div>
+                          <button className="p-1 text-zinc-400 hover:text-zinc-600 ml-2">
+                            {expandedId === cafe.placeId ? (
+                              <ChevronUp className="w-5 h-5" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Expanded edit form */}
+                      {expandedId === cafe.placeId && (
+                        <CafeProfileForm
+                          cafe={cafe}
+                          canSeeRevenue={canSeeRevenue}
+                          onSave={async (data) => {
+                            setActionError(null);
+                            try {
+                              await saveCafeProfile(data as Parameters<typeof saveCafeProfile>[0]);
+                            } catch {
+                              setActionError('Failed to save cafe profile');
+                            }
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+
         {activeTab === 'users' && isAdmin && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {usersError && (
               <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
                 {usersError}
@@ -804,14 +1093,15 @@ function AdminContent() {
             )}
 
             {users.length === 0 ? (
-              <div className="bg-white rounded-lg border border-zinc-200 px-4 py-8 text-center text-zinc-500">
-                No users yet. Users appear here after signing in via OAuth.
+              <div className="bg-white rounded-xl px-4 py-8 text-center text-zinc-400 text-sm">
+                No users yet
               </div>
             ) : (
-              users.map((user) => (
+              <div className="bg-white rounded-xl divide-y divide-zinc-100">
+              {users.map((user) => (
                 <div
                   key={user.id}
-                  className="bg-white rounded-lg border border-zinc-200 p-4"
+                  className="p-4"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     {/* User info */}
@@ -849,7 +1139,8 @@ function AdminContent() {
                     </div>
                   </div>
                 </div>
-              ))
+              ))}
+              </div>
             )}
           </div>
         )}
