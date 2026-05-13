@@ -21,7 +21,7 @@ import {
   ClipboardCheck,
   Paperclip,
   Building,
-  Loader2,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,8 +44,9 @@ import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { usePoiComments } from "@/hooks/usePoiComments";
 import { ToastProvider, useToast } from "@/contexts/ToastContext";
 import { formatRelativeTime } from "@/types/comments";
-import { Trash2 } from "lucide-react";
-import { statusLabels, statusColors } from "@/types/scouting";
+import { statusLabels, statusColors, outdoorSeatingLabels, conditionLabels, visibilityLabels, accessLabels } from "@/types/scouting";
+import type { OutdoorSeatingType, ConditionStatus, VisibilityLevel, AccessLevel, CompetitorEntry } from "@/types/scouting";
+import { parseCompetitors } from "@/components/NearbyCompetitors";
 import { TripChecklist } from "@/components/TripChecklist";
 import { AttachmentGallery } from "@/components/attachments";
 import { generateTripPdf } from "@/components/TripPdfExport";
@@ -257,11 +258,12 @@ export function ScoutingTripDetail({
   onEdit,
 }: ScoutingTripDetailProps) {
   const isMobile = useMobile();
-  const { getTrips, deleteTrip, updateChecklist } = useScoutingTrips();
+  const { getTrips, deleteTrip, updateChecklist, getTripAssessment } = useScoutingTrips();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const trips = getTrips();
   const trip = trips.find((t) => t.id === tripId);
+  const assessment = trip ? getTripAssessment(trip.id) : undefined;
 
   // Accordion state - only one section expanded at a time
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -373,7 +375,8 @@ export function ScoutingTripDetail({
     trip.visibility ||
     trip.deliveryAccess ||
     trip.seatingCapacity ||
-    trip.outdoorSeating !== undefined;
+    trip.outdoorSeating !== undefined ||
+    trip.flatSurface !== undefined;
 
   return (
     <ToastProvider>
@@ -462,6 +465,87 @@ export function ScoutingTripDetail({
                   Download
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* Trip Assessment */}
+          {assessment && assessment.scoredPillarCount >= 2 && assessment.compositeScore != null && (
+            <div className="px-6 py-4 border-b border-zinc-200">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-zinc-900">Trip Assessment</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  assessment.confidence === 'high' ? 'bg-green-100 text-green-700' :
+                  assessment.confidence === 'medium' ? 'bg-amber-100 text-amber-700' :
+                  'bg-zinc-100 text-zinc-600'
+                }`}>
+                  {assessment.confidence} confidence
+                </span>
+              </div>
+
+              <div className="flex items-baseline gap-2 mb-3">
+                <span className={`text-2xl font-bold ${
+                  assessment.compositeScore >= 4 ? 'text-green-600' :
+                  assessment.compositeScore >= 3 ? 'text-amber-600' :
+                  assessment.compositeScore >= 2 ? 'text-zinc-600' :
+                  'text-red-600'
+                }`}>
+                  {assessment.compositeScore.toFixed(1)}
+                </span>
+                <span className="text-sm text-zinc-400">/ 5</span>
+                <span className={`text-xs font-medium ml-1 ${
+                  assessment.compositeScore >= 4 ? 'text-green-600' :
+                  assessment.compositeScore >= 3 ? 'text-amber-600' :
+                  assessment.compositeScore >= 2 ? 'text-zinc-600' :
+                  'text-red-600'
+                }`}>
+                  {assessment.compositeScore >= 4.5 ? 'Prime' :
+                   assessment.compositeScore >= 3.7 ? 'Strong' :
+                   assessment.compositeScore >= 3.0 ? 'Needs strong concept' :
+                   'High risk'}
+                </span>
+              </div>
+
+              {/* Pillar breakdown */}
+              <div className="space-y-1.5">
+                {assessment.pillars.filter(p => p.score != null).map(p => (
+                  <div key={p.pillar} className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-500 w-28 flex-shrink-0">{p.label}</span>
+                    <div className="flex-1 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          p.score! >= 4 ? 'bg-green-500' :
+                          p.score! >= 3 ? 'bg-amber-500' :
+                          p.score! >= 2 ? 'bg-zinc-400' :
+                          'bg-red-500'
+                        }`}
+                        style={{ width: `${(p.score! / 5) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-zinc-600 w-7 text-right">{p.score!.toFixed(1)}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Operations risk */}
+              {assessment.operationsRisk !== 'unknown' && (
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-zinc-100">
+                  <span className={`w-2 h-2 rounded-full ${
+                    assessment.operationsRisk === 'low' ? 'bg-green-500' :
+                    assessment.operationsRisk === 'medium' ? 'bg-amber-500' :
+                    'bg-red-500'
+                  }`} />
+                  <span className="text-xs text-zinc-500">
+                    Operations risk: {assessment.operationsRisk}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Fill-in prompt when not enough data */}
+          {assessment && assessment.scoredPillarCount < 2 && (
+            <div className="px-6 py-3 border-b border-zinc-200">
+              <p className="text-xs text-zinc-400 italic">Fill in more details to see the location assessment.</p>
             </div>
           )}
 
@@ -566,16 +650,27 @@ export function ScoutingTripDetail({
                   </p>
                 </div>
               )}
-              {trip.nearbyCompetitors && (
-                <div className="mt-3 pt-3 border-t border-zinc-100">
-                  <p className="text-xs text-zinc-500 mb-1">
-                    Nearby Competitors
-                  </p>
-                  <p className="text-xs text-zinc-700 whitespace-pre-wrap">
-                    {trip.nearbyCompetitors}
-                  </p>
-                </div>
-              )}
+              {trip.nearbyCompetitors && (() => {
+                const entries = parseCompetitors(trip.nearbyCompetitors);
+                if (entries.length === 0) return null;
+                return (
+                  <div className="mt-3 pt-3 border-t border-zinc-100">
+                    <p className="text-xs text-zinc-500 mb-1">
+                      Nearby Competitors
+                    </p>
+                    <div className="space-y-1">
+                      {entries.map((entry: CompetitorEntry, i: number) => (
+                        <div key={i} className="flex items-center justify-between text-xs">
+                          <span className="text-zinc-700">{entry.name}</span>
+                          {entry.distance != null && (
+                            <span className="text-zinc-400 ml-2">{entry.distance < 1000 ? `${Math.round(entry.distance)}m` : `${(entry.distance / 1000).toFixed(1)}km`}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </DetailSection>
           )}
 
@@ -637,19 +732,19 @@ export function ScoutingTripDetail({
             <DetailSection id="operational" title="Operational" icon={Settings} expandedSection={expandedSection} onToggle={handleSectionToggle}>
               <div className="space-y-0.5">
                 {trip.ventilation && (
-                  <DetailRow label="Ventilation" value={trip.ventilation} />
+                  <DetailRow label="Ventilation" value={conditionLabels[trip.ventilation as ConditionStatus] ?? trip.ventilation} />
                 )}
                 {trip.waterWaste && (
-                  <DetailRow label="Water/Waste" value={trip.waterWaste} />
+                  <DetailRow label="Water/Waste" value={conditionLabels[trip.waterWaste as ConditionStatus] ?? trip.waterWaste} />
                 )}
                 {trip.powerCapacity && (
-                  <DetailRow label="Power Capacity" value={trip.powerCapacity} />
+                  <DetailRow label="Power Capacity" value={conditionLabels[trip.powerCapacity as ConditionStatus] ?? trip.powerCapacity} />
                 )}
                 {trip.visibility && (
-                  <DetailRow label="Visibility" value={trip.visibility} />
+                  <DetailRow label="Visibility" value={visibilityLabels[trip.visibility as VisibilityLevel] ?? trip.visibility} />
                 )}
                 {trip.deliveryAccess && (
-                  <DetailRow label="Delivery Access" value={trip.deliveryAccess} />
+                  <DetailRow label="Delivery Access" value={accessLabels[trip.deliveryAccess as AccessLevel] ?? trip.deliveryAccess} />
                 )}
                 {trip.seatingCapacity && (
                   <DetailRow
@@ -657,10 +752,20 @@ export function ScoutingTripDetail({
                     value={trip.seatingCapacity}
                   />
                 )}
-                {trip.outdoorSeating !== undefined && (
+                {trip.outdoorSeating && (
                   <DetailRow
                     label="Outdoor Seating"
-                    value={trip.outdoorSeating ? "Yes" : "No"}
+                    value={
+                      typeof trip.outdoorSeating === 'boolean'
+                        ? 'Yes'
+                        : outdoorSeatingLabels[trip.outdoorSeating as OutdoorSeatingType] ?? trip.outdoorSeating
+                    }
+                  />
+                )}
+                {trip.flatSurface !== undefined && (
+                  <DetailRow
+                    label="Flat Surface"
+                    value={trip.flatSurface ? "Yes" : "No"}
                   />
                 )}
               </div>
@@ -683,32 +788,32 @@ export function ScoutingTripDetail({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-zinc-200 bg-zinc-50">
-          <Button
-            variant="outline"
-            onClick={() => setShowDeleteConfirm(true)}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300"
-          >
-            <Trash2 className="w-4 h-4 mr-1.5" />
-            Delete
-          </Button>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-t border-zinc-200 bg-zinc-50">
+          <div>
+            {onEdit && trip.status === "draft" && (
+              <Button size="lg" onClick={() => onEdit(trip)} className="h-11 border border-transparent">Edit Trip</Button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-11 h-11 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 border-zinc-200 hover:border-red-300"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
+                  size="lg"
                   disabled={isExporting}
                   onClick={(e) => e.stopPropagation()}
+                  className="h-11 gap-1.5"
                 >
-                  {isExporting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <FileDown className="w-4 h-4" />
-                  )}
-                  <span className={isMobile ? "sr-only" : "ml-1.5"}>
-                    {isExporting ? "Exporting..." : "Export"}
-                  </span>
-                  <ChevronDown className={`w-3 h-3 ${isMobile ? "ml-1" : "ml-1.5"}`} />
+                  {isExporting ? "Exporting..." : "Export"}
+                  <ChevronDown className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
@@ -734,12 +839,6 @@ export function ScoutingTripDetail({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" onClick={onClose}>
-              Close
-            </Button>
-            {onEdit && trip.status === "draft" && (
-              <Button onClick={() => onEdit(trip)}>Edit Trip</Button>
-            )}
           </div>
         </div>
         </div>

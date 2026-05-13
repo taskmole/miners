@@ -9,15 +9,12 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
-  Plus,
-  Trash2,
-  Link as LinkIcon,
-  Image,
   Save,
   Send,
   ClipboardCheck,
   Paperclip,
   Building,
+  ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,6 +24,7 @@ import { MobileSelect, type SelectOption } from "@/components/ui/mobile-select";
 import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { TripChecklist } from "@/components/TripChecklist";
 import { AttachmentGallery } from "@/components/attachments";
+import { NearbyCompetitors, parseCompetitors } from "@/components/NearbyCompetitors";
 import { processFileToAttachment } from "@/utils/attachmentUtils";
 import type { Attachment } from "@/types/attachments";
 import type {
@@ -35,6 +33,8 @@ import type {
   ConditionStatus,
   VisibilityLevel,
   AccessLevel,
+  OutdoorSeatingType,
+  CompetitorEntry,
   LinkedItem,
   ChecklistItem,
 } from "@/types/scouting";
@@ -43,6 +43,7 @@ import {
   conditionLabels,
   visibilityLabels,
   accessLabels,
+  outdoorSeatingLabels,
   createDefaultChecklist,
 } from "@/types/scouting";
 
@@ -153,29 +154,6 @@ function Select<T extends string>({
   );
 }
 
-// Linked item badge
-function LinkedItemBadge({
-  item,
-  onRemove,
-}: {
-  item: LinkedItem;
-  onRemove: () => void;
-}) {
-  return (
-    <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-zinc-100 rounded-md text-xs">
-      <MapPin className="w-3 h-3 text-zinc-500" />
-      <span className="text-zinc-700 max-w-[150px] truncate">{item.name}</span>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="text-zinc-400 hover:text-zinc-600"
-      >
-        <X className="w-3 h-3" />
-      </button>
-    </div>
-  );
-}
-
 export function ScoutingTripForm({
   isOpen,
   onClose,
@@ -206,7 +184,9 @@ export function ScoutingTripForm({
   const [propertyType, setPropertyType] = useState<PropertyType | undefined>(existingTrip?.propertyType);
   const [footfallEstimate, setFootfallEstimate] = useState<string>(existingTrip?.footfallEstimate?.toString() || '');
   const [neighbourhoodProfile, setNeighbourhoodProfile] = useState(existingTrip?.neighbourhoodProfile || '');
-  const [nearbyCompetitors, setNearbyCompetitors] = useState(existingTrip?.nearbyCompetitors || '');
+  const [competitorEntries, setCompetitorEntries] = useState<CompetitorEntry[]>(
+    () => parseCompetitors(existingTrip?.nearbyCompetitors)
+  );
 
   // Financial fields
   const [monthlyRent, setMonthlyRent] = useState<string>(existingTrip?.monthlyRent?.toString() || '');
@@ -226,7 +206,12 @@ export function ScoutingTripForm({
   const [visibility, setVisibility] = useState<VisibilityLevel | undefined>(existingTrip?.visibility);
   const [deliveryAccess, setDeliveryAccess] = useState<AccessLevel | undefined>(existingTrip?.deliveryAccess);
   const [seatingCapacity, setSeatingCapacity] = useState<string>(existingTrip?.seatingCapacity?.toString() || '');
-  const [outdoorSeating, setOutdoorSeating] = useState(existingTrip?.outdoorSeating || false);
+  const [outdoorSeating, setOutdoorSeating] = useState<OutdoorSeatingType | undefined>(
+    typeof existingTrip?.outdoorSeating === 'boolean'
+      ? (existingTrip.outdoorSeating ? 'street' : undefined)
+      : existingTrip?.outdoorSeating
+  );
+  const [flatSurface, setFlatSurface] = useState(existingTrip?.flatSurface || false);
 
   // Other fields
   const [risks, setRisks] = useState(existingTrip?.risks || '');
@@ -271,7 +256,7 @@ export function ScoutingTripForm({
       setPropertyType(existingTrip.propertyType);
       setFootfallEstimate(existingTrip.footfallEstimate?.toString() || '');
       setNeighbourhoodProfile(existingTrip.neighbourhoodProfile || (isIdealistaProperty && propertyData.district ? propertyData.district : ''));
-      setNearbyCompetitors(existingTrip.nearbyCompetitors || '');
+      setCompetitorEntries(parseCompetitors(existingTrip.nearbyCompetitors));
 
       // Financial fields - use existing values or pre-populate from property
       setMonthlyRent(existingTrip.monthlyRent?.toString() || (isIdealistaProperty && propertyData.price ? propertyData.price.toString() : ''));
@@ -291,7 +276,12 @@ export function ScoutingTripForm({
       setVisibility(existingTrip.visibility);
       setDeliveryAccess(existingTrip.deliveryAccess);
       setSeatingCapacity(existingTrip.seatingCapacity?.toString() || '');
-      setOutdoorSeating(existingTrip.outdoorSeating || false);
+      setOutdoorSeating(
+        typeof existingTrip.outdoorSeating === 'boolean'
+          ? (existingTrip.outdoorSeating ? 'street' : undefined)
+          : existingTrip.outdoorSeating
+      );
+      setFlatSurface(existingTrip.flatSurface || false);
       setRisks(existingTrip.risks || '');
     } else {
       // Reset to empty form
@@ -307,7 +297,7 @@ export function ScoutingTripForm({
       setPropertyType(undefined);
       setFootfallEstimate('');
       setNeighbourhoodProfile('');
-      setNearbyCompetitors('');
+      setCompetitorEntries([]);
       setMonthlyRent('');
       setServiceFees('');
       setDeposit('');
@@ -323,7 +313,8 @@ export function ScoutingTripForm({
       setVisibility(undefined);
       setDeliveryAccess(undefined);
       setSeatingCapacity('');
-      setOutdoorSeating(false);
+      setOutdoorSeating(undefined);
+      setFlatSurface(false);
       setRisks('');
     }
     // Reset validation state
@@ -331,69 +322,39 @@ export function ScoutingTripForm({
     setAttemptedSubmit(false);
   }, [existingTrip]);
 
-  // Merge pending linked items from map selection
-  // First item becomes property (if no property set), rest become related places
+  // Merge pending linked item from map selection (single-select: always replaces property)
   // Also pre-populates form fields from Idealista property data
   useEffect(() => {
     if (pendingLinkedItems.length > 0) {
-      // If no property is set, use first pending item as property
-      if (!property && pendingLinkedItems.length > 0) {
-        const firstItem = pendingLinkedItems[0];
-        setProperty(firstItem);
-        // Auto-fill address and name from property
-        if (!address && firstItem.address) {
-          setAddress(firstItem.address);
-        }
-        if (!name && firstItem.name) {
-          setName(firstItem.name);
-        }
+      const firstItem = pendingLinkedItems[0];
+      setProperty(firstItem);
+      if (!address && firstItem.address) {
+        setAddress(firstItem.address);
+      }
+      if (!name && firstItem.name) {
+        setName(firstItem.name);
+      }
 
-        // Pre-populate fields from Idealista property data if available
-        const propertyData = firstItem.data;
-        if (propertyData && propertyData.type === 'property') {
-          // Location: Area from size
-          if (!areaSqm && propertyData.size) {
-            setAreaSqm(propertyData.size.toString());
-          }
-          // Location: Neighbourhood from district
-          if (!neighbourhoodProfile && propertyData.district) {
-            setNeighbourhoodProfile(propertyData.district);
-          }
-          // Financial: Monthly rent from price
-          if (!monthlyRent && propertyData.price) {
-            setMonthlyRent(propertyData.price.toString());
-          }
-          // Financial: Deposit estimate (2x monthly rent)
-          if (!deposit && propertyData.price) {
-            setDeposit((propertyData.price * 2).toString());
-          }
-          // Financial: Transfer fee (traspaso) if available
-          if (!transferFee && propertyData.transfer) {
-            setTransferFee(propertyData.transfer.toString());
-          }
+      const propertyData = firstItem.data;
+      if (propertyData && propertyData.type === 'property') {
+        if (!areaSqm && propertyData.size) {
+          setAreaSqm(propertyData.size.toString());
         }
-
-        // Add remaining items as related places
-        if (pendingLinkedItems.length > 1) {
-          const remaining = pendingLinkedItems.slice(1);
-          setRelatedPlaces(prev => {
-            const newItems = remaining.filter(
-              item => !prev.some(existing => existing.id === item.id)
-            );
-            return [...prev, ...newItems];
-          });
+        if (!neighbourhoodProfile && propertyData.district) {
+          setNeighbourhoodProfile(propertyData.district);
         }
-      } else {
-        // Property already set, add all pending items as related places
-        setRelatedPlaces(prev => {
-          const newItems = pendingLinkedItems.filter(
-            item => !prev.some(existing => existing.id === item.id) && item.id !== property?.id
-          );
-          return [...prev, ...newItems];
-        });
+        if (!monthlyRent && propertyData.price) {
+          setMonthlyRent(propertyData.price.toString());
+        }
+        if (!deposit && propertyData.price) {
+          setDeposit((propertyData.price * 2).toString());
+        }
+        if (!transferFee && propertyData.transfer) {
+          setTransferFee(propertyData.transfer.toString());
+        }
       }
     }
-  }, [pendingLinkedItems, property, address, name, areaSqm, neighbourhoodProfile, monthlyRent, deposit, transferFee]);
+  }, [pendingLinkedItems, address, name, areaSqm, neighbourhoodProfile, monthlyRent, deposit, transferFee]);
 
   // Build the trip data from form state
   const buildTripData = (): Partial<ScoutingTrip> => ({
@@ -408,7 +369,7 @@ export function ScoutingTripForm({
     propertyType,
     footfallEstimate: footfallEstimate ? parseInt(footfallEstimate) : undefined,
     neighbourhoodProfile,
-    nearbyCompetitors,
+    nearbyCompetitors: competitorEntries.length > 0 ? JSON.stringify(competitorEntries) : '',
     monthlyRent: monthlyRent ? parseFloat(monthlyRent) : undefined,
     serviceFees: serviceFees ? parseFloat(serviceFees) : undefined,
     deposit: deposit ? parseFloat(deposit) : undefined,
@@ -425,6 +386,7 @@ export function ScoutingTripForm({
     deliveryAccess,
     seatingCapacity: seatingCapacity ? parseInt(seatingCapacity) : undefined,
     outdoorSeating,
+    flatSurface,
     risks,
   });
 
@@ -469,11 +431,6 @@ export function ScoutingTripForm({
     onClose();
   };
 
-  // Handle removing a related place
-  const handleRemoveRelatedPlace = (itemId: string) => {
-    setRelatedPlaces(prev => prev.filter(i => i.id !== itemId));
-  };
-
   // Handle adding an attachment
   const handleAddAttachment = async (file: File) => {
     const result = await processFileToAttachment(file, 'Guest');
@@ -486,6 +443,26 @@ export function ScoutingTripForm({
   // Handle removing an attachment
   const handleRemoveAttachment = (attachmentId: string) => {
     setAttachments(prev => prev.filter(a => a.id !== attachmentId));
+  };
+
+  // Navigate to a POI on the map (saves draft, closes form, enables filter, opens popup)
+  const handleNavigateToCompetitor = (lat: number, lon: number) => {
+    handleSaveDraft();
+    const placeId = `cafe-${lat.toFixed(5)}-${lon.toFixed(5)}`;
+    window.dispatchEvent(new CustomEvent('navigate-and-open-popup', {
+      detail: { lat, lon, placeId, placeType: 'cafe' },
+    }));
+  };
+
+  const handleNavigateToProperty = () => {
+    if (!property?.data) return;
+    const lat = property.data.latitude ?? property.data.lat;
+    const lon = property.data.longitude ?? property.data.lon;
+    if (lat == null || lon == null) return;
+    handleSaveDraft();
+    window.dispatchEvent(new CustomEvent('navigate-and-open-popup', {
+      detail: { lat, lon, placeId: property.id, placeType: 'property', data: property.data },
+    }));
   };
 
   if (!isOpen) return null;
@@ -555,7 +532,11 @@ export function ScoutingTripForm({
               )}
             </div>
             {property ? (
-              <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <button
+                type="button"
+                onClick={handleNavigateToProperty}
+                className="w-full flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200 hover:bg-amber-100 transition-colors text-left group"
+              >
                 <MapPin className="w-4 h-4 text-amber-600 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-zinc-900 truncate">{property.name}</p>
@@ -563,7 +544,8 @@ export function ScoutingTripForm({
                     <p className="text-xs text-zinc-500 truncate">{property.address}</p>
                   )}
                 </div>
-              </div>
+                <ArrowUpRight className="w-4 h-4 text-amber-400 group-hover:text-amber-600 flex-shrink-0" />
+              </button>
             ) : (
               <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200 border-dashed text-center">
                 <p className="text-xs text-zinc-400">
@@ -573,33 +555,6 @@ export function ScoutingTripForm({
             )}
           </div>
 
-          {/* Related Places (context from list) */}
-          {relatedPlaces.length > 0 && (
-            <div className="px-6 py-4 border-b border-zinc-200">
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-xs font-medium text-zinc-700">Related Places</label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={onStartLinking}
-                  className="h-7 text-xs gap-1"
-                >
-                  <LinkIcon className="w-3 h-3" />
-                  Add More
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {relatedPlaces.map(item => (
-                  <LinkedItemBadge
-                    key={item.id}
-                    item={item}
-                    onRemove={() => handleRemoveRelatedPlace(item.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Checklist Section */}
           <FormSection id="checklist" title="Checklist" icon={ClipboardCheck} expandedSection={expandedSection} onToggle={handleSectionToggle}>
@@ -660,7 +615,7 @@ export function ScoutingTripForm({
                   placeholder="Select type"
                 />
               </FormField>
-              <FormField label="Footfall Estimate">
+              <FormField label="Daily Footfall Estimate">
                 <Input
                   type="number"
                   value={footfallEstimate}
@@ -680,11 +635,13 @@ export function ScoutingTripForm({
             </FormField>
 
             <FormField label="Nearby Competitors">
-              <textarea
-                value={nearbyCompetitors}
-                onChange={(e) => setNearbyCompetitors(e.target.value)}
-                placeholder="List nearby cafes and competitors..."
-                className="w-full h-20 px-3 py-2 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 resize-none"
+              <NearbyCompetitors
+                cityId={cityId}
+                propertyLat={property?.data?.latitude ?? property?.data?.lat}
+                propertyLon={property?.data?.longitude ?? property?.data?.lon}
+                entries={competitorEntries}
+                onEntriesChange={setCompetitorEntries}
+                onNavigate={handleNavigateToCompetitor}
               />
             </FormField>
           </FormSection>
@@ -777,7 +734,7 @@ export function ScoutingTripForm({
 
           {/* Operational Section */}
           <FormSection id="operational" title="Operational" icon={Settings} expandedSection={expandedSection} onToggle={handleSectionToggle}>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField label="Ventilation">
                 <Select
                   value={ventilation}
@@ -794,7 +751,7 @@ export function ScoutingTripForm({
               </FormField>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField label="Power Capacity">
                 <Select
                   value={powerCapacity}
@@ -811,7 +768,7 @@ export function ScoutingTripForm({
               </FormField>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField label="Delivery Access">
                 <Select
                   value={deliveryAccess}
@@ -829,17 +786,26 @@ export function ScoutingTripForm({
               </FormField>
             </div>
 
-            <FormField label="Outdoor Seating">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={outdoorSeating}
-                  onChange={(e) => setOutdoorSeating(e.target.checked)}
-                  className="w-4 h-4 rounded border-zinc-300"
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Outdoor Seating">
+                <Select
+                  value={outdoorSeating}
+                  onChange={setOutdoorSeating}
+                  options={outdoorSeatingLabels}
                 />
-                <span className="text-sm text-zinc-700">Available</span>
-              </label>
-            </FormField>
+              </FormField>
+              <FormField label="Flat Surface">
+                <label className="flex items-center gap-2 cursor-pointer h-10 md:h-10">
+                  <input
+                    type="checkbox"
+                    checked={flatSurface}
+                    onChange={(e) => setFlatSurface(e.target.checked)}
+                    className="w-4 h-4 rounded border-zinc-300"
+                  />
+                  <span className="text-sm text-zinc-700">Yes</span>
+                </label>
+              </FormField>
+            </div>
           </FormSection>
 
           {/* Risks Section */}
@@ -857,38 +823,36 @@ export function ScoutingTripForm({
         </div>
 
         {/* Footer with actions */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-zinc-200 bg-zinc-50">
-          {/* Validation message */}
-          <div className="text-xs text-red-500">
-            {showErrors && hasErrors && (
-              <span>Please fill in required fields: {[
+        <div className="flex flex-col gap-2 px-4 sm:px-6 py-3 border-t border-zinc-200 bg-zinc-50">
+          {showErrors && hasErrors && (
+            <p className="text-xs text-red-500">
+              Please fill in required fields: {[
                 errors.name && "Trip Name",
                 errors.address && "Address"
-              ].filter(Boolean).join(", ")}</span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={onClose}>
+              ].filter(Boolean).join(", ")}
+            </p>
+          )}
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" size="lg" onClick={onClose} className="h-11">
               Cancel
             </Button>
-            <Button variant="outline" onClick={handleSaveDraft} className="gap-1.5">
+            <Button variant="outline" size="lg" onClick={handleSaveDraft} className="h-11 gap-1.5">
               <Save className="w-4 h-4" />
               Save Draft
             </Button>
             <div className="relative group">
               <Button
+                size="lg"
                 onClick={handleSubmit}
                 disabled={attemptedSubmit && !isValid}
                 className={cn(
-                  "gap-1.5",
+                  "h-11 gap-1.5 border border-transparent",
                   attemptedSubmit && !isValid && "opacity-50 cursor-not-allowed"
                 )}
               >
                 <Send className="w-4 h-4" />
                 Submit
               </Button>
-              {/* Tooltip on hover when disabled */}
               {attemptedSubmit && !isValid && (
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                   Fill required fields first

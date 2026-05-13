@@ -2046,32 +2046,30 @@ export function EnhancedMapContainer({
 
     // Miners cafes - ALWAYS visible regardless of filters (filtered by city only)
     const minersCafes = useMemo(
-        () => cafes
+        () => isLinkingMode ? [] : cafes
             .filter(c => c.franchisePartner && c.city === selectedCity?.id),
-        [cafes, selectedCity]
+        [cafes, selectedCity, isLinkingMode]
     );
 
     // Filter visible markers based on active filters, rating, and city (excluding Miners cafes)
-    // When in linking mode or showHiddenPois mode, show ALL markers
+    // In linking mode, hide cafes (only properties shown). In showHiddenPois mode, show all.
     const visibleCafes = useMemo(
-        () => cafes.filter(c => {
-            // Skip Miners cafes - they're always shown separately
-            if (c.franchisePartner) return false;
-
-            // City filter - only show cafes from selected city
-            if (c.city !== selectedCity?.id) return false;
-
-            // In linking mode or showHiddenPois mode, show all cafes (skip category filters)
-            if (isLinkingMode || showHiddenPois) return true;
-
-            // Delegate category, EUCT sub-filter, and rating checks to shared helper
-            return isPoiFilterActive(c, activeFilters, ratingFilter, euctFilter);
-        }),
+        () => {
+            if (isLinkingMode) return [];
+            return cafes.filter(c => {
+                if (c.franchisePartner) return false;
+                if (c.city !== selectedCity?.id) return false;
+                if (showHiddenPois) return true;
+                return isPoiFilterActive(c, activeFilters, ratingFilter, euctFilter);
+            });
+        },
         [cafes, activeFilters, ratingFilter, euctFilter, selectedCity, isLinkingMode, showHiddenPois]
     );
 
     const visibleProperties = useMemo(() => {
-        const base = isLinkingMode || showHiddenPois || activeFilters.has("property") ? properties : [];
+        // In linking mode, show ALL properties (no filters)
+        if (isLinkingMode) return properties;
+        const base = showHiddenPois || activeFilters.has("property") ? properties : [];
         return base.filter(p => {
             if (scoreFilter > 0 && p.score !== undefined && p.score < scoreFilter) return false;
             if (propertyPostedFilter === "last7days" && !isNewPoi(p.createdAt, 7)) return false;
@@ -2093,7 +2091,7 @@ export function EnhancedMapContainer({
     }, [properties, activeFilters, isLinkingMode, showHiddenPois, scoreFilter, propertyPostedFilter, propertyTransferFilter, propertyPriceChangeFilter, propertyPitchStatusFilter, getPitchStatus]);
 
     const visibleOtherPois = useMemo(
-        () => (isLinkingMode || showHiddenPois) ? otherPois : otherPois.filter((poi) => activeFilters.has(poi.type)),
+        () => isLinkingMode ? [] : (showHiddenPois ? otherPois : otherPois.filter((poi) => activeFilters.has(poi.type))),
         [otherPois, activeFilters, isLinkingMode, showHiddenPois]
     );
 

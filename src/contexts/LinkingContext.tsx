@@ -52,13 +52,8 @@ export function LinkingProvider({ children }: { children: React.ReactNode }) {
   }, [selectedItems, onCompleteCallback]);
 
   const addItem = useCallback((item: LinkedItem) => {
-    setSelectedItems(prev => {
-      // Don't add duplicates
-      if (prev.some(i => i.id === item.id)) {
-        return prev;
-      }
-      return [...prev, item];
-    });
+    // Single-select: replace any previous selection
+    setSelectedItems([item]);
   }, []);
 
   const removeItem = useCallback((itemId: string) => {
