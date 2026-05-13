@@ -377,6 +377,35 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['places']['Insert']>;
       };
 
+      cafe_profiles: {
+        Row: {
+          id: string;
+          place_id: string;
+          category: string;
+          interior_seats: number;
+          exterior_seats: number;
+          area_sqm: number | null;
+          monthly_revenue: number | null;
+          has_kitchen: boolean;
+          notes: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          place_id: string;
+          category: string;
+          interior_seats?: number;
+          exterior_seats?: number;
+          area_sqm?: number | null;
+          monthly_revenue?: number | null;
+          has_kitchen?: boolean;
+          notes?: string | null;
+          updated_by?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['cafe_profiles']['Insert']>;
+      };
+
       areas: {
         Row: {
           id: string;
