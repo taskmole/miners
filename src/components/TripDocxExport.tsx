@@ -1,7 +1,8 @@
 "use client";
 
-import type { ScoutingTrip } from "@/types/scouting";
-import { statusLabels } from "@/types/scouting";
+import type { ScoutingTrip, OutdoorSeatingType } from "@/types/scouting";
+import { statusLabels, outdoorSeatingLabels } from "@/types/scouting";
+import { computeTripAssessment } from "@/lib/trip-scoring";
 
 // Format date for display
 function formatDate(dateStr?: string): string {
@@ -163,6 +164,46 @@ export async function generateTripDocx(trip: ScoutingTrip): Promise<void> {
     }
   }
 
+  // Trip Assessment
+  const assessment = computeTripAssessment(trip);
+  if (assessment.scoredPillarCount >= 2 && assessment.compositeScore != null) {
+    children.push(createSectionHeading("Trip Assessment"));
+    const tierLabel = assessment.compositeScore >= 4.5 ? "Prime" :
+      assessment.compositeScore >= 3.7 ? "Strong" :
+      assessment.compositeScore >= 3.0 ? "Needs strong concept" : "High risk";
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: `${assessment.compositeScore.toFixed(1)} / 5`, bold: true, size: 28 }),
+          new TextRun({ text: `  ${tierLabel}`, size: 22, color: "666666" }),
+        ],
+        spacing: { after: 100 },
+      })
+    );
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: `Confidence: ${assessment.confidence} | Operations risk: ${assessment.operationsRisk}`, size: 18, color: "999999" }),
+        ],
+        spacing: { after: 100 },
+      })
+    );
+    const assessmentRows: (typeof TableRow.prototype)[] = [];
+    for (const p of assessment.pillars) {
+      if (p.score == null) continue;
+      assessmentRows.push(createKeyValueRow(p.label, p.score.toFixed(1)));
+    }
+    if (assessmentRows.length > 0) {
+      children.push(
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: assessmentRows,
+        })
+      );
+    }
+    children.push(new Paragraph({ text: "", spacing: { after: 200 } }));
+  }
+
   // Property Being Scouted
   if (trip.property) {
     children.push(createSectionHeading("Property Being Scouted"));
@@ -242,7 +283,7 @@ export async function generateTripDocx(trip: ScoutingTrip): Promise<void> {
   }
 
   // Operational Section
-  const hasOperationalData = trip.ventilation || trip.waterWaste || trip.powerCapacity || trip.visibility || trip.deliveryAccess || trip.seatingCapacity;
+  const hasOperationalData = trip.ventilation || trip.waterWaste || trip.powerCapacity || trip.visibility || trip.deliveryAccess || trip.seatingCapacity || trip.outdoorSeating || trip.flatSurface !== undefined;
   if (hasOperationalData) {
     children.push(createSectionHeading("Operational"));
     const operationalRows: (typeof TableRow.prototype)[] = [];
@@ -252,7 +293,13 @@ export async function generateTripDocx(trip: ScoutingTrip): Promise<void> {
     if (trip.visibility) operationalRows.push(createKeyValueRow("Visibility", trip.visibility));
     if (trip.deliveryAccess) operationalRows.push(createKeyValueRow("Delivery Access", trip.deliveryAccess));
     if (trip.seatingCapacity) operationalRows.push(createKeyValueRow("Seating Capacity", String(trip.seatingCapacity)));
-    if (trip.outdoorSeating !== undefined) operationalRows.push(createKeyValueRow("Outdoor Seating", trip.outdoorSeating ? "Yes" : "No"));
+    if (trip.outdoorSeating) {
+      const label = typeof trip.outdoorSeating === 'boolean'
+        ? 'Yes'
+        : outdoorSeatingLabels[trip.outdoorSeating as OutdoorSeatingType] ?? trip.outdoorSeating;
+      operationalRows.push(createKeyValueRow("Outdoor Seating", label));
+    }
+    if (trip.flatSurface !== undefined) operationalRows.push(createKeyValueRow("Flat Surface", trip.flatSurface ? "Yes" : "No"));
 
     children.push(
       new Table({

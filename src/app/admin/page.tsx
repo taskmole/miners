@@ -16,6 +16,7 @@ import {
   visibilityLabels,
   accessLabels,
 } from '@/types/scouting';
+import { parseCompetitors } from '@/components/NearbyCompetitors';
 
 type Tab = 'submissions' | 'users';
 
@@ -189,7 +190,7 @@ function downloadPitchAsPdf(pitch: AdminPitch) {
       <div class="section">
         <div class="section-title">Notes & Analysis</div>
         ${pitch.neighbourhoodProfile ? `<div class="notes"><strong>Neighbourhood:</strong> ${pitch.neighbourhoodProfile}</div>` : ''}
-        ${pitch.nearbyCompetitors ? `<div class="notes"><strong>Competitors:</strong> ${pitch.nearbyCompetitors}</div>` : ''}
+        ${pitch.nearbyCompetitors ? `<div class="notes"><strong>Competitors:</strong> ${parseCompetitors(pitch.nearbyCompetitors).map(e => e.name + (e.distance != null ? ` (${Math.round(e.distance)}m)` : '')).join(', ')}</div>` : ''}
         ${pitch.notes ? `<div class="notes"><strong>Condition Notes:</strong> ${pitch.notes}</div>` : ''}
         ${pitch.risks && pitch.risks.length > 0 ? `<div class="notes"><strong>Risks:</strong> ${pitch.risks.join(', ')}</div>` : ''}
       </div>
@@ -369,12 +370,18 @@ function SubmissionDetails({ pitch }: { pitch: AdminPitch }) {
       )}
 
       {/* Competitors */}
-      {pitch.nearbyCompetitors && (
-        <div>
-          <span className="text-zinc-500">Competitors:</span>{' '}
-          <span className="text-zinc-900">{pitch.nearbyCompetitors}</span>
-        </div>
-      )}
+      {pitch.nearbyCompetitors && (() => {
+        const entries = parseCompetitors(pitch.nearbyCompetitors);
+        if (entries.length === 0) return null;
+        return (
+          <div>
+            <span className="text-zinc-500">Competitors:</span>{' '}
+            <span className="text-zinc-900">
+              {entries.map(e => e.name + (e.distance != null ? ` (${Math.round(e.distance)}m)` : '')).join(', ')}
+            </span>
+          </div>
+        );
+      })()}
     </div>
   );
 }

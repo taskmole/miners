@@ -48,7 +48,8 @@ export interface AdminPitch {
   visibility?: string;
   deliveryAccess?: string;
   seatingCapacity?: number;
-  outdoorSeating?: boolean;
+  outdoorSeating?: string;
+  flatSurface?: boolean;
 
   // Other
   risks?: string[];
@@ -107,7 +108,10 @@ export function useAdminSubmissions() {
         visibility: row.visibility as string | undefined,
         deliveryAccess: row.delivery_access as string | undefined,
         seatingCapacity: row.seating_capacity as number | undefined,
-        outdoorSeating: row.outdoor_seating as boolean | undefined,
+        outdoorSeating: typeof row.outdoor_seating === 'boolean'
+          ? (row.outdoor_seating ? 'street' : undefined)
+          : row.outdoor_seating as string | undefined,
+        flatSurface: row.flat_surface as boolean | undefined,
         risks: row.risks as string[] | undefined,
         checklist: row.checklist as ChecklistItem[] | undefined,
         attachmentPaths: row.attachment_paths as string[] | undefined,

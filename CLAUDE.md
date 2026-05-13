@@ -89,6 +89,7 @@ When the user types any of these, immediately execute the action - no questions 
   3. Print the full path to the new folder so the user can open a new conversation there
   4. Remind the user: "Open a new Claude Code conversation in that folder to start working. Run `.3` there to start the dev server (it auto-picks a free port)."
 - **`.kill`** → Kill the local dev server. If port numbers are given (e.g. `.kill 3000 3001`), only kill those. If no port is given, scan ports 3000-3009, kill all that have a process, and confirm what was stopped.
+- **`.pl`** → Summarize in plain English, under 150 words. Just the gist, nothing extra. No jargon, no code, no fluff. If it can be said in 2 sentences, don't use 5.
 
 # Available Tools & Skills
 - Code simplifier plugin

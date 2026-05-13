@@ -30,6 +30,15 @@ export interface LinkedItem {
   data?: any; // Full POI object for fast navigation (avoids O(n) search)
 }
 
+// Nearby competitor entry (auto-populated from map data or manually added)
+export interface CompetitorEntry {
+  name: string;
+  distance: number | null; // meters from property
+  source: 'auto' | 'manual';
+  lat?: number;
+  lon?: number;
+}
+
 // Uploaded document reference
 export interface UploadedDocument {
   id: string;
@@ -65,6 +74,7 @@ export type PropertyType = 'retail' | 'office' | 'mixed' | 'other';
 export type ConditionStatus = 'ok' | 'needs_upgrade' | 'complex';
 export type VisibilityLevel = 'strong' | 'medium' | 'weak';
 export type AccessLevel = 'good' | 'average' | 'bad';
+export type OutdoorSeatingType = 'street' | 'courtyard' | 'bench_only' | 'parking_spot';
 
 // Main scouting trip interface
 export interface ScoutingTrip {
@@ -125,7 +135,8 @@ export interface ScoutingTrip {
   visibility?: VisibilityLevel;
   deliveryAccess?: AccessLevel;
   seatingCapacity?: number;
-  outdoorSeating?: boolean;
+  outdoorSeating?: OutdoorSeatingType;
+  flatSurface?: boolean;
 
   // Other Section
   risks?: string;
@@ -272,3 +283,29 @@ export const accessLabels: Record<AccessLevel, string> = {
   average: 'Average',
   bad: 'Bad',
 };
+
+// Outdoor seating type labels
+export const outdoorSeatingLabels: Record<OutdoorSeatingType, string> = {
+  street: 'Street',
+  courtyard: 'Courtyard',
+  bench_only: 'Bench Only',
+  parking_spot: 'Parking Spot',
+};
+
+// Trip Assessment scoring types (computed client-side, not stored in DB)
+export interface TripPillarScore {
+  pillar: string;
+  weight: number;
+  score: number | null;
+  confidence: 'high' | 'medium' | 'low' | 'no_data';
+  label: string;
+  explanation: string;
+}
+
+export interface TripAssessment {
+  compositeScore: number | null;
+  confidence: 'high' | 'medium' | 'low';
+  pillars: TripPillarScore[];
+  operationsRisk: 'low' | 'medium' | 'high' | 'unknown';
+  scoredPillarCount: number;
+}

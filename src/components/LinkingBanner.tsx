@@ -21,9 +21,9 @@ export function LinkingBanner() {
               <LinkIcon className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-sm font-medium">Link Locations</p>
+              <p className="text-sm font-medium">Choose Location</p>
               <p className="text-xs text-zinc-400">
-                Click on markers or drawn areas to add them
+                Click on a marker to select it
               </p>
             </div>
           </div>
@@ -44,7 +44,7 @@ export function LinkingBanner() {
               className="bg-white text-zinc-900 hover:bg-zinc-100 h-8 gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
-              Done ({selectedItems.length})
+              Done
             </Button>
           </div>
         </div>

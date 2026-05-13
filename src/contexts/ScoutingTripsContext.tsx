@@ -10,6 +10,7 @@ import type {
   ScoutingPhoto,
   UploadedDocument,
   ChecklistItem,
+  TripAssessment,
 } from '@/types/scouting';
 import type { Attachment } from '@/types/attachments';
 import {
@@ -20,6 +21,7 @@ import {
 } from '@/types/scouting';
 import { apiFetch } from '@/lib/api-client';
 import { getCurrentUserId } from '@/lib/browser-session';
+import { computeTripAssessment } from '@/lib/trip-scoring';
 
 /**
  * Fetch ALL trip data from the server API route.
@@ -72,7 +74,10 @@ async function fetchTripsFromApi(): Promise<ScoutingTrip[]> {
       visibility: (row.visibility as string) ?? undefined,
       deliveryAccess: (row.delivery_access as string) ?? undefined,
       seatingCapacity: (row.seating_capacity as number) ?? undefined,
-      outdoorSeating: (row.outdoor_seating as boolean) ?? undefined,
+      outdoorSeating: typeof row.outdoor_seating === 'boolean'
+        ? (row.outdoor_seating ? 'street' : undefined)
+        : (row.outdoor_seating as string) ?? undefined,
+      flatSurface: (row.flat_surface as boolean) ?? undefined,
 
       // Other
       risks: Array.isArray(row.risks) && (row.risks as string[]).length > 0
@@ -150,6 +155,7 @@ function buildPitchRow(trip: ScoutingTrip, userId: string) {
     delivery_access: trip.deliveryAccess,
     seating_capacity: trip.seatingCapacity,
     outdoor_seating: trip.outdoorSeating,
+    flat_surface: trip.flatSurface,
 
     // Other
     risks: trip.risks ? [trip.risks] : null,
@@ -230,6 +236,8 @@ interface ScoutingTripsContextValue {
   // Photos (legacy)
   addPhoto: (tripId: string, photo: ScoutingPhoto) => void;
   removePhoto: (tripId: string, photoId: string) => void;
+  // Trip assessment scoring
+  getTripAssessment: (tripId: string) => TripAssessment | undefined;
 }
 
 const ScoutingTripsContext = createContext<ScoutingTripsContextValue | undefined>(undefined);
@@ -238,6 +246,15 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
   const [state, setState] = useState<ScoutingTripsState>({ version: SCOUTING_TRIPS_VERSION, trips: [] });
   const [isLoaded, setIsLoaded] = useState(false);
   const initialLoadDone = useRef(false);
+  const [tripAssessments, setTripAssessments] = useState<Map<string, TripAssessment>>(new Map());
+
+  function recomputeAssessments(trips: ScoutingTrip[]) {
+    const map = new Map<string, TripAssessment>();
+    for (const trip of trips) {
+      map.set(trip.id, computeTripAssessment(trip));
+    }
+    setTripAssessments(map);
+  }
 
   // Load from API on mount
   useEffect(() => {
@@ -251,6 +268,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
         version: SCOUTING_TRIPS_VERSION,
         trips: apiTrips,
       });
+      recomputeAssessments(apiTrips);
       setIsLoaded(true);
     }
 
@@ -336,6 +354,11 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       const updatedTrip = newTrips.find(t => t.id === tripId);
       if (updatedTrip) {
         syncTripToApi(updatedTrip);
+        setTripAssessments(prev => {
+          const next = new Map(prev);
+          next.set(tripId, computeTripAssessment(updatedTrip));
+          return next;
+        });
       }
 
       return { ...prev, trips: newTrips };
@@ -610,6 +633,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
         removeAttachment,
         addPhoto,
         removePhoto,
+        getTripAssessment: (tripId: string) => tripAssessments.get(tripId),
       }}
     >
       {children}

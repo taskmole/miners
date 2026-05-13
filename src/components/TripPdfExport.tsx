@@ -1,7 +1,8 @@
 "use client";
 
-import type { ScoutingTrip } from "@/types/scouting";
-import { statusLabels } from "@/types/scouting";
+import type { ScoutingTrip, OutdoorSeatingType, TripAssessment } from "@/types/scouting";
+import { statusLabels, outdoorSeatingLabels } from "@/types/scouting";
+import { computeTripAssessment } from "@/lib/trip-scoring";
 
 // Format date for display
 function formatDate(dateStr?: string): string {
@@ -197,6 +198,43 @@ export async function generateTripPdf(trip: ScoutingTrip): Promise<void> {
     y += 20;
   }
 
+  // ===== TRIP ASSESSMENT =====
+  const assessment = computeTripAssessment(trip);
+  if (assessment.scoredPillarCount >= 2 && assessment.compositeScore != null) {
+    checkNewPage(30);
+    addSectionHeader("TRIP ASSESSMENT");
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(
+      assessment.compositeScore >= 4 ? "#16a34a" :
+      assessment.compositeScore >= 3 ? "#d97706" :
+      assessment.compositeScore >= 2 ? "#71717a" : "#dc2626"
+    );
+    const tierLabel = assessment.compositeScore >= 4.5 ? "Prime" :
+      assessment.compositeScore >= 3.7 ? "Strong" :
+      assessment.compositeScore >= 3.0 ? "Needs strong concept" : "High risk";
+    doc.text(`${assessment.compositeScore.toFixed(1)} / 5  —  ${tierLabel}`, margin, y);
+    y += 5;
+
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(gray);
+    doc.text(`Confidence: ${assessment.confidence} | Operations risk: ${assessment.operationsRisk}`, margin, y);
+    y += 5;
+
+    for (const p of assessment.pillars) {
+      if (p.score == null) continue;
+      doc.setFontSize(8);
+      doc.setTextColor(gray);
+      doc.text(p.label, margin, y);
+      doc.setTextColor(black);
+      doc.text(p.score.toFixed(1), margin + 42, y);
+      y += 4;
+    }
+    y += 2;
+  }
+
   // ===== PROPERTY BEING SCOUTED =====
   if (trip.property) {
     checkNewPage(18);
@@ -267,7 +305,8 @@ export async function generateTripPdf(trip: ScoutingTrip): Promise<void> {
 
   // ===== OPERATIONAL SECTION =====
   const hasOperationalData = trip.ventilation || trip.waterWaste || trip.powerCapacity ||
-    trip.visibility || trip.deliveryAccess || trip.seatingCapacity;
+    trip.visibility || trip.deliveryAccess || trip.seatingCapacity ||
+    trip.outdoorSeating || trip.flatSurface !== undefined;
 
   if (hasOperationalData) {
     checkNewPage(40);
@@ -278,7 +317,13 @@ export async function generateTripPdf(trip: ScoutingTrip): Promise<void> {
     if (trip.visibility) addRow("Visibility", trip.visibility);
     if (trip.deliveryAccess) addRow("Delivery Access", trip.deliveryAccess);
     if (trip.seatingCapacity) addRow("Seating Capacity", String(trip.seatingCapacity));
-    if (trip.outdoorSeating !== undefined) addRow("Outdoor Seating", trip.outdoorSeating ? "Yes" : "No");
+    if (trip.outdoorSeating) {
+      const label = typeof trip.outdoorSeating === 'boolean'
+        ? 'Yes'
+        : outdoorSeatingLabels[trip.outdoorSeating as OutdoorSeatingType] ?? trip.outdoorSeating;
+      addRow("Outdoor Seating", label);
+    }
+    if (trip.flatSurface !== undefined) addRow("Flat Surface", trip.flatSurface ? "Yes" : "No");
     y += 2;
   }
 

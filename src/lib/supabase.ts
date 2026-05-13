@@ -670,7 +670,8 @@ export interface Database {
           visibility: string | null;
           delivery_access: string | null;
           seating_capacity: number | null;
-          outdoor_seating: boolean | null;
+          outdoor_seating: string | null;
+          flat_surface: boolean | null;
           risks: string[] | null;
           photos: string[] | null;
           submitted_at: string | null;
@@ -710,7 +711,8 @@ export interface Database {
           visibility?: string | null;
           delivery_access?: string | null;
           seating_capacity?: number | null;
-          outdoor_seating?: boolean | null;
+          outdoor_seating?: string | null;
+          flat_surface?: boolean | null;
           risks?: string[] | null;
           photos?: string[] | null;
           submitted_at?: string | null;
