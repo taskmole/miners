@@ -23,7 +23,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MobilePanel } from "@/components/ui/mobile-panel";
 import { useMobile } from "@/hooks/useMobile";
 import { cn } from "@/lib/utils";
-import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter } from "@/types/filters";
+import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter, PropertyPitchStatusFilter } from "@/types/filters";
+import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
 
 interface SidebarProps {
     cityId?: string;
@@ -81,6 +82,8 @@ interface SidebarProps {
     onPropertyTransferFilterChange?: (filter: PropertyTransferFilter) => void;
     propertyPriceChangeFilter?: PropertyPriceChangeFilter;
     onPropertyPriceChangeFilterChange?: (filter: PropertyPriceChangeFilter) => void;
+    propertyPitchStatusFilter?: PropertyPitchStatusFilter;
+    onPropertyPitchStatusFilterChange?: (filter: PropertyPitchStatusFilter) => void;
 }
 
 const placeCategories = [
@@ -136,6 +139,12 @@ const propertyTransferOptions: { value: PropertyTransferFilter; label: string }[
 const propertyPriceChangeOptions: { value: PropertyPriceChangeFilter; label: string }[] = [
     { value: "all", label: "All" },
     { value: "yes", label: "Change" },
+];
+
+const propertyPitchStatusOptions: { value: PropertyPitchStatusFilter; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "scouted", label: "Scouted" },
+    { value: "rejected", label: "Rejected" },
 ];
 
 // Reusable segmented toggle row used by property sub-filters
@@ -220,9 +229,12 @@ export function Sidebar({
     onPropertyTransferFilterChange,
     propertyPriceChangeFilter = "all",
     onPropertyPriceChangeFilterChange,
+    propertyPitchStatusFilter = "all",
+    onPropertyPitchStatusFilterChange,
 }: SidebarProps) {
     // Get hidden POIs count from context
     const { hiddenCount } = useHiddenPoisContext();
+    const { scoutedCount, rejectedCount } = usePitchStatusContext();
     // Use SheetContext for coordinated open/close
     const { isOpen, open, close } = useSheetState("filters");
     const isMobile = useMobile();
@@ -340,8 +352,9 @@ export function Sidebar({
             if (propertyPostedFilter !== "all") onPropertyPostedFilterChange?.("all");
             if (propertyTransferFilter !== "all") onPropertyTransferFilterChange?.("all");
             if (propertyPriceChangeFilter !== "all") onPropertyPriceChangeFilterChange?.("all");
+            if (propertyPitchStatusFilter !== "all") onPropertyPitchStatusFilterChange?.("all");
         }
-    }, [activeFilters, propertyPostedFilter, propertyTransferFilter, propertyPriceChangeFilter, onPropertyPostedFilterChange, onPropertyTransferFilterChange, onPropertyPriceChangeFilterChange]);
+    }, [activeFilters, propertyPostedFilter, propertyTransferFilter, propertyPriceChangeFilter, propertyPitchStatusFilter, onPropertyPostedFilterChange, onPropertyTransferFilterChange, onPropertyPriceChangeFilterChange, onPropertyPitchStatusFilterChange]);
 
     // Click outside handling is now done by MobilePanel
 
@@ -774,6 +787,17 @@ export function Sidebar({
                                                                         onChange={onPropertyPriceChangeFilterChange}
                                                                         counts={[getCount("property"), getCount("propertyPriceChanged")]}
                                                                     />
+
+                                                                    {/* Pitch Status filter - only shown when scouted properties exist */}
+                                                                    {scoutedCount > 0 && (
+                                                                        <SegmentedFilterRow
+                                                                            label="Status"
+                                                                            options={propertyPitchStatusOptions}
+                                                                            value={propertyPitchStatusFilter}
+                                                                            onChange={onPropertyPitchStatusFilterChange}
+                                                                            counts={[getCount("property"), scoutedCount - rejectedCount, rejectedCount]}
+                                                                        />
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>

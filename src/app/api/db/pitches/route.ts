@@ -6,6 +6,49 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get("mode") || "user";
 
+  // Status map mode: returns lightweight placeId-to-status mapping for map markers
+  if (mode === "status-map") {
+    const token = getTokenFromRequest(request);
+    if (!token) {
+      return NextResponse.json({}, { status: 200 });
+    }
+
+    try {
+      const supabase = createServerSupabase(token);
+
+      const { data, error } = await supabase
+        .from("pitches")
+        .select("property, status, submitted_at, final_reviewed_at")
+        .in("status", ["submitted", "approved", "rejected"])
+        .not("property", "is", null);
+
+      if (error) {
+        console.error("[api/db/pitches] status-map query error:", error);
+        return NextResponse.json({}, { status: 200 });
+      }
+
+      // Build placeId -> { status, date } mapping (highest-priority status wins)
+      const statusPriority: Record<string, number> = { draft: 0, submitted: 1, rejected: 2, approved: 3 };
+      const statusMap: Record<string, { status: string; date: string | null }> = {};
+
+      for (const row of data || []) {
+        const prop = row.property as { type?: string; id?: string } | null;
+        if (!prop?.id || prop.type !== "place") continue;
+
+        const current = statusMap[prop.id];
+        if (!current || (statusPriority[row.status] ?? 0) > (statusPriority[current.status] ?? 0)) {
+          const date = row.final_reviewed_at || row.submitted_at || null;
+          statusMap[prop.id] = { status: row.status, date };
+        }
+      }
+
+      return NextResponse.json(statusMap);
+    } catch (err) {
+      console.error("[api/db/pitches] status-map unexpected error:", err);
+      return NextResponse.json({}, { status: 200 });
+    }
+  }
+
   // Admin mode only needs a valid token (RLS handles permission)
   if (mode === "admin") {
     const token = getTokenFromRequest(request);

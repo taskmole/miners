@@ -25,8 +25,9 @@ import { AddToListButton } from "@/components/AddToListButton";
 import { CreateTripButton } from "@/components/CreateTripButton";
 import { PopupActionBar } from "@/components/PopupActionBar";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
+import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
 import type { PlaceInfo } from "@/types/lists";
-import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter } from "@/types/filters";
+import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter, PropertyPitchStatusFilter } from "@/types/filters";
 import { TrafficValueCard } from "@/components/TrafficValueCard";
 import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
 import { useMapData, CafeData, PropertyData, OtherPoiData, LocationData, hasChangedPrice } from "@/hooks/useMapData";
@@ -1232,10 +1233,43 @@ function freshTooltipText(dateStr: string): string {
     return t === "Today" ? "Updated today" : `Updated ${t} ago`;
 }
 
-// Property popup content - Uses universal popup base - memoized
+// Pitch status visual config - shared between popup badges and map marker rings/glow
+const PITCH_STATUS_STYLES: Record<string, {
+    dotColor: string;
+    label: string;
+    ringClass: string;
+    glowStyle: React.CSSProperties;
+}> = {
+    submitted: {
+        dotColor: "#60a5fa",
+        label: "Submitted",
+        ringClass: "ring-2 ring-blue-400",
+        glowStyle: { boxShadow: "0 0 14px 6px rgba(96,165,250,0.65)" },
+    },
+    approved: {
+        dotColor: "#34d399",
+        label: "Approved",
+        ringClass: "ring-2 ring-green-500",
+        glowStyle: { boxShadow: "0 0 14px 6px rgba(34,197,94,0.65)" },
+    },
+    rejected: {
+        dotColor: "#f87171",
+        label: "Rejected",
+        ringClass: "ring-2 ring-red-400",
+        glowStyle: { boxShadow: "0 0 14px 6px rgba(248,113,113,0.65)" },
+    },
+};
+
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address, true);
     const placeId = generatePropertyPlaceId(property);
+    const { getPitchStatus, getPitchDate } = usePitchStatusContext();
+    const pitchStatus = getPitchStatus(placeId);
+    const pitchDate = getPitchDate(placeId);
+    const pitchStyle = pitchStatus ? PITCH_STATUS_STYLES[pitchStatus] : null;
+    const pitchTooltip = pitchStyle && pitchDate
+        ? `${pitchStyle.label} on ${new Date(pitchDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+        : pitchStyle?.label ?? null;
 
     // Build features array
     const features: string[] = [];
@@ -1295,6 +1329,13 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                                 <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>{freshTooltipText(property.updatedAt)}</span>
                             </span>
                         )}
+                        {pitchStyle && (
+                            <span className="score-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "pitch" ? null : "pitch"); }}>
+                                <span className="dot" style={{ background: pitchStyle.dotColor }} />
+                                {pitchStyle.label}
+                                {pitchTooltip && <span className={`badge-tooltip ${activeTooltip === "pitch" ? "visible" : ""}`}>{pitchTooltip}</span>}
+                            </span>
+                        )}
                     </div>
                     {hasMultiplePhotos && (
                         <>
@@ -1333,6 +1374,13 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                     )}
                     {property.updatedAt && (
                         <span className="header-freshness">{freshBadgeText(property.updatedAt)}</span>
+                    )}
+                    {pitchStyle && (
+                        <span className="header-score-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "pitch" ? null : "pitch"); }}>
+                            <span className="dot" style={{ background: pitchStyle.dotColor }} />
+                            {pitchStyle.label}
+                            {pitchTooltip && <span className={`badge-tooltip ${activeTooltip === "pitch" ? "visible" : ""}`}>{pitchTooltip}</span>}
+                        </span>
                     )}
                 </div>
             )}
@@ -1828,7 +1876,9 @@ const IconMarker = React.memo(function IconMarker({
     isActive = false,
     isHidden = false,
     poiCount = 1,
-    ringClass = ""
+    ringClass = "",
+    glowStyle,
+    statusIndicator,
 }: {
     color: string;
     icon: React.ElementType;
@@ -1837,8 +1887,11 @@ const IconMarker = React.memo(function IconMarker({
     isHidden?: boolean;
     poiCount?: number;
     ringClass?: string;
+    glowStyle?: React.CSSProperties;
+    statusIndicator?: "submitted" | "approved" | "rejected";
 }) {
     const showBadge = poiCount > 1;
+    const isRejected = statusIndicator === "rejected" && !isHidden;
 
     if (isMiners) {
         return (
@@ -1864,12 +1917,15 @@ const IconMarker = React.memo(function IconMarker({
         );
     }
     return (
-        <div className={cn("relative", isHidden && "marker-hidden")}>
-            <div className={cn(
-                `${color} rounded-full p-1.5 shadow-lg transition-transform duration-200`,
-                ringClass,
-                isActive ? "scale-125" : "hover:scale-125"
-            )}>
+        <div className={cn("relative", isHidden && "marker-hidden", isRejected && "opacity-60")}>
+            <div
+                className={cn(
+                    `${color} rounded-full p-1.5 shadow-lg transition-transform duration-200`,
+                    ringClass,
+                    isActive ? "scale-125" : "hover:scale-125"
+                )}
+                style={glowStyle}
+            >
                 <Icon className="size-3 text-white" />
             </div>
             {showBadge && (
@@ -1903,6 +1959,7 @@ interface EnhancedMapContainerProps {
     propertyPostedFilter?: PropertyPostedFilter;
     propertyTransferFilter?: PropertyTransferFilter;
     propertyPriceChangeFilter?: PropertyPriceChangeFilter;
+    propertyPitchStatusFilter?: PropertyPitchStatusFilter;
     demoMode?: boolean;
 }
 
@@ -1926,6 +1983,7 @@ export function EnhancedMapContainer({
     propertyPostedFilter = "all",
     propertyTransferFilter = "all",
     propertyPriceChangeFilter = "all",
+    propertyPitchStatusFilter = "all",
     demoMode = false,
 }: EnhancedMapContainerProps) {
     const { cafes, properties, otherPois, isLoading, error, retry } = useMapData(selectedCity?.id);
@@ -1970,6 +2028,8 @@ export function EnhancedMapContainer({
 
     // Hidden POIs context
     const { isHidden } = useHiddenPoisContext();
+    // Pitch status context for property markers
+    const { getPitchStatus } = usePitchStatusContext();
 
     // Handler for marker click in linking mode
     const handleLinkingClick = React.useCallback((item: {
@@ -2023,9 +2083,14 @@ export function EnhancedMapContainer({
                 if (propertyPriceChangeFilter === "yes" && !changed) return false;
                 if (propertyPriceChangeFilter === "no" && changed) return false;
             }
+            if (propertyPitchStatusFilter !== "all") {
+                const status = getPitchStatus(generatePropertyPlaceId(p));
+                if (propertyPitchStatusFilter === "scouted" && (!status || status === "rejected")) return false;
+                if (propertyPitchStatusFilter === "rejected" && status !== "rejected") return false;
+            }
             return true;
         });
-    }, [properties, activeFilters, isLinkingMode, showHiddenPois, scoreFilter, propertyPostedFilter, propertyTransferFilter, propertyPriceChangeFilter]);
+    }, [properties, activeFilters, isLinkingMode, showHiddenPois, scoreFilter, propertyPostedFilter, propertyTransferFilter, propertyPriceChangeFilter, propertyPitchStatusFilter, getPitchStatus]);
 
     const visibleOtherPois = useMemo(
         () => (isLinkingMode || showHiddenPois) ? otherPois : otherPois.filter((poi) => activeFilters.has(poi.type)),
@@ -2691,6 +2756,8 @@ export function EnhancedMapContainer({
                             // If hidden: show faded if alone, skip if other visible POIs at same spot
                             if (hidden && !showHiddenPois && colocated.length > 0) return null;
                             const hasMultiplePois = colocated.length > 1;
+                            const pitchStatus = getPitchStatus(placeId);
+                            const pitchVisuals = pitchStatus ? PITCH_STATUS_STYLES[pitchStatus] : null;
                             return (
                                 <MapMarker
                                     key={markerKey}
@@ -2718,7 +2785,7 @@ export function EnhancedMapContainer({
                                     }}
                                 >
                                     <MarkerContent>
-                                        <IconMarker color="bg-[#78C500]" icon={Home} isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} />
+                                        <IconMarker color="bg-[#78C500]" icon={Home} isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} ringClass={pitchVisuals?.ringClass ?? ""} glowStyle={pitchVisuals?.glowStyle} statusIndicator={pitchStatus ?? undefined} />
                                     </MarkerContent>
                                     {!isLinkingMode && !hasMultiplePois && !isMobile && (
                                         <MarkerPopup onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">

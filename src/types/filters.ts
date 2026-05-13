@@ -11,3 +11,6 @@ export type PropertyTransferFilter = "all" | "yes" | "no";
 
 /** Filter properties by whether their price changed from the original */
 export type PropertyPriceChangeFilter = "all" | "yes" | "no";
+
+/** Filter properties by scouting pitch status */
+export type PropertyPitchStatusFilter = "all" | "scouted" | "rejected";
