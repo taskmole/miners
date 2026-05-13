@@ -34,6 +34,7 @@ import { SheetProvider } from "@/contexts/SheetContext";
 import { WalkingRadiusProvider } from "@/contexts/WalkingRadiusContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { ShapeDataProvider } from "@/contexts/ShapeDataContext";
+import { PitchStatusProvider } from "@/contexts/PitchStatusContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
 import { supabase } from "@/lib/supabase";
@@ -42,7 +43,7 @@ import { migrateAnonymousData } from "@/lib/supabaseHelpers";
 import type { User } from "@supabase/supabase-js";
 import type { ScoutingTrip, LinkedItem } from "@/types/scouting";
 import { usePathname } from "next/navigation";
-import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter } from "@/types/filters";
+import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter, PropertyPitchStatusFilter } from "@/types/filters";
 
 // Default active filters - empty (Miners cafes are always shown separately)
 const DEFAULT_FILTERS = new Set<string>([]);
@@ -144,6 +145,7 @@ function HomeContent() {
   const [propertyPostedFilter, setPropertyPostedFilter] = useState<PropertyPostedFilter>("all");
   const [propertyTransferFilter, setPropertyTransferFilter] = useState<PropertyTransferFilter>("all");
   const [propertyPriceChangeFilter, setPropertyPriceChangeFilter] = useState<PropertyPriceChangeFilter>("all");
+  const [propertyPitchStatusFilter, setPropertyPitchStatusFilter] = useState<PropertyPitchStatusFilter>("all");
   const [showHiddenPois, setShowHiddenPois] = useState(false);
 
   // Location Score toggle state
@@ -275,6 +277,7 @@ function HomeContent() {
           propertyPostedFilter={propertyPostedFilter}
           propertyTransferFilter={propertyTransferFilter}
           propertyPriceChangeFilter={propertyPriceChangeFilter}
+          propertyPitchStatusFilter={propertyPitchStatusFilter}
           demoMode={demoMode}
         />
       </div>
@@ -339,6 +342,8 @@ function HomeContent() {
             onPropertyTransferFilterChange={setPropertyTransferFilter}
             propertyPriceChangeFilter={propertyPriceChangeFilter}
             onPropertyPriceChangeFilterChange={setPropertyPriceChangeFilter}
+            propertyPitchStatusFilter={propertyPitchStatusFilter}
+            onPropertyPitchStatusFilterChange={setPropertyPitchStatusFilter}
           />
           <ActivityLog />
           <ListsPanel
@@ -442,6 +447,7 @@ export default function Home() {
             <ListsProvider>
               <HiddenPoisProvider>
                 <ScoutingTripsProvider>
+                  <PitchStatusProvider>
                   <LinkingProvider>
                     <SheetProvider>
                       <ToastProvider>
@@ -451,6 +457,7 @@ export default function Home() {
                       </ToastProvider>
                     </SheetProvider>
                   </LinkingProvider>
+                  </PitchStatusProvider>
                 </ScoutingTripsProvider>
               </HiddenPoisProvider>
             </ListsProvider>
