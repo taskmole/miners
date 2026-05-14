@@ -31,6 +31,8 @@ import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, Property
 import { TrafficValueCard } from "@/components/TrafficValueCard";
 import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
 import { useMapData, CafeData, PropertyData, OtherPoiData, LocationData, hasChangedPrice } from "@/hooks/useMapData";
+import { useCafeProfiles, CafeProfile, CATEGORY_LABELS } from "@/hooks/useCafeProfiles";
+import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { useOverlayData } from "@/hooks/useOverlayData";
 import { useAttachments } from "@/hooks/useAttachments";
 import { useWalkingRadius } from "@/contexts/WalkingRadiusContext";
@@ -68,10 +70,20 @@ import {
     TrendingUp,
     ChevronLeft,
     ChevronRight,
+    UtensilsCrossed,
+    Armchair,
+    Ruler,
+    Euro,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCompactNumber } from "@/lib/format-numbers";
 import { scoreTier, SCORE_TIER_BG, SCORE_TIER_COLORS, SCORE_TIER_LABELS } from "@/lib/gravity-lookup";
+
+// Context for sharing cafe profile data with popup components
+const CafeProfilesContext = React.createContext<{
+  profilesByPlaceId: Record<string, CafeProfile>;
+  canSeeRevenue: boolean;
+}>({ profilesByPlaceId: {}, canSeeRevenue: false });
 
 // Enhanced icon configuration with ring colors
 const iconConfig: Record<string, { icon: React.ElementType; color: string; bg: string; ring: string }> = {
@@ -915,6 +927,60 @@ const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ pl
     );
 });
 
+// Cafe profile section for Miners cafes (used in both popup types)
+const PROFILE_CATEGORY_CHIP = {
+    background: '#2d2d2d',
+    color: '#ffffff',
+    padding: '4px 10px',
+    fontSize: 11,
+    fontWeight: 600,
+    borderRadius: 8,
+    fontFamily: 'var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif',
+} as const;
+
+function CafeProfileSection({ placeId }: { placeId: string }) {
+    const { profilesByPlaceId, canSeeRevenue } = React.useContext(CafeProfilesContext);
+    const profile = profilesByPlaceId[placeId];
+
+    if (!profile || !profile.category) return null;
+
+    const totalSeats = (profile.interiorSeats || 0) + (profile.exteriorSeats || 0);
+
+    const formatRevenue = (v: number) => {
+        if (v >= 1000) { const k = v / 1000; return `€${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K/mo`; }
+        return `€${v}/mo`;
+    };
+
+    const details: string[] = [];
+    if (totalSeats > 0) details.push(`${totalSeats} seats`);
+    if (profile.areaSqm) details.push(`${profile.areaSqm} m²`);
+    if (profile.hasKitchen) details.push('Kitchen');
+
+    return (
+        <div style={{
+            margin: '6px 12px 10px',
+            padding: '10px 12px',
+            background: '#faf9f7',
+            border: '1px solid #e8e5e0',
+            borderRadius: 10,
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ display: 'inline-block', ...PROFILE_CATEGORY_CHIP }}>
+                    {CATEGORY_LABELS[profile.category]}
+                </span>
+                {details.map((d, i) => (
+                    <span key={i} style={{ fontSize: 13, color: '#52525b', whiteSpace: 'nowrap' }}>{d}</span>
+                ))}
+                {canSeeRevenue && profile.monthlyRevenue ? (
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#18181b', marginLeft: 'auto' }}>
+                        {formatRevenue(profile.monthlyRevenue)}
+                    </span>
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
 // EU Coffee Trip Popup - Uses universal popup base classes - memoized to prevent re-renders
 const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose }: { cafe: CafeData; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(cafe.name, cafe.googleMapsUrl, cafe.lat, cafe.lon, cafe.address);
@@ -1004,6 +1070,9 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
                     )}
                 </div>
             </div>
+
+            {/* Cafe profile enrichment (Miners cafes only) */}
+            {cafe.franchisePartner && cafe.placeId && <CafeProfileSection placeId={cafe.placeId} />}
 
             {/* Attachments section */}
             <PopupAttachmentsSection placeId={placeId} placeName={cafe.name} placeType="cafe" lat={cafe.lat} lon={cafe.lon} />
@@ -1112,6 +1181,9 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }:
                     )}
                 </div>
             </div>
+
+            {/* Cafe profile enrichment (Miners cafes only) */}
+            {cafe.franchisePartner && cafe.placeId && <CafeProfileSection placeId={cafe.placeId} />}
 
             {/* Attachments section */}
             <PopupAttachmentsSection placeId={placeId} placeName={cafe.name} placeType="cafe" lat={cafe.lat} lon={cafe.lon} />
@@ -1987,6 +2059,9 @@ export function EnhancedMapContainer({
     demoMode = false,
 }: EnhancedMapContainerProps) {
     const { cafes, properties, otherPois, isLoading, error, retry } = useMapData(selectedCity?.id);
+    const { cafes: dbCafes, profilesByPlaceId: cafeProfilesByPlaceId } = useCafeProfiles(true);
+    const { canSeeRevenue } = useUserProfiles();
+    const cafeProfilesCtx = useMemo(() => ({ profilesByPlaceId: cafeProfilesByPlaceId, canSeeRevenue }), [cafeProfilesByPlaceId, canSeeRevenue]);
     const {
         trafficData,
         trafficGroupedData,
@@ -2044,20 +2119,37 @@ export function EnhancedMapContainer({
         }
     }, [isLinkingMode, addLinkingItem]);
 
-    // Miners cafes - ALWAYS visible regardless of filters (filtered by city only)
+    // Miners cafes from DB - ALWAYS visible regardless of filters (filtered by city only)
     const minersCafes = useMemo(
-        () => isLinkingMode ? [] : cafes
-            .filter(c => c.franchisePartner && c.city === selectedCity?.id),
-        [cafes, selectedCity, isLinkingMode]
+        () => isLinkingMode ? [] : dbCafes
+            .filter(c => c.cityId === selectedCity?.id)
+            .map(c => ({
+                type: "cafe" as const,
+                name: c.name,
+                address: c.address,
+                lat: c.latitude,
+                lon: c.longitude,
+                categoryName: "Miners",
+                franchisePartner: true,
+                city: c.cityId as CafeData["city"],
+                placeId: c.placeId,
+                link: c.euctLink,
+                website: c.website,
+                instagram: c.instagram,
+                rating: c.googleRating,
+                reviewCount: c.googleReviewCount,
+                googleMapsUrl: c.googleMapsUrl,
+                openingHours: c.openingHours,
+            })),
+        [dbCafes, selectedCity, isLinkingMode]
     );
 
-    // Filter visible markers based on active filters, rating, and city (excluding Miners cafes)
+    // Filter visible markers based on active filters, rating, and city
     // In linking mode, hide cafes (only properties shown). In showHiddenPois mode, show all.
     const visibleCafes = useMemo(
         () => {
             if (isLinkingMode) return [];
             return cafes.filter(c => {
-                if (c.franchisePartner) return false;
                 if (c.city !== selectedCity?.id) return false;
                 if (showHiddenPois) return true;
                 return isPoiFilterActive(c, activeFilters, ratingFilter, euctFilter);
@@ -2494,6 +2586,7 @@ export function EnhancedMapContainer({
     }
 
     return (
+        <CafeProfilesContext.Provider value={cafeProfilesCtx}>
         <div className="w-full h-full relative">
             {/* Toast helper for shape creation */}
             <ShapeCreatedToast onReady={handleShapeCreatedReady} />
@@ -3044,5 +3137,6 @@ export function EnhancedMapContainer({
                 </div>
             )}
         </div>
+        </CafeProfilesContext.Provider>
     );
 }

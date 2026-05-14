@@ -10,6 +10,7 @@ type UserRole = 'super_admin' | 'head_office_exec' | 'finance_reviewer' | 'area_
 const ADMIN_ROLES: UserRole[] = ['super_admin'];
 const DASHBOARD_ROLES: UserRole[] = ['super_admin', 'head_office_exec', 'finance_reviewer', 'area_coordinator'];
 const REVIEW_ROLES: UserRole[] = ['super_admin', 'head_office_exec'];
+const FINANCE_ROLES: UserRole[] = ['super_admin', 'head_office_exec', 'finance_reviewer'];
 
 export function useUserProfiles() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -80,6 +81,7 @@ export function useUserProfiles() {
   const isAdmin = currentUserRole ? ADMIN_ROLES.includes(currentUserRole) : false;
   const canAccessDashboard = currentUserRole ? DASHBOARD_ROLES.includes(currentUserRole) : false;
   const canReviewSubmissions = currentUserRole ? REVIEW_ROLES.includes(currentUserRole) : false;
+  const canSeeRevenue = currentUserRole ? FINANCE_ROLES.includes(currentUserRole) : false;
 
   useEffect(() => {
     Promise.all([fetchCurrentUserRole(), fetchUsers()]).finally(() => setLoading(false));
@@ -91,6 +93,7 @@ export function useUserProfiles() {
     isAdmin,
     canAccessDashboard,
     canReviewSubmissions,
+    canSeeRevenue,
     loading,
     error,
     updateRole,
@@ -100,4 +103,4 @@ export function useUserProfiles() {
 }
 
 export type { UserProfile, UserRole };
-export { ADMIN_ROLES };
+export { ADMIN_ROLES, FINANCE_ROLES };

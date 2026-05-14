@@ -153,6 +153,24 @@ CREATE TABLE public.places (
   CONSTRAINT places_source_unique UNIQUE (source, source_id)
 );
 
+CREATE TABLE public.cafe_profiles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  place_id uuid NOT NULL UNIQUE,
+  category text NOT NULL CHECK (category IN ('to_go_mini', 'core', 'flagship')),
+  interior_seats integer DEFAULT 0,
+  exterior_seats integer DEFAULT 0,
+  area_sqm numeric,
+  monthly_revenue numeric,
+  has_kitchen boolean DEFAULT false,
+  notes text,
+  updated_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT cafe_profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT cafe_profiles_place_id_fkey FOREIGN KEY (place_id) REFERENCES public.places(id) ON DELETE CASCADE,
+  CONSTRAINT cafe_profiles_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+);
+
 CREATE TABLE public.areas (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   city_id text,
