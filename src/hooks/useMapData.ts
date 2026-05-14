@@ -26,6 +26,7 @@ export interface CafeData {
     datePublished?: string;
     fetchedAt?: string;
     city: "madrid" | "barcelona" | "prague";
+    placeId?: string;
 }
 
 export interface PropertyData {
@@ -106,7 +107,7 @@ function mapEuctCsvCafes(raw: any[], city: CafeData["city"]): CafeData[] {
             categoryName: "EU Coffee Trip",
             rating: undefined,
             reviewCount: undefined,
-            franchisePartner: c.name?.toLowerCase().includes("miners") || false,
+            franchisePartner: false,
             openingHours: undefined,
             image: undefined,
             website: c.website || undefined,
@@ -216,18 +217,13 @@ async function loadMadridCafes(): Promise<CafeData[]> {
             };
         });
 
-    const minersCafeInfo = (cafeInfoRaw as any[]).filter(
-        (c: any) => c.name?.toLowerCase().includes("miners")
-    );
-    const minersCafes = mapEuctCsvCafes(minersCafeInfo, "madrid");
-
-    await applyGoogleEnrichment([...madridCafes, ...minersCafes], googleEnrichmentRes);
+    await applyGoogleEnrichment(madridCafes, googleEnrichmentRes);
 
     const googleCafes = googleMadridRes.ok
         ? mapGooglePlacesCafes(await googleMadridRes.json(), "madrid")
         : [];
 
-    return [...madridCafes, ...minersCafes, ...googleCafes];
+    return [...madridCafes, ...googleCafes];
 }
 
 async function loadBarcelonaCafes(): Promise<CafeData[]> {

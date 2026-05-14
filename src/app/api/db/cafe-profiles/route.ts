@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     // Fetch all Miners places with their cafe profiles
     const { data: places, error: placesError } = await supabase
       .from("places")
-      .select("id, name, address, location, city_id, source_id")
+      .select("id, name, address, location, city_id, source_id, metadata")
       .eq("source", "miners")
       .eq("status", "active")
       .order("city_id")
@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
       const coords = parseWkbPoint(place.location as string);
       const profile = profiles[place.id as string];
 
+      const meta = (place.metadata || {}) as Record<string, unknown>;
       const entry: Record<string, unknown> = {
         placeId: place.id,
         name: place.name,
@@ -84,6 +85,13 @@ export async function GET(request: NextRequest) {
         sourceId: place.source_id,
         latitude: coords?.lat || 0,
         longitude: coords?.lon || 0,
+        euctLink: meta.euct_link || undefined,
+        website: meta.website || undefined,
+        instagram: meta.instagram || undefined,
+        googleRating: meta.google_rating != null ? Number(meta.google_rating) : undefined,
+        googleReviewCount: meta.google_review_count != null ? Number(meta.google_review_count) : undefined,
+        googleMapsUrl: meta.google_maps_url || undefined,
+        openingHours: meta.opening_hours || undefined,
       };
 
       if (profile) {
@@ -200,6 +208,47 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json(data);
+  } catch (err) {
+    console.error("[api/db/cafe-profiles] unexpected error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+// PUT: add a new Miners cafe to the places table
+export async function PUT(request: NextRequest) {
+  const token = getTokenFromRequest(request);
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { name, address, cityId, latitude, longitude } = body;
+
+    if (!name || !cityId || !latitude || !longitude) {
+      return NextResponse.json({ error: "name, cityId, latitude, longitude are required" }, { status: 400 });
+    }
+
+    const supabase = createServerSupabase(token);
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data, error } = await supabase.rpc("insert_miners_place" as any, {
+      p_name: name,
+      p_address: address || "",
+      p_city_id: cityId,
+      p_longitude: parseFloat(longitude),
+      p_latitude: parseFloat(latitude),
+    });
+
+    if (error) {
+      console.error("[api/db/cafe-profiles] insert place error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ id: data });
   } catch (err) {
     console.error("[api/db/cafe-profiles] unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

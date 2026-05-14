@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, Download, RefreshCw, Coffee, Save, UtensilsCrossed } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, Download, RefreshCw, Coffee, UtensilsCrossed, Plus, Filter } from 'lucide-react';
 import { useUserProfiles } from '@/hooks/useUserProfiles';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
 import { useCafeProfiles, CafeProfile, CafeCategory, CATEGORY_LABELS } from '@/hooks/useCafeProfiles';
@@ -405,13 +405,15 @@ function CafeProfileForm({
   onSave: (data: Record<string, unknown>) => Promise<void>;
 }) {
   const [category, setCategory] = useState<CafeCategory>(cafe.category || 'core');
-  const [interiorSeats, setInteriorSeats] = useState(cafe.interiorSeats ?? 0);
-  const [exteriorSeats, setExteriorSeats] = useState(cafe.exteriorSeats ?? 0);
-  const [areaSqm, setAreaSqm] = useState(cafe.areaSqm ?? 0);
-  const [monthlyRevenue, setMonthlyRevenue] = useState(cafe.monthlyRevenue ?? 0);
+  const [interiorSeats, setInteriorSeats] = useState(cafe.interiorSeats?.toString() ?? '');
+  const [exteriorSeats, setExteriorSeats] = useState(cafe.exteriorSeats?.toString() ?? '');
+  const [areaSqm, setAreaSqm] = useState(cafe.areaSqm?.toString() ?? '');
+  const [monthlyRevenue, setMonthlyRevenue] = useState(cafe.monthlyRevenue?.toString() ?? '');
   const [hasKitchen, setHasKitchen] = useState(cafe.hasKitchen ?? false);
   const [notes, setNotes] = useState(cafe.notes ?? '');
   const [saving, setSaving] = useState(false);
+
+  const toNum = (v: string) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
 
   const handleSave = async () => {
     setSaving(true);
@@ -419,10 +421,10 @@ function CafeProfileForm({
       await onSave({
         placeId: cafe.placeId,
         category,
-        interiorSeats,
-        exteriorSeats,
-        areaSqm: areaSqm || null,
-        monthlyRevenue: monthlyRevenue || null,
+        interiorSeats: toNum(interiorSeats),
+        exteriorSeats: toNum(exteriorSeats),
+        areaSqm: areaSqm ? parseFloat(areaSqm) : null,
+        monthlyRevenue: monthlyRevenue ? parseFloat(monthlyRevenue) : null,
         hasKitchen,
         notes: notes || null,
       });
@@ -455,7 +457,7 @@ function CafeProfileForm({
             type="number"
             min={0}
             value={interiorSeats}
-            onChange={(e) => setInteriorSeats(Number(e.target.value))}
+            onChange={(e) => setInteriorSeats(e.target.value)}
             className="h-11 w-full px-3 border border-zinc-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
           />
         </div>
@@ -465,7 +467,7 @@ function CafeProfileForm({
             type="number"
             min={0}
             value={exteriorSeats}
-            onChange={(e) => setExteriorSeats(Number(e.target.value))}
+            onChange={(e) => setExteriorSeats(e.target.value)}
             className="h-11 w-full px-3 border border-zinc-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
           />
         </div>
@@ -479,7 +481,7 @@ function CafeProfileForm({
             type="number"
             min={0}
             value={areaSqm}
-            onChange={(e) => setAreaSqm(Number(e.target.value))}
+            onChange={(e) => setAreaSqm(e.target.value)}
             className="h-11 w-full px-3 border border-zinc-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
           />
         </div>
@@ -503,7 +505,7 @@ function CafeProfileForm({
             type="number"
             min={0}
             value={monthlyRevenue}
-            onChange={(e) => setMonthlyRevenue(Number(e.target.value))}
+            onChange={(e) => setMonthlyRevenue(e.target.value)}
             className="h-11 w-full px-3 border border-zinc-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
           />
         </div>
@@ -526,9 +528,165 @@ function CafeProfileForm({
         disabled={saving}
         className="w-full bg-zinc-900 hover:bg-zinc-800 text-white h-12"
       >
-        <Save className="w-4 h-4 mr-2" />
-        {saving ? 'Saving...' : 'Save Profile'}
+        {saving ? 'Saving...' : 'Save'}
       </Button>
+    </div>
+  );
+}
+
+interface AddressSuggestion {
+  display_name: string;
+  lat: string;
+  lon: string;
+}
+
+function AddCafeForm({ onSave, onCancel }: { onSave: () => void; onCancel: () => void }) {
+  const [name, setName] = useState('');
+  const [addressQuery, setAddressQuery] = useState('');
+  const [selectedAddress, setSelectedAddress] = useState<{ display: string; lat: number; lon: number } | null>(null);
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [cityId, setCityId] = useState('madrid');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const searchAddress = React.useCallback((query: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (query.length < 3) { setSuggestions([]); return; }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
+          { headers: { 'User-Agent': 'MinersLocationScout/1.0' } }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data);
+          setShowSuggestions(data.length > 0);
+        }
+      } catch { /* ignore */ }
+    }, 400);
+  }, []);
+
+  const handleSelectAddress = (s: AddressSuggestion) => {
+    const parts = s.display_name.split(',').map(p => p.trim());
+    const shortAddress = parts.slice(0, 3).join(', ');
+    setAddressQuery(shortAddress);
+    setSelectedAddress({ display: shortAddress, lat: parseFloat(s.lat), lon: parseFloat(s.lon) });
+    setShowSuggestions(false);
+  };
+
+  const handleSubmit = async () => {
+    if (!name.trim()) { setError('Name is required'); return; }
+    if (!selectedAddress) { setError('Select an address from the suggestions'); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      await apiFetch('/api/db/cafe-profiles', {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: name.trim(),
+          address: selectedAddress.display,
+          cityId,
+          latitude: selectedAddress.lat,
+          longitude: selectedAddress.lon,
+        }),
+      });
+      onSave();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add cafe');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl p-4 space-y-3 border border-zinc-200">
+      <div className="text-sm font-semibold text-zinc-900">Add New Miners Cafe</div>
+
+      {error && <div className="text-xs text-red-600">{error}</div>}
+
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-zinc-500 mb-1">Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="The Miners ..."
+            className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+          />
+        </div>
+        <div className="relative">
+          <label className="block text-xs font-medium text-zinc-500 mb-1">Address</label>
+          <input
+            type="text"
+            value={addressQuery}
+            onChange={(e) => {
+              setAddressQuery(e.target.value);
+              setSelectedAddress(null);
+              searchAddress(e.target.value);
+            }}
+            placeholder="Start typing an address..."
+            className={cn(
+              "w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10",
+              selectedAddress ? "border-green-300 bg-green-50/50" : "border-zinc-200"
+            )}
+          />
+          {selectedAddress && (
+            <span className="absolute right-3 top-[calc(50%+8px)] -translate-y-1/2 text-green-500">
+              <Check className="w-4 h-4" />
+            </span>
+          )}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute z-50 w-full mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {suggestions.map((s, i) => {
+                const parts = s.display_name.split(',').map(p => p.trim());
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handleSelectAddress(s)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 border-b border-zinc-50 last:border-0"
+                  >
+                    <div className="font-medium text-zinc-900 truncate">{parts.slice(0, 2).join(', ')}</div>
+                    <div className="text-xs text-zinc-500 truncate">{parts.slice(2).join(', ')}</div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-zinc-500 mb-1">City</label>
+          <select
+            value={cityId}
+            onChange={(e) => setCityId(e.target.value)}
+            className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+          >
+            {Object.entries(CITY_LABELS).map(([id, label]) => (
+              <option key={id} value={id}>{label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <Button
+          onClick={handleSubmit}
+          disabled={saving || !selectedAddress}
+          className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-white h-10"
+        >
+          {saving ? 'Adding...' : 'Add Cafe'}
+        </Button>
+        <Button
+          onClick={onCancel}
+          variant="outline"
+          className="h-10"
+        >
+          Cancel
+        </Button>
+      </div>
     </div>
   );
 }
@@ -540,6 +698,8 @@ function AdminContent() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectNotes, setRejectNotes] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [cafesCityFilter, setCafesCityFilter] = useState<string>('all');
+  const [showAddCafe, setShowAddCafe] = useState(false);
 
   const {
     users,
@@ -970,117 +1130,162 @@ function AdminContent() {
         )}
 
         {activeTab === 'cafe-profiles' && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {cafesError && (
               <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
                 {cafesError}
               </div>
             )}
 
+            {/* Toolbar: city filter + add cafe */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                <select
+                  value={cafesCityFilter}
+                  onChange={(e) => setCafesCityFilter(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 bg-white border border-zinc-200 rounded-lg text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                >
+                  <option value="all">All cities ({cafeProfiles.length})</option>
+                  {Object.entries(CITY_LABELS).map(([id, label]) => {
+                    const count = cafeProfiles.filter(c => c.cityId === id).length;
+                    if (count === 0) return null;
+                    return (
+                      <option key={id} value={id}>{label} ({count})</option>
+                    );
+                  })}
+                </select>
+              </div>
+              <button
+                onClick={() => setShowAddCafe(!showAddCafe)}
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" />
+                Add Cafe
+              </button>
+            </div>
+
+            {/* Add Cafe form */}
+            {showAddCafe && (
+              <AddCafeForm
+                onSave={async () => {
+                  setShowAddCafe(false);
+                  await refetchCafes();
+                }}
+                onCancel={() => setShowAddCafe(false)}
+              />
+            )}
+
             {cafesLoading && (
               <div className="text-center py-8 text-zinc-500">Loading cafe profiles...</div>
             )}
 
-            {!cafesLoading && cafeProfiles.length === 0 && (
+            {!cafesLoading && !showAddCafe && cafeProfiles.length === 0 && (
               <div className="bg-white rounded-xl px-4 py-8 text-center text-zinc-400 text-sm">
                 No Miners cafes found
               </div>
             )}
 
-            {/* Group by city */}
-            {!cafesLoading && Object.entries(
-              cafeProfiles.reduce<Record<string, CafeProfile[]>>((acc, cafe) => {
+            {/* Cafe list - grouped by city when showing all, flat when filtered */}
+            {!cafesLoading && !showAddCafe && (() => {
+              const filtered = cafesCityFilter === 'all'
+                ? cafeProfiles
+                : cafeProfiles.filter(c => c.cityId === cafesCityFilter);
+
+              const grouped = filtered.reduce<Record<string, CafeProfile[]>>((acc, cafe) => {
                 const city = cafe.cityId || 'unknown';
                 if (!acc[city]) acc[city] = [];
                 acc[city].push(cafe);
                 return acc;
-              }, {})
-            ).map(([cityId, cityCafes]) => (
-              <section key={cityId}>
-                <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-2">
-                  {CITY_LABELS[cityId] || cityId} ({cityCafes.length})
-                </h2>
-                <div className="bg-white rounded-xl divide-y divide-zinc-100">
-                  {cityCafes.map((cafe) => (
-                    <div
-                      key={cafe.placeId}
-                      className="p-4"
-                    >
-                      <div
-                        className="cursor-pointer"
-                        onClick={() => setExpandedId(expandedId === cafe.placeId ? null : cafe.placeId)}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-zinc-900 truncate">
-                              {cafe.name}
-                            </div>
-                            <div className="text-sm text-zinc-500 truncate">
-                              {cafe.address}
-                            </div>
-                            {/* Summary row when collapsed */}
-                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                              {cafe.category && (
-                                <span className={cn(
-                                  "px-2 py-0.5 text-xs font-semibold rounded-full",
-                                  CATEGORY_COLORS[cafe.category]
-                                )}>
-                                  {CATEGORY_LABELS[cafe.category]}
-                                </span>
-                              )}
-                              {(cafe.interiorSeats || cafe.exteriorSeats) ? (
-                                <span className="text-xs text-zinc-500">
-                                  {(cafe.interiorSeats || 0) + (cafe.exteriorSeats || 0)} seats
-                                </span>
-                              ) : null}
-                              {cafe.areaSqm ? (
-                                <span className="text-xs text-zinc-500">{cafe.areaSqm} sqm</span>
-                              ) : null}
-                              {cafe.hasKitchen && (
-                                <span className="text-xs text-zinc-500 flex items-center gap-0.5">
-                                  <UtensilsCrossed className="w-3 h-3" /> Kitchen
-                                </span>
-                              )}
-                              {canSeeRevenue && cafe.monthlyRevenue ? (
-                                <span className="text-xs text-green-600 font-medium">
-                                  €{cafe.monthlyRevenue.toLocaleString()}/mo
-                                </span>
-                              ) : null}
-                              {!cafe.category && (
-                                <span className="text-xs text-zinc-400 italic">No profile yet</span>
-                              )}
-                            </div>
-                          </div>
-                          <button className="p-1 text-zinc-400 hover:text-zinc-600 ml-2">
-                            {expandedId === cafe.placeId ? (
-                              <ChevronUp className="w-5 h-5" />
-                            ) : (
-                              <ChevronDown className="w-5 h-5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
+              }, {});
 
-                      {/* Expanded edit form */}
-                      {expandedId === cafe.placeId && (
-                        <CafeProfileForm
-                          cafe={cafe}
-                          canSeeRevenue={canSeeRevenue}
-                          onSave={async (data) => {
-                            setActionError(null);
-                            try {
-                              await saveCafeProfile(data as Parameters<typeof saveCafeProfile>[0]);
-                            } catch {
-                              setActionError('Failed to save cafe profile');
-                            }
-                          }}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ))}
+              return Object.entries(grouped).map(([cityId, cityCafes]) => (
+                <section key={cityId}>
+                  {cafesCityFilter === 'all' && (
+                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-2">
+                      {CITY_LABELS[cityId] || cityId} ({cityCafes.length})
+                    </h2>
+                  )}
+                  <div className="bg-white rounded-xl divide-y divide-zinc-100">
+                    {cityCafes.map((cafe) => (
+                      <div
+                        key={cafe.placeId}
+                        className="p-4"
+                      >
+                        <div
+                          className="cursor-pointer"
+                          onClick={() => setExpandedId(expandedId === cafe.placeId ? null : cafe.placeId)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-zinc-900 truncate">
+                                {cafe.name}
+                              </div>
+                              <div className="text-sm text-zinc-500 truncate">
+                                {cafe.address}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                {cafe.category && (
+                                  <span className={cn(
+                                    "px-2 py-0.5 text-xs font-semibold rounded-full",
+                                    CATEGORY_COLORS[cafe.category]
+                                  )}>
+                                    {CATEGORY_LABELS[cafe.category]}
+                                  </span>
+                                )}
+                                {(cafe.interiorSeats || cafe.exteriorSeats) ? (
+                                  <span className="text-xs text-zinc-500">
+                                    {(cafe.interiorSeats || 0) + (cafe.exteriorSeats || 0)} seats
+                                  </span>
+                                ) : null}
+                                {cafe.areaSqm ? (
+                                  <span className="text-xs text-zinc-500">{cafe.areaSqm} sqm</span>
+                                ) : null}
+                                {cafe.hasKitchen && (
+                                  <span className="text-xs text-zinc-500 flex items-center gap-0.5">
+                                    <UtensilsCrossed className="w-3 h-3" /> Kitchen
+                                  </span>
+                                )}
+                                {canSeeRevenue && cafe.monthlyRevenue ? (
+                                  <span className="text-xs text-green-600 font-medium">
+                                    €{cafe.monthlyRevenue.toLocaleString()}/mo
+                                  </span>
+                                ) : null}
+                                {!cafe.category && (
+                                  <span className="text-xs text-zinc-400 italic">No profile yet</span>
+                                )}
+                              </div>
+                            </div>
+                            <button className="p-1 text-zinc-400 hover:text-zinc-600 ml-2">
+                              {expandedId === cafe.placeId ? (
+                                <ChevronUp className="w-5 h-5" />
+                              ) : (
+                                <ChevronDown className="w-5 h-5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {expandedId === cafe.placeId && (
+                          <CafeProfileForm
+                            cafe={cafe}
+                            canSeeRevenue={canSeeRevenue}
+                            onSave={async (data) => {
+                              setActionError(null);
+                              try {
+                                await saveCafeProfile(data as Parameters<typeof saveCafeProfile>[0]);
+                              } catch {
+                                setActionError('Failed to save cafe profile');
+                              }
+                            }}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ));
+            })()}
           </div>
         )}
 
