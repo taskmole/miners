@@ -11,6 +11,13 @@ export interface CafeProfile {
   sourceId: string;
   latitude: number;
   longitude: number;
+  euctLink?: string;
+  website?: string;
+  instagram?: string;
+  googleRating?: number;
+  googleReviewCount?: number;
+  googleMapsUrl?: string;
+  openingHours?: string;
   profileId?: string;
   category?: 'to_go_mini' | 'core' | 'flagship';
   interiorSeats?: number;
@@ -92,6 +99,21 @@ export function useCafeProfiles(autoFetch = false) {
     await fetchCafes();
   }, [fetchCafes]);
 
+  const addCafe = useCallback(async (data: {
+    name: string;
+    address?: string;
+    cityId: string;
+    latitude: number;
+    longitude: number;
+  }) => {
+    const result = await apiFetch('/api/db/cafe-profiles', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    await fetchCafes();
+    return result;
+  }, [fetchCafes]);
+
   useEffect(() => {
     if (!autoFetch || fetchAttempted.current) return;
     fetchAttempted.current = true;
@@ -107,5 +129,6 @@ export function useCafeProfiles(autoFetch = false) {
     refetch: fetchCafes,
     saveProfile,
     deleteProfile,
+    addCafe,
   };
 }

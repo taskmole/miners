@@ -71,6 +71,9 @@ import {
     ChevronLeft,
     ChevronRight,
     UtensilsCrossed,
+    Armchair,
+    Ruler,
+    Euro,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCompactNumber } from "@/lib/format-numbers";
@@ -78,9 +81,9 @@ import { scoreTier, SCORE_TIER_BG, SCORE_TIER_COLORS, SCORE_TIER_LABELS } from "
 
 // Context for sharing cafe profile data with popup components
 const CafeProfilesContext = React.createContext<{
-  profilesByName: Record<string, CafeProfile>;
+  profilesByPlaceId: Record<string, CafeProfile>;
   canSeeRevenue: boolean;
-}>({ profilesByName: {}, canSeeRevenue: false });
+}>({ profilesByPlaceId: {}, canSeeRevenue: false });
 
 // Enhanced icon configuration with ring colors
 const iconConfig: Record<string, { icon: React.ElementType; color: string; bg: string; ring: string }> = {
@@ -925,40 +928,52 @@ const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ pl
 });
 
 // Cafe profile section for Miners cafes (used in both popup types)
-const PROFILE_CATEGORY_COLORS: Record<string, string> = {
-    to_go_mini: 'bg-blue-100 text-blue-700',
-    core: 'bg-amber-100 text-amber-700',
-    flagship: 'bg-purple-100 text-purple-700',
-};
+const PROFILE_CATEGORY_CHIP = {
+    background: '#2d2d2d',
+    color: '#ffffff',
+    padding: '4px 10px',
+    fontSize: 11,
+    fontWeight: 600,
+    borderRadius: 8,
+    fontFamily: 'var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif',
+} as const;
 
-function CafeProfileSection({ cafeName }: { cafeName: string }) {
-    const { profilesByName, canSeeRevenue } = React.useContext(CafeProfilesContext);
-    const profile = profilesByName[cafeName.toLowerCase()];
+function CafeProfileSection({ placeId }: { placeId: string }) {
+    const { profilesByPlaceId, canSeeRevenue } = React.useContext(CafeProfilesContext);
+    const profile = profilesByPlaceId[placeId];
 
     if (!profile || !profile.category) return null;
 
+    const totalSeats = (profile.interiorSeats || 0) + (profile.exteriorSeats || 0);
+
+    const formatRevenue = (v: number) => {
+        if (v >= 1000) { const k = v / 1000; return `€${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K/mo`; }
+        return `€${v}/mo`;
+    };
+
+    const details: string[] = [];
+    if (totalSeats > 0) details.push(`${totalSeats} seats`);
+    if (profile.areaSqm) details.push(`${profile.areaSqm} m²`);
+    if (profile.hasKitchen) details.push('Kitchen');
+
     return (
-        <div className="popup-profile-section" style={{ padding: '8px 16px 4px', borderTop: '1px solid #f0f0f0' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                <span className={cn("px-2 py-0.5 text-[11px] font-semibold rounded-full", PROFILE_CATEGORY_COLORS[profile.category] || 'bg-zinc-100 text-zinc-600')}>
+        <div style={{
+            margin: '6px 12px 10px',
+            padding: '10px 12px',
+            background: '#faf9f7',
+            border: '1px solid #e8e5e0',
+            borderRadius: 10,
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ display: 'inline-block', ...PROFILE_CATEGORY_CHIP }}>
                     {CATEGORY_LABELS[profile.category]}
                 </span>
-                {(profile.interiorSeats || profile.exteriorSeats) ? (
-                    <span className="text-[11px] text-zinc-500">
-                        {profile.interiorSeats || 0} + {profile.exteriorSeats || 0} seats
-                    </span>
-                ) : null}
-                {profile.areaSqm ? (
-                    <span className="text-[11px] text-zinc-500">{profile.areaSqm} sqm</span>
-                ) : null}
-                {profile.hasKitchen && (
-                    <span className="text-[11px] text-zinc-500" style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                        <UtensilsCrossed size={10} /> Kitchen
-                    </span>
-                )}
+                {details.map((d, i) => (
+                    <span key={i} style={{ fontSize: 13, color: '#52525b', whiteSpace: 'nowrap' }}>{d}</span>
+                ))}
                 {canSeeRevenue && profile.monthlyRevenue ? (
-                    <span className="text-[11px] text-green-600 font-medium">
-                        €{profile.monthlyRevenue.toLocaleString()}/mo
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#18181b', marginLeft: 'auto' }}>
+                        {formatRevenue(profile.monthlyRevenue)}
                     </span>
                 ) : null}
             </div>
@@ -1057,7 +1072,7 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
             </div>
 
             {/* Cafe profile enrichment (Miners cafes only) */}
-            {cafe.franchisePartner && <CafeProfileSection cafeName={cafe.name} />}
+            {cafe.franchisePartner && cafe.placeId && <CafeProfileSection placeId={cafe.placeId} />}
 
             {/* Attachments section */}
             <PopupAttachmentsSection placeId={placeId} placeName={cafe.name} placeType="cafe" lat={cafe.lat} lon={cafe.lon} />
@@ -1168,7 +1183,7 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }:
             </div>
 
             {/* Cafe profile enrichment (Miners cafes only) */}
-            {cafe.franchisePartner && <CafeProfileSection cafeName={cafe.name} />}
+            {cafe.franchisePartner && cafe.placeId && <CafeProfileSection placeId={cafe.placeId} />}
 
             {/* Attachments section */}
             <PopupAttachmentsSection placeId={placeId} placeName={cafe.name} placeType="cafe" lat={cafe.lat} lon={cafe.lon} />
@@ -2044,9 +2059,9 @@ export function EnhancedMapContainer({
     demoMode = false,
 }: EnhancedMapContainerProps) {
     const { cafes, properties, otherPois, isLoading, error, retry } = useMapData(selectedCity?.id);
-    const { profilesByName: cafeProfilesByName } = useCafeProfiles(true);
+    const { cafes: dbCafes, profilesByPlaceId: cafeProfilesByPlaceId } = useCafeProfiles(true);
     const { canSeeRevenue } = useUserProfiles();
-    const cafeProfilesCtx = useMemo(() => ({ profilesByName: cafeProfilesByName, canSeeRevenue }), [cafeProfilesByName, canSeeRevenue]);
+    const cafeProfilesCtx = useMemo(() => ({ profilesByPlaceId: cafeProfilesByPlaceId, canSeeRevenue }), [cafeProfilesByPlaceId, canSeeRevenue]);
     const {
         trafficData,
         trafficGroupedData,
@@ -2104,20 +2119,35 @@ export function EnhancedMapContainer({
         }
     }, [isLinkingMode, addLinkingItem]);
 
-    // Miners cafes - ALWAYS visible regardless of filters (filtered by city only)
+    // Miners cafes from DB - ALWAYS visible regardless of filters (filtered by city only)
     const minersCafes = useMemo(
-        () => cafes
-            .filter(c => c.franchisePartner && c.city === selectedCity?.id),
-        [cafes, selectedCity]
+        () => dbCafes
+            .filter(c => c.cityId === selectedCity?.id)
+            .map(c => ({
+                type: "cafe" as const,
+                name: c.name,
+                address: c.address,
+                lat: c.latitude,
+                lon: c.longitude,
+                categoryName: "Miners",
+                franchisePartner: true,
+                city: c.cityId as CafeData["city"],
+                placeId: c.placeId,
+                link: c.euctLink,
+                website: c.website,
+                instagram: c.instagram,
+                rating: c.googleRating,
+                reviewCount: c.googleReviewCount,
+                googleMapsUrl: c.googleMapsUrl,
+                openingHours: c.openingHours,
+            })),
+        [dbCafes, selectedCity]
     );
 
-    // Filter visible markers based on active filters, rating, and city (excluding Miners cafes)
+    // Filter visible markers based on active filters, rating, and city
     // When in linking mode or showHiddenPois mode, show ALL markers
     const visibleCafes = useMemo(
         () => cafes.filter(c => {
-            // Skip Miners cafes - they're always shown separately
-            if (c.franchisePartner) return false;
-
             // City filter - only show cafes from selected city
             if (c.city !== selectedCity?.id) return false;
 
