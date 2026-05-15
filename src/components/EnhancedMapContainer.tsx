@@ -973,15 +973,20 @@ function CafeProfileSection({ placeId }: { placeId: string }) {
             border: '1px solid #e8e5e0',
             borderRadius: 10,
         }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ display: 'inline-block', ...PROFILE_CATEGORY_CHIP }}>
                     {CATEGORY_LABELS[profile.category]}
                 </span>
-                {details.map((d, i) => (
-                    <span key={i} style={{ fontSize: 13, color: '#52525b', whiteSpace: 'nowrap' }}>{d}</span>
-                ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+                    {details.map((d, i) => (
+                        <React.Fragment key={i}>
+                            {i > 0 && <span style={{ fontSize: 16, color: '#a1a1aa', lineHeight: 1 }}>·</span>}
+                            <span style={{ fontSize: 13, color: '#52525b', whiteSpace: 'nowrap' }}>{d}</span>
+                        </React.Fragment>
+                    ))}
+                </div>
                 {canSeeRevenue && profile.monthlyRevenue ? (
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#18181b', marginLeft: 'auto' }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#18181b', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
                         {formatRevenue(profile.monthlyRevenue)}
                     </span>
                 ) : null}
