@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, Download, RefreshCw, Coffee, UtensilsCrossed, Plus, Filter } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, Download, RefreshCw, Coffee, UtensilsCrossed, Plus, Filter, SlidersHorizontal, Info } from 'lucide-react';
 import { useUserProfiles } from '@/hooks/useUserProfiles';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
 import { useCafeProfiles, CafeProfile, CafeCategory, CATEGORY_LABELS } from '@/hooks/useCafeProfiles';
@@ -11,17 +11,17 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  statusColors,
   propertyTypeLabels,
   conditionLabels,
   visibilityLabels,
   accessLabels,
 } from '@/types/scouting';
 import { parseCompetitors } from '@/components/NearbyCompetitors';
+import { useScoutingDefaults, type ScoutingDefaults, type CurrencyCode, type MarketDefaults, MARKET_LABELS } from '@/hooks/useScoutingDefaults';
+import { Input } from '@/components/ui/input';
 
-type Tab = 'submissions' | 'users' | 'cafe-profiles';
+type Tab = 'submissions' | 'users' | 'settings' | 'cafe-profiles';
 
-// Error Boundary to catch crashes and show a friendly error
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
@@ -86,18 +86,11 @@ const ROLE_OPTIONS = [
   'franchisee',
 ] as const;
 
-// Format currency for display
 function formatCurrency(value?: number): string {
   if (value === undefined || value === null) return '—';
   return `€${value.toLocaleString()}`;
 }
 
-// Sanitize filename for download
-function sanitizeFilename(str: string): string {
-  return str.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'submission';
-}
-
-// Generate printable PDF (opens in new window for Save as PDF)
 function downloadPitchAsPdf(pitch: AdminPitch) {
   const date = new Date(pitch.submittedAt || pitch.createdAt).toLocaleDateString();
   const checkedCount = pitch.checklist?.filter(c => c.isChecked).length || 0;
@@ -216,14 +209,12 @@ function downloadPitchAsPdf(pitch: AdminPitch) {
   if (printWindow) {
     printWindow.document.write(html);
     printWindow.document.close();
-    // Small delay to ensure styles load before print dialog
     setTimeout(() => {
       printWindow.print();
     }, 250);
   }
 }
 
-// Submission detail view component
 function SubmissionDetails({ pitch }: { pitch: AdminPitch }) {
   const checkedCount = pitch.checklist?.filter(c => c.isChecked).length || 0;
   const totalChecklist = pitch.checklist?.length || 0;
@@ -865,7 +856,7 @@ function AdminContent() {
       </header>
 
       {/* Tabs */}
-      <div className="bg-white border-b border-zinc-200 overflow-x-auto scrollbar-hide">
+      <div className="bg-white overflow-x-auto scrollbar-hide">
         <div className="max-w-4xl mx-auto px-4 flex gap-1 min-w-max">
           <button
             onClick={() => setActiveTab('submissions')}
@@ -877,7 +868,7 @@ function AdminContent() {
             )}
           >
             <FileText className="w-4 h-4" />
-            Submissions
+            Pitches
             {pendingSubmissions.length > 0 && (
               <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
                 {pendingSubmissions.length}
@@ -897,18 +888,32 @@ function AdminContent() {
             Cafes
           </button>
           {isAdmin && (
-            <button
-              onClick={() => setActiveTab('users')}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-                activeTab === 'users'
-                  ? "border-zinc-900 text-zinc-900"
-                  : "border-transparent text-zinc-500 hover:text-zinc-700"
-              )}
-            >
-              <Users className="w-4 h-4" />
-              Users
-            </button>
+            <>
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                  activeTab === 'settings'
+                    ? "border-zinc-900 text-zinc-900"
+                    : "border-transparent text-zinc-500 hover:text-zinc-700"
+                )}
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                Inputs
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                  activeTab === 'users'
+                    ? "border-zinc-900 text-zinc-900"
+                    : "border-transparent text-zinc-500 hover:text-zinc-700"
+                )}
+              >
+                <Users className="w-4 h-4" />
+                Users
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -1356,12 +1361,126 @@ function AdminContent() {
             )}
           </div>
         )}
+        {activeTab === 'settings' && isAdmin && (
+          <ScoutingSettingsPanel />
+        )}
       </main>
     </div>
   );
 }
 
-// Export with error boundary wrapper
+const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = { EUR: '€', CZK: 'Kč', PLN: 'zł' };
+
+const SCOUTING_FIELDS: { key: keyof MarketDefaults; label: string; tooltip: string; step: string; isMoney?: boolean }[] = [
+  { key: 'conversionRate', label: 'Conversion (%)', tooltip: 'Percentage of daily foot traffic that becomes paying customers', step: '0.1' },
+  { key: 'avgTicket', label: 'Avg Ticket', tooltip: 'Average spend per customer in local currency', step: '0.10', isMoney: true },
+  { key: 'fitoutCost', label: 'Fit-out', tooltip: 'Typical build-out cost for a new location in this market', step: '1000', isMoney: true },
+  { key: 'avgFootfall', label: 'Footfall', tooltip: 'Estimated daily foot traffic past an average location', step: '10' },
+];
+
+function ScoutingSettingsPanel() {
+  const { defaults, isLoading, updateDefaults } = useScoutingDefaults();
+  const [form, setForm] = useState<ScoutingDefaults>(defaults);
+  const [activeMarket, setActiveMarket] = useState<CurrencyCode>('EUR');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) setForm(defaults);
+  }, [defaults, isLoading]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await updateDefaults(form);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save defaults:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const current = form[activeMarket];
+  const updateField = (field: keyof MarketDefaults, value: number) => {
+    setForm({ ...form, [activeMarket]: { ...current, [field]: value } });
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto mt-6 px-4">
+      <div className="max-w-lg">
+        <div className="bg-white rounded-xl border border-zinc-200 p-5 space-y-5">
+          <div className="flex rounded-lg bg-zinc-100 p-1">
+            {(Object.keys(MARKET_LABELS) as CurrencyCode[]).map((code) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setActiveMarket(code)}
+                className={cn(
+                  "flex-1 text-sm font-medium py-2 rounded-[7px] transition-all",
+                  activeMarket === code
+                    ? "bg-white text-zinc-900 shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-700"
+                )}
+              >
+                {MARKET_LABELS[code]}
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-3">
+            {SCOUTING_FIELDS.map(({ key, label, tooltip, step, isMoney }) => (
+              <div key={key} className="space-y-1">
+                <label className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
+                  {label}
+                  <button
+                    type="button"
+                    className="info-tip relative text-zinc-400 hover:text-zinc-600"
+                    onClick={(e) => {
+                      const tip = e.currentTarget.querySelector('.badge-tooltip');
+                      if (tip) tip.classList.toggle('visible');
+                    }}
+                    onBlur={(e) => {
+                      const tip = e.currentTarget.querySelector('.badge-tooltip');
+                      if (tip) tip.classList.remove('visible');
+                    }}
+                  >
+                    <Info className="w-3.5 h-3.5" />
+                    <span className="badge-tooltip badge-tooltip-lg" style={{ whiteSpace: 'normal', width: 200, left: '50%', transform: 'translateX(-50%)' }}>{tooltip}</span>
+                  </button>
+                </label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    step={step}
+                    value={current[key]}
+                    onChange={(e) => updateField(key, parseFloat(e.target.value) || 0)}
+                    className={isMoney ? "pr-10" : ""}
+                  />
+                  {isMoney && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400 pointer-events-none">
+                      {CURRENCY_SYMBOLS[activeMarket]}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-1">
+            {saved && <span className="text-sm text-green-600">Saved</span>}
+            <Button onClick={handleSave} disabled={saving} className="h-11 px-10">
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   return (
     <AdminErrorBoundary>
