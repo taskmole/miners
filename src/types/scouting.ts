@@ -192,10 +192,10 @@ export function createDefaultChecklist(): ChecklistItem[] {
 }
 
 // Default empty trip for form initialization
-export function createEmptyTrip(cityId: string, authorName: string = 'Guest'): Omit<ScoutingTrip, 'id' | 'createdAt' | 'updatedAt'> {
+export function createEmptyTrip(cityId: string, authorName: string = 'Scout'): Omit<ScoutingTrip, 'id' | 'createdAt' | 'updatedAt'> {
   return {
     cityId,
-    createdBy: 'guest',
+    createdBy: '',
     authorName,
     tripType: 'form',
     status: 'draft',
