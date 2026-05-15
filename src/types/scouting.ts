@@ -127,6 +127,7 @@ export interface ScoutingTrip {
   expectedDailyRevenue?: number;
   monthlyRevenueRange?: string;
   paybackMonths?: number;
+  currencyCode?: string;
 
   // Operational Section
   ventilation?: ConditionStatus;

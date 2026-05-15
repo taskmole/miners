@@ -734,6 +734,12 @@
   display: block;
 }
 
+.badge-tooltip-lg {
+  font-size: 13px;
+  padding: 8px 12px;
+  line-height: 1.4;
+}
+
 .badge-tooltip-right {
   right: 0;
   left: auto;
@@ -744,7 +750,8 @@
   .freshness-badge:hover .badge-tooltip,
   .header-score-badge:hover .badge-tooltip,
   .header-freshness:hover .badge-tooltip,
-  .popup-price-change:hover .badge-tooltip {
+  .popup-price-change:hover .badge-tooltip,
+  .info-tip:hover .badge-tooltip {
     display: block;
   }
 }
