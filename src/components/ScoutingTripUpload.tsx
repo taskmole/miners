@@ -167,7 +167,7 @@ export function ScoutingTripUpload({
     }
 
     // Create the trip
-    const newTrip = createUploadTrip(cityId, name.trim(), uploadedFile, 'Guest');
+    const newTrip = createUploadTrip(cityId, name.trim(), uploadedFile);
 
     // Update with additional data
     updateTrip(newTrip.id, {

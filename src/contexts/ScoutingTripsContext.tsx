@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type {
   ScoutingTrip,
   ScoutingTripsState,
@@ -22,6 +22,7 @@ import {
 import { apiFetch } from '@/lib/api-client';
 import { getCurrentUserId } from '@/lib/browser-session';
 import { computeTripAssessment } from '@/lib/trip-scoring';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * Fetch ALL trip data from the server API route.
@@ -34,8 +35,8 @@ async function fetchTripsFromApi(): Promise<ScoutingTrip[]> {
     return (data || []).map((row: Record<string, unknown>) => ({
       id: row.id as string,
       cityId: (row.city_id as string) || 'madrid',
-      createdBy: (row.created_by as string) || 'guest',
-      authorName: (row.author_name as string) || 'Guest',
+      createdBy: (row.created_by as string) || '',
+      authorName: (row.author_name as string) || 'Scout',
       tripType: ((row.trip_type as string) || 'form') as ScoutingTripType,
       status: (row.status as ScoutingTripStatus) || 'draft',
       name: (row.trip_name as string) || '',
@@ -105,12 +106,12 @@ async function fetchTripsFromApi(): Promise<ScoutingTrip[]> {
 /**
  * Build the snake_case row object for upsert (create or update).
  */
-function buildPitchRow(trip: ScoutingTrip, userId: string) {
+function buildPitchRow(trip: ScoutingTrip) {
   return {
     // Identity
     id: trip.id,
     city_id: trip.cityId,
-    created_by: userId,
+    created_by: trip.createdBy,
     created_at: trip.createdAt,
 
     // Status
@@ -175,11 +176,10 @@ function buildPitchRow(trip: ScoutingTrip, userId: string) {
  * Sync trip create/update to the server API (fire-and-forget).
  */
 async function syncTripToApi(trip: ScoutingTrip): Promise<void> {
-  const userId = getCurrentUserId();
   try {
     await apiFetch('/api/db/pitches', {
       method: 'POST',
-      body: JSON.stringify(buildPitchRow(trip, userId)),
+      body: JSON.stringify(buildPitchRow(trip)),
     });
   } catch (error) {
     console.error('Error syncing trip to API:', error);
@@ -214,8 +214,10 @@ interface ScoutingTripsContextValue {
     rejected: number;
   };
   // Create operations
-  createTrip: (cityId: string, authorName?: string) => ScoutingTrip;
-  createUploadTrip: (cityId: string, name: string, document: UploadedDocument, authorName?: string) => ScoutingTrip;
+  createTrip: (cityId: string) => ScoutingTrip;
+  createUploadTrip: (cityId: string, name: string, document: UploadedDocument) => ScoutingTrip;
+  // Current user display name (for callers that need it, e.g. attachment uploads)
+  currentAuthorName: string;
   // Update operations
   updateTrip: (tripId: string, updates: Partial<ScoutingTrip>) => void;
   submitTrip: (tripId: string) => void;
@@ -249,6 +251,24 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
   const [isLoaded, setIsLoaded] = useState(false);
   const initialLoadDone = useRef(false);
   const [tripAssessments, setTripAssessments] = useState<Map<string, TripAssessment>>(new Map());
+
+  const { userId: authUserId } = useAuth();
+  const [currentDisplayName, setCurrentDisplayName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authUserId) return;
+    apiFetch<{ role: string; display_name: string | null }>('/api/db/user-profiles?mode=current')
+      .then(data => {
+        if (data?.display_name) setCurrentDisplayName(data.display_name);
+      })
+      .catch(() => {});
+  }, [authUserId]);
+
+  const resolvedUserId = useMemo(
+    () => authUserId || (typeof window !== 'undefined' ? getCurrentUserId() : ''),
+    [authUserId]
+  );
+  const resolvedAuthorName = currentDisplayName || 'Scout';
 
   function recomputeAssessments(trips: ScoutingTrip[]) {
     const map = new Map<string, TripAssessment>();
@@ -294,11 +314,12 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
   }, [state.trips]);
 
   // Create a new trip (returns the created trip)
-  const createTrip = useCallback((cityId: string, authorName: string = 'Guest'): ScoutingTrip => {
+  const createTrip = useCallback((cityId: string): ScoutingTrip => {
     const now = new Date().toISOString();
     const newTrip: ScoutingTrip = {
-      ...createEmptyTrip(cityId, authorName),
+      ...createEmptyTrip(cityId, resolvedAuthorName),
       id: generateTripId(),
+      createdBy: resolvedUserId,
       createdAt: now,
       updatedAt: now,
     };
@@ -308,23 +329,22 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       trips: [newTrip, ...prev.trips],
     }));
 
-    // Sync to API in background
     syncTripToApi(newTrip);
 
     return newTrip;
-  }, []);
+  }, [resolvedUserId, resolvedAuthorName]);
 
   // Create a trip from uploaded document
   const createUploadTrip = useCallback((
     cityId: string,
     name: string,
     document: UploadedDocument,
-    authorName: string = 'Guest'
   ): ScoutingTrip => {
     const now = new Date().toISOString();
     const newTrip: ScoutingTrip = {
-      ...createEmptyTrip(cityId, authorName),
+      ...createEmptyTrip(cityId, resolvedAuthorName),
       id: generateTripId(),
+      createdBy: resolvedUserId,
       tripType: 'upload',
       name,
       uploadedDocument: document,
@@ -337,11 +357,10 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       trips: [newTrip, ...prev.trips],
     }));
 
-    // Sync to API in background
     syncTripToApi(newTrip);
 
     return newTrip;
-  }, []);
+  }, [resolvedUserId, resolvedAuthorName]);
 
   // Update a trip
   const updateTrip = useCallback((tripId: string, updates: Partial<ScoutingTrip>): void => {
@@ -614,6 +633,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
     <ScoutingTripsContext.Provider
       value={{
         isLoaded,
+        currentAuthorName: resolvedAuthorName,
         getTrips,
         getTrip,
         getTripsByStatus,
