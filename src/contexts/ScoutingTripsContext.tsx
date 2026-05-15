@@ -66,6 +66,7 @@ async function fetchTripsFromApi(): Promise<ScoutingTrip[]> {
       expectedDailyRevenue: (row.expected_daily_revenue as number) ?? undefined,
       monthlyRevenueRange: (row.monthly_revenue_range as string) ?? undefined,
       paybackMonths: (row.payback_months as number) ?? undefined,
+      currencyCode: (row.currency_code as string) ?? undefined,
 
       // Operational
       ventilation: (row.ventilation as string) ?? undefined,
@@ -146,6 +147,7 @@ function buildPitchRow(trip: ScoutingTrip, userId: string) {
     expected_daily_revenue: trip.expectedDailyRevenue,
     monthly_revenue_range: trip.monthlyRevenueRange,
     payback_months: trip.paybackMonths,
+    currency_code: trip.currencyCode,
 
     // Operational fields
     ventilation: trip.ventilation,

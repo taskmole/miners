@@ -664,6 +664,7 @@ export interface Database {
           expected_daily_revenue: number | null;
           monthly_revenue_range: string | null;
           payback_months: number | null;
+          currency_code: string | null;
           ventilation: string | null;
           water_waste: string | null;
           power_capacity: string | null;
@@ -705,6 +706,7 @@ export interface Database {
           expected_daily_revenue?: number | null;
           monthly_revenue_range?: string | null;
           payback_months?: number | null;
+          currency_code?: string | null;
           ventilation?: string | null;
           water_waste?: string | null;
           power_capacity?: string | null;
