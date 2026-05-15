@@ -25,6 +25,7 @@ import { useMobile } from "@/hooks/useMobile";
 import { cn } from "@/lib/utils";
 import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter, PropertyPitchStatusFilter } from "@/types/filters";
 import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
+import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
 
 interface SidebarProps {
     cityId?: string;
@@ -143,8 +144,8 @@ const propertyPriceChangeOptions: { value: PropertyPriceChangeFilter; label: str
 
 const propertyPitchStatusOptions: { value: PropertyPitchStatusFilter; label: string }[] = [
     { value: "all", label: "All" },
+    { value: "mine", label: "Mine" },
     { value: "scouted", label: "Scouted" },
-    { value: "rejected", label: "Rejected" },
 ];
 
 // Reusable segmented toggle row used by property sub-filters
@@ -164,13 +165,13 @@ function SegmentedFilterRow<T extends string>({
     return (
         <div className="pr-3">
             <span className="text-[10px] font-medium text-zinc-500 mb-1 block">{label}</span>
-            <div className="flex bg-zinc-300/60 rounded-lg p-1">
+            <div className="flex bg-zinc-300/60 rounded-lg p-1 overflow-x-auto scrollbar-hide">
                 {options.map((opt, i) => (
                     <button
                         key={opt.value}
                         onClick={() => onChange?.(opt.value)}
                         className={cn(
-                            "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all whitespace-nowrap text-center",
+                            "flex-1 text-xs font-semibold px-2 py-1.5 rounded-md transition-all whitespace-nowrap text-center min-w-0",
                             value === opt.value
                                 ? "bg-white text-zinc-900 shadow-sm"
                                 : "text-zinc-500 hover:text-zinc-700"
@@ -179,7 +180,7 @@ function SegmentedFilterRow<T extends string>({
                         {opt.label}
                         {counts && counts[i] != null && (
                             <span className={cn(
-                                "ml-1.5 text-[10px] font-medium",
+                                "ml-1 text-[10px] font-medium",
                                 value === opt.value
                                     ? "text-zinc-400"
                                     : "text-zinc-400/60"
@@ -235,6 +236,7 @@ export function Sidebar({
     // Get hidden POIs count from context
     const { hiddenCount } = useHiddenPoisContext();
     const { scoutedCount, rejectedCount } = usePitchStatusContext();
+    const { myAssignmentCount } = usePropertyAssignmentContext();
     // Use SheetContext for coordinated open/close
     const { isOpen, open, close } = useSheetState("filters");
     const isMobile = useMobile();
@@ -788,16 +790,14 @@ export function Sidebar({
                                                                         counts={[getCount("property"), getCount("propertyPriceChanged")]}
                                                                     />
 
-                                                                    {/* Pitch Status filter - only shown when scouted properties exist */}
-                                                                    {scoutedCount > 0 && (
-                                                                        <SegmentedFilterRow
-                                                                            label="Status"
-                                                                            options={propertyPitchStatusOptions}
-                                                                            value={propertyPitchStatusFilter}
-                                                                            onChange={onPropertyPitchStatusFilterChange}
-                                                                            counts={[getCount("property"), scoutedCount - rejectedCount, rejectedCount]}
-                                                                        />
-                                                                    )}
+                                                                    {/* Pitch Status filter */}
+                                                                    <SegmentedFilterRow
+                                                                        label="Status"
+                                                                        options={propertyPitchStatusOptions}
+                                                                        value={propertyPitchStatusFilter}
+                                                                        onChange={onPropertyPitchStatusFilterChange}
+                                                                        counts={[getCount("property"), myAssignmentCount, scoutedCount]}
+                                                                    />
                                                                 </div>
                                                             </div>
                                                         </div>

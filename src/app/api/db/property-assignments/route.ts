@@ -65,10 +65,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const token = getTokenFromRequest(request);
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await authenticateRequest(request);
+  if (auth.error) return auth.error;
+  const { supabase } = auth;
 
   const placeId = request.nextUrl.searchParams.get("property_place_id");
   if (!placeId) {
@@ -76,8 +75,6 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const supabase = createServerSupabase(token);
-
     const { error } = await supabase
       .from("property_assignments")
       .delete()
@@ -85,7 +82,7 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       console.error("[api/db/property-assignments] delete error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: error.message }, { status: 403 });
     }
 
     return new NextResponse(null, { status: 204 });

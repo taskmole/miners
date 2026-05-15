@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
       const { data, error } = await supabase
         .from("pitches")
-        .select("property, status, submitted_at, final_reviewed_at")
+        .select("property, status, submitted_at, final_reviewed_at, rejection_notes")
         .in("status", ["submitted", "approved", "rejected"])
         .not("property", "is", null);
 
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
       // Build placeId -> { status, date } mapping (highest-priority status wins)
       const statusPriority: Record<string, number> = { draft: 0, submitted: 1, rejected: 2, approved: 3 };
-      const statusMap: Record<string, { status: string; date: string | null }> = {};
+      const statusMap: Record<string, { status: string; date: string | null; rejectionReason: string | null }> = {};
 
       for (const row of data || []) {
         const prop = row.property as { type?: string; id?: string } | null;
@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
         const current = statusMap[prop.id];
         if (!current || (statusPriority[row.status] ?? 0) > (statusPriority[current.status] ?? 0)) {
           const date = row.final_reviewed_at || row.submitted_at || null;
-          statusMap[prop.id] = { status: row.status, date };
+          const rejectionReason = row.status === "rejected" ? (row.rejection_notes as string | null) : null;
+          statusMap[prop.id] = { status: row.status, date, rejectionReason };
         }
       }
 

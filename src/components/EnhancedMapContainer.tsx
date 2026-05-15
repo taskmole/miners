@@ -26,6 +26,9 @@ import { CreateTripButton } from "@/components/CreateTripButton";
 import { PopupActionBar } from "@/components/PopupActionBar";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
+import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
+import type { PropertyAssignment } from "@/hooks/usePropertyAssignments";
+import { useListsContext } from "@/contexts/ListsContext";
 import type { PlaceInfo } from "@/types/lists";
 import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter, PropertyPitchStatusFilter } from "@/types/filters";
 import { TrafficValueCard } from "@/components/TrafficValueCard";
@@ -33,6 +36,7 @@ import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
 import { useMapData, CafeData, PropertyData, OtherPoiData, LocationData, hasChangedPrice } from "@/hooks/useMapData";
 import { useCafeProfiles, CafeProfile, CATEGORY_LABELS } from "@/hooks/useCafeProfiles";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
+import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { useOverlayData } from "@/hooks/useOverlayData";
 import { useAttachments } from "@/hooks/useAttachments";
 import { useWalkingRadius } from "@/contexts/WalkingRadiusContext";
@@ -74,6 +78,11 @@ import {
     Armchair,
     Ruler,
     Euro,
+    Route,
+    ListPlus,
+    Ban,
+    UserPlus,
+    Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCompactNumber } from "@/lib/format-numbers";
@@ -1305,6 +1314,250 @@ function freshTooltipText(dateStr: string): string {
     return t === "Today" ? "Updated today" : `Updated ${t} ago`;
 }
 
+function PropertyActionsFooter({
+    property, placeId, cityId, mapsUrl, canAccessDashboard, checkCanPitch,
+    assignableUsers, assignProperty, preRejectProperty, removeAssignment,
+    assignment, createTrip, updateTrip, showToast, onClose,
+}: {
+    property: PropertyData;
+    placeId: string;
+    cityId: string;
+    mapsUrl: string;
+    canAccessDashboard: boolean;
+    checkCanPitch: (placeId: string) => { allowed: boolean; reason: string | null };
+    assignableUsers: { id: string; display_name: string | null; email: string | null; role: string }[];
+    assignProperty: (placeId: string, assignedTo: string, notes?: string) => Promise<any>;
+    preRejectProperty: (placeId: string, reason: string, notes?: string) => Promise<any>;
+    removeAssignment: (placeId: string) => Promise<void>;
+    assignment: PropertyAssignment | null;
+    createTrip: (cityId: string) => any;
+    updateTrip: (tripId: string, updates: any) => void;
+    showToast: (msg: string, type?: string) => void;
+    onClose?: () => void;
+}) {
+    const [menuOpen, setMenuOpen] = React.useState(false);
+    const [subMenu, setSubMenu] = React.useState<"assign" | "reject" | "addToList" | null>(null);
+    const [rejectReason, setRejectReason] = React.useState("");
+    const [newListName, setNewListName] = React.useState("");
+    const menuRef = React.useRef<HTMLDivElement>(null);
+    const { lists, toggleInList, isPlaceInList, createList } = useListsContext();
+
+    React.useEffect(() => {
+        if (!menuOpen) return;
+        const close = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setMenuOpen(false);
+                setSubMenu(null);
+            }
+        };
+        setTimeout(() => document.addEventListener("click", close), 0);
+        return () => document.removeEventListener("click", close);
+    }, [menuOpen]);
+
+    const pitchCheck = checkCanPitch(placeId);
+
+    const handleCreateTrip = () => {
+        if (!pitchCheck.allowed) {
+            showToast(pitchCheck.reason || "You can't scout this property", 'error');
+            return;
+        }
+        onClose?.();
+        const trip = createTrip(cityId);
+        const linkedItem = { type: 'place' as const, id: placeId, name: property.title, address: property.address, data: property };
+        updateTrip(trip.id, { name: property.title, property: linkedItem });
+        window.dispatchEvent(new CustomEvent('create-trip-from-property', { detail: { trip: { ...trip, name: property.title, property: linkedItem } } }));
+        setMenuOpen(false);
+    };
+
+    const handleAssign = async (userId: string) => {
+        try {
+            await assignProperty(placeId, userId);
+            const user = assignableUsers.find(u => u.id === userId);
+            showToast(`Assigned to ${user?.display_name || user?.email || "user"}`);
+        } catch {
+            showToast("Failed to assign", 'error');
+        }
+        setSubMenu(null);
+        setMenuOpen(false);
+    };
+
+    const handlePreReject = async () => {
+        if (!rejectReason.trim()) {
+            showToast("Enter a reason", 'error');
+            return;
+        }
+        try {
+            await preRejectProperty(placeId, rejectReason.trim());
+            showToast("Pre-rejected");
+        } catch {
+            showToast("Failed to pre-reject", 'error');
+        }
+        setRejectReason("");
+        setSubMenu(null);
+        setMenuOpen(false);
+    };
+
+    const handleRemoveAssignment = async () => {
+        try {
+            await removeAssignment(placeId);
+            showToast("Assignment removed");
+        } catch {
+            showToast("Failed to remove", 'error');
+        }
+        setMenuOpen(false);
+    };
+
+    const franchisees = assignableUsers.filter(u => u.role === "franchisee");
+
+    const placeInfo = {
+        placeId,
+        placeType: 'property' as const,
+        placeName: property.title,
+        placeAddress: property.address,
+        lat: property.latitude,
+        lon: property.longitude,
+    };
+
+    return (
+        <div className="popup-footer" style={{ position: "relative" }}>
+            <div className="popup-buttons">
+                <a href={property.url} target="_blank" rel="noopener noreferrer" className="popup-btn-icon logo-fill">
+                    <img
+                        src={property.source === "sreality" ? "/assets/sreality-logo.png" : "/assets/idealista-logo.png"}
+                        alt={property.source === "sreality" ? "Sreality" : "Idealista"}
+                    />
+                </a>
+                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="popup-btn-icon has-bg">
+                    <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
+                </a>
+            </div>
+            <div ref={menuRef} style={{ position: "relative" }}>
+                <button
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); setSubMenu(null); }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 h-10 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                    <span>Actions</span>
+                </button>
+                {menuOpen && !subMenu && (
+                    <div className="actions-dropdown" style={{ right: 0, left: "auto" }} onClick={(e) => e.stopPropagation()}>
+                        <button className="actions-item" onClick={handleCreateTrip} disabled={!pitchCheck.allowed}>
+                            <Route size={14} />
+                            <span>Create trip</span>
+                            {!pitchCheck.allowed && <span className="actions-hint">{pitchCheck.reason}</span>}
+                        </button>
+                        <button className="actions-item" onClick={() => setSubMenu("addToList")}>
+                            <ListPlus size={14} />
+                            <span>Add to list</span>
+                        </button>
+                        {canAccessDashboard && (
+                            <>
+                                <button className="actions-item" onClick={() => setSubMenu("assign")}>
+                                    <UserPlus size={14} />
+                                    <span>Assign to...</span>
+                                </button>
+                                <button className="actions-item actions-danger" onClick={() => setSubMenu("reject")}>
+                                    <Ban size={14} />
+                                    <span>Pre-reject</span>
+                                </button>
+                                {assignment && (
+                                    <button className="actions-item actions-danger" onClick={handleRemoveAssignment}>
+                                        <Trash2 size={14} />
+                                        <span>{assignment.status === "pre_rejected" ? "Undo pre-reject" : "Remove assignment"}</span>
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </div>
+                )}
+                {menuOpen && subMenu === "assign" && (
+                    <div className="actions-dropdown" style={{ right: 0, left: "auto" }} onClick={(e) => e.stopPropagation()}>
+                        <div className="actions-header">
+                            <button className="actions-back" onClick={() => setSubMenu(null)}>&larr;</button>
+                            Assign to
+                        </div>
+                        {franchisees.length === 0 && (
+                            <div className="actions-empty">No franchisees found</div>
+                        )}
+                        {franchisees.map(u => (
+                            <button key={u.id} className="actions-item" onClick={() => handleAssign(u.id)}>
+                                <span>{u.display_name || u.email || u.id.slice(0, 8)}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+                {menuOpen && subMenu === "reject" && (
+                    <div className="actions-dropdown" style={{ right: 0, left: "auto" }} onClick={(e) => e.stopPropagation()}>
+                        <div className="actions-header">
+                            <button className="actions-back" onClick={() => setSubMenu(null)}>&larr;</button>
+                            Pre-reject
+                        </div>
+                        <div style={{ padding: "8px 12px" }}>
+                            <input
+                                type="text"
+                                placeholder="Reason for rejection"
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") handlePreReject(); }}
+                                className="actions-input"
+                                autoFocus
+                            />
+                            <button
+                                className="actions-submit"
+                                onClick={handlePreReject}
+                                disabled={!rejectReason.trim()}
+                            >
+                                Confirm
+                            </button>
+                        </div>
+                    </div>
+                )}
+                {menuOpen && subMenu === "addToList" && (
+                    <div className="actions-dropdown" style={{ right: 0, left: "auto" }} onClick={(e) => e.stopPropagation()}>
+                        <div className="actions-header">
+                            <button className="actions-back" onClick={() => setSubMenu(null)}>&larr;</button>
+                            Add to list
+                        </div>
+                        {lists.length === 0 && (
+                            <div className="actions-empty">No lists yet</div>
+                        )}
+                        {lists.map(list => {
+                            const inList = isPlaceInList(placeId, list.id);
+                            return (
+                                <button
+                                    key={list.id}
+                                    className="actions-item"
+                                    onClick={() => toggleInList(list.id, placeInfo)}
+                                >
+                                    <span style={{ width: 16, textAlign: "center", fontSize: 14 }}>{inList ? "✓" : ""}</span>
+                                    <span>{list.name}</span>
+                                </button>
+                            );
+                        })}
+                        <div className="actions-divider" />
+                        <div style={{ padding: "6px 12px", display: "flex", gap: 6 }}>
+                            <input
+                                type="text"
+                                placeholder="New list name"
+                                value={newListName}
+                                onChange={(e) => setNewListName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && newListName.trim()) {
+                                        const newList = createList(newListName.trim());
+                                        toggleInList(newList.id, placeInfo);
+                                        setNewListName("");
+                                    }
+                                }}
+                                className="actions-input"
+                                style={{ marginBottom: 0 }}
+                            />
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // Pitch status visual config - shared between popup badges and map marker rings/glow
 const PITCH_STATUS_STYLES: Record<string, {
     dotColor: string;
@@ -1335,13 +1588,33 @@ const PITCH_STATUS_STYLES: Record<string, {
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address, true);
     const placeId = generatePropertyPlaceId(property);
-    const { getPitchStatus, getPitchDate } = usePitchStatusContext();
+    const { getPitchStatus, getPitchDate, getPitchRejectionReason } = usePitchStatusContext();
+    const { getAssignment, canPitch: checkCanPitch, users: assignableUsers, assignProperty, preRejectProperty, removeAssignment } = usePropertyAssignmentContext();
+    const { canAccessDashboard } = useUserProfiles();
+    const { createTrip, updateTrip } = useScoutingTrips();
+    const { showToast } = useToast();
     const pitchStatus = getPitchStatus(placeId);
     const pitchDate = getPitchDate(placeId);
-    const pitchStyle = pitchStatus ? PITCH_STATUS_STYLES[pitchStatus] : null;
-    const pitchTooltip = pitchStyle && pitchDate
-        ? `${pitchStyle.label} on ${new Date(pitchDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
-        : pitchStyle?.label ?? null;
+    const pitchRejectionReason = getPitchRejectionReason(placeId);
+    const assignment = getAssignment(placeId);
+    const isPreRejected = assignment?.status === "pre_rejected";
+
+    const effectiveStatus = isPreRejected ? "rejected" : pitchStatus;
+    const pitchStyle = effectiveStatus ? PITCH_STATUS_STYLES[effectiveStatus] : null;
+
+    const buildPitchTooltip = () => {
+        if (isPreRejected) {
+            const reason = assignment.rejection_reason;
+            return reason ? `Pre-rejected: ${reason}` : "Pre-rejected";
+        }
+        if (!pitchStyle || !pitchDate) return pitchStyle?.label ?? null;
+        const dateStr = new Date(pitchDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+        if (pitchStatus === "rejected" && pitchRejectionReason) {
+            return `${pitchStyle.label} on ${dateStr}: ${pitchRejectionReason}`;
+        }
+        return `${pitchStyle.label} on ${dateStr}`;
+    };
+    const pitchTooltip = buildPitchTooltip();
 
     // Build features array
     const features: string[] = [];
@@ -1513,41 +1786,38 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             {/* Comments section */}
             <PopupCommentsSection placeId={placeId} placeName={property.title} />
 
-            {/* Footer */}
-            <div className="popup-footer">
-                <div className="popup-buttons">
-                    <a href={property.url} target="_blank" rel="noopener noreferrer" className="popup-btn-icon logo-fill">
-                        <img
-                            src={property.source === "sreality" ? "/assets/sreality-logo.png" : "/assets/idealista-logo.png"}
-                            alt={property.source === "sreality" ? "Sreality" : "Idealista"}
-                        />
-                    </a>
-                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="popup-btn-icon has-bg">
-                        <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
-                    </a>
-                </div>
-                <div className="flex gap-2 min-w-0">
-                    <CreateTripButton
-                        property={{
-                            id: placeId,
-                            name: property.title,
-                            address: property.address,
-                            type: 'place',
-                            data: property,
-                        }}
-                        cityId={cityId}
-                        onClose={onClose}
-                    />
-                    <AddToListButton place={{
-                        placeId: placeId,
-                        placeType: 'property',
-                        placeName: property.title,
-                        placeAddress: property.address,
-                        lat: property.latitude,
-                        lon: property.longitude,
-                    }} />
-                </div>
-            </div>
+            {/* Assignment info line */}
+            {assignment && (() => {
+                const assignee = assignableUsers.find(u => u.id === assignment.assigned_to);
+                const assigneeName = assignee?.display_name || assignee?.email || "someone";
+                return (
+                    <div className="px-3 py-1.5 text-xs" style={{ color: isPreRejected ? "#f87171" : "#60a5fa" }}>
+                        {isPreRejected
+                            ? `Pre-rejected${assignment.rejection_reason ? `: ${assignment.rejection_reason}` : ""}`
+                            : `Assigned to ${assigneeName}`
+                        }
+                    </div>
+                );
+            })()}
+
+            {/* Footer with Actions */}
+            <PropertyActionsFooter
+                property={property}
+                placeId={placeId}
+                cityId={cityId}
+                mapsUrl={mapsUrl}
+                canAccessDashboard={canAccessDashboard}
+                checkCanPitch={checkCanPitch}
+                assignableUsers={assignableUsers}
+                assignProperty={assignProperty}
+                preRejectProperty={preRejectProperty}
+                removeAssignment={removeAssignment}
+                assignment={assignment}
+                createTrip={createTrip}
+                updateTrip={updateTrip}
+                showToast={showToast}
+                onClose={onClose}
+            />
         </div>
     );
 });
@@ -2100,11 +2370,14 @@ export function EnhancedMapContainer({
 
     // Linking context for adding POIs to scouting trips
     const { addItem: addLinkingItem } = useLinking();
+    const { showToast } = useToast();
 
     // Hidden POIs context
     const { isHidden } = useHiddenPoisContext();
     // Pitch status context for property markers
     const { getPitchStatus } = usePitchStatusContext();
+    // Assignment context for "mine" filter and pitch blocking
+    const { isAssignedToMe, getAssignment: getPropertyAssignment, canPitch, isLoaded: assignmentsLoaded } = usePropertyAssignmentContext();
 
     // Handler for marker click in linking mode
     const handleLinkingClick = React.useCallback((item: {
@@ -2112,12 +2385,17 @@ export function EnhancedMapContainer({
         id: string;
         name: string;
         address?: string;
-        data?: any; // Full POI object for fast navigation (avoids O(n) search)
+        data?: any;
     }) => {
         if (isLinkingMode) {
+            const pitchCheck = canPitch(item.id);
+            if (!pitchCheck.allowed) {
+                showToast(pitchCheck.reason || "You can't scout this property", 'error');
+                return;
+            }
             addLinkingItem(item);
         }
-    }, [isLinkingMode, addLinkingItem]);
+    }, [isLinkingMode, addLinkingItem, canPitch, showToast]);
 
     // Miners cafes from DB - ALWAYS visible regardless of filters (filtered by city only)
     const minersCafes = useMemo(
@@ -2174,13 +2452,17 @@ export function EnhancedMapContainer({
                 if (propertyPriceChangeFilter === "no" && changed) return false;
             }
             if (propertyPitchStatusFilter !== "all") {
-                const status = getPitchStatus(generatePropertyPlaceId(p));
-                if (propertyPitchStatusFilter === "scouted" && (!status || status === "rejected")) return false;
-                if (propertyPitchStatusFilter === "rejected" && status !== "rejected") return false;
+                const pid = generatePropertyPlaceId(p);
+                if (propertyPitchStatusFilter === "mine") {
+                    if (assignmentsLoaded && !isAssignedToMe(pid)) return false;
+                } else if (propertyPitchStatusFilter === "scouted") {
+                    const status = getPitchStatus(pid);
+                    if (!status) return false;
+                }
             }
             return true;
         });
-    }, [properties, activeFilters, isLinkingMode, showHiddenPois, scoreFilter, propertyPostedFilter, propertyTransferFilter, propertyPriceChangeFilter, propertyPitchStatusFilter, getPitchStatus]);
+    }, [properties, activeFilters, isLinkingMode, showHiddenPois, scoreFilter, propertyPostedFilter, propertyTransferFilter, propertyPriceChangeFilter, propertyPitchStatusFilter, getPitchStatus, isAssignedToMe, assignmentsLoaded]);
 
     const visibleOtherPois = useMemo(
         () => isLinkingMode ? [] : (showHiddenPois ? otherPois : otherPois.filter((poi) => activeFilters.has(poi.type))),
@@ -2848,7 +3130,9 @@ export function EnhancedMapContainer({
                             if (hidden && !showHiddenPois && colocated.length > 0) return null;
                             const hasMultiplePois = colocated.length > 1;
                             const pitchStatus = getPitchStatus(placeId);
-                            const pitchVisuals = pitchStatus ? PITCH_STATUS_STYLES[pitchStatus] : null;
+                            const propertyAssignment = getPropertyAssignment(placeId);
+                            const effectiveMarkerStatus = propertyAssignment?.status === "pre_rejected" ? "rejected" : pitchStatus;
+                            const pitchVisuals = effectiveMarkerStatus ? PITCH_STATUS_STYLES[effectiveMarkerStatus] : null;
                             return (
                                 <MapMarker
                                     key={markerKey}
@@ -2876,7 +3160,7 @@ export function EnhancedMapContainer({
                                     }}
                                 >
                                     <MarkerContent>
-                                        <IconMarker color="bg-[#78C500]" icon={Home} isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} ringClass={pitchVisuals?.ringClass ?? ""} glowStyle={pitchVisuals?.glowStyle} statusIndicator={pitchStatus ?? undefined} />
+                                        <IconMarker color="bg-[#78C500]" icon={Home} isActive={activeMarkerKey === markerKey} isHidden={hidden} poiCount={colocated.length} ringClass={pitchVisuals?.ringClass ?? ""} glowStyle={pitchVisuals?.glowStyle} statusIndicator={effectiveMarkerStatus ?? undefined} />
                                     </MarkerContent>
                                     {!isLinkingMode && !hasMultiplePois && !isMobile && (
                                         <MarkerPopup onClose={handlePopupClose} anchor="top" className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200">
