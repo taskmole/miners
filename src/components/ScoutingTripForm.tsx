@@ -203,7 +203,7 @@ export function ScoutingTripForm({
   onStartLinking,
 }: ScoutingTripFormProps) {
   const isMobile = useMobile();
-  const { createTrip, updateTrip, submitTrip } = useScoutingTrips();
+  const { createTrip, updateTrip, submitTrip, currentAuthorName } = useScoutingTrips();
   const { defaults } = useScoutingDefaults();
 
   // Form state
@@ -489,7 +489,7 @@ export function ScoutingTripForm({
     if (tripId) {
       updateTrip(tripId, data);
     } else {
-      const newTrip = createTrip(cityId, 'Guest');
+      const newTrip = createTrip(cityId);
       setTripId(newTrip.id);
       updateTrip(newTrip.id, data);
     }
@@ -506,7 +506,7 @@ export function ScoutingTripForm({
       updateTrip(tripId, data);
       submitTrip(tripId);
     } else {
-      const newTrip = createTrip(cityId, 'Guest');
+      const newTrip = createTrip(cityId);
       updateTrip(newTrip.id, data);
       submitTrip(newTrip.id);
     }
@@ -514,7 +514,7 @@ export function ScoutingTripForm({
   };
 
   const handleAddAttachment = async (file: File) => {
-    const result = await processFileToAttachment(file, 'Guest');
+    const result = await processFileToAttachment(file, currentAuthorName);
     if (result.success && result.attachment) {
       setAttachments(prev => [...prev, result.attachment!]);
     }
