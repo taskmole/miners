@@ -8,6 +8,7 @@ interface PitchStatusContextValue {
   isLoaded: boolean;
   getPitchStatus: (placeId: string) => ScoutingTripStatus | null;
   getPitchDate: (placeId: string) => string | null;
+  getPitchRejectionReason: (placeId: string) => string | null;
   scoutedCount: number;
   rejectedCount: number;
 }

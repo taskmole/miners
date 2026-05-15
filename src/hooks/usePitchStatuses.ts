@@ -7,6 +7,7 @@ import type { ScoutingTripStatus } from '@/types/scouting';
 interface PitchStatusEntry {
   status: ScoutingTripStatus;
   date: string | null;
+  rejectionReason: string | null;
 }
 
 type StatusMapResponse = Record<string, PitchStatusEntry>;
@@ -55,6 +56,10 @@ export function usePitchStatuses() {
     return statusMap[placeId]?.date ?? null;
   }, [statusMap]);
 
+  const getPitchRejectionReason = useCallback((placeId: string): string | null => {
+    return statusMap[placeId]?.rejectionReason ?? null;
+  }, [statusMap]);
+
   const { scoutedCount, rejectedCount } = useMemo(() => {
     let rejected = 0;
     const entries = Object.values(statusMap);
@@ -68,6 +73,7 @@ export function usePitchStatuses() {
     isLoaded,
     getPitchStatus,
     getPitchDate,
+    getPitchRejectionReason,
     scoutedCount,
     rejectedCount,
   };

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { usePropertyAssignments, type PropertyAssignment, type AssignableUser } from '@/hooks/usePropertyAssignments';
 
 interface PropertyAssignmentContextValue {

@@ -35,6 +35,7 @@ import { WalkingRadiusProvider } from "@/contexts/WalkingRadiusContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { ShapeDataProvider } from "@/contexts/ShapeDataContext";
 import { PitchStatusProvider } from "@/contexts/PitchStatusContext";
+import { PropertyAssignmentProvider } from "@/contexts/PropertyAssignmentContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
 import { supabase } from "@/lib/supabase";
 import { setAuthUserId } from "@/lib/browser-session";
@@ -446,6 +447,7 @@ export default function Home() {
             <HiddenPoisProvider>
               <ScoutingTripsProvider>
                 <PitchStatusProvider>
+                <PropertyAssignmentProvider>
                 <LinkingProvider>
                   <SheetProvider>
                     <ToastProvider>
@@ -455,6 +457,7 @@ export default function Home() {
                     </ToastProvider>
                   </SheetProvider>
                 </LinkingProvider>
+                </PropertyAssignmentProvider>
                 </PitchStatusProvider>
               </ScoutingTripsProvider>
             </HiddenPoisProvider>
