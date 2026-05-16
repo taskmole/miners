@@ -53,31 +53,8 @@ I'm not technical - I don't read or understand code.
 # When Done
 - Run build and fix any errors
 
-# Quick Commands
+# Quick Commands (project-specific)
 When the user types any of these, immediately execute the action - no questions asked:
-- **`.help`** → List all available quick commands with descriptions. Just print the table below, nothing else.
-- **`.3`** → Start the dev server on the first available port. Steps:
-  1. Check ports 3000-3009 and pick the first one not in use
-  2. If this is the main repo (not a worktree), prefer port 3000: kill anything on 3000 first, then use it
-  3. If this is a worktree and `.env.local` is missing, copy it from the main repo
-  4. Run `PORT={port} npm run dev` in the background
-  5. Confirm it started and print the URL with the actual port number
-- **`.p`** → Prep for shipping. Run in this exact order:
-  1. Run `/simplify` on all changed files to clean up the code
-  2. Run `npm run build` to verify nothing broke
-  3. Run `/review` on the branch diff to catch logic errors or security issues
-  4. Check for sensitive files (`.env`, API keys, secrets, credentials) not in `.gitignore` and add them
-  5. List what changed and tell me what to test in the browser
-  6. Run `/fewer-permission-prompts` and suggest new permissions to add to my config
-- **`.c`** → Ship to production. Assumes `.p` already ran:
-  1. Delete any plan files or temporary MD files created during this feature that are no longer needed
-  2. Stage changed files, write a fitting commit message, commit, and push the current branch
-  3. Switch to `main`, pull latest, merge the feature branch into main (using `--no-ff`), and push main
-  4. Switch back to the previous branch and merge main into it so the working branch stays up to date
-  5. Check the Vercel deployment status and confirm the production build succeeded (or report any errors)
-  6. If this folder is a git worktree (not the main repo), clean it up: switch back to the main repo folder, run `git worktree remove` on this folder, and confirm cleanup
-  7. After pushing main, check for other active worktrees (`git worktree list`). For each one, run `git -C {worktree_path} merge origin/main` to bring them up to date. Report which worktrees were synced and any merge conflicts.
-  If already on `main`, skip steps 3-4 and just commit + push main directly.
 - **`.t`** → Deep testing. Run `/qa` (full QA with headless browser) and a parallel codebase audit (dead code, type safety, component complexity, CSS issues). Combine everything into one prioritized summary with a health score.
 - **`.ceo`** → First read `docs/product-spec-v1.md` to ground yourself in the product goals, non-goals, and build sequence. Then run `/plan-ceo-review` on the current plan. Challenge assumptions against the spec, push for a better product, ask if this is the best version of the idea.
 - **`.ui`** → Activate the UI fix workflow: First read `docs/design-system.md` for the correct values. Then read ALL component + style files, trace the full style cascade, explain the root cause, then apply ONE targeted fix following the design system rules. Verify at mobile widths (375px, 390px, 428px). Run the checklist at the end of the design system doc. Run type check and lint.
@@ -88,8 +65,6 @@ When the user types any of these, immediately execute the action - no questions 
   2. Run `git worktree add "../Miners Location Scout NEW-feature-name" feat/feature-name`
   3. Print the full path to the new folder so the user can open a new conversation there
   4. Remind the user: "Open a new Claude Code conversation in that folder to start working. Run `.3` there to start the dev server (it auto-picks a free port)."
-- **`.kill`** → Kill the local dev server. If port numbers are given (e.g. `.kill 3000 3001`), only kill those. If no port is given, scan ports 3000-3009, kill all that have a process, and confirm what was stopped.
-- **`.pl`** → Summarize in plain English, under 150 words. Just the gist, nothing extra. No jargon, no code, no fluff. If it can be said in 2 sentences, don't use 5.
 
 # Available Tools & Skills
 - Code simplifier plugin
