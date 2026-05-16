@@ -19,6 +19,7 @@ import {
 import { parseCompetitors } from '@/components/NearbyCompetitors';
 import { useScoutingDefaults, type ScoutingDefaults, type CurrencyCode, type MarketDefaults, MARKET_LABELS } from '@/hooks/useScoutingDefaults';
 import { Input } from '@/components/ui/input';
+import { logActivity } from '@/lib/supabaseHelpers';
 
 type Tab = 'submissions' | 'users' | 'settings' | 'cafe-profiles';
 
@@ -754,6 +755,17 @@ function AdminContent() {
     }
   };
 
+  // Build shared metadata for scouting trip activity logging
+  const tripMeta = (pitchId: string) => {
+    const submission = pendingSubmissions.find(s => s.id === pitchId);
+    return {
+      tripId: pitchId,
+      tripName: submission?.name || "Unknown trip",
+      trip_owner_id: submission?.createdBy || null,
+      authorName: submission?.authorName || null,
+    };
+  };
+
   const handleApprove = async (pitchId: string) => {
     setActionError(null);
     try {
@@ -766,6 +778,7 @@ function AdminContent() {
           final_reviewed_at: new Date().toISOString(),
         }),
       });
+      logActivity("approved_scouting_trip", tripMeta(pitchId));
       refetchSubmissions();
     } catch {
       setActionError('Failed to approve');
@@ -788,6 +801,10 @@ function AdminContent() {
           reviewed_by: 'Admin',
           final_reviewed_at: new Date().toISOString(),
         }),
+      });
+      logActivity("rejected_scouting_trip", {
+        ...tripMeta(pitchId),
+        rejectionNotes: rejectNotes.trim(),
       });
       setRejectingId(null);
       setRejectNotes('');

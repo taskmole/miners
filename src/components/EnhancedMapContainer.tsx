@@ -18,6 +18,7 @@ import { ShapeComments } from "@/components/ShapeComments";
 import { ShapeHoverTooltip } from "@/components/ShapeHoverTooltip";
 import { DrawingIndicator } from "@/components/DrawingIndicator";
 import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
+import { logActivity } from "@/lib/supabaseHelpers";
 import { useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
@@ -1361,6 +1362,15 @@ function PropertyActionsFooter({
 
     const pitchCheck = checkCanPitch(placeId);
 
+    // Shared metadata for all property activity log entries
+    const propertyMeta = {
+        placeName: property.title,
+        placeAddress: property.address,
+        placeId,
+        lat: property.latitude,
+        lon: property.longitude,
+    };
+
     const handleCreateTrip = () => {
         if (!pitchCheck.allowed) {
             showToast(pitchCheck.reason || "You can't scout this property", 'error');
@@ -1379,6 +1389,11 @@ function PropertyActionsFooter({
             await assignProperty(placeId, userId);
             const user = assignableUsers.find(u => u.id === userId);
             showToast(`Assigned to ${user?.display_name || user?.email || "user"}`);
+            logActivity("assigned_property", {
+                ...propertyMeta,
+                assigned_to: userId,
+                assigneeName: user?.display_name || user?.email || null,
+            });
         } catch {
             showToast("Failed to assign", 'error');
         }
@@ -1394,6 +1409,10 @@ function PropertyActionsFooter({
         try {
             await preRejectProperty(placeId, rejectReason.trim());
             showToast("Pre-rejected");
+            logActivity("pre_rejected_property", {
+                ...propertyMeta,
+                rejectionReason: rejectReason.trim(),
+            });
         } catch {
             showToast("Failed to pre-reject", 'error');
         }
@@ -1406,6 +1425,7 @@ function PropertyActionsFooter({
         try {
             await removeAssignment(placeId);
             showToast("Assignment removed");
+            logActivity("removed_assignment", propertyMeta);
         } catch {
             showToast("Failed to remove", 'error');
         }

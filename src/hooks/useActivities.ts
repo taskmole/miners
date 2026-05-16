@@ -91,6 +91,13 @@ const ACTION_TYPE_MAP: Record<string, { type: ActivityType; action: string; targ
   deleted_list: { type: 'deleted', action: 'deleted list', targetType: 'list' },
   deleted_comment: { type: 'deleted', action: 'deleted comment on', targetType: 'poi' },
   deleted_attachment: { type: 'deleted', action: 'deleted attachment from', targetType: 'poi' },
+  assigned_property: { type: 'added', action: 'assigned', targetType: 'property' },
+  pre_rejected_property: { type: 'deleted', action: 'pre-rejected', targetType: 'property' },
+  removed_assignment: { type: 'deleted', action: 'removed assignment from', targetType: 'property' },
+  created_scouting_trip: { type: 'created', action: 'created scouting trip for', targetType: 'property' },
+  submitted_scouting_trip: { type: 'added', action: 'submitted scouting trip for', targetType: 'property' },
+  approved_scouting_trip: { type: 'updated', action: 'approved scouting trip for', targetType: 'property' },
+  rejected_scouting_trip: { type: 'deleted', action: 'rejected scouting trip for', targetType: 'property' },
 };
 
 function parseSummary(summary: string | null): Record<string, unknown> {
@@ -110,14 +117,34 @@ function buildTargetName(
   switch (actionType) {
     case 'added_to_list':
       return summary.listName ? `${nameWithType} to "${summary.listName}"` : nameWithType;
+
     case 'removed_from_list':
       return summary.listName ? `${nameWithType} from "${summary.listName}"` : nameWithType;
+
     case 'deleted_list':
       return `"${summary.listName || 'a list'}"`;
+
     case 'added_attachment':
     case 'deleted_attachment':
     case 'deleted_comment':
       return nameWithType;
+
+    case 'assigned_property': {
+      const name = (summary.placeName as string) || 'a property';
+      const assignee = summary.assigneeName as string | null;
+      return assignee ? `${name} to ${assignee}` : name;
+    }
+
+    case 'pre_rejected_property':
+    case 'removed_assignment':
+      return (summary.placeName as string) || 'a property';
+
+    case 'created_scouting_trip':
+    case 'submitted_scouting_trip':
+    case 'approved_scouting_trip':
+    case 'rejected_scouting_trip':
+      return (summary.tripName as string) || (summary.placeName as string) || 'a trip';
+
     default:
       return (summary.placeName as string) || (summary.shapeName as string) || (summary.name as string) || 'a place';
   }
