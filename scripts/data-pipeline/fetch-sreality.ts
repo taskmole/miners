@@ -152,7 +152,7 @@ async function fetchSearchViaApi(
 
   const allHashIds: Set<string> = new Set();
   let reportedTotal = 0;
-  let page = 0;
+  let page = 1;
 
   const MAX_PAGES = 100;
   while (page < MAX_PAGES) {
