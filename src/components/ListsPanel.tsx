@@ -846,7 +846,7 @@ function ListSection({
                                     e.stopPropagation();
                                     onRemoveItem(item.id);
                                 }}
-                                className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded hover:bg-red-100 flex items-center justify-center shrink-0"
+                                className="w-5 h-5 rounded hover:bg-red-100 flex items-center justify-center shrink-0 opacity-50 hover:opacity-100"
                             >
                                 <X className="w-3 h-3 text-red-500" />
                             </button>
@@ -874,7 +874,7 @@ function ListSection({
                             {/* Remove button */}
                             <button
                                 onClick={() => onRemoveArea(area.areaId)}
-                                className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded hover:bg-red-100 flex items-center justify-center shrink-0"
+                                className="w-5 h-5 rounded hover:bg-red-100 flex items-center justify-center shrink-0 opacity-50 hover:opacity-100"
                             >
                                 <X className="w-3 h-3 text-red-500" />
                             </button>
