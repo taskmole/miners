@@ -49,6 +49,7 @@ export interface LocationList {
   id: string;              // UUID
   name: string;            // User-provided name
   createdAt: string;       // ISO timestamp
+  createdBy?: string;      // User ID of creator (from server)
   items: ListItem[];
   drawnAreas: DrawnAreaItem[];
   visitPlan?: VisitLog;    // Visit planning at list level
