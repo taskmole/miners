@@ -286,12 +286,12 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
         setSelectedListId(null);
     };
 
-    const handleDeleteList = async () => {
+    const handleDeleteList = () => {
         if (!selectedListId) return;
         const targetId = selectedListId;
         setIsDeleteDialogOpen(false);
         setSelectedListId(null);
-        const ok = await deleteList(targetId);
+        const ok = deleteList(targetId);
         if (!ok) {
             showToast("Couldn't delete this list. Please refresh and try again.", 'error');
         }
@@ -486,8 +486,8 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
                                 setSelectedListId(list.id);
                                 setIsDeleteDialogOpen(true);
                             }}
-                            onRemoveItem={async (itemId) => {
-                                const ok = await removeItem(list.id, itemId);
+                            onRemoveItem={(itemId) => {
+                                const ok = removeItem(list.id, itemId);
                                 if (!ok) {
                                     showToast("Couldn't remove this place. Please refresh and try again.", 'error');
                                 }
