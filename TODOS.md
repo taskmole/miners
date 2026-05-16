@@ -9,11 +9,11 @@ Removed the join query that was causing the foreign key error. Now fetches pitch
 
 ## Future Improvements
 
-### useLists localStorage cleanup (blocked on DB migration)
+### useLists localStorage cleanup (partially resolved)
 **What:** Remove localStorage dual-write from `src/hooks/useLists.ts`.
-**Why:** The `drawnAreas` field (drawn shapes linked to a list) only exists in localStorage. If we remove localStorage from this file, that data is permanently lost. Cross-device sync won't work for list-attached shapes until this is fixed.
-**Blocked by:** Supabase migration to add a `list_drawn_areas` table (or a `drawn_areas` JSONB column on `lists`). The `list_items` table also needs `place_name`, `place_type`, `place_address`, `lat`, `lon` columns.
-**Context:** All other localStorage dual-writes were removed in April 2026. This is the last one.
+**Resolved:** `list_items.place_id` column fixed from uuid to text (migration 20260515). `place_name`, `place_type`, `place_address`, `lat`, `lon` columns already exist in live DB. Item sync now works. Retry queue ensures reliable delivery.
+**Remaining blocker:** `drawnAreas` field only exists in localStorage. Needs a `list_drawn_areas` table migration before localStorage can be fully removed.
+**Context:** localStorage now serves as offline cache only. Server is source of truth for lists and items.
 
 ### Add unit tests for useMapData hook
 **What:** Set up Vitest and write unit tests for `src/hooks/useMapData.ts`.
