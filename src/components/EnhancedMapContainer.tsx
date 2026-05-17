@@ -3330,6 +3330,7 @@ export function EnhancedMapContainer({
                         latitude={selectedCafe.coordinates[1]}
                         onClose={handleDetailPopupClose}
                         anchor="top"
+                        closeOnClick={false}
                         className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
                     >
                         <CafePopupContent cafe={selectedCafe.cafe} onClose={handleDetailPopupClose} />
@@ -3342,6 +3343,7 @@ export function EnhancedMapContainer({
                         latitude={selectedProperty.coordinates[1]}
                         onClose={handleDetailPopupClose}
                         anchor="top"
+                        closeOnClick={false}
                         className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
                     >
                         <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={handleDetailPopupClose} />
@@ -3354,6 +3356,7 @@ export function EnhancedMapContainer({
                         latitude={selectedPoi.coordinates[1]}
                         onClose={handleDetailPopupClose}
                         anchor="top"
+                        closeOnClick={false}
                         className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
                     >
                         <OtherPoiPopupContent poi={selectedPoi.poi} onClose={handleDetailPopupClose} />
@@ -3419,7 +3422,7 @@ export function EnhancedMapContainer({
                         }
                     }}
                 >
-                    <div className="absolute inset-0 bg-black/20" />
+                    <div className="absolute inset-0 bg-black/20 pointer-events-none" />
                     <div className="relative animate-in fade-in-0 zoom-in-95 duration-200">
                         <DisambiguationPopup
                             pois={disambiguationData.pois}
