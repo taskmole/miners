@@ -591,27 +591,6 @@ export function ScoutingTripForm({
           ) : (
             /* Full form */
             <>
-              {/* Currency toggle */}
-              <div className="px-6 py-2">
-                <div className="flex rounded-lg bg-zinc-200/70 p-0.5">
-                  {([['€', 'EUR'], ['Kč', 'CZK'], ['zł', 'PLN']] as const).map(([sym, code]) => (
-                    <button
-                      key={code}
-                      type="button"
-                      onClick={() => setCurrency(sym as typeof currency)}
-                      className={cn(
-                        "flex-1 py-1.5 text-xs font-medium rounded-[7px] transition-all",
-                        currency === sym
-                          ? "bg-white text-zinc-900 shadow-sm"
-                          : "text-zinc-500 hover:text-zinc-700"
-                      )}
-                    >
-                      {code}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Trip name */}
               <div className="px-6 py-4 border-b border-zinc-200">
                 <FormField label="Name" required error={showErrors && errors.name}>
