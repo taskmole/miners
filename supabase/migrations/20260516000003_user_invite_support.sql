@@ -47,7 +47,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- No pre-configured profile found: insert as before
+  -- No pre-configured profile: create inactive until admin approves
   INSERT INTO public.user_profiles (
     id,
     role,
@@ -61,7 +61,7 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', 'User'),
     v_email,
     ARRAY(SELECT id FROM public.cities WHERE enabled = true),
-    true
+    false
   )
   ON CONFLICT (id) DO NOTHING;
 

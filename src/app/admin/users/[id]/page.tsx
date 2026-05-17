@@ -36,7 +36,6 @@ const ROLE_OPTIONS = [
 
 const CITY_OPTIONS = [
   { id: 'madrid', label: 'Madrid' },
-  { id: 'barcelona', label: 'Barcelona' },
   { id: 'prague', label: 'Prague' },
 ];
 

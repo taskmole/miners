@@ -390,7 +390,6 @@ const CATEGORY_COLORS: Record<CafeCategory, string> = {
 // City display labels
 const CITY_LABELS: Record<string, string> = {
   madrid: 'Madrid',
-  barcelona: 'Barcelona',
   prague: 'Prague',
 };
 
@@ -701,7 +700,7 @@ function AddUserForm({ onSave, onCancel, teams }: {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('franchisee');
-  const [cityIds, setCityIds] = useState<string[]>(['madrid', 'barcelona', 'prague']);
+  const [cityIds, setCityIds] = useState<string[]>(['madrid', 'prague']);
   const [teamId, setTeamId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
