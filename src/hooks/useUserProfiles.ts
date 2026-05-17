@@ -7,6 +7,22 @@ import type { Database } from '@/lib/supabase';
 type UserProfile = Database['public']['Tables']['user_profiles']['Row'];
 type UserRole = 'super_admin' | 'head_office_exec' | 'finance_reviewer' | 'area_coordinator' | 'franchisee';
 
+interface AddUserData {
+  display_name?: string;
+  email: string;
+  role?: string;
+  city_ids?: string[];
+  team_id?: string | null;
+  receives_scraper_emails?: boolean;
+}
+
+interface UpdateUserData {
+  display_name?: string | null;
+  city_ids?: string[] | null;
+  team_id?: string | null;
+  receives_scraper_emails?: boolean;
+}
+
 const ADMIN_ROLES: UserRole[] = ['super_admin'];
 const DASHBOARD_ROLES: UserRole[] = ['super_admin', 'head_office_exec', 'finance_reviewer', 'area_coordinator'];
 const REVIEW_ROLES: UserRole[] = ['super_admin', 'head_office_exec'];
@@ -78,6 +94,38 @@ export function useUserProfiles() {
     }
   }, []);
 
+  const addUser = useCallback(async (data: AddUserData): Promise<UserProfile | null> => {
+    try {
+      const result = await apiFetch<UserProfile>('/api/db/user-profiles', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      if (result) {
+        setUsers(prev => [result, ...prev]);
+      }
+      return result;
+    } catch (err) {
+      console.error('Error adding user:', err);
+      throw err;
+    }
+  }, []);
+
+  const updateUser = useCallback(async (userId: string, data: UpdateUserData): Promise<boolean> => {
+    try {
+      const result = await apiFetch<UserProfile>('/api/db/user-profiles', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: userId, ...data }),
+      });
+      if (result) {
+        setUsers(prev => prev.map(u => u.id === userId ? result : u));
+      }
+      return true;
+    } catch (err) {
+      console.error('Error updating user:', err);
+      return false;
+    }
+  }, []);
+
   const isAdmin = currentUserRole ? ADMIN_ROLES.includes(currentUserRole) : false;
   const canAccessDashboard = currentUserRole ? DASHBOARD_ROLES.includes(currentUserRole) : false;
   const canReviewSubmissions = currentUserRole ? REVIEW_ROLES.includes(currentUserRole) : false;
@@ -98,6 +146,8 @@ export function useUserProfiles() {
     error,
     updateRole,
     toggleActive,
+    addUser,
+    updateUser,
     refetch: fetchUsers,
   };
 }
