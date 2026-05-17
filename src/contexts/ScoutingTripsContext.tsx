@@ -23,6 +23,7 @@ import { apiFetch } from '@/lib/api-client';
 import { getCurrentUserId } from '@/lib/browser-session';
 import { computeTripAssessment } from '@/lib/trip-scoring';
 import { useAuth } from '@/contexts/AuthContext';
+import { logActivity } from '@/lib/supabaseHelpers';
 
 /**
  * Fetch ALL trip data from the server API route.
@@ -313,6 +314,16 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
     return state.trips.filter(t => t.status === status && (!cityId || t.cityId === cityId));
   }, [state.trips]);
 
+  // Build shared metadata for scouting trip activity logging
+  const logTripActivity = (actionType: string, trip: ScoutingTrip) => {
+    logActivity(actionType, {
+      tripId: trip.id,
+      tripName: trip.name || "Untitled trip",
+      trip_owner_id: trip.createdBy,
+      authorName: trip.authorName || null,
+    });
+  };
+
   // Create a new trip (returns the created trip)
   const createTrip = useCallback((cityId: string): ScoutingTrip => {
     const now = new Date().toISOString();
@@ -330,6 +341,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
     }));
 
     syncTripToApi(newTrip);
+    logTripActivity("created_scouting_trip", newTrip);
 
     return newTrip;
   }, [resolvedUserId, resolvedAuthorName]);
@@ -410,6 +422,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       const updatedTrip = newTrips.find(t => t.id === tripId);
       if (updatedTrip) {
         syncTripToApi(updatedTrip);
+        logTripActivity("submitted_scouting_trip", updatedTrip);
       }
 
       return { ...prev, trips: newTrips };
