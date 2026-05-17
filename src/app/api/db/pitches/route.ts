@@ -86,16 +86,28 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // User mode: fetch pitches created by the authenticated user
+  // User mode: fetch pitches created by the authenticated user + team pitches
   const auth = await authenticateRequest(request);
   if (auth.error) return auth.error;
   const { supabase, userId } = auth;
 
   try {
-    const { data, error } = await supabase
-      .from("pitches")
-      .select("*")
-      .eq("created_by", userId);
+    // Get user's team IDs for team pitch access
+    const { data: teamRows } = await supabase
+      .from("team_members")
+      .select("team_id")
+      .eq("user_id", userId);
+    const teamIds = (teamRows || []).map((r: any) => r.team_id);
+
+    let pitchQuery = supabase.from("pitches").select("*");
+
+    if (teamIds.length > 0) {
+      pitchQuery = pitchQuery.or(`created_by.eq.${userId},team_id.in.(${teamIds.join(",")})`);
+    } else {
+      pitchQuery = pitchQuery.eq("created_by", userId);
+    }
+
+    const { data, error } = await pitchQuery;
 
     if (error) {
       console.error("[api/db/pitches] user query error:", error);

@@ -88,6 +88,9 @@ async function fetchTripsFromApi(): Promise<ScoutingTrip[]> {
         : (row.risks as string) ?? undefined,
       photos: [] as ScoutingPhoto[],
 
+      // Team
+      teamId: (row.team_id as string) ?? undefined,
+
       // Review / rejection
       rejectionNotes: (row.rejection_notes as string) ?? undefined,
       reviewedBy: (row.reviewed_by as string) ?? undefined,
@@ -165,6 +168,9 @@ function buildPitchRow(trip: ScoutingTrip) {
     risks: trip.risks ? [trip.risks] : null,
     checklist: trip.checklist,
     attachment_paths: trip.attachments?.map(a => a.storagePath).filter(Boolean) || [],
+
+    // Team
+    team_id: trip.teamId ?? null,
 
     // Review info
     rejection_notes: trip.rejectionNotes,

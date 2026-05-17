@@ -145,6 +145,9 @@ export interface ScoutingTrip {
 
   // ===== METADATA =====
 
+  // Team sharing
+  teamId?: string;
+
   // Rejection feedback (when status is 'rejected')
   rejectionNotes?: string;
 

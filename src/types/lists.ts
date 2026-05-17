@@ -50,6 +50,7 @@ export interface LocationList {
   name: string;            // User-provided name
   createdAt: string;       // ISO timestamp
   createdBy?: string;      // User ID of creator (from server)
+  teamId?: string;         // Team ID if shared with a team
   items: ListItem[];
   drawnAreas: DrawnAreaItem[];
   visitPlan?: VisitLog;    // Visit planning at list level

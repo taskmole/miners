@@ -1,84 +1,231 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { apiFetch } from '@/lib/api-client';
-import type { Database } from '@/lib/supabase';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
-export type Team = Database['public']['Tables']['teams']['Row'];
+export interface Team {
+  id: string;
+  name: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+  team_members: TeamMemberSummary[];
+}
 
-export function useTeams(autoFetch = true) {
+export interface TeamMemberSummary {
+  id: string;
+  user_id: string;
+  role: "owner" | "member";
+  added_at: string;
+}
+
+export interface TeamMember {
+  id: string;
+  team_id: string;
+  user_id: string;
+  role: "owner" | "member";
+  added_by: string;
+  added_at: string;
+}
+
+export function useTeams() {
+  const { token, userId } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  const headers = useMemo(() => {
+    if (!token) return null;
+    return {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+  }, [token]);
 
   const fetchTeams = useCallback(async () => {
-    setLoading(true);
+    if (!headers) return;
+
     try {
-      const data = await apiFetch<Team[]>('/api/db/teams');
-      setTeams(data || []);
-      setError(null);
+      const res = await fetch("/api/db/teams", { headers });
+      if (!res.ok) return;
+      const data = await res.json();
+      setTeams(data);
     } catch (err) {
-      console.error('Error fetching teams:', err);
-      setError('Failed to load teams');
+      console.error("[useTeams] fetch error:", err);
     } finally {
-      setLoading(false);
+      setIsLoaded(true);
     }
-  }, []);
-
-  const createTeam = useCallback(async (name: string): Promise<Team | null> => {
-    try {
-      const data = await apiFetch<Team>('/api/db/teams', {
-        method: 'POST',
-        body: JSON.stringify({ name }),
-      });
-      if (data) {
-        setTeams(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
-      }
-      return data;
-    } catch (err) {
-      console.error('Error creating team:', err);
-      throw err;
-    }
-  }, []);
-
-  const renameTeam = useCallback(async (id: string, name: string): Promise<boolean> => {
-    try {
-      const data = await apiFetch<Team>('/api/db/teams', {
-        method: 'PATCH',
-        body: JSON.stringify({ id, name }),
-      });
-      if (data) {
-        setTeams(prev => prev.map(t => t.id === id ? data : t).sort((a, b) => a.name.localeCompare(b.name)));
-      }
-      return true;
-    } catch (err) {
-      console.error('Error renaming team:', err);
-      return false;
-    }
-  }, []);
-
-  const deleteTeam = useCallback(async (id: string): Promise<boolean> => {
-    try {
-      await apiFetch(`/api/db/teams?id=${id}`, { method: 'DELETE' });
-      setTeams(prev => prev.filter(t => t.id !== id));
-      return true;
-    } catch (err) {
-      console.error('Error deleting team:', err);
-      return false;
-    }
-  }, []);
+  }, [headers]);
 
   useEffect(() => {
-    if (autoFetch) fetchTeams();
-  }, [autoFetch, fetchTeams]);
+    fetchTeams();
+  }, [fetchTeams]);
+
+  const userTeamIds = useMemo(
+    () => teams.map((t) => t.id),
+    [teams]
+  );
+
+  const getTeam = useCallback(
+    (teamId: string) => teams.find((t) => t.id === teamId) || null,
+    [teams]
+  );
+
+  const isInTeam = useCallback(
+    (teamId: string) => userTeamIds.includes(teamId),
+    [userTeamIds]
+  );
+
+  const createTeam = useCallback(
+    async (name: string, memberIds?: string[]): Promise<Team | null> => {
+      if (!headers) return null;
+
+      try {
+        const res = await fetch("/api/db/teams", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ name, memberIds }),
+        });
+
+        if (!res.ok) return null;
+        const team = await res.json();
+        await fetchTeams();
+        return team;
+      } catch (err) {
+        console.error("[useTeams] create error:", err);
+        return null;
+      }
+    },
+    [headers, fetchTeams]
+  );
+
+  const updateTeam = useCallback(
+    async (id: string, updates: { name?: string; is_active?: boolean }) => {
+      if (!headers) return;
+
+      try {
+        await fetch("/api/db/teams", {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ id, ...updates }),
+        });
+        await fetchTeams();
+      } catch (err) {
+        console.error("[useTeams] update error:", err);
+      }
+    },
+    [headers, fetchTeams]
+  );
+
+  const deleteTeam = useCallback(
+    async (id: string) => {
+      if (!headers) return;
+
+      try {
+        await fetch(`/api/db/teams?id=${id}`, {
+          method: "DELETE",
+          headers,
+        });
+        await fetchTeams();
+      } catch (err) {
+        console.error("[useTeams] delete error:", err);
+      }
+    },
+    [headers, fetchTeams]
+  );
+
+  const fetchMembers = useCallback(
+    async (teamId: string): Promise<TeamMember[]> => {
+      if (!headers) return [];
+
+      try {
+        const res = await fetch(`/api/db/team-members?team_id=${teamId}`, { headers });
+        if (!res.ok) return [];
+        return await res.json();
+      } catch (err) {
+        console.error("[useTeams] fetchMembers error:", err);
+        return [];
+      }
+    },
+    [headers]
+  );
+
+  const addMember = useCallback(
+    async (teamId: string, memberId: string, role?: "owner" | "member") => {
+      if (!headers) return;
+
+      try {
+        const res = await fetch("/api/db/team-members", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ team_id: teamId, user_id: memberId, role }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error);
+        }
+        await fetchTeams();
+      } catch (err) {
+        console.error("[useTeams] addMember error:", err);
+        throw err;
+      }
+    },
+    [headers, fetchTeams]
+  );
+
+  const removeMember = useCallback(
+    async (teamId: string, memberId: string) => {
+      if (!headers) return;
+
+      try {
+        const res = await fetch(
+          `/api/db/team-members?team_id=${teamId}&user_id=${memberId}`,
+          { method: "DELETE", headers }
+        );
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error);
+        }
+        await fetchTeams();
+      } catch (err) {
+        console.error("[useTeams] removeMember error:", err);
+        throw err;
+      }
+    },
+    [headers, fetchTeams]
+  );
+
+  const changeMemberRole = useCallback(
+    async (teamId: string, memberId: string, role: "owner" | "member") => {
+      if (!headers) return;
+
+      try {
+        await fetch("/api/db/team-members", {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ team_id: teamId, user_id: memberId, role }),
+        });
+        await fetchTeams();
+      } catch (err) {
+        console.error("[useTeams] changeMemberRole error:", err);
+      }
+    },
+    [headers, fetchTeams]
+  );
 
   return {
     teams,
-    loading,
-    error,
-    refetch: fetchTeams,
+    isLoaded,
+    userTeamIds,
+    getTeam,
+    isInTeam,
     createTeam,
-    renameTeam,
+    updateTeam,
     deleteTeam,
+    fetchMembers,
+    addMember,
+    removeMember,
+    changeMemberRole,
+    refreshTeams: fetchTeams,
   };
 }

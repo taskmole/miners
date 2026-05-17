@@ -37,9 +37,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    const assignedToTeam = body.assigned_to_team ?? null;
+    const assignedTo = assignedToTeam
+      ? null
+      : body.status === "pre_rejected"
+        ? null
+        : (body.assigned_to ?? null);
+
     const row = {
       property_place_id: body.property_place_id,
-      assigned_to: body.status === "pre_rejected" ? null : (body.assigned_to ?? null),
+      assigned_to: assignedTo,
+      assigned_to_team: assignedToTeam,
       assigned_by: userId,
       status: body.status || "assigned",
       rejection_reason: body.rejection_reason ?? null,

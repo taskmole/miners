@@ -8,6 +8,7 @@ export interface PropertyAssignment {
   id: string;
   property_place_id: string;
   assigned_to: string | null;
+  assigned_to_team: string | null;
   assigned_by: string;
   status: "assigned" | "pre_rejected";
   rejection_reason: string | null;
@@ -41,7 +42,7 @@ async function fetchUsers(): Promise<AssignableUser[]> {
   }
 }
 
-export function usePropertyAssignments() {
+export function usePropertyAssignments(userTeamIds: string[] = []) {
   const { userId } = useAuth();
   const [assignments, setAssignments] = useState<PropertyAssignment[]>([]);
   const [users, setUsers] = useState<AssignableUser[]>([]);
@@ -89,8 +90,11 @@ export function usePropertyAssignments() {
   const isAssignedToMe = useCallback((placeId: string): boolean => {
     if (!userId) return false;
     const a = assignmentMap.get(placeId);
-    return a?.status === "assigned" && a.assigned_to === userId;
-  }, [assignmentMap, userId]);
+    if (!a || a.status !== "assigned") return false;
+    if (a.assigned_to === userId) return true;
+    if (a.assigned_to_team && userTeamIds.includes(a.assigned_to_team)) return true;
+    return false;
+  }, [assignmentMap, userId, userTeamIds]);
 
   const canPitch = useCallback((placeId: string): { allowed: boolean; reason: string | null } => {
     const a = assignmentMap.get(placeId);
@@ -98,18 +102,30 @@ export function usePropertyAssignments() {
     if (a.status === "pre_rejected") {
       return { allowed: false, reason: a.rejection_reason || "Pre-rejected" };
     }
+    // Check team assignment
+    if (a.assigned_to_team) {
+      if (userTeamIds.includes(a.assigned_to_team)) {
+        return { allowed: true, reason: null };
+      }
+      return { allowed: false, reason: "Assigned to a team" };
+    }
     if (a.assigned_to && a.assigned_to !== userId) {
       const assignee = users.find(u => u.id === a.assigned_to);
       const name = assignee?.display_name || assignee?.email || "someone else";
       return { allowed: false, reason: `Assigned to ${name}` };
     }
     return { allowed: true, reason: null };
-  }, [assignmentMap, userId, users]);
+  }, [assignmentMap, userId, users, userTeamIds]);
 
   const myAssignmentCount = useMemo(() => {
     if (!userId) return 0;
-    return assignments.filter(a => a.status === "assigned" && a.assigned_to === userId).length;
-  }, [assignments, userId]);
+    return assignments.filter(a => {
+      if (a.status !== "assigned") return false;
+      if (a.assigned_to === userId) return true;
+      if (a.assigned_to_team && userTeamIds.includes(a.assigned_to_team)) return true;
+      return false;
+    }).length;
+  }, [assignments, userId, userTeamIds]);
 
   const assignProperty = useCallback(async (
     placeId: string,
@@ -121,6 +137,27 @@ export function usePropertyAssignments() {
       body: JSON.stringify({
         property_place_id: placeId,
         assigned_to: assignedTo,
+        status: 'assigned',
+        notes: notes ?? null,
+      }),
+    });
+    setAssignments(prev => {
+      const filtered = prev.filter(a => a.property_place_id !== placeId);
+      return [result, ...filtered];
+    });
+    return result;
+  }, []);
+
+  const assignPropertyToTeam = useCallback(async (
+    placeId: string,
+    teamId: string,
+    notes?: string
+  ) => {
+    const result = await apiFetch<PropertyAssignment>('/api/db/property-assignments', {
+      method: 'POST',
+      body: JSON.stringify({
+        property_place_id: placeId,
+        assigned_to_team: teamId,
         status: 'assigned',
         notes: notes ?? null,
       }),
@@ -174,6 +211,7 @@ export function usePropertyAssignments() {
     canPitch,
     myAssignmentCount,
     assignProperty,
+    assignPropertyToTeam,
     preRejectProperty,
     removeAssignment,
     refreshAssignments,

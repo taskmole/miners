@@ -68,6 +68,7 @@ async function fetchListsFromServer(): Promise<{ ok: boolean; lists: LocationLis
       name: row.name,
       createdAt: row.created_at,
       createdBy: row.created_by,
+      teamId: row.team_id || undefined,
       items: itemsByList[row.id] || [],
       drawnAreas: [],
     }));
@@ -517,6 +518,30 @@ export function useLists() {
     return true;
   }, []);
 
+  const shareWithTeam = useCallback(async (listId: string, teamId: string | null) => {
+    const list = listsRef.current.find(l => l.id === listId);
+    if (!list) return;
+
+    setLists(prev => prev.map(l =>
+      l.id === listId ? { ...l, teamId: teamId || undefined } : l
+    ));
+
+    try {
+      await apiFetch('/api/db/lists', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'upsert_list',
+          id: listId,
+          name: list.name,
+          created_at: list.createdAt,
+          team_id: teamId,
+        }),
+      });
+    } catch (err) {
+      console.error('[useLists] shareWithTeam error:', err);
+    }
+  }, []);
+
   return {
     lists,
     isLoaded,
@@ -533,6 +558,7 @@ export function useLists() {
     addDrawnArea,
     removeDrawnArea,
     removeItem,
+    shareWithTeam,
   };
 }
 
@@ -540,7 +566,9 @@ export function useLists() {
 
 function persistToLocalStorage(lists: LocationList[]): void {
   try {
-    const state: ListsState = { version: CURRENT_VERSION, lists };
+    // Team lists are server-only; skip them in localStorage
+    const personalLists = lists.filter(l => !l.teamId);
+    const state: ListsState = { version: CURRENT_VERSION, lists: personalLists };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (error) {
     console.error('Error saving lists to localStorage:', error);

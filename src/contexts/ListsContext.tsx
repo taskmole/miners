@@ -21,6 +21,7 @@ interface ListsContextValue {
   addDrawnArea: (listId: string, areaId: string, areaType: 'polygon' | 'line', name: string) => void;
   removeDrawnArea: (listId: string, areaId: string) => void;
   removeItem: (listId: string, itemId: string) => boolean;
+  shareWithTeam: (listId: string, teamId: string | null) => Promise<void>;
 }
 
 const ListsContext = createContext<ListsContextValue | null>(null);

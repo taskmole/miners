@@ -9,10 +9,25 @@ export async function GET(request: NextRequest) {
   const { supabase, userId } = auth;
 
   try {
-    const { data: lists, error: listsError } = await supabase
+    // Get user's team IDs for team list access
+    const { data: teamRows } = await supabase
+      .from("team_members")
+      .select("team_id")
+      .eq("user_id", userId);
+    const teamIds = (teamRows || []).map((r: any) => r.team_id);
+
+    // Fetch user's own lists + team lists
+    let listsQuery = supabase
       .from("lists")
-      .select("id, name, created_by, created_at")
-      .eq("created_by", userId);
+      .select("id, name, created_by, created_at, team_id");
+
+    if (teamIds.length > 0) {
+      listsQuery = listsQuery.or(`created_by.eq.${userId},team_id.in.(${teamIds.join(",")})`);
+    } else {
+      listsQuery = listsQuery.eq("created_by", userId);
+    }
+
+    const { data: lists, error: listsError } = await listsQuery;
 
     if (listsError) {
       console.error("[api/db/lists] lists query error:", listsError);
@@ -55,17 +70,19 @@ export async function POST(request: NextRequest) {
     const { action, ...payload } = body;
 
     if (action === "upsert_list") {
+      const row: Record<string, unknown> = {
+        id: payload.id,
+        name: payload.name,
+        created_by: payload.created_by ?? userId,
+        created_at: payload.created_at,
+      };
+      if (payload.team_id !== undefined) {
+        row.team_id = payload.team_id || null;
+      }
+
       const { data, error } = await supabase
         .from("lists")
-        .upsert(
-          {
-            id: payload.id,
-            name: payload.name,
-            created_by: payload.created_by ?? userId,
-            created_at: payload.created_at,
-          },
-          { onConflict: "id" }
-        )
+        .upsert(row, { onConflict: "id" })
         .select()
         .single();
 

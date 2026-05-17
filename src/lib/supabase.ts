@@ -579,10 +579,14 @@ export interface Database {
           name: string;
           created_by: string | null;
           created_at: string;
+          team_id: string | null;
         };
         Insert: {
+          id?: string;
           name: string;
           created_by?: string | null;
+          created_at?: string;
+          team_id?: string | null;
         };
         Update: Partial<Database['public']['Tables']['lists']['Insert']>;
       };
@@ -725,6 +729,7 @@ export interface Database {
           submitted_at: string | null;
           final_reviewed_at: string | null;
           final_reviewed_by: string | null;
+          team_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -732,6 +737,7 @@ export interface Database {
           city_id?: string | null;
           place_id?: string | null;
           created_by?: string | null;
+          team_id?: string | null;
           workflow_id?: string | null;
           status?: string;
           current_level?: number;
@@ -1140,6 +1146,66 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['drawn_features']['Insert']>;
+      };
+
+      property_assignments: {
+        Row: {
+          id: string;
+          property_place_id: string;
+          assigned_to: string | null;
+          assigned_to_team: string | null;
+          assigned_by: string;
+          status: string;
+          rejection_reason: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          property_place_id: string;
+          assigned_to?: string | null;
+          assigned_to_team?: string | null;
+          assigned_by: string;
+          status?: string;
+          rejection_reason?: string | null;
+          notes?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['property_assignments']['Insert']>;
+      };
+
+      teams: {
+        Row: {
+          id: string;
+          name: string;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+          is_active: boolean;
+        };
+        Insert: {
+          name: string;
+          created_by: string;
+          is_active?: boolean;
+        };
+        Update: Partial<Database['public']['Tables']['teams']['Insert']>;
+      };
+
+      team_members: {
+        Row: {
+          id: string;
+          team_id: string;
+          user_id: string;
+          role: string;
+          added_by: string;
+          added_at: string;
+        };
+        Insert: {
+          team_id: string;
+          user_id: string;
+          role?: string;
+          added_by: string;
+        };
+        Update: Partial<Database['public']['Tables']['team_members']['Insert']>;
       };
 
     };

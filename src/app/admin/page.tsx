@@ -2,11 +2,11 @@
 
 import { useState, useEffect, Component, ErrorInfo, ReactNode, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, ChevronRight, Download, RefreshCw, Coffee, UtensilsCrossed, Plus, Filter, SlidersHorizontal, Info, Search } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, ChevronRight, Download, RefreshCw, Coffee, UtensilsCrossed, Plus, Filter, SlidersHorizontal, Info, Search, Users2, Trash2, Shield, UserPlus } from 'lucide-react';
 import { useUserProfiles } from '@/hooks/useUserProfiles';
+import { useTeams, type Team, type TeamMember } from '@/hooks/useTeams';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
 import { useCafeProfiles, CafeProfile, CafeCategory, CATEGORY_LABELS } from '@/hooks/useCafeProfiles';
-import { useTeams } from '@/hooks/useTeams';
 import { apiFetch } from '@/lib/api-client';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,7 +22,7 @@ import { parseCompetitors } from '@/components/NearbyCompetitors';
 import { useScoutingDefaults, type ScoutingDefaults, type CurrencyCode, type MarketDefaults, MARKET_LABELS } from '@/hooks/useScoutingDefaults';
 import { Input } from '@/components/ui/input';
 
-type Tab = 'submissions' | 'users' | 'settings' | 'cafe-profiles';
+type Tab = 'submissions' | 'users' | 'settings' | 'cafe-profiles' | 'teams';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -1122,6 +1122,18 @@ function AdminContent() {
                 <Users className="w-4 h-4" />
                 Users
               </button>
+              <button
+                onClick={() => setActiveTab('teams')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                  activeTab === 'teams'
+                    ? "border-zinc-900 text-zinc-900"
+                    : "border-transparent text-zinc-500 hover:text-zinc-700"
+                )}
+              >
+                <Users2 className="w-4 h-4" />
+                Teams
+              </button>
             </>
           )}
         </div>
@@ -1553,7 +1565,6 @@ function AdminContent() {
                   teams={teams}
                   onSave={async () => {
                     setShowAddUser(false);
-                    // Users list auto-updates via addUser in hook
                   }}
                   onCancel={() => setShowAddUser(false)}
                 />
@@ -1575,12 +1586,10 @@ function AdminContent() {
                         onClick={() => router.push(`/admin/users/${user.id}`)}
                       >
                         <div className="flex items-center gap-3">
-                          {/* Active indicator */}
                           <div className={cn(
                             "w-2 h-2 rounded-full shrink-0",
                             user.is_active ? "bg-green-500" : "bg-zinc-300"
                           )} />
-                          {/* User info */}
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-zinc-900 truncate">
                               {user.display_name || 'No name'}
@@ -1589,7 +1598,6 @@ function AdminContent() {
                               {user.email || 'No email'}
                             </div>
                           </div>
-                          {/* Role badge + team */}
                           <div className="flex items-center gap-2 shrink-0">
                             {teamName && (
                               <span className="hidden sm:inline px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
@@ -1610,6 +1618,9 @@ function AdminContent() {
             </div>
           );
         })()}
+        {activeTab === 'teams' && (
+          <TeamsPanel users={users} />
+        )}
         {activeTab === 'settings' && isAdmin && (
           <ScoutingSettingsPanel />
         )}
@@ -1725,6 +1736,248 @@ function ScoutingSettingsPanel() {
             </Button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function formatRoleLabel(role: string): string {
+  return role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+interface TeamsPanelProps {
+  users: { id: string; display_name: string | null; email: string | null; role: string }[];
+}
+
+function TeamsPanel({ users }: TeamsPanelProps) {
+  const { teams, isLoaded, createTeam, updateTeam, deleteTeam, fetchMembers, addMember, removeMember, changeMemberRole } = useTeams();
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [addingMember, setAddingMember] = useState(false);
+  const [addMemberUserId, setAddMemberUserId] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleExpandTeam = async (teamId: string) => {
+    if (expandedTeam === teamId) {
+      setExpandedTeam(null);
+      return;
+    }
+    setExpandedTeam(teamId);
+    setLoadingMembers(true);
+    const members = await fetchMembers(teamId);
+    setTeamMembers(members);
+    setLoadingMembers(false);
+  };
+
+  const handleCreate = async () => {
+    if (!newTeamName.trim()) return;
+    setError(null);
+    const result = await createTeam(newTeamName.trim(), selectedMembers);
+    if (result) {
+      setShowCreate(false);
+      setNewTeamName('');
+      setSelectedMembers([]);
+    } else {
+      setError('Failed to create team');
+    }
+  };
+
+  const handleAddMember = async (teamId: string) => {
+    if (!addMemberUserId) return;
+    setError(null);
+    try {
+      await addMember(teamId, addMemberUserId);
+      const members = await fetchMembers(teamId);
+      setTeamMembers(members);
+      setAddingMember(false);
+      setAddMemberUserId('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to add member');
+    }
+  };
+
+  const handleRemoveMember = async (teamId: string, userId: string) => {
+    setError(null);
+    try {
+      await removeMember(teamId, userId);
+      setTeamMembers(prev => prev.filter(m => m.user_id !== userId));
+    } catch (err: any) {
+      setError(err.message || 'Failed to remove member');
+    }
+  };
+
+  const handleRoleChange = async (teamId: string, userId: string, newRole: 'owner' | 'member') => {
+    await changeMemberRole(teamId, userId, newRole);
+    const members = await fetchMembers(teamId);
+    setTeamMembers(members);
+  };
+
+  const toggleMemberSelection = (userId: string) => {
+    setSelectedMembers(prev =>
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
+
+  if (!isLoaded) {
+    return <div className="text-center py-8 text-zinc-500">Loading teams...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-zinc-900">Teams</h2>
+        <Button onClick={() => setShowCreate(!showCreate)} className="h-9 gap-1.5">
+          <Plus className="w-4 h-4" />
+          New Team
+        </Button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
+          {error}
+          <button onClick={() => setError(null)} className="ml-2 underline">Dismiss</button>
+        </div>
+      )}
+
+      {/* Create form */}
+      {showCreate && (
+        <div className="bg-white border border-zinc-200 rounded-lg p-4 space-y-3">
+          <div>
+            <label className="text-sm font-medium text-zinc-700 block mb-1">Team Name</label>
+            <Input
+              value={newTeamName}
+              onChange={(e) => setNewTeamName(e.target.value)}
+              placeholder="e.g. Barcelona Team"
+              className="h-10"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-zinc-700 block mb-1">Add Members (optional)</label>
+            <div className="max-h-40 overflow-y-auto border border-zinc-200 rounded-lg divide-y divide-zinc-100">
+              {users.map(user => (
+                <label key={user.id} className="flex items-center gap-2 px-3 py-2 hover:bg-zinc-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedMembers.includes(user.id)}
+                    onChange={() => toggleMemberSelection(user.id)}
+                    className="rounded border-zinc-300"
+                  />
+                  <span className="text-sm text-zinc-700">
+                    {user.display_name || user.email || 'Unknown'}
+                  </span>
+                  <span className="text-xs text-zinc-400 ml-auto">{formatRoleLabel(user.role)}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleCreate} className="h-9">Create Team</Button>
+            <Button onClick={() => { setShowCreate(false); setNewTeamName(''); setSelectedMembers([]); }} variant="outline" className="h-9">Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Teams list */}
+      {teams.length === 0 && !showCreate && (
+        <div className="text-center py-12 text-zinc-500">
+          No teams yet. Create one to get started.
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {teams.map(team => (
+          <div key={team.id} className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+            {/* Team row */}
+            <button
+              onClick={() => handleExpandTeam(team.id)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 transition-colors text-left"
+            >
+              <Users2 className="w-5 h-5 text-zinc-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-zinc-900 truncate">{team.name}</div>
+                <div className="text-xs text-zinc-500">
+                  {team.team_members.length} member{team.team_members.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+              {expandedTeam === team.id ? (
+                <ChevronUp className="w-4 h-4 text-zinc-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-zinc-400" />
+              )}
+            </button>
+
+            {/* Expanded: member management */}
+            {expandedTeam === team.id && (
+              <div className="px-4 pb-4 space-y-2">
+                {loadingMembers ? (
+                  <div className="text-sm text-zinc-500 py-2">Loading...</div>
+                ) : (
+                  <>
+                    {teamMembers.map(member => {
+                      const userInfo = users.find(u => u.id === member.user_id);
+                      return (
+                        <div key={member.id} className="flex items-center gap-3 py-1.5">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-zinc-900 truncate">
+                              {userInfo?.display_name || userInfo?.email || 'Unknown'}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveMember(team.id, member.user_id)}
+                            className="text-xs text-zinc-400 hover:text-red-500"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                    {addingMember ? (
+                      <div className="flex gap-2 items-center pt-2">
+                        <select
+                          value={addMemberUserId}
+                          onChange={(e) => setAddMemberUserId(e.target.value)}
+                          className="flex-1 text-sm border border-zinc-200 rounded-md px-2 py-1.5 bg-white"
+                        >
+                          <option value="">Select user...</option>
+                          {users
+                            .filter(u => !teamMembers.some(m => m.user_id === u.id))
+                            .map(u => (
+                              <option key={u.id} value={u.id}>
+                                {u.display_name || u.email || u.id.slice(0, 8)}
+                              </option>
+                            ))}
+                        </select>
+                        <Button onClick={() => handleAddMember(team.id)} size="sm" disabled={!addMemberUserId}>Add</Button>
+                        <Button onClick={() => { setAddingMember(false); setAddMemberUserId(''); }} variant="ghost" size="sm">Cancel</Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 pt-2">
+                        <Button onClick={() => setAddingMember(true)} variant="outline" size="sm" className="sm:border-0 sm:p-0 sm:h-auto sm:text-xs sm:text-zinc-500 sm:hover:text-zinc-900 sm:hover:bg-transparent sm:font-normal">
+                          + Add member
+                        </Button>
+                        <Button
+                          onClick={() => { deleteTeam(team.id); setExpandedTeam(null); }}
+                          variant="outline"
+                          size="sm"
+                          className="ml-auto text-red-500 border-red-200 hover:bg-red-50 hover:text-red-700 sm:border-0 sm:p-0 sm:h-auto sm:text-xs sm:hover:bg-transparent sm:font-normal"
+                        >
+                          Delete team
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -36,6 +36,7 @@ import { ToastProvider } from "@/contexts/ToastContext";
 import { ShapeDataProvider } from "@/contexts/ShapeDataContext";
 import { PitchStatusProvider } from "@/contexts/PitchStatusContext";
 import { PropertyAssignmentProvider } from "@/contexts/PropertyAssignmentContext";
+import { TeamsProvider } from "@/contexts/TeamsContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
 import { supabase } from "@/lib/supabase";
 import { setAuthUserId } from "@/lib/browser-session";
@@ -443,6 +444,7 @@ export default function Home() {
     <WalkingRadiusProvider>
       <GeoDataProvider>
         <PointCategoriesProvider>
+          <TeamsProvider>
           <ListsProvider>
             <HiddenPoisProvider>
               <ScoutingTripsProvider>
@@ -462,6 +464,7 @@ export default function Home() {
               </ScoutingTripsProvider>
             </HiddenPoisProvider>
           </ListsProvider>
+          </TeamsProvider>
         </PointCategoriesProvider>
       </GeoDataProvider>
     </WalkingRadiusProvider>

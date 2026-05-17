@@ -703,6 +703,13 @@ function ListSection({
 
                     <span className="text-sm font-semibold text-zinc-900 truncate flex-1">{list.name}</span>
 
+                    {list.teamId && (
+                        <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                            <Users className="w-3 h-3" />
+                            <span className="hidden sm:inline">Team</span>
+                        </span>
+                    )}
+
                     {hasVisitPlan && (
                         <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                     )}

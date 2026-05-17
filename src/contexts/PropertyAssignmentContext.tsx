@@ -2,6 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from 'react';
 import { usePropertyAssignments, type PropertyAssignment, type AssignableUser } from '@/hooks/usePropertyAssignments';
+import { useTeamsContext } from '@/contexts/TeamsContext';
 
 interface PropertyAssignmentContextValue {
   isLoaded: boolean;
@@ -12,6 +13,7 @@ interface PropertyAssignmentContextValue {
   canPitch: (placeId: string) => { allowed: boolean; reason: string | null };
   myAssignmentCount: number;
   assignProperty: (placeId: string, assignedTo: string, notes?: string) => Promise<PropertyAssignment>;
+  assignPropertyToTeam: (placeId: string, teamId: string, notes?: string) => Promise<PropertyAssignment>;
   preRejectProperty: (placeId: string, reason: string, notes?: string) => Promise<PropertyAssignment>;
   removeAssignment: (placeId: string) => Promise<void>;
   refreshAssignments: () => Promise<void>;
@@ -20,7 +22,8 @@ interface PropertyAssignmentContextValue {
 const PropertyAssignmentContext = createContext<PropertyAssignmentContextValue | null>(null);
 
 export function PropertyAssignmentProvider({ children }: { children: ReactNode }) {
-  const hook = usePropertyAssignments();
+  const { userTeamIds } = useTeamsContext();
+  const hook = usePropertyAssignments(userTeamIds);
 
   return (
     <PropertyAssignmentContext.Provider value={hook}>
