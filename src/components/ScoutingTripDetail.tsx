@@ -472,7 +472,10 @@ export function ScoutingTripDetail({
           {assessment && assessment.scoredPillarCount >= 2 && assessment.compositeScore != null && (
             <div className="px-6 py-4 border-b border-zinc-200">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-zinc-900">Trip Assessment</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-zinc-900">Trip Assessment</span>
+                  <span className="text-[10px] text-zinc-400 border border-zinc-200 rounded px-1.5 py-0.5">Experimental</span>
+                </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                   assessment.confidence === 'high' ? 'bg-green-100 text-green-700' :
                   assessment.confidence === 'medium' ? 'bg-amber-100 text-amber-700' :
