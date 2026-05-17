@@ -261,6 +261,20 @@ export interface Database {
       // USER MANAGEMENT
       // ===========================================
 
+      teams: {
+        Row: {
+          id: string;
+          name: string;
+          created_at: string;
+        };
+        Insert: {
+          name: string;
+        };
+        Update: {
+          name?: string;
+        };
+      };
+
       user_profiles: {
         Row: {
           id: string;
@@ -271,11 +285,13 @@ export interface Database {
           city_ids: string[] | null;
           can_approve_level: number | null;
           is_active: boolean;
+          team_id: string | null;
+          receives_scraper_emails: boolean;
           created_at: string;
           updated_at: string;
         };
         Insert: {
-          id: string;                    // Links to auth.users.id
+          id: string;
           role?: string;
           display_name?: string | null;
           email?: string | null;
@@ -283,6 +299,8 @@ export interface Database {
           city_ids?: string[] | null;
           can_approve_level?: number | null;
           is_active?: boolean;
+          team_id?: string | null;
+          receives_scraper_emails?: boolean;
         };
         Update: Partial<Database['public']['Tables']['user_profiles']['Insert']>;
       };

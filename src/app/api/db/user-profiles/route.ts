@@ -33,6 +33,42 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // "single" mode: fetch one user profile by id
+  if (mode === "single") {
+    const token = getTokenFromRequest(request);
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const id = request.nextUrl.searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
+    }
+
+    try {
+      const supabase = createServerSupabase(token);
+
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) {
+        console.error("[api/db/user-profiles] single query error:", error);
+        if (error.code === "PGRST116") {
+          return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json(data);
+    } catch (err) {
+      console.error("[api/db/user-profiles] unexpected error:", err);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+  }
+
   // "current" mode: get the authenticated user's role
   const auth = await authenticateRequest(request);
   if (auth.error) return auth.error;
@@ -65,12 +101,17 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { id, ...updates } = body;
+    const { id, ...rawUpdates } = body;
 
     if (!id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
+    const ALLOWED_FIELDS = ['role', 'is_active', 'display_name', 'city_ids', 'team_id', 'receives_scraper_emails'];
+    const updates: Record<string, unknown> = {};
+    for (const key of ALLOWED_FIELDS) {
+      if (key in rawUpdates) updates[key] = rawUpdates[key];
+    }
     updates.updated_at = new Date().toISOString();
 
     const supabase = createServerSupabase(token);
@@ -88,6 +129,62 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json(data);
+  } catch (err) {
+    console.error("[api/db/user-profiles] unexpected error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const auth = await authenticateRequest(request);
+  if (auth.error) return auth.error;
+  const { supabase } = auth;
+
+  try {
+    const body = await request.json();
+
+    const email = body.email?.trim()?.toLowerCase();
+    if (!email) {
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    }
+
+    // Check caller's role for privilege escalation prevention
+    const { data: caller } = await supabase
+      .from("user_profiles")
+      .select("role")
+      .eq("id", auth.userId)
+      .single();
+
+    if (body.role === "super_admin" && caller?.role !== "super_admin") {
+      return NextResponse.json({ error: "Only super admins can create super admin profiles" }, { status: 403 });
+    }
+
+    const profileData = {
+      id: crypto.randomUUID(),
+      display_name: body.display_name?.trim() || null,
+      email,
+      role: body.role || "franchisee",
+      city_ids: body.city_ids || null,
+      team_id: body.team_id || null,
+      receives_scraper_emails: body.receives_scraper_emails || false,
+      is_active: true,
+    };
+
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .insert(profileData)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === "23505") {
+        return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
+      }
+      console.error("[api/db/user-profiles] insert error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(data, { status: 201 });
   } catch (err) {
     console.error("[api/db/user-profiles] unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

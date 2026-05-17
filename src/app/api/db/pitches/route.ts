@@ -59,11 +59,19 @@ export async function GET(request: NextRequest) {
 
     try {
       const supabase = createServerSupabase(token);
+      const userId = request.nextUrl.searchParams.get("user_id");
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("pitches")
-        .select("*")
-        .in("status", ["submitted", "approved", "rejected"])
+        .select("*");
+
+      if (userId) {
+        query = query.eq("created_by", userId);
+      } else {
+        query = query.in("status", ["submitted", "approved", "rejected"]);
+      }
+
+      const { data, error } = await query
         .order("submitted_at", { ascending: false, nullsLast: true });
 
       if (error) {

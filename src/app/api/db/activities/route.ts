@@ -1,18 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabase, getTokenFromRequest } from "@/lib/supabase-server";
+import { authenticateRequest } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
-  const token = getTokenFromRequest(request);
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+/** Safely parse a JSON summary string, returning an empty object on failure. */
+function parseSummary(summary: unknown): Record<string, unknown> {
+  if (!summary) return {};
+  try {
+    return typeof summary === "string" ? JSON.parse(summary) : (summary as Record<string, unknown>);
+  } catch {
+    return {};
   }
+}
+
+export async function GET(request: NextRequest) {
+  const auth = await authenticateRequest(request);
+  if (auth.error) return auth.error;
+
+  const { supabase, userId } = auth;
 
   try {
-    const supabase = createServerSupabase(token);
-
-    const [commentsRes, listsRes, activityLogRes] = await Promise.all([
+    // Fetch caller's role in parallel with the three data sources
+    const [roleRes, commentsRes, listsRes, activityLogRes] = await Promise.all([
+      supabase.from("user_profiles").select("role").eq("id", userId).single(),
       supabase
         .from("comments")
         .select("id, entity_type, entity_id, entity_name, created_by, content, created_at")
@@ -35,9 +45,23 @@ export async function GET(request: NextRequest) {
     if (listsRes.error) console.error("[api/db/activities] lists error:", listsRes.error);
     if (activityLogRes.error) console.error("[api/db/activities] activity_log error:", activityLogRes.error);
 
-    const comments = commentsRes.data || [];
-    const lists = listsRes.data || [];
-    const activityLog = activityLogRes.data || [];
+    const callerRole = roleRes.data?.role || "franchisee";
+    const isFranchisee = callerRole === "franchisee";
+
+    let comments = commentsRes.data || [];
+    let lists = listsRes.data || [];
+    let activityLog = activityLogRes.data || [];
+
+    // Franchisees only see their own activities + activities involving them
+    if (isFranchisee) {
+      comments = comments.filter(c => c.created_by === userId);
+      lists = lists.filter(l => l.created_by === userId);
+      activityLog = activityLog.filter(e => {
+        if (e.user_id === userId) return true;
+        const parsed = parseSummary(e.summary);
+        return parsed.assigned_to === userId || parsed.trip_owner_id === userId;
+      });
+    }
 
     // Collect unique user IDs across all three sources for profile lookup
     const userIds = new Set<string>();

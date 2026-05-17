@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, Download, RefreshCw, Coffee, UtensilsCrossed, Plus, Filter, SlidersHorizontal, Info } from 'lucide-react';
+import { useState, useEffect, Component, ErrorInfo, ReactNode, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, ChevronRight, Download, RefreshCw, Coffee, UtensilsCrossed, Plus, Filter, SlidersHorizontal, Info, Search } from 'lucide-react';
 import { useUserProfiles } from '@/hooks/useUserProfiles';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
 import { useCafeProfiles, CafeProfile, CafeCategory, CATEGORY_LABELS } from '@/hooks/useCafeProfiles';
+import { useTeams } from '@/hooks/useTeams';
 import { apiFetch } from '@/lib/api-client';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -388,7 +390,6 @@ const CATEGORY_COLORS: Record<CafeCategory, string> = {
 // City display labels
 const CITY_LABELS: Record<string, string> = {
   madrid: 'Madrid',
-  barcelona: 'Barcelona',
   prague: 'Prague',
 };
 
@@ -689,15 +690,212 @@ function AddCafeForm({ onSave, onCancel }: { onSave: () => void; onCancel: () =>
   );
 }
 
+function AddUserForm({ onSave, onCancel, teams }: {
+  onSave: () => void;
+  onCancel: () => void;
+  teams: { id: string; name: string }[];
+}) {
+  const { addUser } = useUserProfiles();
+  const { createTeam } = useTeams(false);
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('franchisee');
+  const [cityIds, setCityIds] = useState<string[]>(['madrid', 'prague']);
+  const [teamId, setTeamId] = useState<string>('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [showNewTeam, setShowNewTeam] = useState(false);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [creatingTeam, setCreatingTeam] = useState(false);
+
+  const toggleCity = (id: string) => {
+    setCityIds(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
+  };
+
+  const handleCreateTeam = async () => {
+    if (!newTeamName.trim()) return;
+    setCreatingTeam(true);
+    try {
+      const team = await createTeam(newTeamName.trim());
+      if (team) {
+        setTeamId(team.id);
+        setNewTeamName('');
+        setShowNewTeam(false);
+      }
+    } catch {
+      setError('Failed to create team');
+    } finally {
+      setCreatingTeam(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!email.trim()) { setError('Email is required'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('Please enter a valid email address'); return; }
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await addUser({
+        display_name: displayName.trim() || undefined,
+        email: email.trim(),
+        role,
+        city_ids: cityIds,
+        team_id: teamId || null,
+      });
+      setSuccess(`Profile created for ${email.trim()}. Settings apply when they sign in with Google.`);
+      setTimeout(() => onSave(), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create user');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl p-4 space-y-4 border border-zinc-200">
+      <div className="text-sm font-semibold text-zinc-900">Add New User</div>
+
+      {error && <div className="text-xs text-red-600">{error}</div>}
+      {success && <div className="text-xs text-green-600">{success}</div>}
+
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-zinc-500 mb-1">Name</label>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Full name"
+            className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-zinc-500 mb-1">Email *</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="user@example.com"
+            className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-zinc-500 mb-1">Role</label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+          >
+            {ROLE_OPTIONS.map((r) => (
+              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-zinc-500 mb-1">Team</label>
+          {!showNewTeam ? (
+            <div className="flex gap-2">
+              <select
+                value={teamId}
+                onChange={(e) => setTeamId(e.target.value)}
+                className="flex-1 px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+              >
+                <option value="">No team</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowNewTeam(true)}
+                className="px-3 py-2.5 border border-zinc-200 rounded-lg text-sm text-zinc-600 hover:bg-zinc-50 whitespace-nowrap"
+              >
+                + New
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+                placeholder="Team name"
+                className="flex-1 px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateTeam();
+                  if (e.key === 'Escape') { setShowNewTeam(false); setNewTeamName(''); }
+                }}
+              />
+              <button onClick={handleCreateTeam} disabled={creatingTeam || !newTeamName.trim()} className="px-3 py-2.5 bg-zinc-900 text-white rounded-lg text-sm disabled:opacity-50">
+                {creatingTeam ? '...' : 'Create'}
+              </button>
+              <button onClick={() => { setShowNewTeam(false); setNewTeamName(''); }} className="px-3 py-2.5 border border-zinc-200 rounded-lg text-sm text-zinc-600 hover:bg-zinc-50">
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-zinc-500 mb-2">Cities</label>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(CITY_LABELS).map(([id, label]) => {
+              const selected = cityIds.includes(id);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => toggleCity(id)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                    selected
+                      ? "bg-green-100 text-green-700 ring-1 ring-green-300"
+                      : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
+                  )}
+                >
+                  {selected && <Check className="w-3.5 h-3.5" />}
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <Button
+          onClick={handleSubmit}
+          disabled={saving || !email.trim() || !!success}
+          className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-white h-10"
+        >
+          {saving ? 'Adding...' : 'Add User'}
+        </Button>
+        <Button onClick={onCancel} variant="outline" className="h-10">
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function AdminContent() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>('submissions');
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get('tab') as Tab) || 'submissions';
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectNotes, setRejectNotes] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [cafesCityFilter, setCafesCityFilter] = useState<string>('all');
   const [showAddCafe, setShowAddCafe] = useState(false);
+
+  // Users tab state
+  const [usersSearch, setUsersSearch] = useState('');
+  const [usersCityFilter, setUsersCityFilter] = useState<string>('all');
+  const [showAddUser, setShowAddUser] = useState(false);
 
   const {
     users,
@@ -729,6 +927,17 @@ function AdminContent() {
     saveProfile: saveCafeProfile,
     refetch: refetchCafes,
   } = useCafeProfiles(activeTab === 'cafe-profiles');
+
+  // Teams hook (fetch when users tab is active)
+  const { teams } = useTeams(activeTab === 'users');
+
+  // Sync tab to URL
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    window.history.replaceState({}, '', url.toString());
+  };
 
   // Auth check - redirect users without dashboard access
   useEffect(() => {
@@ -859,7 +1068,7 @@ function AdminContent() {
       <div className="bg-white overflow-x-auto scrollbar-hide">
         <div className="max-w-4xl mx-auto px-4 flex gap-1 min-w-max">
           <button
-            onClick={() => setActiveTab('submissions')}
+            onClick={() => handleTabChange('submissions')}
             className={cn(
               "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
               activeTab === 'submissions'
@@ -876,7 +1085,7 @@ function AdminContent() {
             )}
           </button>
           <button
-            onClick={() => setActiveTab('cafe-profiles')}
+            onClick={() => handleTabChange('cafe-profiles')}
             className={cn(
               "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
               activeTab === 'cafe-profiles'
@@ -890,7 +1099,7 @@ function AdminContent() {
           {isAdmin && (
             <>
               <button
-                onClick={() => setActiveTab('settings')}
+                onClick={() => handleTabChange('settings')}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
                   activeTab === 'settings'
@@ -902,7 +1111,7 @@ function AdminContent() {
                 Inputs
               </button>
               <button
-                onClick={() => setActiveTab('users')}
+                onClick={() => handleTabChange('users')}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
                   activeTab === 'users'
@@ -1301,66 +1510,106 @@ function AdminContent() {
           </div>
         )}
 
-        {activeTab === 'users' && isAdmin && (
-          <div className="space-y-4">
-            {usersError && (
-              <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
-                {usersError}
-              </div>
-            )}
+        {activeTab === 'users' && isAdmin && (() => {
+          const searchLower = usersSearch.toLowerCase();
+          const filteredUsers = users.filter(user => {
+            if (!searchLower) return true;
+            return (user.display_name || '').toLowerCase().includes(searchLower) ||
+              (user.email || '').toLowerCase().includes(searchLower);
+          });
 
-            {users.length === 0 ? (
-              <div className="bg-white rounded-xl px-4 py-8 text-center text-zinc-400 text-sm">
-                No users yet
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl divide-y divide-zinc-100">
-              {users.map((user) => (
-                <div
-                  key={user.id}
-                  className="p-4"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    {/* User info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-zinc-900 truncate">
-                        {user.display_name || 'No name'}
-                      </div>
-                      <div className="text-sm text-zinc-500 truncate">
-                        {user.email || 'No email'}
-                      </div>
-                    </div>
-
-                    {/* Role selector */}
-                    <div className="flex items-center gap-3">
-                      <select
-                        value={user.role}
-                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                        className="h-11 px-3 text-sm border border-zinc-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
-                      >
-                        {ROLE_OPTIONS.map((role) => (
-                          <option key={role} value={role}>
-                            {ROLE_LABELS[role]}
-                          </option>
-                        ))}
-                      </select>
-
-                      {/* Active toggle */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-zinc-500">Active</span>
-                        <Switch
-                          checked={user.is_active}
-                          onCheckedChange={() => handleToggleActive(user.id, user.is_active)}
-                        />
-                      </div>
-                    </div>
-                  </div>
+          return (
+            <div className="space-y-4">
+              {usersError && (
+                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
+                  {usersError}
                 </div>
-              ))}
+              )}
+
+              {/* Toolbar */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={usersSearch}
+                    onChange={(e) => setUsersSearch(e.target.value)}
+                    placeholder="Search users..."
+                    className="w-full pl-9 pr-4 py-2.5 bg-white border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                  />
+                </div>
+                <button
+                  onClick={() => setShowAddUser(!showAddUser)}
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 whitespace-nowrap"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add User
+                </button>
               </div>
-            )}
-          </div>
-        )}
+
+              {/* Add User form */}
+              {showAddUser && (
+                <AddUserForm
+                  teams={teams}
+                  onSave={async () => {
+                    setShowAddUser(false);
+                    // Users list auto-updates via addUser in hook
+                  }}
+                  onCancel={() => setShowAddUser(false)}
+                />
+              )}
+
+              {/* User list */}
+              {!showAddUser && filteredUsers.length === 0 ? (
+                <div className="bg-white rounded-xl px-4 py-8 text-center text-zinc-400 text-sm">
+                  {usersSearch ? 'No users match your search' : 'No users yet'}
+                </div>
+              ) : !showAddUser && (
+                <div className="bg-white rounded-xl divide-y divide-zinc-100">
+                  {filteredUsers.map((user) => {
+                    const teamName = teams.find(t => t.id === user.team_id)?.name;
+                    return (
+                      <div
+                        key={user.id}
+                        className="p-4 cursor-pointer hover:bg-zinc-50 transition-colors"
+                        onClick={() => router.push(`/admin/users/${user.id}`)}
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Active indicator */}
+                          <div className={cn(
+                            "w-2 h-2 rounded-full shrink-0",
+                            user.is_active ? "bg-green-500" : "bg-zinc-300"
+                          )} />
+                          {/* User info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-zinc-900 truncate">
+                              {user.display_name || 'No name'}
+                            </div>
+                            <div className="text-sm text-zinc-500 truncate">
+                              {user.email || 'No email'}
+                            </div>
+                          </div>
+                          {/* Role badge + team */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {teamName && (
+                              <span className="hidden sm:inline px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
+                                {teamName}
+                              </span>
+                            )}
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-100 text-zinc-600">
+                              {ROLE_LABELS[user.role] || user.role}
+                            </span>
+                            <ChevronRight className="w-4 h-4 text-zinc-400" />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {activeTab === 'settings' && isAdmin && (
           <ScoutingSettingsPanel />
         )}
@@ -1484,7 +1733,13 @@ function ScoutingSettingsPanel() {
 export default function AdminPage() {
   return (
     <AdminErrorBoundary>
-      <AdminContent />
+      <Suspense fallback={
+        <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+          <div className="text-zinc-500">Loading...</div>
+        </div>
+      }>
+        <AdminContent />
+      </Suspense>
     </AdminErrorBoundary>
   );
 }
