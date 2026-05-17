@@ -103,7 +103,10 @@ function DisambiguationItem({ poi, onClick, delay }: DisambiguationItemProps) {
 
     return (
         <button
-            onClick={onClick}
+            onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+            }}
             style={{ animationDelay: `${delay}ms` }}
             className="disambiguation-item flex items-center gap-3 p-3 md:p-2.5 min-h-[48px] md:min-h-0 rounded-lg
                        hover:bg-zinc-100 active:bg-zinc-200
