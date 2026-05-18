@@ -12,8 +12,7 @@ interface PropertyAssignmentContextValue {
   isAssignedToMe: (placeId: string) => boolean;
   canPitch: (placeId: string) => { allowed: boolean; reason: string | null };
   myAssignmentCount: number;
-  assignProperty: (placeId: string, assignedTo: string, notes?: string) => Promise<PropertyAssignment>;
-  assignPropertyToTeam: (placeId: string, teamId: string, notes?: string) => Promise<PropertyAssignment>;
+  assignProperty: (placeId: string, assignedTo: string | null, options?: { teamId?: string; notes?: string }) => Promise<PropertyAssignment>;
   preRejectProperty: (placeId: string, reason: string, notes?: string) => Promise<PropertyAssignment>;
   removeAssignment: (placeId: string) => Promise<void>;
   refreshAssignments: () => Promise<void>;

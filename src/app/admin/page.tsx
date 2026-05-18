@@ -696,7 +696,7 @@ function AddUserForm({ onSave, onCancel, teams }: {
   teams: { id: string; name: string }[];
 }) {
   const { addUser } = useUserProfiles();
-  const { createTeam } = useTeams(false);
+  const { createTeam } = useTeams();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('franchisee');
@@ -928,8 +928,7 @@ function AdminContent() {
     refetch: refetchCafes,
   } = useCafeProfiles(activeTab === 'cafe-profiles');
 
-  // Teams hook (fetch when users tab is active)
-  const { teams } = useTeams(activeTab === 'users');
+  const { teams } = useTeams();
 
   // Sync tab to URL
   const handleTabChange = (tab: Tab) => {

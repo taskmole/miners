@@ -59,3 +59,11 @@ export async function authenticateRequest(
 
   return { supabase, userId: user.id };
 }
+
+export async function getUserTeamIds(supabase: SupabaseClient<Database>, userId: string): Promise<string[]> {
+  const { data } = await supabase
+    .from("team_members")
+    .select("team_id")
+    .eq("user_id", userId);
+  return (data || []).map((r: any) => r.team_id);
+}

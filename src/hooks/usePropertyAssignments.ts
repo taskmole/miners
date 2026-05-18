@@ -129,37 +129,17 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
 
   const assignProperty = useCallback(async (
     placeId: string,
-    assignedTo: string,
-    notes?: string
+    assignedTo: string | null,
+    options?: { teamId?: string; notes?: string }
   ) => {
     const result = await apiFetch<PropertyAssignment>('/api/db/property-assignments', {
       method: 'POST',
       body: JSON.stringify({
         property_place_id: placeId,
-        assigned_to: assignedTo,
+        assigned_to: options?.teamId ? null : assignedTo,
+        assigned_to_team: options?.teamId ?? null,
         status: 'assigned',
-        notes: notes ?? null,
-      }),
-    });
-    setAssignments(prev => {
-      const filtered = prev.filter(a => a.property_place_id !== placeId);
-      return [result, ...filtered];
-    });
-    return result;
-  }, []);
-
-  const assignPropertyToTeam = useCallback(async (
-    placeId: string,
-    teamId: string,
-    notes?: string
-  ) => {
-    const result = await apiFetch<PropertyAssignment>('/api/db/property-assignments', {
-      method: 'POST',
-      body: JSON.stringify({
-        property_place_id: placeId,
-        assigned_to_team: teamId,
-        status: 'assigned',
-        notes: notes ?? null,
+        notes: options?.notes ?? null,
       }),
     });
     setAssignments(prev => {
@@ -211,7 +191,6 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
     canPitch,
     myAssignmentCount,
     assignProperty,
-    assignPropertyToTeam,
     preRejectProperty,
     removeAssignment,
     refreshAssignments,

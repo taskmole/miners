@@ -1323,7 +1323,7 @@ function freshTooltipText(dateStr: string): string {
 
 function PropertyActionsFooter({
     property, placeId, cityId, mapsUrl, canAccessDashboard, checkCanPitch,
-    assignableUsers, assignProperty, assignPropertyToTeam, preRejectProperty, removeAssignment,
+    assignableUsers, assignProperty, preRejectProperty, removeAssignment,
     assignment, createTrip, updateTrip, showToast, onClose,
 }: {
     property: PropertyData;
@@ -1333,8 +1333,7 @@ function PropertyActionsFooter({
     canAccessDashboard: boolean;
     checkCanPitch: (placeId: string) => { allowed: boolean; reason: string | null };
     assignableUsers: { id: string; display_name: string | null; email: string | null; role: string }[];
-    assignProperty: (placeId: string, assignedTo: string, notes?: string) => Promise<any>;
-    assignPropertyToTeam: (placeId: string, teamId: string, notes?: string) => Promise<any>;
+    assignProperty: (placeId: string, assignedTo: string | null, options?: { teamId?: string; notes?: string }) => Promise<any>;
     preRejectProperty: (placeId: string, reason: string, notes?: string) => Promise<any>;
     removeAssignment: (placeId: string) => Promise<void>;
     assignment: PropertyAssignment | null;
@@ -1406,7 +1405,7 @@ function PropertyActionsFooter({
 
     const handleAssignToTeam = async (teamId: string) => {
         try {
-            await assignPropertyToTeam(placeId, teamId);
+            await assignProperty(placeId, null, { teamId });
             const team = teams.find(t => t.id === teamId);
             showToast(`Assigned to ${team?.name || "team"}`);
         } catch {
@@ -1641,7 +1640,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
     const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address, true);
     const placeId = generatePropertyPlaceId(property);
     const { getPitchStatus, getPitchDate, getPitchRejectionReason } = usePitchStatusContext();
-    const { getAssignment, canPitch: checkCanPitch, users: assignableUsers, assignProperty, assignPropertyToTeam, preRejectProperty, removeAssignment } = usePropertyAssignmentContext();
+    const { getAssignment, canPitch: checkCanPitch, users: assignableUsers, assignProperty, preRejectProperty, removeAssignment } = usePropertyAssignmentContext();
     const { canAccessDashboard } = useUserProfiles();
     const { createTrip, updateTrip } = useScoutingTrips();
     const { showToast } = useToast();
@@ -1862,7 +1861,6 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                 checkCanPitch={checkCanPitch}
                 assignableUsers={assignableUsers}
                 assignProperty={assignProperty}
-                assignPropertyToTeam={assignPropertyToTeam}
                 preRejectProperty={preRejectProperty}
                 removeAssignment={removeAssignment}
                 assignment={assignment}

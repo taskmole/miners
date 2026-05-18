@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest } from "@/lib/supabase-server";
+import { authenticateRequest, getUserTeamIds } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
@@ -9,12 +9,7 @@ export async function GET(request: NextRequest) {
   const { supabase, userId } = auth;
 
   try {
-    // Get user's team IDs for team list access
-    const { data: teamRows } = await supabase
-      .from("team_members")
-      .select("team_id")
-      .eq("user_id", userId);
-    const teamIds = (teamRows || []).map((r: any) => r.team_id);
+    const teamIds = await getUserTeamIds(supabase, userId);
 
     // Fetch user's own lists + team lists
     let listsQuery = supabase
