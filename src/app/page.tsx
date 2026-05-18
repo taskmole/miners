@@ -38,7 +38,8 @@ import { PitchStatusProvider } from "@/contexts/PitchStatusContext";
 import { PropertyAssignmentProvider } from "@/contexts/PropertyAssignmentContext";
 import { TeamsProvider } from "@/contexts/TeamsContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
-import { supabase } from "@/lib/supabase";
+import { supabase, signOut } from "@/lib/supabase";
+import { apiFetch } from "@/lib/api-client";
 import { setAuthUserId } from "@/lib/browser-session";
 import { migrateAnonymousData } from "@/lib/supabaseHelpers";
 import type { User } from "@supabase/supabase-js";
@@ -66,11 +67,26 @@ function HomeContent() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
+  // Account active status - null means not yet checked
+  const [isActive, setIsActive] = useState<boolean | null>(null);
+
   // Landing page state - shows on first load (unless already logged in)
   const [showLanding, setShowLanding] = useState(true);
 
   // Onboarding city picker - shown to new users after Google sign-in
   const [showCityPicker, setShowCityPicker] = useState(false);
+
+  const checkUserActive = useCallback(async (): Promise<boolean> => {
+    try {
+      const data = await apiFetch<{ role: string; is_active: boolean }>('/api/db/user-profiles?mode=current');
+      const active = data?.is_active ?? true;
+      setIsActive(active);
+      return active;
+    } catch {
+      setIsActive(true);
+      return true;
+    }
+  }, []);
 
   // Check for auth session on mount and listen for changes
   useEffect(() => {
@@ -103,10 +119,10 @@ function HomeContent() {
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        // Re-tag anonymous data BEFORE setting auth ID (prevents race condition)
         await migrateAnonymousData(session.user.id);
         setUser(session.user);
         setAuthUserId(session.user.id);
+        await checkUserActive();
         setShowLanding(false);
         applyCityForUser(session.user);
       }
@@ -121,10 +137,13 @@ function HomeContent() {
         }
         setUser(session?.user ?? null);
         setAuthUserId(session?.user?.id ?? null);
-        if (session?.user) {
+        if (event === 'SIGNED_IN' && session?.user) {
+          await checkUserActive();
           setShowLanding(false);
           setAuthError(null);
           applyCityForUser(session.user);
+        } else if (!session?.user) {
+          setIsActive(null);
         }
       }
     );
@@ -424,6 +443,29 @@ function HomeContent() {
         isVisible={showLanding && authChecked}
         authError={authError}
       />
+
+      {/* Account Pending - shown to inactive users */}
+      {user && isActive === false && (
+        <div className="fixed inset-0 z-[175] bg-black flex flex-col items-center justify-center px-6">
+          <div className="flex flex-col items-center gap-6 max-w-md text-center">
+            <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center">
+              <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-semibold text-white">Account Pending</h1>
+            <p className="text-zinc-400 text-sm leading-relaxed">
+              Your account is waiting for approval. Contact your team lead if you need immediate access.
+            </p>
+            <button
+              onClick={() => signOut()}
+              className="px-6 py-3 bg-white text-zinc-800 rounded-lg hover:bg-zinc-100 transition-colors font-medium"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* City Picker - shown to new users after sign-in */}
       <CityPicker
