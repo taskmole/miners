@@ -15,25 +15,64 @@ import type {
 import type { Attachment } from '@/types/attachments';
 import {
   SCOUTING_TRIPS_VERSION,
+  SCOUTING_TRIPS_STORAGE_KEY,
   generateTripId,
   createEmptyTrip,
   createDefaultChecklist,
 } from '@/types/scouting';
 import { apiFetch } from '@/lib/api-client';
-import { getCurrentUserId } from '@/lib/browser-session';
+import { getCurrentUserId, getAuthUserId } from '@/lib/browser-session';
 import { computeTripAssessment } from '@/lib/trip-scoring';
 import { useAuth } from '@/contexts/AuthContext';
 import { logActivity } from '@/lib/supabaseHelpers';
+import {
+  enqueue,
+  hasPendingUpsert,
+  hasPendingDelete,
+  initSyncQueue,
+  startDraining,
+} from '@/lib/trip-sync';
 
-/**
- * Fetch ALL trip data from the server API route.
- */
-async function fetchTripsFromApi(): Promise<ScoutingTrip[]> {
+type TripUpdater = (current: ScoutingTrip) => Partial<ScoutingTrip>;
+
+const POLL_INTERVAL = 60_000;
+
+// --- localStorage persistence ---
+
+function persistTripsToLocalStorage(trips: ScoutingTrip[]): void {
+  try {
+    // Filter out team trips (server-only) and strip attachments (may contain base64)
+    const toStore = trips
+      .filter(t => !t.teamId)
+      .map(t => ({ ...t, attachments: [] }));
+    const state: ScoutingTripsState = { version: SCOUTING_TRIPS_VERSION, trips: toStore };
+    localStorage.setItem(SCOUTING_TRIPS_STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    console.error('Error saving trips to localStorage:', error);
+  }
+}
+
+function getInitialTripsFromLocalStorage(): ScoutingTrip[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(SCOUTING_TRIPS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as ScoutingTripsState;
+      return parsed.trips || [];
+    }
+  } catch (error) {
+    console.error('Error loading trips from localStorage:', error);
+  }
+  return [];
+}
+
+// --- Server fetch (returns { ok, trips } so errors don't wipe state) ---
+
+async function fetchTripsFromApi(): Promise<{ ok: boolean; trips: ScoutingTrip[] }> {
   try {
     const data = await apiFetch<Array<Record<string, unknown>>>('/api/db/pitches?mode=user');
 
-    // Map every snake_case column back to the camelCase ScoutingTrip shape.
-    return (data || []).map((row: Record<string, unknown>) => ({
+    const trips = (data || []).map((row: Record<string, unknown>) => ({
       id: row.id as string,
       cityId: (row.city_id as string) || 'madrid',
       createdBy: (row.created_by as string) || '',
@@ -42,14 +81,12 @@ async function fetchTripsFromApi(): Promise<ScoutingTrip[]> {
       status: (row.status as ScoutingTripStatus) || 'draft',
       name: (row.trip_name as string) || '',
 
-      // Structured JSONB fields
       property: (row.property as LinkedItem | null) ?? null,
       relatedPlaces: (row.related_places as LinkedItem[]) ?? [],
       checklist: (row.checklist as ChecklistItem[]) ?? createDefaultChecklist(),
-      attachments: [] as Attachment[], // Attachments are stored by path, not inline
+      attachments: [] as Attachment[],
       uploadedDocument: (row.uploaded_document as UploadedDocument | undefined) ?? undefined,
 
-      // Location
       address: (row.address as string) || '',
       areaSqm: (row.area_sqm as number) ?? undefined,
       storageSqm: (row.storage_sqm as number) ?? undefined,
@@ -58,7 +95,6 @@ async function fetchTripsFromApi(): Promise<ScoutingTrip[]> {
       neighbourhoodProfile: (row.neighbourhood_profile as string) ?? undefined,
       nearbyCompetitors: (row.nearby_competitors as string) ?? undefined,
 
-      // Financial
       monthlyRent: (row.monthly_rent as number) ?? undefined,
       serviceFees: (row.service_fees as number) ?? undefined,
       deposit: (row.deposit as number) ?? undefined,
@@ -70,7 +106,6 @@ async function fetchTripsFromApi(): Promise<ScoutingTrip[]> {
       paybackMonths: (row.payback_months as number) ?? undefined,
       currencyCode: (row.currency_code as string) ?? undefined,
 
-      // Operational
       ventilation: (row.ventilation as string) ?? undefined,
       waterWaste: (row.water_waste as string) ?? undefined,
       powerCapacity: (row.power_capacity as string) ?? undefined,
@@ -82,29 +117,55 @@ async function fetchTripsFromApi(): Promise<ScoutingTrip[]> {
         : (row.outdoor_seating as string) ?? undefined,
       flatSurface: (row.flat_surface as boolean) ?? undefined,
 
-      // Other
       risks: Array.isArray(row.risks) && (row.risks as string[]).length > 0
         ? (row.risks as string[])[0]
         : (row.risks as string) ?? undefined,
       photos: [] as ScoutingPhoto[],
 
-      // Team
       teamId: (row.team_id as string) ?? undefined,
 
-      // Review / rejection
       rejectionNotes: (row.rejection_notes as string) ?? undefined,
       reviewedBy: (row.reviewed_by as string) ?? undefined,
       reviewedAt: (row.final_reviewed_at as string) ?? undefined,
       submittedAt: (row.submitted_at as string) ?? undefined,
 
-      // Timestamps
       createdAt: (row.created_at as string) || new Date().toISOString(),
-      updatedAt: (row.created_at as string) || new Date().toISOString(),
+      updatedAt: (row.updated_at as string) || (row.created_at as string) || new Date().toISOString(),
     } as ScoutingTrip));
+
+    return { ok: true, trips };
   } catch (error) {
     console.error('Error fetching pitches from API:', error);
-    return [];
+    return { ok: false, trips: [] };
   }
+}
+
+// --- Merge: server is source of truth, but preserve pending local operations ---
+
+function mergeTrips(serverTrips: ScoutingTrip[], localTrips: ScoutingTrip[]): ScoutingTrip[] {
+  const serverMap = new Map(serverTrips.map(t => [t.id, t]));
+  const localMap = new Map(localTrips.map(t => [t.id, t]));
+  const merged: ScoutingTrip[] = [];
+
+  // Server trips: skip if pending delete, use local version if pending upsert
+  for (const serverTrip of serverTrips) {
+    if (hasPendingDelete(serverTrip.id)) continue;
+
+    if (hasPendingUpsert(serverTrip.id) && localMap.has(serverTrip.id)) {
+      merged.push(localMap.get(serverTrip.id)!);
+    } else {
+      merged.push(serverTrip);
+    }
+  }
+
+  // Local-only trips: keep if they have a pending upsert (created offline)
+  for (const localTrip of localTrips) {
+    if (!serverMap.has(localTrip.id) && hasPendingUpsert(localTrip.id)) {
+      merged.push(localTrip);
+    }
+  }
+
+  return merged;
 }
 
 /**
@@ -112,29 +173,25 @@ async function fetchTripsFromApi(): Promise<ScoutingTrip[]> {
  */
 function buildPitchRow(trip: ScoutingTrip) {
   return {
-    // Identity
     id: trip.id,
     city_id: trip.cityId,
     created_by: trip.createdBy,
     created_at: trip.createdAt,
+    updated_at: trip.updatedAt,
 
-    // Status
     status: trip.status,
     submitted_at: trip.submittedAt,
 
-    // Basic info
     trip_name: trip.name,
     trip_type: trip.tripType || 'form',
     author_name: trip.authorName,
     address: trip.address || trip.property?.address,
-    condition_notes: trip.notes,
+    condition_notes: undefined,
 
-    // Structured JSONB fields
     property: trip.property ?? null,
     related_places: trip.relatedPlaces ?? [],
     uploaded_document: trip.uploadedDocument ?? null,
 
-    // Location fields
     area_sqm: trip.areaSqm,
     storage_sqm: trip.storageSqm,
     property_type: trip.propertyType,
@@ -142,7 +199,6 @@ function buildPitchRow(trip: ScoutingTrip) {
     neighbourhood_profile: trip.neighbourhoodProfile,
     nearby_competitors: trip.nearbyCompetitors,
 
-    // Financial fields
     monthly_rent: trip.monthlyRent,
     service_fees: trip.serviceFees,
     deposit: trip.deposit,
@@ -154,7 +210,6 @@ function buildPitchRow(trip: ScoutingTrip) {
     payback_months: trip.paybackMonths,
     currency_code: trip.currencyCode,
 
-    // Operational fields
     ventilation: trip.ventilation,
     water_waste: trip.waterWaste,
     power_capacity: trip.powerCapacity,
@@ -164,52 +219,59 @@ function buildPitchRow(trip: ScoutingTrip) {
     outdoor_seating: trip.outdoorSeating,
     flat_surface: trip.flatSurface,
 
-    // Other
     risks: trip.risks ? [trip.risks] : null,
     checklist: trip.checklist,
     attachment_paths: trip.attachments?.map(a => a.storagePath).filter(Boolean) || [],
 
-    // Team
     team_id: trip.teamId ?? null,
 
-    // Review info
     rejection_notes: trip.rejectionNotes,
     reviewed_by: trip.reviewedBy,
     final_reviewed_at: trip.reviewedAt,
   };
 }
 
-/**
- * Sync trip create/update to the server API (fire-and-forget).
- */
-async function syncTripToApi(trip: ScoutingTrip): Promise<void> {
-  try {
-    await apiFetch('/api/db/pitches', {
-      method: 'POST',
-      body: JSON.stringify(buildPitchRow(trip)),
-    });
-  } catch (error) {
-    console.error('Error syncing trip to API:', error);
-  }
-}
+// --- Context ---
 
 /**
- * Sync trip delete to the server API (fire-and-forget).
+ * Shared mutation helper: find trip, apply updates, setState, enqueue upsert, recompute assessment.
+ * Eliminates the repeated 4-step pattern across all mutation functions.
  */
-async function syncDeleteToApi(tripId: string): Promise<void> {
-  try {
-    await apiFetch(`/api/db/pitches?id=${encodeURIComponent(tripId)}`, {
-      method: 'DELETE',
-    });
-  } catch (error) {
-    console.error('Error deleting trip from API:', error);
-  }
+function applyTripUpdate(
+  tripId: string,
+  tripsRef: React.MutableRefObject<ScoutingTrip[]>,
+  setState: React.Dispatch<React.SetStateAction<ScoutingTripsState>>,
+  setTripAssessments: React.Dispatch<React.SetStateAction<Map<string, TripAssessment>>>,
+  updater: TripUpdater,
+): ScoutingTrip | undefined {
+  const current = tripsRef.current.find(t => t.id === tripId);
+  if (!current) return undefined;
+
+  const updates = updater(current);
+  const updatedTrip = { ...current, ...updates, updatedAt: new Date().toISOString() };
+
+  setState(prev => ({
+    ...prev,
+    trips: prev.trips.map(t => t.id === tripId ? updatedTrip : t),
+  }));
+
+  enqueue({
+    type: 'upsert_trip',
+    tripId,
+    payload: buildPitchRow(updatedTrip),
+  });
+
+  setTripAssessments(prev => {
+    const next = new Map(prev);
+    next.set(tripId, computeTripAssessment(updatedTrip));
+    return next;
+  });
+
+  return updatedTrip;
 }
 
-// Context value type
 interface ScoutingTripsContextValue {
   isLoaded: boolean;
-  // Read operations
   getTrips: (cityId?: string) => ScoutingTrip[];
   getTrip: (tripId: string) => ScoutingTrip | undefined;
   getTripsByStatus: (status: ScoutingTripStatus, cityId?: string) => ScoutingTrip[];
@@ -220,34 +282,24 @@ interface ScoutingTripsContextValue {
     approved: number;
     rejected: number;
   };
-  // Create operations
   createTrip: (cityId: string) => ScoutingTrip;
   createUploadTrip: (cityId: string, name: string, document: UploadedDocument) => ScoutingTrip;
-  // Current user display name (for callers that need it, e.g. attachment uploads)
   currentAuthorName: string;
-  // Update operations
   updateTrip: (tripId: string, updates: Partial<ScoutingTrip>) => void;
   submitTrip: (tripId: string) => void;
   approveTrip: (tripId: string, reviewerName?: string) => void;
   rejectTrip: (tripId: string, rejectionNotes: string, reviewerName?: string) => void;
-  // Delete operations
   deleteTrip: (tripId: string) => void;
-  // Property & Related Places (new structure)
   setProperty: (tripId: string, property: LinkedItem) => void;
   addRelatedPlace: (tripId: string, item: LinkedItem) => void;
   removeRelatedPlace: (tripId: string, itemId: string) => void;
-  // Legacy linked items (for backwards compatibility during transition)
   addLinkedItem: (tripId: string, item: LinkedItem) => void;
   removeLinkedItem: (tripId: string, itemId: string) => void;
-  // Checklist
   updateChecklist: (tripId: string, checklist: ChecklistItem[]) => void;
-  // Attachments
   addAttachment: (tripId: string, attachment: Attachment) => void;
   removeAttachment: (tripId: string, attachmentId: string) => void;
-  // Photos (legacy)
   addPhoto: (tripId: string, photo: ScoutingPhoto) => void;
   removePhoto: (tripId: string, photoId: string) => void;
-  // Trip assessment scoring
   getTripAssessment: (tripId: string) => TripAssessment | undefined;
 }
 
@@ -256,8 +308,12 @@ const ScoutingTripsContext = createContext<ScoutingTripsContextValue | undefined
 export function ScoutingTripsProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<ScoutingTripsState>({ version: SCOUTING_TRIPS_VERSION, trips: [] });
   const [isLoaded, setIsLoaded] = useState(false);
-  const initialLoadDone = useRef(false);
   const [tripAssessments, setTripAssessments] = useState<Map<string, TripAssessment>>(new Map());
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Ref to current trips so mutations read fresh state (avoids React 18 batching bugs)
+  const tripsRef = useRef(state.trips);
+  tripsRef.current = state.trips;
 
   const { userId: authUserId } = useAuth();
   const [currentDisplayName, setCurrentDisplayName] = useState<string | null>(null);
@@ -285,42 +341,100 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
     setTripAssessments(map);
   }
 
-  // Load from API on mount
+  // --- Initial load: localStorage first (instant UI), then server fetch + merge ---
+  // Uses cancelled flag (not ref guard) so React 19 Strict Mode double-mount works correctly.
+  // A ref guard persists across unmount/remount but state resets, leaving isLoaded=false forever.
   useEffect(() => {
-    if (initialLoadDone.current) return;
-    initialLoadDone.current = true;
+    let cancelled = false;
+
+    initSyncQueue();
 
     async function loadTrips() {
-      const apiTrips = await fetchTripsFromApi();
+      const localTrips = getInitialTripsFromLocalStorage();
 
-      setState({
-        version: SCOUTING_TRIPS_VERSION,
-        trips: apiTrips,
-      });
-      recomputeAssessments(apiTrips);
-      setIsLoaded(true);
+      if (!cancelled && localTrips.length > 0) {
+        setState({ version: SCOUTING_TRIPS_VERSION, trips: localTrips });
+        recomputeAssessments(localTrips);
+      }
+      if (!cancelled) setIsLoaded(true);
+
+      if (!getAuthUserId()) {
+        startDraining();
+        return;
+      }
+
+      const result = await fetchTripsFromApi();
+      if (cancelled) return;
+      if (!result.ok) {
+        startDraining();
+        return;
+      }
+
+      const merged = mergeTrips(result.trips, localTrips);
+      setState({ version: SCOUTING_TRIPS_VERSION, trips: merged });
+      persistTripsToLocalStorage(merged);
+      recomputeAssessments(merged);
+
+      startDraining();
     }
 
     loadTrips();
+    return () => { cancelled = true; };
   }, []);
 
-  // Get all trips for a city
+  // Persist to localStorage on every state change
+  useEffect(() => {
+    if (!isLoaded) return;
+    persistTripsToLocalStorage(state.trips);
+  }, [state.trips, isLoaded]);
+
+  // Polling: refetch server state every 60s
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!getAuthUserId()) return;
+
+    pollRef.current = setInterval(async () => {
+      const result = await fetchTripsFromApi();
+      if (!result.ok) return;
+
+      const merged = mergeTrips(result.trips, tripsRef.current);
+      setState(prev => ({ ...prev, trips: merged }));
+      recomputeAssessments(merged);
+    }, POLL_INTERVAL);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [isLoaded]);
+
+  // --- Read operations ---
+
   const getTrips = useCallback((cityId?: string): ScoutingTrip[] => {
     if (!cityId) return state.trips;
     return state.trips.filter(t => t.cityId === cityId);
   }, [state.trips]);
 
-  // Get a single trip by ID
   const getTrip = useCallback((tripId: string): ScoutingTrip | undefined => {
     return state.trips.find(t => t.id === tripId);
   }, [state.trips]);
 
-  // Get trips by status
   const getTripsByStatus = useCallback((status: ScoutingTripStatus, cityId?: string): ScoutingTrip[] => {
     return state.trips.filter(t => t.status === status && (!cityId || t.cityId === cityId));
   }, [state.trips]);
 
-  // Build shared metadata for scouting trip activity logging
+  const getTripCounts = useCallback((cityId?: string) => {
+    const trips = cityId ? state.trips.filter(t => t.cityId === cityId) : state.trips;
+    return {
+      total: trips.length,
+      draft: trips.filter(t => t.status === 'draft').length,
+      submitted: trips.filter(t => t.status === 'submitted').length,
+      approved: trips.filter(t => t.status === 'approved').length,
+      rejected: trips.filter(t => t.status === 'rejected').length,
+    };
+  }, [state.trips]);
+
+  // --- Activity logging helper ---
+
   const logTripActivity = (actionType: string, trip: ScoutingTrip) => {
     logActivity(actionType, {
       tripId: trip.id,
@@ -330,7 +444,8 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
     });
   };
 
-  // Create a new trip (returns the created trip)
+  // --- Create operations ---
+
   const createTrip = useCallback((cityId: string): ScoutingTrip => {
     const now = new Date().toISOString();
     const newTrip: ScoutingTrip = {
@@ -346,13 +461,16 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       trips: [newTrip, ...prev.trips],
     }));
 
-    syncTripToApi(newTrip);
+    enqueue({
+      type: 'upsert_trip',
+      tripId: newTrip.id,
+      payload: buildPitchRow(newTrip),
+    });
     logTripActivity("created_scouting_trip", newTrip);
 
     return newTrip;
   }, [resolvedUserId, resolvedAuthorName]);
 
-  // Create a trip from uploaded document
   const createUploadTrip = useCallback((
     cityId: string,
     name: string,
@@ -375,278 +493,127 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       trips: [newTrip, ...prev.trips],
     }));
 
-    syncTripToApi(newTrip);
+    enqueue({
+      type: 'upsert_trip',
+      tripId: newTrip.id,
+      payload: buildPitchRow(newTrip),
+    });
 
     return newTrip;
   }, [resolvedUserId, resolvedAuthorName]);
 
-  // Update a trip
-  const updateTrip = useCallback((tripId: string, updates: Partial<ScoutingTrip>): void => {
-    setState(prev => {
-      const newTrips = prev.trips.map(t =>
-        t.id === tripId
-          ? { ...t, ...updates, updatedAt: new Date().toISOString() }
-          : t
-      );
+  // --- Mutation helper (binds refs for all mutation callbacks below) ---
 
-      // Find updated trip and sync to API
-      const updatedTrip = newTrips.find(t => t.id === tripId);
-      if (updatedTrip) {
-        syncTripToApi(updatedTrip);
-        setTripAssessments(prev => {
-          const next = new Map(prev);
-          next.set(tripId, computeTripAssessment(updatedTrip));
-          return next;
-        });
-      }
-
-      return { ...prev, trips: newTrips };
-    });
+  const mutateTrip = useCallback((tripId: string, updater: TripUpdater): ScoutingTrip | undefined => {
+    return applyTripUpdate(tripId, tripsRef, setState, setTripAssessments, updater);
   }, []);
 
-  // Delete a trip
+  // --- Update operations ---
+
+  const updateTrip = useCallback((tripId: string, updates: Partial<ScoutingTrip>): void => {
+    mutateTrip(tripId, () => updates);
+  }, [mutateTrip]);
+
   const deleteTrip = useCallback((tripId: string): void => {
     setState(prev => ({
       ...prev,
       trips: prev.trips.filter(t => t.id !== tripId),
     }));
 
-    // Sync to API in background
-    syncDeleteToApi(tripId);
+    enqueue({
+      type: 'delete_trip',
+      tripId,
+      payload: { tripId },
+    });
   }, []);
 
-  // Submit a trip for review
   const submitTrip = useCallback((tripId: string): void => {
-    const now = new Date().toISOString();
-    setState(prev => {
-      const newTrips = prev.trips.map(t =>
-        t.id === tripId
-          ? { ...t, status: 'submitted' as ScoutingTripStatus, submittedAt: now, updatedAt: now }
-          : t
-      );
+    const updated = mutateTrip(tripId, () => ({
+      status: 'submitted' as ScoutingTripStatus,
+      submittedAt: new Date().toISOString(),
+    }));
+    if (updated) logTripActivity("submitted_scouting_trip", updated);
+  }, [mutateTrip]);
 
-      const updatedTrip = newTrips.find(t => t.id === tripId);
-      if (updatedTrip) {
-        syncTripToApi(updatedTrip);
-        logTripActivity("submitted_scouting_trip", updatedTrip);
-      }
-
-      return { ...prev, trips: newTrips };
-    });
-  }, []);
-
-  // Approve a trip (admin action)
   const approveTrip = useCallback((tripId: string, reviewerName: string = 'Admin'): void => {
-    const now = new Date().toISOString();
-    setState(prev => {
-      const newTrips = prev.trips.map(t =>
-        t.id === tripId
-          ? {
-              ...t,
-              status: 'approved' as ScoutingTripStatus,
-              reviewedAt: now,
-              reviewedBy: reviewerName,
-              updatedAt: now,
-            }
-          : t
-      );
+    mutateTrip(tripId, () => ({
+      status: 'approved' as ScoutingTripStatus,
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: reviewerName,
+    }));
+  }, [mutateTrip]);
 
-      const updatedTrip = newTrips.find(t => t.id === tripId);
-      if (updatedTrip) {
-        syncTripToApi(updatedTrip);
-      }
-
-      return { ...prev, trips: newTrips };
-    });
-  }, []);
-
-  // Reject a trip (admin action)
   const rejectTrip = useCallback((tripId: string, rejectionNotes: string, reviewerName: string = 'Admin'): void => {
-    const now = new Date().toISOString();
-    setState(prev => {
-      const newTrips = prev.trips.map(t =>
-        t.id === tripId
-          ? {
-              ...t,
-              status: 'rejected' as ScoutingTripStatus,
-              rejectionNotes,
-              reviewedAt: now,
-              reviewedBy: reviewerName,
-              updatedAt: now,
-            }
-          : t
-      );
+    mutateTrip(tripId, () => ({
+      status: 'rejected' as ScoutingTripStatus,
+      rejectionNotes,
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: reviewerName,
+    }));
+  }, [mutateTrip]);
 
-      const updatedTrip = newTrips.find(t => t.id === tripId);
-      if (updatedTrip) {
-        syncTripToApi(updatedTrip);
-      }
+  // ===== PROPERTY & RELATED PLACES =====
 
-      return { ...prev, trips: newTrips };
-    });
-  }, []);
-
-  // ===== PROPERTY & RELATED PLACES MANAGEMENT =====
-
-  // Set the main property for a trip
   const setProperty = useCallback((tripId: string, property: LinkedItem): void => {
-    setState(prev => ({
-      ...prev,
-      trips: prev.trips.map(t =>
-        t.id === tripId
-          ? {
-              ...t,
-              property,
-              // Auto-fill address from property if not set
-              address: t.address || property.address,
-              updatedAt: new Date().toISOString(),
-            }
-          : t
-      ),
+    mutateTrip(tripId, (current) => ({
+      property,
+      address: current.address || property.address,
     }));
-  }, []);
+  }, [mutateTrip]);
 
-  // Add a related place to a trip
   const addRelatedPlace = useCallback((tripId: string, item: LinkedItem): void => {
-    setState(prev => ({
-      ...prev,
-      trips: prev.trips.map(t =>
-        t.id === tripId
-          ? {
-              ...t,
-              relatedPlaces: [...t.relatedPlaces, item],
-              updatedAt: new Date().toISOString(),
-            }
-          : t
-      ),
+    mutateTrip(tripId, (current) => ({
+      relatedPlaces: [...current.relatedPlaces, item],
     }));
-  }, []);
+  }, [mutateTrip]);
 
-  // Remove a related place from a trip
   const removeRelatedPlace = useCallback((tripId: string, itemId: string): void => {
-    setState(prev => ({
-      ...prev,
-      trips: prev.trips.map(t =>
-        t.id === tripId
-          ? {
-              ...t,
-              relatedPlaces: t.relatedPlaces.filter(i => i.id !== itemId),
-              updatedAt: new Date().toISOString(),
-            }
-          : t
-      ),
+    mutateTrip(tripId, (current) => ({
+      relatedPlaces: current.relatedPlaces.filter(i => i.id !== itemId),
     }));
-  }, []);
+  }, [mutateTrip]);
 
-  // Legacy: Add a linked item (now adds to relatedPlaces for backwards compatibility)
   const addLinkedItem = useCallback((tripId: string, item: LinkedItem): void => {
     addRelatedPlace(tripId, item);
   }, [addRelatedPlace]);
 
-  // Legacy: Remove a linked item (now removes from relatedPlaces)
   const removeLinkedItem = useCallback((tripId: string, itemId: string): void => {
     removeRelatedPlace(tripId, itemId);
   }, [removeRelatedPlace]);
 
-  // ===== CHECKLIST MANAGEMENT =====
+  // ===== CHECKLIST =====
 
-  // Update the entire checklist for a trip
   const updateChecklist = useCallback((tripId: string, checklist: ChecklistItem[]): void => {
-    setState(prev => ({
-      ...prev,
-      trips: prev.trips.map(t =>
-        t.id === tripId
-          ? {
-              ...t,
-              checklist,
-              updatedAt: new Date().toISOString(),
-            }
-          : t
-      ),
-    }));
-  }, []);
+    mutateTrip(tripId, () => ({ checklist }));
+  }, [mutateTrip]);
 
-  // ===== ATTACHMENT MANAGEMENT =====
+  // ===== ATTACHMENTS =====
 
-  // Add an attachment to a trip
   const addAttachment = useCallback((tripId: string, attachment: Attachment): void => {
-    setState(prev => ({
-      ...prev,
-      trips: prev.trips.map(t =>
-        t.id === tripId
-          ? {
-              ...t,
-              attachments: [...t.attachments, attachment],
-              updatedAt: new Date().toISOString(),
-            }
-          : t
-      ),
+    mutateTrip(tripId, (current) => ({
+      attachments: [...current.attachments, attachment],
     }));
-  }, []);
+  }, [mutateTrip]);
 
-  // Remove an attachment from a trip
   const removeAttachment = useCallback((tripId: string, attachmentId: string): void => {
-    setState(prev => ({
-      ...prev,
-      trips: prev.trips.map(t =>
-        t.id === tripId
-          ? {
-              ...t,
-              attachments: t.attachments.filter(a => a.id !== attachmentId),
-              updatedAt: new Date().toISOString(),
-            }
-          : t
-      ),
+    mutateTrip(tripId, (current) => ({
+      attachments: current.attachments.filter(a => a.id !== attachmentId),
     }));
-  }, []);
+  }, [mutateTrip]);
 
-  // ===== PHOTO MANAGEMENT =====
+  // ===== PHOTOS =====
 
-  // Add a photo to a trip
   const addPhoto = useCallback((tripId: string, photo: ScoutingPhoto): void => {
-    setState(prev => ({
-      ...prev,
-      trips: prev.trips.map(t =>
-        t.id === tripId
-          ? {
-              ...t,
-              photos: [...t.photos, photo],
-              updatedAt: new Date().toISOString(),
-            }
-          : t
-      ),
+    mutateTrip(tripId, (current) => ({
+      photos: [...current.photos, photo],
     }));
-  }, []);
+  }, [mutateTrip]);
 
-  // Remove a photo from a trip
   const removePhoto = useCallback((tripId: string, photoId: string): void => {
-    setState(prev => ({
-      ...prev,
-      trips: prev.trips.map(t =>
-        t.id === tripId
-          ? {
-              ...t,
-              photos: t.photos.filter(p => p.id !== photoId),
-              updatedAt: new Date().toISOString(),
-            }
-          : t
-      ),
+    mutateTrip(tripId, (current) => ({
+      photos: current.photos.filter(p => p.id !== photoId),
     }));
-  }, []);
-
-  // ===== STATISTICS =====
-
-  // Get count of trips by status
-  const getTripCounts = useCallback((cityId?: string) => {
-    const trips = cityId ? state.trips.filter(t => t.cityId === cityId) : state.trips;
-    return {
-      total: trips.length,
-      draft: trips.filter(t => t.status === 'draft').length,
-      submitted: trips.filter(t => t.status === 'submitted').length,
-      approved: trips.filter(t => t.status === 'approved').length,
-      rejected: trips.filter(t => t.status === 'rejected').length,
-    };
-  }, [state.trips]);
+  }, [mutateTrip]);
 
   return (
     <ScoutingTripsContext.Provider
