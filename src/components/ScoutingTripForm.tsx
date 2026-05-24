@@ -26,7 +26,9 @@ import { TripChecklist } from "@/components/TripChecklist";
 import { AttachmentGallery } from "@/components/attachments";
 import { NearbyCompetitors, parseCompetitors } from "@/components/NearbyCompetitors";
 import { useScoutingDefaults } from "@/hooks/useScoutingDefaults";
-import { processFileToAttachment } from "@/utils/attachmentUtils";
+import { uploadToStorage, getSignedUrl } from "@/lib/attachment-storage";
+import { generateThumbnail } from "@/utils/attachmentUtils";
+import { validateFile, getFileCategory } from "@/types/attachments";
 import type { Attachment } from "@/types/attachments";
 import type {
   ScoutingTrip,
@@ -514,11 +516,42 @@ export function ScoutingTripForm({
   };
 
   const handleAddAttachment = async (file: File) => {
-    const result = await processFileToAttachment(file, currentAuthorName);
-    if (result.success && result.attachment) {
-      setAttachments(prev => [...prev, result.attachment!]);
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
     }
-    return result;
+
+    const attachmentId = crypto.randomUUID();
+    const contextId = tripId || 'pending-trip';
+
+    const storagePath = await uploadToStorage(contextId, file, attachmentId);
+    if (!storagePath) {
+      return { success: false, error: 'Upload failed. Please try again.' };
+    }
+
+    const signedUrl = await getSignedUrl(storagePath);
+    let thumbnailData: string | undefined;
+    if (getFileCategory(file.type) === 'image') {
+      try {
+        thumbnailData = await generateThumbnail(file);
+      } catch { /* thumbnail is optional */ }
+    }
+
+    const attachment: Attachment = {
+      id: attachmentId,
+      name: file.name,
+      type: file.type,
+      data: '',
+      storagePath,
+      signedUrl: signedUrl || undefined,
+      thumbnailData,
+      size: file.size,
+      addedAt: new Date().toISOString(),
+      uploadedByName: currentAuthorName,
+    };
+
+    setAttachments(prev => [...prev, attachment]);
+    return { success: true };
   };
 
   const handleRemoveAttachment = (attachmentId: string) => {

@@ -21,6 +21,7 @@ import {
   createDefaultChecklist,
 } from '@/types/scouting';
 import { apiFetch } from '@/lib/api-client';
+import { getSignedUrl } from '@/lib/attachment-storage';
 import { getCurrentUserId, getAuthUserId } from '@/lib/browser-session';
 import { computeTripAssessment } from '@/lib/trip-scoring';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,10 +42,15 @@ const POLL_INTERVAL = 60_000;
 
 function persistTripsToLocalStorage(trips: ScoutingTrip[]): void {
   try {
-    // Filter out team trips (server-only) and strip attachments (may contain base64)
+    // Filter out team trips (server-only) and strip attachment binary data (keep metadata)
     const toStore = trips
       .filter(t => !t.teamId)
-      .map(t => ({ ...t, attachments: [] }));
+      .map(t => ({
+        ...t,
+        attachments: t.attachments
+          .filter(a => a.storagePath)
+          .map(a => ({ ...a, data: '', thumbnailData: undefined, signedUrl: undefined })),
+      }));
     const state: ScoutingTripsState = { version: SCOUTING_TRIPS_VERSION, trips: toStore };
     localStorage.setItem(SCOUTING_TRIPS_STORAGE_KEY, JSON.stringify(state));
   } catch (error) {
@@ -84,7 +90,16 @@ async function fetchTripsFromApi(): Promise<{ ok: boolean; trips: ScoutingTrip[]
       property: (row.property as LinkedItem | null) ?? null,
       relatedPlaces: (row.related_places as LinkedItem[]) ?? [],
       checklist: (row.checklist as ChecklistItem[]) ?? createDefaultChecklist(),
-      attachments: [] as Attachment[],
+      attachments: ((row.attachment_paths as string[]) || []).map((path: string) => ({
+        id: path.split('/').pop()?.replace(/\.[^/.]+$/, '') || crypto.randomUUID(),
+        name: path.split('/').pop() || 'attachment',
+        type: '',
+        data: '',
+        storagePath: path,
+        size: 0,
+        addedAt: '',
+        uploadedByName: '',
+      } as Attachment)),
       uploadedDocument: (row.uploaded_document as UploadedDocument | undefined) ?? undefined,
 
       address: (row.address as string) || '',
@@ -250,6 +265,8 @@ function applyTripUpdate(
   const updates = updater(current);
   const updatedTrip = { ...current, ...updates, updatedAt: new Date().toISOString() };
 
+  tripsRef.current = tripsRef.current.map(t => t.id === tripId ? updatedTrip : t);
+
   setState(prev => ({
     ...prev,
     trips: prev.trips.map(t => t.id === tripId ? updatedTrip : t),
@@ -375,6 +392,32 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       persistTripsToLocalStorage(merged);
       recomputeAssessments(merged);
 
+      // Resolve signed URLs for cloud-stored attachments (only trips that need it)
+      const needsUrls = merged.filter(
+        t => t.attachments.some(a => a.storagePath && !a.signedUrl)
+      );
+      if (needsUrls.length > 0) {
+        const resolvedMap = new Map<string, ScoutingTrip>();
+        await Promise.all(
+          needsUrls.map(async (trip) => {
+            const resolvedAttachments = await Promise.all(
+              trip.attachments.map(async (a) => {
+                if (a.storagePath && !a.signedUrl) {
+                  const url = await getSignedUrl(a.storagePath);
+                  return { ...a, signedUrl: url || undefined };
+                }
+                return a;
+              })
+            );
+            resolvedMap.set(trip.id, { ...trip, attachments: resolvedAttachments });
+          })
+        );
+        if (!cancelled) {
+          const final = merged.map(t => resolvedMap.get(t.id) || t);
+          setState({ version: SCOUTING_TRIPS_VERSION, trips: final });
+        }
+      }
+
       startDraining();
     }
 
@@ -461,6 +504,8 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       trips: [newTrip, ...prev.trips],
     }));
 
+    tripsRef.current = [newTrip, ...tripsRef.current];
+
     enqueue({
       type: 'upsert_trip',
       tripId: newTrip.id,
@@ -492,6 +537,8 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       ...prev,
       trips: [newTrip, ...prev.trips],
     }));
+
+    tripsRef.current = [newTrip, ...tripsRef.current];
 
     enqueue({
       type: 'upsert_trip',
