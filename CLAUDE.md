@@ -8,7 +8,7 @@ I'm not technical - I don't read or understand code.
 - Archived docs (superseded by the product spec) live in `docs/archive/`.
 
 # Planning Rules
-- Plain English only, NO code snippets
+- Plain English only, NO code snippets, use .pl as formatting guidance
 - Simple language, numbered steps
 - When you are in 'Plan mode', always stress test your plan and triple check its robustness, and always evaluate to ensure the implementation won't break anything else (includes interfaces - desktop vs. mobile)
 - Always explain plans and answers in plain, simple English. Short sentences. No jargon. Like talking to a smart 15-year-old. Be concise.

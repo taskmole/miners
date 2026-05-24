@@ -50,18 +50,19 @@ export function AttachmentViewer({
 
   // Create blob URL for PDFs (browsers block base64 data URLs in iframes)
   useEffect(() => {
-    if (category === 'pdf' && attachment?.data) {
-      const blobUrl = base64ToBlobUrl(attachment.data, 'application/pdf');
-      setPdfBlobUrl(blobUrl);
-
-      // Cleanup: revoke the blob URL when component unmounts or attachment changes
-      return () => {
-        URL.revokeObjectURL(blobUrl);
-      };
-    } else {
-      setPdfBlobUrl(null);
+    if (category === 'pdf') {
+      if (attachment?.signedUrl) {
+        setPdfBlobUrl(attachment.signedUrl);
+        return;
+      }
+      if (attachment?.data) {
+        const blobUrl = base64ToBlobUrl(attachment.data, 'application/pdf');
+        setPdfBlobUrl(blobUrl);
+        return () => { URL.revokeObjectURL(blobUrl); };
+      }
     }
-  }, [attachment?.data, attachment?.id, category]);
+    setPdfBlobUrl(null);
+  }, [attachment?.data, attachment?.signedUrl, attachment?.id, category]);
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -93,10 +94,12 @@ export function AttachmentViewer({
     };
   }, [handleKeyDown]);
 
+  const displayUrl = attachment.signedUrl || attachment.data;
+
   // Download the current attachment
   const handleDownload = () => {
     const link = document.createElement('a');
-    link.href = attachment.data;
+    link.href = displayUrl;
     link.download = attachment.name;
     document.body.appendChild(link);
     link.click();
@@ -172,7 +175,7 @@ export function AttachmentViewer({
         <div className="attachment-viewer-main">
           {category === 'image' ? (
             <img
-              src={attachment.data}
+              src={displayUrl}
               alt={attachment.name}
               className="attachment-viewer-image"
             />

@@ -57,9 +57,9 @@ export function AttachmentThumbnail({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Content based on file type */}
-      {category === 'image' && attachment.thumbnailData ? (
+      {category === 'image' && (attachment.thumbnailData || attachment.signedUrl) ? (
         <img
-          src={attachment.thumbnailData}
+          src={attachment.thumbnailData || attachment.signedUrl}
           alt={attachment.name}
           className="w-full h-full object-cover"
         />
