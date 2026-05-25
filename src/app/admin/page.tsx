@@ -888,6 +888,8 @@ function AdminContent() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectNotes, setRejectNotes] = useState('');
+  const [returningId, setReturningId] = useState<string | null>(null);
+  const [returnNotes, setReturnNotes] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [cafesCityFilter, setCafesCityFilter] = useState<string>('all');
   const [showAddCafe, setShowAddCafe] = useState(false);
@@ -975,6 +977,7 @@ function AdminContent() {
         }),
       });
       refetchSubmissions();
+      sendTripStatusEmail(pitchId, 'approved');
     } catch {
       setActionError('Failed to approve');
     }
@@ -1000,9 +1003,55 @@ function AdminContent() {
       setRejectingId(null);
       setRejectNotes('');
       refetchSubmissions();
+      sendTripStatusEmail(pitchId, 'rejected', rejectNotes);
     } catch {
       setActionError('Failed to reject');
     }
+  };
+
+  const handleReturn = async (pitchId: string) => {
+    setActionError(null);
+    if (!returnNotes.trim()) {
+      setActionError('Please enter return notes');
+      return;
+    }
+    try {
+      await apiFetch('/api/db/pitches', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          id: pitchId,
+          status: 'returned',
+          return_notes: returnNotes,
+          reviewed_by: 'Admin',
+          final_reviewed_at: new Date().toISOString(),
+        }),
+      });
+      setReturningId(null);
+      setReturnNotes('');
+      refetchSubmissions();
+      sendTripStatusEmail(pitchId, 'returned', returnNotes);
+    } catch {
+      setActionError('Failed to return');
+    }
+  };
+
+  const sendTripStatusEmail = (pitchId: string, status: string, reason?: string) => {
+    const pitch = [...pendingSubmissions, ...processedSubmissions].find(p => p.id === pitchId);
+    if (!pitch?.createdBy) return;
+    const owner = users.find(u => u.id === pitch.createdBy);
+    if (!owner?.email) return;
+    apiFetch('/api/send-trip-status', {
+      method: 'POST',
+      body: JSON.stringify({
+        tripName: pitch.name || pitch.address || 'Untitled trip',
+        tripAddress: pitch.address || '',
+        recipientEmail: owner.email,
+        recipientName: owner.display_name || owner.email,
+        status,
+        reason: reason || '',
+        reviewerName: 'Admin',
+      }),
+    }).catch(() => {});
   };
 
   const toggleExpand = (id: string) => {
@@ -1241,8 +1290,38 @@ function AdminContent() {
                           </div>
                         )}
 
+                        {/* Return dialog (reviewers only) */}
+                        {canReviewSubmissions && returningId === pitch.id && (
+                          <div className="space-y-2">
+                            <textarea
+                              value={returnNotes}
+                              onChange={(e) => setReturnNotes(e.target.value)}
+                              placeholder="What needs to be fixed or added..."
+                              className="w-full h-20 px-3 py-2 text-sm border border-zinc-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={() => handleReturn(pitch.id)}
+                                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
+                              >
+                                Confirm Return
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  setReturningId(null);
+                                  setReturnNotes('');
+                                }}
+                                variant="outline"
+                                className="flex-1"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Action buttons */}
-                        {!(canReviewSubmissions && rejectingId === pitch.id) && (
+                        {!(canReviewSubmissions && (rejectingId === pitch.id || returningId === pitch.id)) && (
                           <div className="flex flex-col sm:flex-row gap-2">
                             {canReviewSubmissions && (
                               <>
@@ -1252,6 +1331,13 @@ function AdminContent() {
                                 >
                                   <Check className="w-4 h-4 mr-2" />
                                   Approve
+                                </Button>
+                                <Button
+                                  onClick={() => setReturningId(pitch.id)}
+                                  variant="outline"
+                                  className="flex-1 border-amber-300 text-amber-600 hover:bg-amber-50 h-12"
+                                >
+                                  Return for Edits
                                 </Button>
                                 <Button
                                   onClick={() => setRejectingId(pitch.id)}
@@ -1314,17 +1400,22 @@ function AdminContent() {
                                 Reason: {pitch.rejectionNotes}
                               </div>
                             )}
+                            {pitch.status === 'returned' && pitch.returnNotes && (
+                              <div className="text-sm text-amber-600 mt-1">
+                                Return reason: {pitch.returnNotes}
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             <span
                               className={cn(
                                 "px-2 py-1 text-xs font-semibold rounded-full shrink-0",
-                                pitch.status === 'approved'
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-red-100 text-red-700"
+                                pitch.status === 'approved' && "bg-green-100 text-green-700",
+                                pitch.status === 'rejected' && "bg-red-100 text-red-700",
+                                pitch.status === 'returned' && "bg-amber-100 text-amber-700",
                               )}
                             >
-                              {pitch.status === 'approved' ? '✓ Approved' : '✗ Rejected'}
+                              {pitch.status === 'approved' ? 'Approved' : pitch.status === 'returned' ? 'Returned' : 'Rejected'}
                             </span>
                             <button className="p-1 text-zinc-400 hover:text-zinc-600">
                               {expandedId === pitch.id ? (

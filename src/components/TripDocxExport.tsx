@@ -115,7 +115,7 @@ export async function generateTripDocx(trip: ScoutingTrip): Promise<void> {
         new TextRun({
           text: `Status: ${statusLabels[trip.status]}`,
           size: 20,
-          color: trip.status === "approved" ? "15803d" : trip.status === "rejected" ? "b91c1c" : "666666",
+          color: trip.status === "approved" ? "15803d" : trip.status === "rejected" ? "b91c1c" : trip.status === "returned" ? "92400e" : "666666",
         }),
       ],
       alignment: AlignmentType.CENTER,

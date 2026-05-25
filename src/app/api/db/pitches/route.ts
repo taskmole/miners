@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
 
       const { data, error } = await supabase
         .from("pitches")
-        .select("property, status, submitted_at, final_reviewed_at, rejection_notes")
-        .in("status", ["submitted", "approved", "rejected"])
+        .select("property, status, submitted_at, final_reviewed_at, rejection_notes, return_notes")
+        .in("status", ["submitted", "approved", "rejected", "returned"])
         .not("property", "is", null);
 
       if (error) {
@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
       }
 
       // Build placeId -> { status, date } mapping (highest-priority status wins)
-      const statusPriority: Record<string, number> = { draft: 0, submitted: 1, rejected: 2, approved: 3 };
-      const statusMap: Record<string, { status: string; date: string | null; rejectionReason: string | null }> = {};
+      const statusPriority: Record<string, number> = { draft: 0, returned: 1, submitted: 2, rejected: 3, approved: 4 };
+      const statusMap: Record<string, { status: string; date: string | null; rejectionReason: string | null; returnReason: string | null }> = {};
 
       for (const row of data || []) {
         const prop = row.property as { type?: string; id?: string } | null;
@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
         if (!current || (statusPriority[row.status] ?? 0) > (statusPriority[current.status] ?? 0)) {
           const date = row.final_reviewed_at || row.submitted_at || null;
           const rejectionReason = row.status === "rejected" ? (row.rejection_notes as string | null) : null;
-          statusMap[prop.id] = { status: row.status, date, rejectionReason };
+          const returnReason = row.status === "returned" ? (row.return_notes as string | null) : null;
+          statusMap[prop.id] = { status: row.status, date, rejectionReason, returnReason };
         }
       }
 
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
       if (userId) {
         query = query.eq("created_by", userId);
       } else {
-        query = query.in("status", ["submitted", "approved", "rejected"]);
+        query = query.in("status", ["submitted", "approved", "rejected", "returned"]);
       }
 
       const { data, error } = await query

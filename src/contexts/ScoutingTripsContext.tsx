@@ -140,6 +140,7 @@ async function fetchTripsFromApi(): Promise<{ ok: boolean; trips: ScoutingTrip[]
       teamId: (row.team_id as string) ?? undefined,
 
       rejectionNotes: (row.rejection_notes as string) ?? undefined,
+      returnNotes: (row.return_notes as string) ?? undefined,
       reviewedBy: (row.reviewed_by as string) ?? undefined,
       reviewedAt: (row.final_reviewed_at as string) ?? undefined,
       submittedAt: (row.submitted_at as string) ?? undefined,
@@ -241,6 +242,7 @@ function buildPitchRow(trip: ScoutingTrip) {
     team_id: trip.teamId ?? null,
 
     rejection_notes: trip.rejectionNotes,
+    return_notes: trip.returnNotes,
     reviewed_by: trip.reviewedBy,
     final_reviewed_at: trip.reviewedAt,
   };
@@ -298,6 +300,7 @@ interface ScoutingTripsContextValue {
     submitted: number;
     approved: number;
     rejected: number;
+    returned: number;
   };
   createTrip: (cityId: string) => ScoutingTrip;
   createUploadTrip: (cityId: string, name: string, document: UploadedDocument) => ScoutingTrip;
@@ -306,6 +309,7 @@ interface ScoutingTripsContextValue {
   submitTrip: (tripId: string) => void;
   approveTrip: (tripId: string, reviewerName?: string) => void;
   rejectTrip: (tripId: string, rejectionNotes: string, reviewerName?: string) => void;
+  returnTrip: (tripId: string, returnNotes: string, reviewerName?: string) => void;
   deleteTrip: (tripId: string) => void;
   setProperty: (tripId: string, property: LinkedItem) => void;
   addRelatedPlace: (tripId: string, item: LinkedItem) => void;
@@ -473,6 +477,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       submitted: trips.filter(t => t.status === 'submitted').length,
       approved: trips.filter(t => t.status === 'approved').length,
       rejected: trips.filter(t => t.status === 'rejected').length,
+      returned: trips.filter(t => t.status === 'returned').length,
     };
   }, [state.trips]);
 
@@ -511,7 +516,6 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       tripId: newTrip.id,
       payload: buildPitchRow(newTrip),
     });
-    logTripActivity("created_scouting_trip", newTrip);
 
     return newTrip;
   }, [resolvedUserId, resolvedAuthorName]);
@@ -583,20 +587,50 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
   }, [mutateTrip]);
 
   const approveTrip = useCallback((tripId: string, reviewerName: string = 'Admin'): void => {
-    mutateTrip(tripId, () => ({
+    const updated = mutateTrip(tripId, () => ({
       status: 'approved' as ScoutingTripStatus,
       reviewedAt: new Date().toISOString(),
       reviewedBy: reviewerName,
     }));
+    if (updated) logTripActivity("approved_scouting_trip", updated);
   }, [mutateTrip]);
 
   const rejectTrip = useCallback((tripId: string, rejectionNotes: string, reviewerName: string = 'Admin'): void => {
-    mutateTrip(tripId, () => ({
+    const updated = mutateTrip(tripId, () => ({
       status: 'rejected' as ScoutingTripStatus,
       rejectionNotes,
       reviewedAt: new Date().toISOString(),
       reviewedBy: reviewerName,
     }));
+    if (updated) {
+      const reason = rejectionNotes.split('\n')[0].slice(0, 80);
+      logActivity("rejected_scouting_trip", {
+        tripId: updated.id,
+        tripName: updated.name || "Untitled trip",
+        trip_owner_id: updated.createdBy,
+        authorName: updated.authorName || null,
+        reason,
+      });
+    }
+  }, [mutateTrip]);
+
+  const returnTrip = useCallback((tripId: string, returnNotes: string, reviewerName: string = 'Admin'): void => {
+    const updated = mutateTrip(tripId, () => ({
+      status: 'returned' as ScoutingTripStatus,
+      returnNotes,
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: reviewerName,
+    }));
+    if (updated) {
+      const reason = returnNotes.split('\n')[0].slice(0, 80);
+      logActivity("returned_scouting_trip", {
+        tripId: updated.id,
+        tripName: updated.name || "Untitled trip",
+        trip_owner_id: updated.createdBy,
+        authorName: updated.authorName || null,
+        reason,
+      });
+    }
   }, [mutateTrip]);
 
   // ===== PROPERTY & RELATED PLACES =====
@@ -677,6 +711,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
         submitTrip,
         approveTrip,
         rejectTrip,
+        returnTrip,
         deleteTrip,
         setProperty,
         addRelatedPlace,

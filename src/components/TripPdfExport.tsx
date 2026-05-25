@@ -39,6 +39,7 @@ const statusBadgeColors: Record<string, { bg: string; text: string }> = {
   submitted: { bg: "#dbeafe", text: "#1d4ed8" },
   approved: { bg: "#dcfce7", text: "#15803d" },
   rejected: { bg: "#fee2e2", text: "#b91c1c" },
+  returned: { bg: "#fef3c7", text: "#92400e" },
 };
 
 /**

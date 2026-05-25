@@ -58,6 +58,7 @@ export interface AdminPitch {
 
   // Review info
   rejectionNotes?: string;
+  returnNotes?: string;
   reviewedBy?: string;
 }
 
@@ -116,6 +117,7 @@ export function useAdminSubmissions() {
         checklist: row.checklist as ChecklistItem[] | undefined,
         attachmentPaths: row.attachment_paths as string[] | undefined,
         rejectionNotes: row.rejection_notes as string | undefined,
+        returnNotes: row.return_notes as string | undefined,
         reviewedBy: row.reviewed_by as string | undefined,
       }));
 
@@ -145,7 +147,7 @@ export function useAdminSubmissions() {
   const pending = getByStatus('submitted');
 
   // Get processed (approved + rejected) submissions
-  const processed = submissions.filter(s => s.status === 'approved' || s.status === 'rejected');
+  const processed = submissions.filter(s => s.status === 'approved' || s.status === 'rejected' || s.status === 'returned');
 
   // Fetch on mount (only once)
   useEffect(() => {

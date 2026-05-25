@@ -745,13 +745,25 @@
   left: auto;
 }
 
+.badge-tooltip-above {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.badge-tooltip-wrap {
+  white-space: normal;
+  max-width: 250px;
+  overflow-wrap: break-word;
+}
+
 @media (hover: hover) {
   .score-badge:hover .badge-tooltip,
   .freshness-badge:hover .badge-tooltip,
   .header-score-badge:hover .badge-tooltip,
   .header-freshness:hover .badge-tooltip,
   .popup-price-change:hover .badge-tooltip,
-  .info-tip:hover .badge-tooltip {
+  .info-tip:hover .badge-tooltip,
+  .status-chip:hover .badge-tooltip {
     display: block;
   }
 }
