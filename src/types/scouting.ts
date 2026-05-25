@@ -16,7 +16,7 @@
 import { Attachment } from './attachments';
 
 // Status of a scouting trip
-export type ScoutingTripStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+export type ScoutingTripStatus = 'draft' | 'submitted' | 'approved' | 'rejected' | 'returned';
 
 // Type of trip creation
 export type ScoutingTripType = 'form' | 'upload';
@@ -151,6 +151,9 @@ export interface ScoutingTrip {
   // Rejection feedback (when status is 'rejected')
   rejectionNotes?: string;
 
+  // Return feedback (when status is 'returned')
+  returnNotes?: string;
+
   // Timestamps
   createdAt: string;
   updatedAt: string;
@@ -250,6 +253,7 @@ export const statusLabels: Record<ScoutingTripStatus, string> = {
   submitted: 'Submitted',
   approved: 'Approved',
   rejected: 'Rejected',
+  returned: 'Returned',
 };
 
 export const statusColors: Record<ScoutingTripStatus, string> = {
@@ -257,6 +261,7 @@ export const statusColors: Record<ScoutingTripStatus, string> = {
   submitted: 'bg-blue-100 text-blue-700',
   approved: 'bg-green-100 text-green-700',
   rejected: 'bg-red-100 text-red-700',
+  returned: 'bg-amber-100 text-amber-700',
 };
 
 // Property type labels

@@ -8,6 +8,7 @@ interface PitchStatusEntry {
   status: ScoutingTripStatus;
   date: string | null;
   rejectionReason: string | null;
+  returnReason: string | null;
 }
 
 type StatusMapResponse = Record<string, PitchStatusEntry>;
@@ -60,6 +61,10 @@ export function usePitchStatuses() {
     return statusMap[placeId]?.rejectionReason ?? null;
   }, [statusMap]);
 
+  const getPitchReturnReason = useCallback((placeId: string): string | null => {
+    return statusMap[placeId]?.returnReason ?? null;
+  }, [statusMap]);
+
   const { scoutedCount, rejectedCount } = useMemo(() => {
     let rejected = 0;
     const entries = Object.values(statusMap);
@@ -74,6 +79,7 @@ export function usePitchStatuses() {
     getPitchStatus,
     getPitchDate,
     getPitchRejectionReason,
+    getPitchReturnReason,
     scoutedCount,
     rejectedCount,
   };

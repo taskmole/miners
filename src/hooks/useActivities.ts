@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { isSupabaseConfigured, getSupabase } from '@/lib/supabase';
+import { getAuthUserId } from '@/lib/browser-session';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const LAST_READ_STORAGE_KEY = 'miners-activity-last-read';
 
@@ -17,13 +20,13 @@ export interface ActivityItem {
     type: "cafe" | "property" | "area" | "poi" | "list";
   };
   time: string;
-  createdAt: string; // ISO timestamp for sorting
-  isRead: boolean; // Whether user has seen this activity
-  entityId?: string; // placeId, listId, or shapeId for click-to-navigate
-  lat?: number; // For map navigation
-  lon?: number; // For map navigation
-  isOrphaned?: boolean; // True when a created_point/created_area's target no longer exists
-  actionType?: string; // Original action_type for orphan checking
+  createdAt: string;
+  isRead: boolean;
+  entityId?: string;
+  lat?: number;
+  lon?: number;
+  isOrphaned?: boolean;
+  actionType?: string;
 }
 
 function getLastReadTimestamp(): string | null {
@@ -55,10 +58,9 @@ function getDisplayName(profile: { display_name?: string | null; email?: string 
   if (profile?.display_name) return profile.display_name;
   if (profile?.email) {
     const prefix = profile.email.split('@')[0];
-    // Capitalize first letter
     return prefix.charAt(0).toUpperCase() + prefix.slice(1);
   }
-  return 'Guest';
+  return 'Someone';
 }
 
 const PLACE_TYPE_LABELS: Record<string, string> = {
@@ -98,6 +100,7 @@ const ACTION_TYPE_MAP: Record<string, { type: ActivityType; action: string; targ
   submitted_scouting_trip: { type: 'added', action: 'submitted scouting trip for', targetType: 'property' },
   approved_scouting_trip: { type: 'updated', action: 'approved scouting trip for', targetType: 'property' },
   rejected_scouting_trip: { type: 'deleted', action: 'rejected scouting trip for', targetType: 'property' },
+  returned_scouting_trip: { type: 'updated', action: 'returned scouting trip for', targetType: 'property' },
 };
 
 function parseSummary(summary: string | null): Record<string, unknown> {
@@ -142,8 +145,14 @@ function buildTargetName(
     case 'created_scouting_trip':
     case 'submitted_scouting_trip':
     case 'approved_scouting_trip':
-    case 'rejected_scouting_trip':
       return (summary.tripName as string) || (summary.placeName as string) || 'a trip';
+
+    case 'rejected_scouting_trip':
+    case 'returned_scouting_trip': {
+      const tripName = (summary.tripName as string) || (summary.placeName as string) || 'a trip';
+      const reason = summary.reason as string | undefined;
+      return reason ? `${tripName}: ${reason}` : tripName;
+    }
 
     default:
       return (summary.placeName as string) || (summary.shapeName as string) || (summary.name as string) || 'a place';
@@ -177,17 +186,52 @@ interface ActivitiesResponse {
     display_name: string | null;
     email: string | null;
   }>;
+  callerRole?: string;
+}
+
+type ProfileMap = Map<string, { display_name: string | null; email: string | null }>;
+
+function transformActivityLogRow(
+  row: { id: string; user_id: string | null; action_type: string; summary: string | null; created_at: string },
+  profiles: ProfileMap,
+  lastReadTime: number,
+): ActivityItem {
+  const summary = parseSummary(row.summary);
+  const config = ACTION_TYPE_MAP[row.action_type] || { type: 'added' as ActivityType, action: row.action_type, targetType: 'poi' as const };
+  const typeLabel = friendlyPlaceType(summary.placeType as string);
+  const placeName = (summary.placeName as string) || 'a place';
+  const nameWithType = typeLabel ? `${typeLabel} ${placeName}` : placeName;
+  const targetName = buildTargetName(row.action_type, nameWithType, summary);
+  const lat = typeof summary.lat === 'number' && isFinite(summary.lat) ? summary.lat : undefined;
+  const lon = typeof summary.lon === 'number' && isFinite(summary.lon) ? summary.lon : undefined;
+  return {
+    id: `log-${row.id}`,
+    type: config.type,
+    userName: getDisplayName(profiles.get(row.user_id || '') || null),
+    action: config.action,
+    target: {
+      name: targetName,
+      type: config.targetType,
+    },
+    time: formatRelativeTime(row.created_at),
+    createdAt: row.created_at,
+    isRead: new Date(row.created_at).getTime() <= lastReadTime,
+    entityId: (summary.placeId as string) || (summary.shapeId as string) || undefined,
+    lat,
+    lon,
+    actionType: row.action_type,
+  };
 }
 
 export function useActivities() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastReadAt, setLastReadAt] = useState<string | null>(null);
 
-  useEffect(() => {
-    setLastReadAt(getLastReadTimestamp());
-  }, []);
+  const profilesRef = useRef<ProfileMap>(new Map());
+  const userRoleRef = useRef<string>('admin');
+  const hasFetchedRef = useRef(false);
+  const hasDisconnectedRef = useRef(false);
 
   const fetchActivities = useCallback(async () => {
     setIsLoading(true);
@@ -196,12 +240,16 @@ export function useActivities() {
     try {
       const data = await apiFetch<ActivitiesResponse>('/api/db/activities');
 
-      const { comments, lists, activityLog, userProfiles } = data;
+      const { comments, lists, activityLog, userProfiles, callerRole } = data;
 
-      const profiles = new Map<string, { display_name: string | null; email: string | null }>();
+      const profiles: ProfileMap = new Map();
       userProfiles.forEach(profile => {
         profiles.set(profile.id, { display_name: profile.display_name, email: profile.email });
       });
+
+      // Cache for Realtime handler
+      profilesRef.current = profiles;
+      userRoleRef.current = callerRole || 'admin';
 
       const currentLastRead = getLastReadTimestamp();
       const lastReadTime = currentLastRead ? new Date(currentLastRead).getTime() : 0;
@@ -242,35 +290,8 @@ export function useActivities() {
 
       const activityLogActivities: ActivityItem[] = activityLog
         .filter(entry => entry.user_id && profiles.has(entry.user_id))
-        .map(entry => {
-          const summary = parseSummary(entry.summary);
-          const config = ACTION_TYPE_MAP[entry.action_type] || { type: 'added' as ActivityType, action: entry.action_type, targetType: 'poi' as const };
-          const typeLabel = friendlyPlaceType(summary.placeType as string);
-          const placeName = (summary.placeName as string) || 'a place';
-          const nameWithType = typeLabel ? `${typeLabel} ${placeName}` : placeName;
-          const targetName = buildTargetName(entry.action_type, nameWithType, summary);
-          const lat = typeof summary.lat === 'number' && isFinite(summary.lat) ? summary.lat : undefined;
-          const lon = typeof summary.lon === 'number' && isFinite(summary.lon) ? summary.lon : undefined;
-          return {
-            id: `log-${entry.id}`,
-            type: config.type,
-            userName: getDisplayName(profiles.get(entry.user_id || '') || null),
-            action: config.action,
-            target: {
-              name: targetName,
-              type: config.targetType,
-            },
-            time: formatRelativeTime(entry.created_at),
-            createdAt: entry.created_at,
-            isRead: new Date(entry.created_at).getTime() <= lastReadTime,
-            entityId: (summary.placeId as string) || (summary.shapeId as string) || undefined,
-            lat,
-            lon,
-            actionType: entry.action_type,
-          };
-        });
+        .map(entry => transformActivityLogRow(entry, profiles, lastReadTime));
 
-      // Merge, filter out empty entries, and sort by created_at (newest first)
       const allActivities = [...commentActivities, ...listActivities, ...activityLogActivities]
         .filter(a => a.userName && a.action && a.target.name)
         .sort((a, b) => {
@@ -281,6 +302,7 @@ export function useActivities() {
         .slice(0, 50);
 
       setActivities(allActivities);
+      hasFetchedRef.current = true;
     } catch (err) {
       console.error('Error fetching activities:', err);
       setError('Failed to load activities');
@@ -289,12 +311,9 @@ export function useActivities() {
     }
   }, []);
 
-  // Mark all activities as read
   const markAllAsRead = useCallback(() => {
     const now = new Date().toISOString();
     saveLastReadTimestamp(now);
-    setLastReadAt(now);
-    // Update all activities to be read
     setActivities(prev => prev.map(a => ({ ...a, isRead: true })));
   }, []);
 
@@ -303,8 +322,71 @@ export function useActivities() {
     fetchActivities();
   }, [fetchActivities]);
 
-  // Calculate unread count
-  const unreadCount = activities.filter(a => !a.isRead).length;
+  // Supabase Realtime subscription
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    let channel: RealtimeChannel | null = null;
+
+    function handleRealtimeInsert(payload: { new: Record<string, unknown> }) {
+      if (!hasFetchedRef.current) return;
+
+      const row = payload.new;
+      if (!row.id || !row.action_type || !row.created_at) return;
+
+      // Franchisee filter
+      const currentUserId = getAuthUserId();
+      if (userRoleRef.current === 'franchisee' && currentUserId) {
+        const summary = parseSummary(row.summary as string | null);
+        const isOwn = row.user_id === currentUserId;
+        const isInvolved = summary.assigned_to === currentUserId || summary.trip_owner_id === currentUserId;
+        if (!isOwn && !isInvolved) return;
+      }
+
+      const newItem = transformActivityLogRow(
+        {
+          id: row.id as string,
+          user_id: (row.user_id as string) || null,
+          action_type: row.action_type as string,
+          summary: (row.summary as string) || null,
+          created_at: row.created_at as string,
+        },
+        profilesRef.current,
+        0, // Always unread for realtime events
+      );
+      newItem.isRead = false;
+      newItem.time = 'just now';
+
+      setActivities(prev => {
+        if (prev.some(a => a.id === newItem.id)) return prev;
+        return [newItem, ...prev].slice(0, 50);
+      });
+    }
+
+    const supabase = getSupabase();
+    channel = supabase
+      .channel('activity-feed')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'activity_log' },
+        handleRealtimeInsert
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          hasDisconnectedRef.current = true;
+        }
+        if (status === 'SUBSCRIBED' && hasDisconnectedRef.current) {
+          hasDisconnectedRef.current = false;
+          fetchActivities();
+        }
+      });
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [fetchActivities]);
+
+  const unreadCount = useMemo(() => activities.filter(a => !a.isRead).length, [activities]);
 
   return {
     activities,
