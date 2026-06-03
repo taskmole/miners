@@ -52,6 +52,10 @@ function TripCard({
   trip: ScoutingTrip;
   onClick: () => void;
 }) {
+  const reasonText = trip.status === 'rejected' ? trip.rejectionNotes
+                   : trip.status === 'returned' ? trip.returnNotes
+                   : undefined;
+
   return (
     <button
       onClick={onClick}
@@ -73,13 +77,23 @@ function TripCard({
             <span className="font-medium text-sm text-zinc-900 truncate">
               {trip.name || 'Untitled Trip'}
             </span>
-            <span className={cn(
-              "text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0",
-              statusColors[trip.status]
-            )}>
+            <span
+              className={cn(
+                "text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0",
+                statusColors[trip.status]
+              )}
+            >
               {statusLabels[trip.status]}
             </span>
           </div>
+          {reasonText && (
+            <p className={cn(
+              "text-[11px] mt-1 leading-snug",
+              trip.status === 'rejected' ? 'text-red-600' : 'text-amber-600'
+            )}>
+              {reasonText}
+            </p>
+          )}
 
           {/* Address or property name */}
           <div className="text-xs text-zinc-500 truncate mt-0.5">
@@ -243,6 +257,11 @@ export function ScoutingPanel({
           {counts.rejected > 0 && (
             <span className="text-red-500">
               <span className="font-medium">{counts.rejected}</span> rejected
+            </span>
+          )}
+          {counts.returned > 0 && (
+            <span className="text-amber-500">
+              <span className="font-medium">{counts.returned}</span> returned
             </span>
           )}
         </div>

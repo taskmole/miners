@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ comments, lists, activityLog, userProfiles });
+    return NextResponse.json({ comments, lists, activityLog, userProfiles, callerRole });
   } catch (err) {
     console.error("[api/db/activities] unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

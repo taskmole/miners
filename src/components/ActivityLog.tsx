@@ -58,6 +58,11 @@ export function ActivityLog({ onUnreadCountChange }: { onUnreadCountChange?: (co
         onUnreadCountChange?.(unreadCount);
     }, [unreadCount, onUnreadCountChange]);
 
+    // Refetch when panel opens
+    React.useEffect(() => {
+        if (isExpanded) refetch();
+    }, [isExpanded, refetch]);
+
     const activitiesWithOrphanStatus = useMemo(() => {
         if (!isMetadataLoaded) return activities;
         return activities.map(item => {

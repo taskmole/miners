@@ -1606,12 +1606,18 @@ const PITCH_STATUS_STYLES: Record<string, {
         ringClass: "ring-2 ring-red-400",
         glowStyle: { boxShadow: "0 0 14px 6px rgba(248,113,113,0.65)" },
     },
+    returned: {
+        dotColor: "#fbbf24",
+        label: "Returned",
+        ringClass: "ring-2 ring-amber-400",
+        glowStyle: { boxShadow: "0 0 14px 6px rgba(251,191,36,0.65)" },
+    },
 };
 
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address, true);
     const placeId = generatePropertyPlaceId(property);
-    const { getPitchStatus, getPitchDate, getPitchRejectionReason } = usePitchStatusContext();
+    const { getPitchStatus, getPitchDate, getPitchRejectionReason, getPitchReturnReason } = usePitchStatusContext();
     const { getAssignment, canPitch: checkCanPitch, users: assignableUsers, assignProperty, preRejectProperty, removeAssignment } = usePropertyAssignmentContext();
     const { canAccessDashboard } = useUserProfiles();
     const { createTrip, updateTrip } = useScoutingTrips();
@@ -1625,6 +1631,8 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
     const effectiveStatus = isPreRejected ? "rejected" : pitchStatus;
     const pitchStyle = effectiveStatus ? PITCH_STATUS_STYLES[effectiveStatus] : null;
 
+    const pitchReturnReason = getPitchReturnReason(placeId);
+
     const buildPitchTooltip = () => {
         if (isPreRejected) {
             const reason = assignment.rejection_reason;
@@ -1634,6 +1642,9 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
         const dateStr = new Date(pitchDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
         if (pitchStatus === "rejected" && pitchRejectionReason) {
             return `${pitchStyle.label} on ${dateStr}: ${pitchRejectionReason}`;
+        }
+        if (pitchStatus === "returned" && pitchReturnReason) {
+            return `${pitchStyle.label} on ${dateStr}: ${pitchReturnReason}`;
         }
         return `${pitchStyle.label} on ${dateStr}`;
     };
@@ -1701,7 +1712,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                             <span className="score-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "pitch" ? null : "pitch"); }}>
                                 <span className="dot" style={{ background: pitchStyle.dotColor }} />
                                 {pitchStyle.label}
-                                {pitchTooltip && <span className={`badge-tooltip ${activeTooltip === "pitch" ? "visible" : ""}`}>{pitchTooltip}</span>}
+                                {pitchTooltip && <span className={`badge-tooltip badge-tooltip-wrap ${activeTooltip === "pitch" ? "visible" : ""}`}>{pitchTooltip}</span>}
                             </span>
                         )}
                     </div>
@@ -1747,7 +1758,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                         <span className="header-score-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "pitch" ? null : "pitch"); }}>
                             <span className="dot" style={{ background: pitchStyle.dotColor }} />
                             {pitchStyle.label}
-                            {pitchTooltip && <span className={`badge-tooltip ${activeTooltip === "pitch" ? "visible" : ""}`}>{pitchTooltip}</span>}
+                            {pitchTooltip && <span className={`badge-tooltip badge-tooltip-wrap ${activeTooltip === "pitch" ? "visible" : ""}`}>{pitchTooltip}</span>}
                         </span>
                     )}
                 </div>
