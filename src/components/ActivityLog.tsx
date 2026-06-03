@@ -46,13 +46,17 @@ export const navigateToLocation = (lat: number, lon: number) => {
     }));
 };
 
-export function ActivityLog() {
+export function ActivityLog({ onUnreadCountChange }: { onUnreadCountChange?: (count: number) => void }) {
     const { isOpen: isExpanded, open, close } = useSheetState("activity");
     const { openSheet } = useSheet();
     const isMobile = useMobile();
     const { activities, isLoading, error, refetch, unreadCount, markAllAsRead } = useActivities();
     const { allMetadata, isMetadataLoaded } = useShapeDataContext();
     const { showToast } = useToast();
+
+    React.useEffect(() => {
+        onUnreadCountChange?.(unreadCount);
+    }, [unreadCount, onUnreadCountChange]);
 
     const activitiesWithOrphanStatus = useMemo(() => {
         if (!isMetadataLoaded) return activities;
@@ -131,9 +135,7 @@ export function ActivityLog() {
         >
             <Activity className="w-[18px] h-[18px] text-zinc-500" />
             {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full" />
             )}
         </button>
     );

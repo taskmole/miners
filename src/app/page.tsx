@@ -13,6 +13,7 @@ import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { FootfallTimePicker } from "@/components/FootfallTimePicker";
 import { FeedbackButton } from "@/components/FeedbackButton";
 import { ProfileMenu } from "@/components/ProfileMenu";
+import { NewListingsModal } from "@/components/NewListingsModal";
 import { LocationSearch } from "@/components/LocationSearch";
 import { EnhancedMapContainer } from "@/components/EnhancedMapContainer";
 import { LandingPage } from "@/components/LandingPage";
@@ -24,6 +25,8 @@ import {
   shouldShowOnboardingPicker,
 } from "@/lib/userPreferences";
 import { useMapData } from "@/hooks/useMapData";
+import { useMobile } from "@/hooks/useMobile";
+import { generatePropertyPlaceId } from "@/lib/place-id";
 import { ListsProvider } from "@/contexts/ListsContext";
 import { HiddenPoisProvider } from "@/contexts/HiddenPoisContext";
 import { GeoDataProvider } from "@/contexts/GeoDataContext";
@@ -61,6 +64,7 @@ function HomeContent() {
   );
   const { cafes, properties, otherPois, counts } = useMapData(selectedCity.id);
   const { startLinking, isLinking } = useLinking();
+  const isMobile = useMobile();
 
   // Auth state
   const [user, setUser] = useState<User | null>(null);
@@ -69,6 +73,32 @@ function HomeContent() {
 
   // Account active status - null means not yet checked
   const [isActive, setIsActive] = useState<boolean | null>(null);
+
+  // New listings modal
+  const [isNewListingsOpen, setIsNewListingsOpen] = useState(false);
+  const [activityUnreadCount, setActivityUnreadCount] = useState(0);
+
+  // Reopen listings modal when user closes a POI popup after navigating from listings
+  useEffect(() => {
+    const handleReopen = () => setIsNewListingsOpen(true);
+    window.addEventListener("reopen-new-listings", handleReopen);
+    return () => window.removeEventListener("reopen-new-listings", handleReopen);
+  }, []);
+  const [newListingsCount, setNewListingsCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    async function fetchCount() {
+      try {
+        const data = await apiFetch<{ count: number }>(`/api/db/inbox?city_id=${selectedCity.id}&mode=count`);
+        if (!cancelled) setNewListingsCount(data?.count || 0);
+      } catch { /* ignore */ }
+    }
+    fetchCount();
+    const interval = setInterval(fetchCount, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [user, selectedCity.id, isNewListingsOpen]);
 
   // Landing page state - shows on first load (unless already logged in)
   const [showLanding, setShowLanding] = useState(true);
@@ -254,6 +284,60 @@ function HomeContent() {
     };
   }, [activeFilters]);
 
+  // Deep-link: open a property popup when navigating from /inbox with ?focus=placeId
+  useEffect(() => {
+    if (!properties.length) return;
+    const params = new URLSearchParams(window.location.search);
+    const focusId = params.get("focus");
+    if (!focusId) return;
+
+    // Clean up URL immediately to prevent re-triggering
+    params.delete("focus");
+    params.delete("city");
+    const clean = params.toString();
+    window.history.replaceState({}, "", clean ? `?${clean}` : window.location.pathname);
+
+    // Find matching property and navigate
+    const match = properties.find(
+      (p: any) => generatePropertyPlaceId(p) === focusId,
+    );
+    if (match) {
+      // Ensure the property filter is active
+      if (!activeFilters.has("property")) {
+        setActiveFilters((prev) => {
+          const next = new Set(prev);
+          next.add("property");
+          return next;
+        });
+      }
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("navigate-and-open-popup", {
+            detail: {
+              lat: (match as any).latitude,
+              lon: (match as any).longitude,
+              placeId: focusId,
+              placeType: "property",
+              data: match,
+            },
+          }),
+        );
+      }, 300);
+    }
+  }, [properties, activeFilters]);
+
+  // Deep-link: open new listings modal from email CTA (?listings=open)
+  useEffect(() => {
+    if (!user) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("listings") === "open") {
+      params.delete("listings");
+      const clean = params.toString();
+      window.history.replaceState({}, "", clean ? `?${clean}` : window.location.pathname);
+      setIsNewListingsOpen(true);
+    }
+  }, [user]);
+
   // Listen for create-trip-from-property events from CreateTripButton
   useEffect(() => {
     const handleCreateTripFromProperty = (e: CustomEvent) => {
@@ -365,7 +449,7 @@ function HomeContent() {
             propertyPitchStatusFilter={propertyPitchStatusFilter}
             onPropertyPitchStatusFilterChange={setPropertyPitchStatusFilter}
           />
-          <ActivityLog />
+          <ActivityLog onUnreadCountChange={setActivityUnreadCount} />
           <ListsPanel
             cityId={selectedCity.id}
             onCreateTripFromList={(trip) => {
@@ -387,9 +471,28 @@ function HomeContent() {
             trafficHour={trafficHour}
             onTrafficHourChange={setTrafficHour}
           />
-          <MobileBottomNav onFeedbackOpen={() => feedbackOpenRef.current?.()} />
+          {/* New listings button - desktop only */}
+          {!isMobile && (
+            <button
+              onClick={() => setIsNewListingsOpen(true)}
+              className="w-9 h-9 rounded-lg items-center justify-center bg-zinc-900 hover:bg-zinc-800 active:scale-95 transition-all duration-200 relative"
+              style={{ position: "fixed", top: "244px", right: "24px", zIndex: 30, display: "flex", boxShadow: "0 4px 20px rgba(0,0,0,0.22), 0 0 0 1px rgba(255,255,255,0.15)" }}
+              aria-label="New listings"
+            >
+              <span className="text-[10px] font-extrabold text-white tracking-tight leading-none">NEW</span>
+              {newListingsCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full" />
+              )}
+            </button>
+          )}
+          <NewListingsModal
+            isOpen={isNewListingsOpen}
+            onClose={() => setIsNewListingsOpen(false)}
+            cityId={selectedCity.id}
+          />
+          <MobileBottomNav onNewListingsOpen={() => setIsNewListingsOpen(true)} newListingsCount={newListingsCount} activityCount={activityUnreadCount} />
           <FeedbackButton selectedCity={selectedCity} user={user} onExposeOpen={handleExposeOpen} />
-          <ProfileMenu />
+          <ProfileMenu onFeedbackOpen={() => feedbackOpenRef.current?.()} />
         </>
       )}
 

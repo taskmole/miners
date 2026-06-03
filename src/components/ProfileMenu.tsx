@@ -1,13 +1,18 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { User } from "lucide-react";
+import { User, MessageSquareText, LogOut, LayoutDashboard, BookOpen } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMobile } from "@/hooks/useMobile";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
+import { signOut } from "@/lib/supabase";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 
-export function ProfileMenu() {
+interface ProfileMenuProps {
+  onFeedbackOpen?: () => void;
+}
+
+export function ProfileMenu({ onFeedbackOpen }: ProfileMenuProps) {
   const isMobile = useMobile();
   const router = useRouter();
   const { canAccessDashboard } = useUserProfiles();
@@ -47,16 +52,35 @@ export function ProfileMenu() {
       {canAccessDashboard && (
         <button
           onClick={() => handleNavigate("/admin")}
-          className="w-full text-left px-4 py-2.5 text-sm font-medium text-zinc-900 hover:bg-black/5 active:bg-black/10 transition-colors"
+          className="w-full text-left px-4 py-2.5 text-sm font-medium text-zinc-900 hover:bg-black/5 active:bg-black/10 transition-colors flex items-center gap-2"
         >
+          <LayoutDashboard className="w-4 h-4 text-zinc-400" />
           Admin Dashboard
         </button>
       )}
       <button
         onClick={() => handleNavigate("/user-guide")}
-        className="w-full text-left px-4 py-2.5 text-sm font-medium text-zinc-900 hover:bg-black/5 active:bg-black/10 transition-colors"
+        className="w-full text-left px-4 py-2.5 text-sm font-medium text-zinc-900 hover:bg-black/5 active:bg-black/10 transition-colors flex items-center gap-2"
       >
+        <BookOpen className="w-4 h-4 text-zinc-400" />
         User Guide
+      </button>
+      {onFeedbackOpen && (
+        <button
+          onClick={() => { setIsOpen(false); onFeedbackOpen(); }}
+          className="w-full text-left px-4 py-2.5 text-sm font-medium text-zinc-900 hover:bg-black/5 active:bg-black/10 transition-colors flex items-center gap-2"
+        >
+          <MessageSquareText className="w-4 h-4 text-zinc-400" />
+          Feedback
+        </button>
+      )}
+      <div className="my-1 border-t border-black/5" />
+      <button
+        onClick={() => { setIsOpen(false); signOut(); }}
+        className="w-full text-left px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors flex items-center gap-2"
+      >
+        <LogOut className="w-4 h-4" />
+        Sign out
       </button>
     </>
   );

@@ -18,6 +18,7 @@ import { ShapeComments } from "@/components/ShapeComments";
 import { ShapeHoverTooltip } from "@/components/ShapeHoverTooltip";
 import { DrawingIndicator } from "@/components/DrawingIndicator";
 import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
+import { generatePlaceId, generatePropertyPlaceId, parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { logActivity } from "@/lib/supabaseHelpers";
 import { useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
@@ -166,36 +167,7 @@ const iconConfig: Record<string, { icon: React.ElementType; color: string; bg: s
     },
 };
 
-// Helper function to generate unique placeId
-// Format: {type}-{lat}-{lon} (coordinates with 5 decimal places = ~1m precision)
-function generatePlaceId(type: string, lat: number, lon: number): string {
-    return `${type}-${lat.toFixed(5)}-${lon.toFixed(5)}`;
-}
-
-// FNV-1a hash for creating short unique suffixes from URLs
-function hashUrl(url: string): string {
-    let h = 0x811c9dc5;
-    for (let i = 0; i < url.length; i++) {
-        h ^= url.charCodeAt(i);
-        h = Math.imul(h, 0x01000193);
-    }
-    return (h >>> 0).toString(16).padStart(8, '0');
-}
-
-// Property-specific placeId that includes a URL hash to disambiguate
-// co-located listings at the same address
-function generatePropertyPlaceId(property: { latitude: number; longitude: number; url: string }): string {
-    return `property-${property.latitude.toFixed(5)}-${property.longitude.toFixed(5)}-${hashUrl(property.url)}`;
-}
-
-// Handles negative numbers and optional URL-hash suffix
-function parseCoordinatesFromPlaceId(placeId: string): { lat: number; lon: number } | null {
-    const match = placeId.match(/^[a-z_]+-(-?\d+\.?\d*)-(-?\d+\.?\d*)(?:-[0-9a-f]+)?$/i);
-    if (match) {
-        return { lat: parseFloat(match[1]), lon: parseFloat(match[2]) };
-    }
-    return null;
-}
+// generatePlaceId, generatePropertyPlaceId, parseCoordinatesFromPlaceId imported from @/lib/place-id
 
 function coordsMatch(a: number, b: number, tolerance = 0.0001) {
     return Math.abs(a - b) < tolerance;
