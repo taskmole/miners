@@ -247,20 +247,6 @@ export function FeedbackButton({ selectedCity, user, onExposeOpen }: FeedbackBut
 
   return (
     <>
-      {!isMobile && !isOpen && (
-        <button
-          onClick={handleOpen}
-          className="group fixed bottom-4 right-[60px] z-40 grid grid-cols-[36px_0fr] hover:grid-cols-[36px_1fr] h-9 rounded-lg bg-zinc-900 shadow-[0_4px_20px_rgba(0,0,0,0.22)] hover:bg-zinc-800 active:scale-95 transition-all duration-300 ease-in-out"
-        >
-          <span className="flex items-center justify-center h-full">
-            <MessageSquareText className="w-[18px] h-[18px] text-white" />
-          </span>
-          <span className="overflow-hidden min-w-0 flex items-center">
-            <span className="text-xs font-medium text-white whitespace-nowrap pl-0.5 pr-3">Feedback</span>
-          </span>
-        </button>
-      )}
-
       {!isMobile && isOpen && (
         <div
           ref={panelRef}

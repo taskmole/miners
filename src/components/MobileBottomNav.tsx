@@ -1,16 +1,18 @@
 "use client";
 
 import React from "react";
-import { Funnel, Pencil, FolderOpen, MapPinned, Activity, MessageSquareText } from "lucide-react";
+import { Funnel, Pencil, FolderOpen, MapPinned, Activity } from "lucide-react";
 import { useSheetState } from "@/contexts/SheetContext";
 import { useMobile } from "@/hooks/useMobile";
 import { cn } from "@/lib/utils";
 
 interface MobileBottomNavProps {
-  onFeedbackOpen?: () => void;
+  onNewListingsOpen?: () => void;
+  newListingsCount?: number;
+  activityCount?: number;
 }
 
-export function MobileBottomNav({ onFeedbackOpen }: MobileBottomNavProps) {
+export function MobileBottomNav({ onNewListingsOpen, newListingsCount = 0, activityCount = 0 }: MobileBottomNavProps) {
   const isMobile = useMobile();
   const filters = useSheetState("filters");
   const draw = useSheetState("draw");
@@ -21,11 +23,11 @@ export function MobileBottomNav({ onFeedbackOpen }: MobileBottomNavProps) {
   if (!isMobile) return null;
 
   const navItems = [
-    { id: "filters", icon: Funnel, sheet: filters },
-    { id: "draw", icon: Pencil, sheet: draw },
-    { id: "lists", icon: FolderOpen, sheet: lists },
-    { id: "scouting", icon: MapPinned, sheet: scouting },
-    { id: "activity", icon: Activity, sheet: activity },
+    { id: "filters", icon: Funnel, sheet: filters, badge: 0 },
+    { id: "draw", icon: Pencil, sheet: draw, badge: 0 },
+    { id: "lists", icon: FolderOpen, sheet: lists, badge: 0 },
+    { id: "scouting", icon: MapPinned, sheet: scouting, badge: 0 },
+    { id: "activity", icon: Activity, sheet: activity, badge: activityCount },
   ];
 
   return (
@@ -39,28 +41,34 @@ export function MobileBottomNav({ onFeedbackOpen }: MobileBottomNavProps) {
             boxShadow: "0 4px 16px rgba(0,0,0,0.14)",
           }}
         >
-          {navItems.map(({ id, icon: Icon, sheet }) => (
+          {navItems.map(({ id, icon: Icon, sheet, badge }) => (
             <button
               key={id}
               onClick={sheet.toggle}
               className={cn(
-                "flex items-center justify-center w-10 h-10 rounded-full transition-all active:scale-90",
+                "relative flex items-center justify-center w-10 h-10 rounded-full transition-all active:scale-90",
                 sheet.isOpen
                   ? "bg-black/10 text-zinc-900"
                   : "text-zinc-700 active:text-zinc-900"
               )}
             >
               <Icon className="w-[22px] h-[22px]" strokeWidth={1.5} />
+              {badge > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full" />
+              )}
             </button>
           ))}
         </div>
-        {onFeedbackOpen && (
+        {onNewListingsOpen && (
           <button
-            onClick={onFeedbackOpen}
-            className="flex items-center justify-center w-12 h-12 rounded-[20px] bg-zinc-900 shadow-lg active:scale-95 transition-transform"
-            aria-label="Send feedback"
+            onClick={onNewListingsOpen}
+            className="relative flex items-center justify-center w-12 h-12 rounded-[20px] bg-zinc-900 shadow-lg active:scale-95 transition-transform"
+            aria-label="New listings"
           >
-            <MessageSquareText className="w-5 h-5 text-white" strokeWidth={1.5} />
+            <span className="text-[11px] font-extrabold text-white tracking-tight">NEW</span>
+            {newListingsCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full" />
+            )}
           </button>
         )}
       </div>

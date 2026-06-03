@@ -260,7 +260,7 @@ export default function MinersDigest({
           </Section>
 
           <Section style={ctaSection}>
-            <Link href={appUrl} style={ctaButton}>
+            <Link href={`${appUrl}?listings=open`} style={ctaButton}>
               <table cellPadding={0} cellSpacing={0} border={0} style={{ display: "inline-table", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>
