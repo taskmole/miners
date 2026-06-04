@@ -579,11 +579,31 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const submitTrip = useCallback((tripId: string): void => {
+    // Skip if already submitted: stops a double-tap or a spurious re-submit
+    // from firing duplicate reviewer emails. A returned/draft trip (status
+    // differs) still submits and notifies as normal.
+    if (tripsRef.current.find(t => t.id === tripId)?.status === 'submitted') return;
+
     const updated = mutateTrip(tripId, () => ({
       status: 'submitted' as ScoutingTripStatus,
       submittedAt: new Date().toISOString(),
     }));
-    if (updated) logTripActivity("submitted_scouting_trip", updated);
+    if (updated) {
+      logTripActivity("submitted_scouting_trip", updated);
+      // Notify reviewers (Matus + founders) of every submission, incl. resubmits.
+      // Routed through the sync queue so it survives offline submits in the field.
+      enqueue({
+        type: 'notify_submission',
+        tripId,
+        payload: {
+          tripName: updated.name || 'Untitled trip',
+          address: updated.address || updated.property?.address || '',
+          cityId: updated.cityId,
+          authorName: updated.authorName || 'Scout',
+          submittedAt: updated.submittedAt || '',
+        },
+      });
+    }
   }, [mutateTrip]);
 
   const approveTrip = useCallback((tripId: string, reviewerName: string = 'Admin'): void => {

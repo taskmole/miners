@@ -12,7 +12,12 @@ import { getAuthUserId } from '@/lib/browser-session';
 
 type SyncAction =
   | { type: 'upsert_trip'; tripId: string; payload: Record<string, unknown> }
-  | { type: 'delete_trip'; tripId: string; payload: { tripId: string } };
+  | { type: 'delete_trip'; tripId: string; payload: { tripId: string } }
+  | {
+      type: 'notify_submission';
+      tripId: string;
+      payload: { tripName: string; address: string; cityId: string; authorName: string; submittedAt: string };
+    };
 
 interface QueueEntry {
   id: string;
@@ -186,6 +191,13 @@ async function executeAction(action: SyncAction): Promise<void> {
     case 'delete_trip':
       await apiFetch(`/api/db/pitches?id=${encodeURIComponent(action.tripId)}`, {
         method: 'DELETE',
+      });
+      break;
+
+    case 'notify_submission':
+      await apiFetch('/api/notify-submission', {
+        method: 'POST',
+        body: JSON.stringify(action.payload),
       });
       break;
   }
