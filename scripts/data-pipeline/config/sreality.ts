@@ -4,6 +4,11 @@
  * Single source of truth for sReality category codes and their URL slugs.
  * Both code-to-slug (for building detail URLs) and slug-to-code (for parsing
  * search URLs into API params) are derived from the same tables.
+ *
+ * Targets the 2026 rebuilt sReality API: https://www.sreality.cz/api/v1/estates
+ * (the old /api/cs/v2 feed was removed). Category codes were renumbered in the
+ * rebuild, so these tables differ from the pre-2026 ones. Multi-value filters
+ * are comma-joined; paging uses offset + limit.
  */
 
 // ---------------------------------------------------------------------------
@@ -20,48 +25,25 @@ export const CATEGORY_MAIN_SLUGS: Record<number, string> = {
   2: "domy",
   3: "pozemky",
   4: "komercni",
+  5: "ostatni",
 };
 
+// Commercial (category_main_cb=4) subtypes. In the rebuilt API the search-URL
+// slug and the detail-URL slug are identical (both plural), so one table serves
+// both directions. Codes verified live against /api/v1/estates/filter_page.
 export const CATEGORY_SUB_SLUGS: Record<number, string> = {
-  2: "byt",
-  3: "dum",
-  4: "pozemek",
-  5: "garaz",
-  6: "pole",
-  7: "les",
-  8: "zahrada",
-  9: "chata",
-  10: "chalupa",
-  11: "vila",
-  12: "byt-1+kk",
-  18: "kancelare",
-  19: "sklad",
-  20: "vyrobni-prostor",
-  21: "obchodni-prostor",
-  22: "ubytovani",
-  23: "restaurace",
-  24: "zemedelsky-objekt",
-  25: "cinzovni-dum",
-  26: "virtualni-kancelar",
-  27: "vinny-sklep",
-  28: "obchodni-prostor",
-  29: "kancelare",
+  25: "kancelare",
+  26: "sklady",
+  27: "vyrobni-prostory",
+  28: "obchodni-prostory",
+  29: "ubytovani",
   30: "restaurace",
-  31: "sklad",
-  32: "vyrobni-prostor",
-  33: "ubytovani",
-  34: "zemedelsky-objekt",
-  35: "cinzovni-dum",
-  36: "virtualni-kancelar",
-  37: "vinny-sklep",
-  38: "apartman",
-  39: "atelier",
-  40: "kancelare",
-  41: "restaurace",
-  42: "obchodni-prostor",
-  43: "ostatni",
-  44: "pokoj",
-  46: "garsoniera",
+  31: "zemedelske-objekty",
+  32: "ostatni-komercni-prostory",
+  38: "cinzovni-domy",
+  49: "virtualni-kancelare",
+  56: "ordinace",
+  57: "apartmany",
 };
 
 // ---------------------------------------------------------------------------
@@ -76,45 +58,35 @@ function invertRecord(rec: Record<number, string>): Record<string, number> {
   return out;
 }
 
-function invertToMulti(rec: Record<number, string>): Record<string, number[]> {
-  const out: Record<string, number[]> = {};
-  for (const [code, slug] of Object.entries(rec)) {
-    if (!out[slug]) out[slug] = [];
-    out[slug].push(Number(code));
-  }
-  return out;
-}
-
 const TYPE_SLUG_TO_CODE = invertRecord(CATEGORY_TYPE_SLUGS);
 const MAIN_SLUG_TO_CODE = invertRecord(CATEGORY_MAIN_SLUGS);
+const SUB_SLUG_TO_CODE = invertRecord(CATEGORY_SUB_SLUGS);
 
-// Multiple codes share the same slug (different type+main contexts).
-// The API ignores codes that don't apply to the selected type+main.
-const SUB_SLUG_TO_CODES = invertToMulti(CATEGORY_SUB_SLUGS);
-
-// Search URLs use plural/variant slug forms; normalize to detail slugs
+// Pre-2026 search URLs used some singular slug forms. Saved search links may
+// still carry those, so normalize them to the current (plural) slugs.
 const SEARCH_SLUG_NORMALIZE: Record<string, string> = {
-  "obchodni-prostory": "obchodni-prostor",
-  "vyrobni-prostory": "vyrobni-prostor",
-  "zemedelske-objekty": "zemedelsky-objekt",
-  "cinzovni-domy": "cinzovni-dum",
-  "virtualni-kancelare": "virtualni-kancelar",
-  "vinne-sklepy": "vinny-sklep",
-  "sklady": "sklad",
-  "apartmany": "apartman",
-  "ateliery": "atelier",
-  "garaze": "garaz",
+  "obchodni-prostor": "obchodni-prostory",
+  "vyrobni-prostor": "vyrobni-prostory",
+  "zemedelsky-objekt": "zemedelske-objekty",
+  "cinzovni-dum": "cinzovni-domy",
+  "virtualni-kancelar": "virtualni-kancelare",
+  "sklad": "sklady",
+  "apartman": "apartmany",
+  "ostatni": "ostatni-komercni-prostory",
 };
 
+// Condition slugs → building_condition codes (renumbered in the 2026 rebuild).
 const CONDITION_SLUG_TO_CODE: Record<string, number> = {
-  "novostavby": 1,
+  "velmi-dobry-stav": 1,
   "dobry-stav": 2,
-  "velmi-dobry-stav": 3,
-  "po-rekonstrukci": 4,
-  "ve-vystavbe": 5,
-  "pred-rekonstrukci": 6,
-  "spatny-stav": 7,
-  "projekt": 8,
+  "spatny-stav": 3,
+  "ve-vystavbe": 4,
+  "projekt": 5,
+  "novostavby": 6,
+  "k-demolici": 7,
+  "pred-rekonstrukci": 8,
+  "po-rekonstrukci": 9,
+  "v-rekonstrukci": 10,
 };
 
 // ---------------------------------------------------------------------------
@@ -124,11 +96,12 @@ const CONDITION_SLUG_TO_CODE: Record<string, number> = {
 export interface SrealityApiParams {
   category_type_cb: number;
   category_main_cb: number;
-  category_sub_cb?: string;
+  category_sub_cb?: string; // comma-joined codes
   locality_region_id?: number;
-  usable_area?: string;
-  building_condition?: string;
-  per_page: number;
+  usable_area_from?: number;
+  usable_area_to?: number;
+  building_condition?: string; // comma-joined codes
+  limit: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -159,7 +132,7 @@ export function parseSrealityUrl(
   const params: SrealityApiParams = {
     category_type_cb: typeCb,
     category_main_cb: mainCb,
-    per_page: 60,
+    limit: 100,
   };
 
   if (pathParts.length >= 4) {
@@ -167,11 +140,11 @@ export function parseSrealityUrl(
     const codes: number[] = [];
     for (const raw of candidateSubs) {
       const normalized = SEARCH_SLUG_NORMALIZE[raw] || raw;
-      const matched = SUB_SLUG_TO_CODES[normalized];
-      if (matched) codes.push(...matched);
+      const code = SUB_SLUG_TO_CODE[normalized];
+      if (code !== undefined) codes.push(code);
     }
     if (codes.length > 0) {
-      params.category_sub_cb = codes.join("|");
+      params.category_sub_cb = codes.join(",");
     }
   }
 
@@ -186,15 +159,14 @@ export function parseSrealityUrl(
       .map((s) => CONDITION_SLUG_TO_CODE[s.trim()])
       .filter((c): c is number => c !== undefined);
     if (condCodes.length > 0) {
-      params.building_condition = condCodes.join("|");
+      params.building_condition = condCodes.join(",");
     }
   }
 
   const areaFrom = parsed.searchParams.get("plocha-od");
   const areaTo = parsed.searchParams.get("plocha-do");
-  if (areaFrom || areaTo) {
-    params.usable_area = `${areaFrom || "0"}|${areaTo || "10000"}`;
-  }
+  if (areaFrom) params.usable_area_from = Number(areaFrom);
+  if (areaTo) params.usable_area_to = Number(areaTo);
 
   return params;
 }
@@ -203,17 +175,25 @@ export function parseSrealityUrl(
 // API URL builder
 // ---------------------------------------------------------------------------
 
-const SREALITY_API_BASE = "https://www.sreality.cz/api/cs/v2/estates";
+const SREALITY_API_BASE = "https://www.sreality.cz/api/v1/estates/search";
 
-export function buildApiUrl(params: SrealityApiParams, page: number): string {
-  const qs = new URLSearchParams();
-  qs.set("category_type_cb", String(params.category_type_cb));
-  qs.set("category_main_cb", String(params.category_main_cb));
-  if (params.category_sub_cb) qs.set("category_sub_cb", params.category_sub_cb);
-  if (params.locality_region_id) qs.set("locality_region_id", String(params.locality_region_id));
-  if (params.usable_area) qs.set("usable_area", params.usable_area);
-  if (params.building_condition) qs.set("building_condition", params.building_condition);
-  qs.set("per_page", String(params.per_page));
-  qs.set("page", String(page));
-  return `${SREALITY_API_BASE}?${qs.toString()}`;
+/**
+ * Build a search API URL. Values are digit/comma/hyphen only, so the query
+ * string is assembled by hand to keep commas literal (the API expects raw
+ * commas in list params, not the %2C that URLSearchParams would emit).
+ */
+export function buildApiUrl(params: SrealityApiParams, offset: number): string {
+  const parts = [
+    `category_type_cb=${params.category_type_cb}`,
+    `category_main_cb=${params.category_main_cb}`,
+  ];
+  if (params.category_sub_cb) parts.push(`category_sub_cb=${params.category_sub_cb}`);
+  if (params.locality_region_id) parts.push(`locality_region_id=${params.locality_region_id}`);
+  if (params.usable_area_from !== undefined) parts.push(`usable_area_from=${params.usable_area_from}`);
+  if (params.usable_area_to !== undefined) parts.push(`usable_area_to=${params.usable_area_to}`);
+  if (params.building_condition) parts.push(`building_condition=${params.building_condition}`);
+  parts.push("sort=-date");
+  parts.push(`limit=${params.limit}`);
+  parts.push(`offset=${offset}`);
+  return `${SREALITY_API_BASE}?${parts.join("&")}`;
 }
