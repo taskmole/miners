@@ -3,8 +3,15 @@
 /**
  * Sreality.cz Scraper
  *
- * Scrapes property listings from a Sreality search URL, fetches detail data
- * via the Sreality API, and writes to Supabase.
+ * Scrapes property listings from a Sreality search URL via the rebuilt 2026
+ * Sreality JSON API (https://www.sreality.cz/api/v1/estates) and writes to
+ * Supabase.
+ *
+ * Two phases:
+ *   1. Search list endpoint -> one "seed" per listing (id, name, gps, price,
+ *      photos). The list reply already carries enough to publish.
+ *   2. Detail endpoint per listing -> enrich the seed with description,
+ *      condition, size, floor, etc. If a detail fetch fails, the seed is kept.
  *
  * Usage:
  *   npm run fetch:sreality                                    # Interactive
@@ -14,6 +21,7 @@
 
 const args = process.argv.slice(2);
 const HEADLESS = args.includes("--headless");
+const DRY_RUN = args.includes("--dry-run"); // run all phases, print results, no DB writes
 const cityArgIndex = args.indexOf("--city");
 const CITY_ARG = cityArgIndex !== -1 ? args[cityArgIndex + 1]?.toLowerCase() : null;
 const urlArgIndex = args.indexOf("--url");
@@ -50,9 +58,17 @@ import {
 // Config
 // ---------------------------------------------------------------------------
 
-const DETAIL_API_BASE = "https://www.sreality.cz/api/cs/v2/estates";
+const SEARCH_API = "https://www.sreality.cz/api/v1/estates/search";
+const DETAIL_API_BASE = "https://www.sreality.cz/api/v1/estates";
 const DELAY_BETWEEN_PAGES = 500;
 const DELAY_BETWEEN_DETAILS = 300;
+const MAX_OFFSET = 5000; // safety cap so pagination can never loop forever
+
+const REQUEST_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+  Accept: "application/json",
+};
 
 const CZ_BOUNDS = {
   latMin: 48.5,
@@ -61,26 +77,8 @@ const CZ_BOUNDS = {
   lonMax: 18.9,
 };
 
-// Listings containing these terms (case-insensitive) in name or description are excluded
+// Listings containing these terms (case-insensitive) in name are excluded
 const BLOCKED_KEYWORDS = ["kancelář", "kanceláře"];
-
-// Czech field name to English property name mapping
-const ITEM_FIELD_MAP: Record<string, string> = {
-  "Celková cena": "totalPrice",
-  "Cena za m²": "pricePerSqm",
-  "Užitná ploch": "usableArea",
-  "Stavba": "buildingType",
-  "Stav objektu": "condition",
-  "Podlaží": "floor",
-  "Garáž": "garage",
-  "Bezbariérový": "barrierFree",
-  "Výtah": "elevator",
-  "Energetická náročnost budovy": "energyRating",
-  "Datum nastěhování": "moveInDate",
-  "Typ domu": "houseType",
-  "Aktualizace": "lastUpdate",
-  "Poznámka k ceně": "priceNote",
-};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -109,6 +107,27 @@ interface SrealityListing {
   nearbyPoi: Record<string, unknown>;
 }
 
+// Loose shapes for the parts of the API payloads we read
+interface CodebookValue {
+  name?: string;
+  value?: number;
+}
+interface SrealityLocality {
+  city?: string;
+  citypart?: string;
+  quarter?: string;
+  street?: string;
+  gps_lat?: number;
+  gps_lon?: number;
+  city_seo_name?: string;
+  citypart_seo_name?: string | null;
+  quarter_seo_name?: string | null;
+  street_seo_name?: string | null;
+}
+interface SrealityImage {
+  url?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -132,14 +151,118 @@ function isValidCzCoordinate(lat: number, lon: number): boolean {
   );
 }
 
+// Photo URLs come back protocol-relative ("//d18-a.sdn.cz/..."); add https.
+function normalizePhoto(url: string | undefined): string | null {
+  if (!url) return null;
+  return url.startsWith("//") ? `https:${url}` : url;
+}
+
+function collectPhotos(images: SrealityImage[] | undefined): string[] {
+  if (!images) return [];
+  return images
+    .map((img) => normalizePhoto(img.url))
+    .filter((u): u is string => u !== null);
+}
+
+// Codebook fields look like {name, value}. value 1 = yes, 2 = no, 0 = unset.
+function cbBool(field: CodebookValue | undefined | null): boolean | null {
+  if (!field || typeof field.value !== "number") return null;
+  if (field.value === 1) return true;
+  if (field.value === 2) return false;
+  return null;
+}
+
+// Codebook label, or null when unset. value 0 and "- ..." names (e.g.
+// "- nezadáno", "- vyber třídu") are placeholders, not real values.
+function cbName(field: CodebookValue | undefined | null): string | null {
+  if (!field || !field.name) return null;
+  if (field.value === 0 || field.name.startsWith("- ")) return null;
+  return field.name;
+}
+
+// Human-readable address from the locality object.
+function buildAddress(loc: SrealityLocality | undefined): string {
+  if (!loc) return "";
+  const part = loc.citypart || loc.quarter;
+  return [loc.street, part, loc.city].filter(Boolean).join(", ");
+}
+
+// Locality slug segment for the public detail URL: "praha-nove-mesto-petrska".
+function buildLocalitySlug(loc: SrealityLocality | undefined): string {
+  if (!loc) return "";
+  const part = loc.citypart_seo_name || loc.quarter_seo_name;
+  return [loc.city_seo_name, part, loc.street_seo_name].filter(Boolean).join("-");
+}
+
+// Public detail URL, e.g.
+// https://www.sreality.cz/detail/pronajem/komercni/restaurace/praha-karlin-vitkova/123
+function buildDetailUrl(
+  typeCb: number | undefined,
+  mainCb: number | undefined,
+  subCb: number | undefined,
+  loc: SrealityLocality | undefined,
+  hashId: string
+): string {
+  const typeSlug = (typeCb && CATEGORY_TYPE_SLUGS[typeCb]) || "pronajem";
+  const mainSlug = (mainCb && CATEGORY_MAIN_SLUGS[mainCb]) || "komercni";
+  const subSlug = (subCb && CATEGORY_SUB_SLUGS[subCb]) || "ostatni-komercni-prostory";
+  const localitySlug = buildLocalitySlug(loc);
+  return `https://www.sreality.cz/detail/${typeSlug}/${mainSlug}/${subSlug}/${localitySlug}/${hashId}`;
+}
+
+// Flat poi_*_distance fields -> a single object kept in metadata.
+function extractPoi(result: Record<string, unknown>): Record<string, unknown> {
+  const poi: Record<string, unknown> = {};
+  for (const key of Object.keys(result)) {
+    if (key.startsWith("poi_") && key.endsWith("_distance") && result[key] != null) {
+      poi[key] = result[key];
+    }
+  }
+  return poi;
+}
+
 // ---------------------------------------------------------------------------
-// Phase 1: Fetch listing hash IDs via sReality JSON API
+// Phase 1: Fetch listing seeds via the search API
 // ---------------------------------------------------------------------------
 
-async function fetchSearchViaApi(
+// Map one search-result row into a publishable seed listing.
+function mapListResult(r: Record<string, any>): SrealityListing {
+  const hashId = String(r.hash_id);
+  const loc: SrealityLocality | undefined = r.locality;
+  return {
+    hashId,
+    url: buildDetailUrl(
+      r.category_type_cb?.value,
+      r.category_main_cb?.value,
+      r.category_sub_cb?.value,
+      loc,
+      hashId
+    ),
+    name: r.advert_name || `Listing ${hashId}`,
+    locality: buildAddress(loc),
+    price: r.price_czk ?? r.price ?? null,
+    pricePerSqm: r.price_czk_m2 ?? null,
+    size: null,
+    latitude: loc?.gps_lat ?? null,
+    longitude: loc?.gps_lon ?? null,
+    description: "",
+    photos: collectPhotos(r.advert_images),
+    condition: null,
+    buildingType: null,
+    floor: null,
+    elevator: null,
+    barrierFree: null,
+    garage: null,
+    energyRating: null,
+    moveInDate: null,
+    nearbyPoi: {},
+  };
+}
+
+async function fetchListViaApi(
   searchUrl: string,
   cityId: string
-): Promise<{ hashIds: string[]; reportedTotal: number }> {
+): Promise<{ seeds: SrealityListing[]; reportedTotal: number }> {
   const city = getCity(cityId);
   if (!city) {
     throw new Error(`Unknown city "${cityId}". Check config/cities.ts.`);
@@ -148,195 +271,128 @@ async function fetchSearchViaApi(
 
   console.log(`  API params: type=${apiParams.category_type_cb} main=${apiParams.category_main_cb} sub=${apiParams.category_sub_cb || "all"}`);
   if (apiParams.building_condition) console.log(`  Condition filter: ${apiParams.building_condition}`);
-  if (apiParams.usable_area) console.log(`  Area filter: ${apiParams.usable_area}`);
+  if (apiParams.usable_area_from || apiParams.usable_area_to) {
+    console.log(`  Area filter: ${apiParams.usable_area_from ?? "0"}-${apiParams.usable_area_to ?? "∞"} m²`);
+  }
 
-  const allHashIds: Set<string> = new Set();
+  const seeds: SrealityListing[] = [];
+  const seenIds = new Set<string>();
   let reportedTotal = 0;
-  let page = 1;
+  let offset = 0;
 
-  const MAX_PAGES = 100;
-  while (page < MAX_PAGES) {
-    const url = buildApiUrl(apiParams, page);
-    console.log(`  Page ${page}: fetching...`);
+  while (offset < MAX_OFFSET) {
+    const url = buildApiUrl(apiParams, offset);
+    console.log(`  Offset ${offset}: fetching...`);
 
     try {
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-          "Accept": "application/json",
-        },
-      });
-
+      const res = await fetch(url, { headers: REQUEST_HEADERS });
       if (!res.ok) {
         console.log(`  Got HTTP ${res.status}, stopping pagination.`);
         break;
       }
 
       const data = await res.json();
+      reportedTotal = data.pagination?.total ?? reportedTotal;
 
-      if (page === 0) {
-        reportedTotal = data.result_size ?? 0;
-        console.log(`  sReality reports ${reportedTotal} total results`);
-      }
-
-      const estates = data._embedded?.estates || [];
-      if (estates.length === 0) {
-        console.log(`  Page ${page}: 0 estates, done.`);
+      const results: Record<string, any>[] = data.results || [];
+      if (results.length === 0) {
+        console.log(`  Offset ${offset}: 0 results, done.`);
         break;
       }
 
       let newOnThisPage = 0;
-      for (const estate of estates) {
-        if (typeof estate.hash_id !== "number") continue;
-        const hashId = String(estate.hash_id);
-        if (!allHashIds.has(hashId)) {
-          allHashIds.add(hashId);
-          newOnThisPage++;
-        }
+      for (const r of results) {
+        if (typeof r.hash_id !== "number") continue;
+        const hashId = String(r.hash_id);
+        if (seenIds.has(hashId)) continue;
+        seenIds.add(hashId);
+        seeds.push(mapListResult(r));
+        newOnThisPage++;
       }
 
-      console.log(`    ${estates.length} estates, ${newOnThisPage} new (${allHashIds.size} total)`);
+      console.log(`    ${results.length} results, ${newOnThisPage} new (${seeds.length} total of ${reportedTotal})`);
 
       if (newOnThisPage === 0) {
-        console.log(`  No new listings on page ${page}, done.`);
+        console.log(`  No new listings, done.`);
         break;
       }
 
-      page++;
+      offset += apiParams.limit;
+      if (reportedTotal > 0 && offset >= reportedTotal) break;
       await sleep(DELAY_BETWEEN_PAGES);
     } catch (err) {
-      console.error(`  Error fetching page ${page}:`, err);
+      console.error(`  Error fetching offset ${offset}:`, err);
       break;
     }
   }
 
-  if (reportedTotal > 0 && allHashIds.size < reportedTotal * 0.8) {
-    console.log(`  Warning: collected ${allHashIds.size} but sReality reported ${reportedTotal}. Possible pagination cap.`);
-  }
-
-  return { hashIds: Array.from(allHashIds), reportedTotal };
+  return { seeds, reportedTotal };
 }
 
 // ---------------------------------------------------------------------------
-// Phase 2: Fetch detail for each listing via API
+// Phase 2: Enrich each seed with detail data
 // ---------------------------------------------------------------------------
 
-function parseItemValue(name: string, value: unknown): unknown {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "number") return value;
-  const str = String(value).trim();
-  if (str === "True" || str === "true") return true;
-  if (str === "False" || str === "false") return false;
-  if (name === "Užitná ploch") {
-    const num = parseFloat(str.replace(/\s/g, "").replace(",", "."));
-    return isNaN(num) ? str : num;
-  }
-  return str;
+// Merge detail fields onto a seed. Detail wins; seed is the fallback.
+function mergeDetail(seed: SrealityListing, result: Record<string, any>): SrealityListing {
+  const loc: SrealityLocality | undefined = result.locality;
+  const detailPhotos = collectPhotos(result.advert_images);
+
+  return {
+    ...seed,
+    name: result.advert_name || seed.name,
+    locality: buildAddress(loc) || seed.locality,
+    description: result.advert_description || "",
+    price: result.price_czk ?? seed.price,
+    pricePerSqm: result.price_czk_m2 ?? seed.pricePerSqm,
+    size: typeof result.usable_area === "number" ? result.usable_area : seed.size,
+    latitude: loc?.gps_lat ?? seed.latitude,
+    longitude: loc?.gps_lon ?? seed.longitude,
+    photos: detailPhotos.length > 0 ? detailPhotos : seed.photos,
+    condition: cbName(result.building_condition),
+    buildingType: cbName(result.building_type),
+    floor: result.floor_number != null ? String(result.floor_number) : null,
+    elevator: cbBool(result.elevator),
+    barrierFree: cbBool(result.easy_access),
+    garage: typeof result.garage === "boolean" ? result.garage : null,
+    energyRating: cbName(result.energy_efficiency_rating_cb),
+    moveInDate: result.ready_date || result.beginning_date || null,
+    nearbyPoi: extractPoi(result),
+  };
 }
 
-async function fetchListingDetail(hashId: string): Promise<SrealityListing | null> {
+async function fetchListingDetail(seed: SrealityListing): Promise<SrealityListing> {
   try {
-    const res = await fetch(`${DETAIL_API_BASE}/${hashId}`, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "Accept": "application/json",
-      },
-    });
-
+    const res = await fetch(`${DETAIL_API_BASE}/${seed.hashId}`, { headers: REQUEST_HEADERS });
     if (!res.ok) {
       if (res.status === 404 || res.status === 410) {
-        console.log(`    ${hashId}: listing removed (${res.status}), skipping`);
-        return null;
+        console.log(`    ${seed.hashId}: listing removed (${res.status}), using list data`);
+      } else {
+        console.log(`    ${seed.hashId}: HTTP ${res.status}, using list data`);
       }
-      console.log(`    ${hashId}: HTTP ${res.status}, skipping`);
-      return null;
+      return seed;
     }
 
     const data = await res.json();
+    const result = data.result;
+    if (!result) return seed;
 
-    const fields: Record<string, unknown> = {};
-    for (const item of data.items || []) {
-      const englishName = ITEM_FIELD_MAP[item.name];
-      if (englishName) {
-        fields[englishName] = parseItemValue(item.name, item.value);
-      }
-    }
-
-    const lat = data.map?.lat ?? null;
-    const lon = data.map?.lon ?? null;
-    const price = data.price_czk?.value_raw ?? null;
-    const pricePerSqm = data.price_czk?.alt?.value_raw ?? null;
-
-    // Use view size (749x562) for faster loading instead of self (1920x1080)
-    const photos: string[] = [];
-    for (const img of data._embedded?.images || []) {
-      const photoUrl = img._links?.view?.href || img._links?.self?.href;
-      if (photoUrl) photos.push(photoUrl);
-    }
-
-    const description = data.text?.value || "";
-    const name = data.name?.value || `Listing ${hashId}`;
-    const locality = data.locality?.value || "";
-
-    // Build full URL with category path segments
-    const seo = data.seo || {};
-    const typeSlug = CATEGORY_TYPE_SLUGS[seo.category_type_cb] || "pronajem";
-    const mainSlug = CATEGORY_MAIN_SLUGS[seo.category_main_cb] || "komercni";
-    const subSlug = CATEGORY_SUB_SLUGS[seo.category_sub_cb] || "ostatni";
-    const seoLocality = seo.locality || "";
-    const url = `https://www.sreality.cz/detail/${typeSlug}/${mainSlug}/${subSlug}/${seoLocality}/${hashId}`;
-
-    const nearbyPoi: Record<string, unknown> = {};
-    for (const key of Object.keys(data)) {
-      if (key.startsWith("poi_") && data[key]?.values) {
-        nearbyPoi[key] = data[key].values.map((v: Record<string, unknown>) => ({
-          name: v.description || v.name,
-          distance: v.distance,
-          walkDistance: v.walkDistance,
-        }));
-      }
-    }
-
-    const size = typeof fields.usableArea === "number" ? fields.usableArea : null;
-
-    return {
-      hashId,
-      url,
-      name,
-      locality,
-      price,
-      pricePerSqm,
-      size,
-      latitude: lat,
-      longitude: lon,
-      description,
-      photos,
-      condition: (fields.condition as string) ?? null,
-      buildingType: (fields.buildingType as string) ?? null,
-      floor: (fields.floor as string) ?? null,
-      elevator: (fields.elevator as boolean) ?? null,
-      barrierFree: (fields.barrierFree as boolean) ?? null,
-      garage: (fields.garage as boolean) ?? null,
-      energyRating: (fields.energyRating as string) ?? null,
-      moveInDate: (fields.moveInDate as string) ?? null,
-      nearbyPoi,
-    };
+    return mergeDetail(seed, result);
   } catch (err) {
-    console.error(`    ${hashId}: fetch error:`, err);
-    return null;
+    console.error(`    ${seed.hashId}: fetch error, using list data:`, err);
+    return seed;
   }
 }
 
-async function fetchAllDetails(hashIds: string[]): Promise<SrealityListing[]> {
+async function enrichWithDetails(seeds: SrealityListing[]): Promise<SrealityListing[]> {
   const listings: SrealityListing[] = [];
   let done = 0;
 
-  for (const hashId of hashIds) {
-    const listing = await fetchListingDetail(hashId);
-    if (listing) listings.push(listing);
+  for (const seed of seeds) {
+    listings.push(await fetchListingDetail(seed));
     done++;
     if (done % 20 === 0) {
-      console.log(`  Progress: ${done}/${hashIds.length} (${listings.length} valid)`);
+      console.log(`  Progress: ${done}/${seeds.length}`);
     }
     await sleep(DELAY_BETWEEN_DETAILS);
   }
@@ -439,28 +495,30 @@ async function main() {
   const writeToDevFirst = !HEADLESS && config.dev;
   const writeToProd = HEADLESS && config.prod;
 
-  // Phase 1: Fetch listing IDs via JSON API
+  // Phase 1: Fetch listing seeds via the search API
   console.log("\n--- Phase 1: Fetching listings via API ---\n");
-  const { hashIds, reportedTotal } = await fetchSearchViaApi(searchUrl, selectedCityId);
+  const { seeds, reportedTotal } = await fetchListViaApi(searchUrl, selectedCityId);
 
-  if (hashIds.length === 0) {
+  if (seeds.length === 0) {
     console.error("\nNo listings found. Check the URL and filters.");
     process.exit(1);
   }
-  console.log(`\nFound ${hashIds.length} listings total (sReality reported ${reportedTotal}).`);
+  console.log(`\nFound ${seeds.length} listings total (sReality reported ${reportedTotal}).`);
 
-  // Phase 2: Fetch details
+  // Phase 2: Enrich with details
   console.log("\n--- Phase 2: Fetching listing details ---\n");
-  const listings = await fetchAllDetails(hashIds);
-  console.log(`\nFetched ${listings.length} listing details (${hashIds.length - listings.length} failed/removed).`);
-
-  if (listings.length === 0) {
-    console.error("\nAll detail fetches failed. Aborting.");
-    process.exit(1);
-  }
+  const listings = await enrichWithDetails(seeds);
+  console.log(`\nEnriched ${listings.length} listings.`);
 
   const { valid: validListings, skipped: skippedValidation } = transformListings(listings);
   console.log(`\nValid listings: ${validListings.length} (skipped ${skippedValidation} with missing data)`);
+
+  if (DRY_RUN) {
+    console.log("\n[dry-run] Sample of mapped listings (first 3):");
+    console.log(JSON.stringify(validListings.slice(0, 3), null, 2));
+    console.log(`\n[dry-run] ${validListings.length} valid, ${skippedValidation} skipped. No DB writes.`);
+    return;
+  }
 
   const seenIds = new Set(validListings.map((l) => l.sourceId));
 
