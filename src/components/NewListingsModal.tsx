@@ -58,6 +58,14 @@ function formatAge(createdAt?: string): string {
   return `${Math.floor(days / 7)} weeks ago`;
 }
 
+// Currency by source: Prague (sreality) = CZK, Madrid (idealista) = EUR.
+// Matches the map popup convention in EnhancedMapContainer.
+function formatPrice(amount: number, source: string): string {
+  return source === "sreality"
+    ? `${amount.toLocaleString()} Kč`
+    : `€${amount.toLocaleString()}`;
+}
+
 function sortProperties(
   properties: InboxProperty[],
   key: SortKey,
@@ -116,25 +124,26 @@ function ActionsDropdown({
   const placeInfo: PlaceInfo = {
     placeId: property.placeId,
     placeType: "property",
-    placeName: property.address || property.name,
+    placeName: property.name || property.address,
     placeAddress: property.address,
     lat: property.latitude,
     lon: property.longitude,
   };
 
   const handleCreateTrip = () => {
+    const tripName = property.name || property.address;
     const trip = createTrip(cityId);
     const linkedItem: LinkedItem = {
       type: "place",
       id: property.placeId,
-      name: property.address || property.name,
+      name: tripName,
       address: property.address,
       data: property,
     };
-    updateTrip(trip.id, { name: property.address || property.name, property: linkedItem });
+    updateTrip(trip.id, { name: tripName, property: linkedItem });
     window.dispatchEvent(
       new CustomEvent("create-trip-from-property", {
-        detail: { trip: { ...trip, name: property.address || property.name, property: linkedItem } },
+        detail: { trip: { ...trip, name: tripName, property: linkedItem } },
       }),
     );
     setOpen(false);
@@ -227,10 +236,10 @@ function PropertyCard({
   cityId: string;
 }) {
   const rentLabel = property.price
-    ? `€${property.price.toLocaleString()}/mo`
+    ? `${formatPrice(property.price, property.source)}/mo`
     : null;
   const transferLabel = property.transfer
-    ? `€${property.transfer.toLocaleString()} transfer`
+    ? `${formatPrice(property.transfer, property.source)} transfer`
     : null;
 
   return (
@@ -251,7 +260,7 @@ function PropertyCard({
         )}
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-semibold text-zinc-900 leading-snug line-clamp-2">
-            {property.address || property.name}
+            {property.name || property.address}
           </p>
           <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
             {property.district}
