@@ -21,6 +21,7 @@ import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
 import { generatePlaceId, generatePropertyPlaceId, parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { logActivity } from "@/lib/supabaseHelpers";
 import { notifyTeam } from "@/lib/notify-team";
+import { evaluatePropertyLock } from "@/lib/property-lock";
 import { useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
@@ -34,6 +35,7 @@ import type { PropertyAssignment } from "@/hooks/usePropertyAssignments";
 import { useTeamsContext } from "@/contexts/TeamsContext";
 import { useListsContext } from "@/contexts/ListsContext";
 import type { PlaceInfo } from "@/types/lists";
+import type { ScoutingTripStatus } from "@/types/scouting";
 import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter, PropertyPitchStatusFilter } from "@/types/filters";
 import { TrafficValueCard } from "@/components/TrafficValueCard";
 import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
@@ -1295,7 +1297,7 @@ function freshTooltipText(dateStr: string): string {
 }
 
 function PropertyActionsFooter({
-    property, placeId, cityId, mapsUrl, canAccessDashboard, checkCanPitch,
+    property, placeId, cityId, mapsUrl, canAccessDashboard, checkCanPitch, pitchStatus,
     assignableUsers, assignProperty, preRejectProperty, removeAssignment,
     assignment, createTrip, updateTrip, showToast, onClose,
 }: {
@@ -1305,6 +1307,7 @@ function PropertyActionsFooter({
     mapsUrl: string;
     canAccessDashboard: boolean;
     checkCanPitch: (placeId: string) => { allowed: boolean; reason: string | null };
+    pitchStatus: ScoutingTripStatus | null;
     assignableUsers: { id: string; display_name: string | null; email: string | null; role: string }[];
     assignProperty: (placeId: string, assignedTo: string | null, options?: { teamId?: string; notes?: string }) => Promise<any>;
     preRejectProperty: (placeId: string, reason: string, notes?: string) => Promise<any>;
@@ -1335,7 +1338,11 @@ function PropertyActionsFooter({
         return () => document.removeEventListener("click", close);
     }, [menuOpen]);
 
-    const pitchCheck = checkCanPitch(placeId);
+    const scoutLock = evaluatePropertyLock({
+        isAdmin: canAccessDashboard,
+        canPitch: checkCanPitch(placeId),
+        pitchStatus,
+    });
 
     // Shared metadata for all property activity log entries
     const propertyMeta = {
@@ -1347,8 +1354,8 @@ function PropertyActionsFooter({
     };
 
     const handleCreateTrip = () => {
-        if (!pitchCheck.allowed) {
-            showToast(pitchCheck.reason || "You can't scout this property", 'error');
+        if (!scoutLock.allowed) {
+            showToast(scoutLock.reason || "You can't scout this property", 'error');
             return;
         }
         onClose?.();
@@ -1466,12 +1473,11 @@ function PropertyActionsFooter({
                 </button>
                 {menuOpen && !subMenu && (
                     <div className="actions-dropdown" style={{ right: 0, left: "auto" }} onClick={(e) => e.stopPropagation()}>
-                        <button className="actions-item" onClick={handleCreateTrip} disabled={!pitchCheck.allowed}>
+                        <button className="actions-item" onClick={handleCreateTrip} disabled={!scoutLock.allowed}>
                             <Route size={14} />
                             <span>Create trip</span>
-                            {!pitchCheck.allowed && <span className="actions-hint">{pitchCheck.reason}</span>}
                         </button>
-                        <button className="actions-item" onClick={() => setSubMenu("addToList")}>
+                        <button className="actions-item" onClick={() => setSubMenu("addToList")} disabled={!scoutLock.allowed}>
                             <ListPlus size={14} />
                             <span>Add to list</span>
                         </button>
@@ -1857,6 +1863,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                 mapsUrl={mapsUrl}
                 canAccessDashboard={canAccessDashboard}
                 checkCanPitch={checkCanPitch}
+                pitchStatus={pitchStatus}
                 assignableUsers={assignableUsers}
                 assignProperty={assignProperty}
                 preRejectProperty={preRejectProperty}
@@ -2379,7 +2386,7 @@ export function EnhancedMapContainer({
 }: EnhancedMapContainerProps) {
     const { cafes, properties, otherPois, isLoading, error, retry } = useMapData(selectedCity?.id);
     const { cafes: dbCafes, profilesByPlaceId: cafeProfilesByPlaceId } = useCafeProfiles(true);
-    const { canSeeRevenue } = useUserProfiles();
+    const { canSeeRevenue, canAccessDashboard } = useUserProfiles();
     const cafeProfilesCtx = useMemo(() => ({ profilesByPlaceId: cafeProfilesByPlaceId, canSeeRevenue }), [cafeProfilesByPlaceId, canSeeRevenue]);
     const {
         trafficData,
@@ -2437,14 +2444,18 @@ export function EnhancedMapContainer({
         data?: any;
     }) => {
         if (isLinkingMode) {
-            const pitchCheck = canPitch(item.id);
-            if (!pitchCheck.allowed) {
-                showToast(pitchCheck.reason || "You can't scout this property", 'error');
+            const lock = evaluatePropertyLock({
+                isAdmin: canAccessDashboard,
+                canPitch: canPitch(item.id),
+                pitchStatus: getPitchStatus(item.id),
+            });
+            if (!lock.allowed) {
+                showToast(lock.reason || "You can't scout this property", 'error');
                 return;
             }
             addLinkingItem(item);
         }
-    }, [isLinkingMode, addLinkingItem, canPitch, showToast]);
+    }, [isLinkingMode, addLinkingItem, canPitch, getPitchStatus, canAccessDashboard, showToast]);
 
     // Miners cafes from DB - ALWAYS visible regardless of filters (filtered by city only)
     const minersCafes = useMemo(
