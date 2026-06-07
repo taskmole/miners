@@ -20,6 +20,7 @@ import { DrawingIndicator } from "@/components/DrawingIndicator";
 import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
 import { generatePlaceId, generatePropertyPlaceId, parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { logActivity } from "@/lib/supabaseHelpers";
+import { notifyTeam } from "@/lib/notify-team";
 import { useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
@@ -1380,6 +1381,20 @@ function PropertyActionsFooter({
             await assignProperty(placeId, null, { teamId });
             const team = teams.find(t => t.id === teamId);
             showToast(`Assigned to ${team?.name || "team"}`);
+            // Tag with team_id so every member sees it in their activity feed.
+            logActivity("assigned_property", {
+                ...propertyMeta,
+                team_id: teamId,
+                teamName: team?.name || null,
+            });
+            // Email the team (skips the actor; only delivers once the Resend
+            // domain is verified). Never blocks the assignment.
+            notifyTeam({
+                teamId,
+                kind: "assigned",
+                placeName: property.title,
+                placeAddress: property.address,
+            });
         } catch {
             showToast("Failed to assign to team", 'error');
         }

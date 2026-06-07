@@ -306,7 +306,7 @@ interface ScoutingTripsContextValue {
   createUploadTrip: (cityId: string, name: string, document: UploadedDocument) => ScoutingTrip;
   currentAuthorName: string;
   updateTrip: (tripId: string, updates: Partial<ScoutingTrip>) => void;
-  submitTrip: (tripId: string) => void;
+  submitTrip: (tripId: string, teamId?: string | null) => void;
   approveTrip: (tripId: string, reviewerName?: string) => void;
   rejectTrip: (tripId: string, rejectionNotes: string, reviewerName?: string) => void;
   returnTrip: (tripId: string, returnNotes: string, reviewerName?: string) => void;
@@ -489,6 +489,8 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       tripName: trip.name || "Untitled trip",
       trip_owner_id: trip.createdBy,
       authorName: trip.authorName || null,
+      // Tag the team so every member sees this in their activity feed.
+      team_id: trip.teamId ?? null,
     });
   };
 
@@ -578,20 +580,27 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
     });
   }, []);
 
-  const submitTrip = useCallback((tripId: string): void => {
+  const submitTrip = useCallback((tripId: string, teamId?: string | null): void => {
     // Skip if already submitted: stops a double-tap or a spurious re-submit
     // from firing duplicate reviewer emails. A returned/draft trip (status
     // differs) still submits and notifies as normal.
     if (tripsRef.current.find(t => t.id === tripId)?.status === 'submitted') return;
 
-    const updated = mutateTrip(tripId, () => ({
+    const updated = mutateTrip(tripId, (current) => ({
       status: 'submitted' as ScoutingTripStatus,
       submittedAt: new Date().toISOString(),
+      // Stamp the team at submit time (computed from the property's team
+      // assignment by the caller). Drafts stay personal and offline-safe; the
+      // team link only switches on here. A null/undefined teamId keeps the
+      // current team rather than wiping it, so a resubmit never drops the team
+      // just because the assignment map was still loading.
+      teamId: teamId ?? current.teamId,
     }));
     if (updated) {
       logTripActivity("submitted_scouting_trip", updated);
-      // Notify reviewers (Matus + founders) of every submission, incl. resubmits.
-      // Routed through the sync queue so it survives offline submits in the field.
+      // Notify reviewers (Matus + founders) of every submission, incl. resubmits,
+      // plus the trip's team if it has one. Routed through the sync queue so it
+      // survives offline submits in the field.
       enqueue({
         type: 'notify_submission',
         tripId,
@@ -601,6 +610,8 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
           cityId: updated.cityId,
           authorName: updated.authorName || 'Scout',
           submittedAt: updated.submittedAt || '',
+          teamId: updated.teamId ?? null,
+          ownerId: updated.createdBy || null,
         },
       });
     }
@@ -629,6 +640,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
         tripName: updated.name || "Untitled trip",
         trip_owner_id: updated.createdBy,
         authorName: updated.authorName || null,
+        team_id: updated.teamId ?? null,
         reason,
       });
     }
@@ -648,6 +660,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
         tripName: updated.name || "Untitled trip",
         trip_owner_id: updated.createdBy,
         authorName: updated.authorName || null,
+        team_id: updated.teamId ?? null,
         reason,
       });
     }

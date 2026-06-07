@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest } from "@/lib/supabase-server";
+import { authenticateRequest, getUserTeamIds } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
   const { supabase, userId } = auth;
 
   try {
-    // Fetch caller's role in parallel with the three data sources
-    const [roleRes, commentsRes, listsRes, activityLogRes] = await Promise.all([
+    // Fetch caller's role + teams in parallel with the three data sources
+    const [roleRes, commentsRes, listsRes, activityLogRes, myTeamIds] = await Promise.all([
       supabase.from("user_profiles").select("role").eq("id", userId).single(),
       supabase
         .from("comments")
@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
         .select("id, user_id, action_type, entity_type, entity_id, summary, created_at")
         .order("created_at", { ascending: false })
         .limit(50),
+      getUserTeamIds(supabase, userId),
     ]);
 
     if (commentsRes.error) console.error("[api/db/activities] comments error:", commentsRes.error);
@@ -53,13 +54,31 @@ export async function GET(request: NextRequest) {
     let activityLog = activityLogRes.data || [];
 
     // Franchisees only see their own activities + activities involving them
+    // or one of their teams.
     if (isFranchisee) {
-      comments = comments.filter(c => c.created_by === userId);
+      const teamIdSet = new Set(myTeamIds);
+
+      // Places assigned to one of my teams: comments on these are relevant to me.
+      let teamPlaceIds = new Set<string>();
+      if (myTeamIds.length > 0) {
+        const { data: teamAssignments } = await supabase
+          .from("property_assignments")
+          .select("property_place_id")
+          .in("assigned_to_team", myTeamIds);
+        teamPlaceIds = new Set((teamAssignments || []).map(a => a.property_place_id));
+      }
+
+      comments = comments.filter(c => c.created_by === userId || teamPlaceIds.has(c.entity_id));
       lists = lists.filter(l => l.created_by === userId);
       activityLog = activityLog.filter(e => {
         if (e.user_id === userId) return true;
         const parsed = parseSummary(e.summary);
-        return parsed.assigned_to === userId || parsed.trip_owner_id === userId;
+        if (parsed.assigned_to === userId || parsed.trip_owner_id === userId) return true;
+        // Addressed to me (e.g. added/removed from a team)
+        if (parsed.target_user_id === userId) return true;
+        // Tagged with one of my teams (assignment, pitch state change, etc.)
+        if (typeof parsed.team_id === "string" && teamIdSet.has(parsed.team_id)) return true;
+        return false;
       });
     }
 
@@ -83,7 +102,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ comments, lists, activityLog, userProfiles, callerRole });
+    return NextResponse.json({ comments, lists, activityLog, userProfiles, callerRole, myTeamIds });
   } catch (err) {
     console.error("[api/db/activities] unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

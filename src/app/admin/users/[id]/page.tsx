@@ -72,7 +72,7 @@ export default function UserDetailPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Teams
-  const { teams, createTeam } = useTeams(true);
+  const { teams, createTeam, addMember, removeMember } = useTeams();
   const [newTeamName, setNewTeamName] = useState('');
   const [showNewTeam, setShowNewTeam] = useState(false);
   const [creatingTeam, setCreatingTeam] = useState(false);
@@ -186,6 +186,19 @@ export default function UserDetailPage() {
           method: 'PATCH',
           body: JSON.stringify({ id: user.id, ...updates }),
         });
+      }
+
+      // Keep team_members (the source of truth the app reads for team pitches
+      // and notifications) in sync with this single-team selector. The team_id
+      // column above is kept only as the selector's backing value. Best effort:
+      // membership errors (last-owner guard, already-a-member) must not block save.
+      if (formTeamId !== user.team_id) {
+        if (user.team_id) {
+          try { await removeMember(user.team_id, user.id); } catch { /* e.g. last owner */ }
+        }
+        if (formTeamId) {
+          try { await addMember(formTeamId, user.id, 'member'); } catch { /* e.g. already a member */ }
+        }
       }
 
       // Refresh user data

@@ -8,6 +8,8 @@ import { useTeams, type Team, type TeamMember } from '@/hooks/useTeams';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
 import { useCafeProfiles, CafeProfile, CafeCategory, CATEGORY_LABELS } from '@/hooks/useCafeProfiles';
 import { apiFetch } from '@/lib/api-client';
+import { logActivity } from '@/lib/supabaseHelpers';
+import { notifyTeam } from '@/lib/notify-team';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -696,7 +698,7 @@ function AddUserForm({ onSave, onCancel, teams }: {
   teams: { id: string; name: string }[];
 }) {
   const { addUser } = useUserProfiles();
-  const { createTeam } = useTeams();
+  const { createTeam, addMember } = useTeams();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('franchisee');
@@ -737,13 +739,18 @@ function AddUserForm({ onSave, onCancel, teams }: {
     setError(null);
     setSuccess(null);
     try {
-      await addUser({
+      const created = await addUser({
         display_name: displayName.trim() || undefined,
         email: email.trim(),
         role,
         city_ids: cityIds,
         team_id: teamId || null,
       });
+      // Also record real team membership (the source of truth the app reads),
+      // not just the team_id column. Best effort: never fails the user creation.
+      if (created?.id && teamId) {
+        try { await addMember(teamId, created.id, 'member'); } catch { /* already a member */ }
+      }
       setSuccess(`Profile created for ${email.trim()}. Settings apply when they sign in with Google.`);
       setTimeout(() => onSave(), 2000);
     } catch (err) {
@@ -978,6 +985,7 @@ function AdminContent() {
       });
       refetchSubmissions();
       sendTripStatusEmail(pitchId, 'approved');
+      notifyTeamStatus(pitchId, 'approved');
     } catch {
       setActionError('Failed to approve');
     }
@@ -1004,6 +1012,7 @@ function AdminContent() {
       setRejectNotes('');
       refetchSubmissions();
       sendTripStatusEmail(pitchId, 'rejected', rejectNotes);
+      notifyTeamStatus(pitchId, 'rejected', rejectNotes);
     } catch {
       setActionError('Failed to reject');
     }
@@ -1030,6 +1039,7 @@ function AdminContent() {
       setReturnNotes('');
       refetchSubmissions();
       sendTripStatusEmail(pitchId, 'returned', returnNotes);
+      notifyTeamStatus(pitchId, 'returned', returnNotes);
     } catch {
       setActionError('Failed to return');
     }
@@ -1052,6 +1062,37 @@ function AdminContent() {
         reviewerName: 'Admin',
       }),
     }).catch(() => {});
+  };
+
+  // Record the reviewer decision in the activity feed (so the scout and the
+  // pitch's team see it in-app) and email the team. The owner already gets the
+  // personal status email above, so they are excluded from the team email.
+  const notifyTeamStatus = (pitchId: string, status: 'approved' | 'rejected' | 'returned', reason?: string) => {
+    const pitch = [...pendingSubmissions, ...processedSubmissions].find(p => p.id === pitchId);
+    if (!pitch) return;
+    const tripName = pitch.name || pitch.address || 'Untitled trip';
+    const actionMap = {
+      approved: 'approved_scouting_trip',
+      rejected: 'rejected_scouting_trip',
+      returned: 'returned_scouting_trip',
+    } as const;
+    logActivity(actionMap[status], {
+      tripId: pitch.id,
+      tripName,
+      trip_owner_id: pitch.createdBy ?? null,
+      team_id: pitch.teamId ?? null,
+      ...(reason ? { reason: reason.split('\n')[0].slice(0, 80) } : {}),
+    });
+    if (pitch.teamId) {
+      notifyTeam({
+        teamId: pitch.teamId,
+        kind: 'status',
+        status,
+        tripName,
+        reason,
+        excludeUserIds: pitch.createdBy ? [pitch.createdBy] : undefined,
+      });
+    }
   };
 
   const toggleExpand = (id: string) => {

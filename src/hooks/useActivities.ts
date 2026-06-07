@@ -101,6 +101,8 @@ const ACTION_TYPE_MAP: Record<string, { type: ActivityType; action: string; targ
   approved_scouting_trip: { type: 'updated', action: 'approved scouting trip for', targetType: 'property' },
   rejected_scouting_trip: { type: 'deleted', action: 'rejected scouting trip for', targetType: 'property' },
   returned_scouting_trip: { type: 'updated', action: 'returned scouting trip for', targetType: 'property' },
+  added_to_team: { type: 'added', action: 'added', targetType: 'list' },
+  removed_from_team: { type: 'deleted', action: 'removed', targetType: 'list' },
 };
 
 function parseSummary(summary: string | null): Record<string, unknown> {
@@ -134,8 +136,20 @@ function buildTargetName(
 
     case 'assigned_property': {
       const name = (summary.placeName as string) || 'a property';
+      const team = summary.teamName as string | undefined;
+      if (team) return `${name} to team "${team}"`;
       const assignee = summary.assigneeName as string | null;
       return assignee ? `${name} to ${assignee}` : name;
+    }
+
+    case 'added_to_team': {
+      const member = (summary.memberName as string) || 'you';
+      return `${member} to team "${summary.teamName || 'a team'}"`;
+    }
+
+    case 'removed_from_team': {
+      const member = (summary.memberName as string) || 'you';
+      return `${member} from team "${summary.teamName || 'a team'}"`;
     }
 
     case 'pre_rejected_property':
@@ -187,6 +201,7 @@ interface ActivitiesResponse {
     email: string | null;
   }>;
   callerRole?: string;
+  myTeamIds?: string[];
 }
 
 type ProfileMap = Map<string, { display_name: string | null; email: string | null }>;
@@ -230,6 +245,7 @@ export function useActivities() {
 
   const profilesRef = useRef<ProfileMap>(new Map());
   const userRoleRef = useRef<string>('admin');
+  const userTeamIdsRef = useRef<Set<string>>(new Set());
   const hasFetchedRef = useRef(false);
   const hasDisconnectedRef = useRef(false);
 
@@ -240,7 +256,7 @@ export function useActivities() {
     try {
       const data = await apiFetch<ActivitiesResponse>('/api/db/activities');
 
-      const { comments, lists, activityLog, userProfiles, callerRole } = data;
+      const { comments, lists, activityLog, userProfiles, callerRole, myTeamIds } = data;
 
       const profiles: ProfileMap = new Map();
       userProfiles.forEach(profile => {
@@ -250,6 +266,7 @@ export function useActivities() {
       // Cache for Realtime handler
       profilesRef.current = profiles;
       userRoleRef.current = callerRole || 'admin';
+      userTeamIdsRef.current = new Set(myTeamIds || []);
 
       const currentLastRead = getLastReadTimestamp();
       const lastReadTime = currentLastRead ? new Date(currentLastRead).getTime() : 0;
@@ -334,13 +351,16 @@ export function useActivities() {
       const row = payload.new;
       if (!row.id || !row.action_type || !row.created_at) return;
 
-      // Franchisee filter
+      // Franchisee filter: own actions, actions involving them, or their teams
       const currentUserId = getAuthUserId();
       if (userRoleRef.current === 'franchisee' && currentUserId) {
         const summary = parseSummary(row.summary as string | null);
         const isOwn = row.user_id === currentUserId;
-        const isInvolved = summary.assigned_to === currentUserId || summary.trip_owner_id === currentUserId;
-        if (!isOwn && !isInvolved) return;
+        const isInvolved = summary.assigned_to === currentUserId
+          || summary.trip_owner_id === currentUserId
+          || summary.target_user_id === currentUserId;
+        const isMyTeam = typeof summary.team_id === 'string' && userTeamIdsRef.current.has(summary.team_id);
+        if (!isOwn && !isInvolved && !isMyTeam) return;
       }
 
       const newItem = transformActivityLogRow(
