@@ -16,7 +16,7 @@ type SyncAction =
   | {
       type: 'notify_submission';
       tripId: string;
-      payload: { tripName: string; address: string; cityId: string; authorName: string; submittedAt: string };
+      payload: { tripName: string; address: string; cityId: string; authorName: string; submittedAt: string; teamId: string | null; ownerId: string | null };
     };
 
 interface QueueEntry {

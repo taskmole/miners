@@ -4,6 +4,7 @@ import { render } from "@react-email/render";
 import React from "react";
 import { NewSubmissionNotification } from "@/emails/new-submission-notification";
 import { authenticateRequest } from "@/lib/supabase-server";
+import { sendTeamEmails } from "@/lib/team-notify-server";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
   // scout may trigger this; no reviewer role needed since the submitter sends it.
   const auth = await authenticateRequest(request);
   if (auth.error) return auth.error;
+  const { supabase, userId } = auth;
 
   let body: {
     tripName?: string;
@@ -34,6 +36,8 @@ export async function POST(request: NextRequest) {
     cityId?: string;
     authorName?: string;
     submittedAt?: string;
+    teamId?: string | null;
+    ownerId?: string | null;
   };
 
   try {
@@ -97,6 +101,26 @@ export async function POST(request: NextRequest) {
         }
       }
       results.push({ email, status: error ? `Failed: ${error.message}` : "Sent" });
+    }
+
+    // Also notify the trip's team (if any), skipping the submitter. Exclude the
+    // pitch owner (passed in the payload), not the request's auth user, since
+    // this job can drain from a different session on a shared field device.
+    // Wrapped in its own try/catch so a team-email error can never turn this
+    // into a 5xx that makes the sync queue retry (and resend reviewer emails).
+    if (body.teamId) {
+      try {
+        await sendTeamEmails(supabase, {
+          teamId: body.teamId,
+          kind: "submitted",
+          tripName: body.tripName,
+          placeName: title,
+          actorName: authorName,
+          excludeUserId: body.ownerId || userId,
+        });
+      } catch (teamErr) {
+        console.warn("[notify-submission] team email failed:", teamErr);
+      }
     }
 
     // 502 lets the sync queue retry (it treats 5xx as transient); 200 clears the

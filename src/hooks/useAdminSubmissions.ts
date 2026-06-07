@@ -16,6 +16,7 @@ export interface AdminPitch {
   authorName?: string;
   authorEmail?: string;
   createdBy?: string;
+  teamId?: string;
 
   // Basic info
   name?: string;
@@ -85,6 +86,7 @@ export function useAdminSubmissions() {
         authorName: (row.author_name as string) || 'Unknown',
         authorEmail: undefined,
         createdBy: row.created_by as string | undefined,
+        teamId: row.team_id as string | undefined,
         name: row.trip_name as string | undefined,
         address: row.address as string | undefined,
         notes: row.condition_notes as string | undefined,

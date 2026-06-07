@@ -1,35 +1,24 @@
 -- ===========================================
--- MIGRATION: Create teams table + team_id on user_profiles
+-- MIGRATION: user_profiles.team_id column (deprecated)
+-- ===========================================
+-- SUPERSEDED by 20260517000001_create_teams.sql, which is the authoritative
+-- teams schema (teams + team_members tables, helper functions, and RLS).
+--
+-- This file originally also created a minimal `teams` table, which collided
+-- with the `CREATE TABLE public.teams` in 20260517000001 and broke a fresh
+-- database setup. Teams creation now lives solely in 20260517000001.
+--
+-- We keep only the (now deprecated) user_profiles.team_id column here, as a
+-- plain uuid with no foreign key, since `teams` is created in the later
+-- migration. The column is no longer the source of truth for membership: the
+-- app reads team membership from the team_members table. It remains only as a
+-- convenience backing value for the single-team selector in the admin UI.
+--
+-- All statements are guarded so this migration is safe to run in any order and
+-- more than once.
 -- ===========================================
 
-CREATE TABLE public.teams (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT teams_pkey PRIMARY KEY (id),
-  CONSTRAINT teams_name_unique UNIQUE (name)
-);
-
 ALTER TABLE public.user_profiles
-  ADD COLUMN team_id uuid REFERENCES public.teams(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS team_id uuid;
 
-CREATE INDEX idx_user_profiles_team_id ON public.user_profiles(team_id);
-
--- RLS
-ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Authenticated users can view teams"
-ON public.teams FOR SELECT
-USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Only admins can insert teams"
-ON public.teams FOR INSERT
-WITH CHECK (public.is_admin());
-
-CREATE POLICY "Only admins can update teams"
-ON public.teams FOR UPDATE
-USING (public.is_admin());
-
-CREATE POLICY "Only admins can delete teams"
-ON public.teams FOR DELETE
-USING (public.is_admin());
+CREATE INDEX IF NOT EXISTS idx_user_profiles_team_id ON public.user_profiles(team_id);

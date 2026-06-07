@@ -22,6 +22,8 @@ import { Input } from "@/components/ui/input";
 import { useMobile } from "@/hooks/useMobile";
 import { MobileSelect, type SelectOption } from "@/components/ui/mobile-select";
 import { useScoutingTrips } from "@/hooks/useScoutingTrips";
+import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
+import { useTeamsContext } from "@/contexts/TeamsContext";
 import { TripChecklist } from "@/components/TripChecklist";
 import { AttachmentGallery } from "@/components/attachments";
 import { NearbyCompetitors, parseCompetitors } from "@/components/NearbyCompetitors";
@@ -207,6 +209,8 @@ export function ScoutingTripForm({
   const isMobile = useMobile();
   const { createTrip, updateTrip, submitTrip, currentAuthorName } = useScoutingTrips();
   const { defaults } = useScoutingDefaults();
+  const { getAssignment } = usePropertyAssignmentContext();
+  const { userTeamIds } = useTeamsContext();
 
   // Form state
   const [tripId, setTripId] = useState<string | null>(existingTrip?.id || null);
@@ -498,19 +502,33 @@ export function ScoutingTripForm({
     onClose();
   };
 
+  // The team that should own this pitch on submit: the property's assigned
+  // team, but only if I'm actually a member of it. Returns undefined ("leave
+  // the pitch's team as-is") when there's no match, so a resubmit never wipes
+  // an existing team just because the assignment map hasn't loaded yet.
+  const resolveSubmitTeamId = (): string | undefined => {
+    const placeId = property?.id;
+    if (!placeId) return undefined;
+    const team = getAssignment(placeId)?.assigned_to_team;
+    return team && userTeamIds.includes(team) ? team : undefined;
+  };
+
   const handleSubmit = () => {
     setAttemptedSubmit(true);
     setShowErrors(true);
     if (!isValid) return;
 
     const data = buildTripData();
+    // If this property is assigned to one of my teams, the pitch becomes the
+    // team's at submit (everyone on the team can see it and gets notified).
+    const teamId = resolveSubmitTeamId();
     if (tripId) {
       updateTrip(tripId, data);
-      submitTrip(tripId);
+      submitTrip(tripId, teamId);
     } else {
       const newTrip = createTrip(cityId);
       updateTrip(newTrip.id, data);
-      submitTrip(newTrip.id);
+      submitTrip(newTrip.id, teamId);
     }
     onClose();
   };

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, createServerSupabase, getTokenFromRequest } from "@/lib/supabase-server";
+import { sendTeamEmails } from "@/lib/team-notify-server";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,40 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("[api/db/comments] upsert error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // If this comment is on a property assigned to a team, notify the team
+    // (best effort; skips the commenter and never blocks the comment).
+    if (entity_type === "place") {
+      try {
+        const { data: assignment } = await supabase
+          .from("property_assignments")
+          .select("assigned_to_team")
+          .eq("property_place_id", entity_id)
+          .maybeSingle();
+        const teamId = assignment?.assigned_to_team as string | null | undefined;
+        if (teamId) {
+          let actorName: string | undefined;
+          if (created_by) {
+            const { data: prof } = await supabase
+              .from("user_profiles")
+              .select("display_name")
+              .eq("id", created_by)
+              .maybeSingle();
+            actorName = prof?.display_name || undefined;
+          }
+          await sendTeamEmails(supabase, {
+            teamId,
+            kind: "comment",
+            placeName: entity_name || undefined,
+            actorName,
+            commentSnippet: typeof content === "string" ? content.slice(0, 120) : undefined,
+            excludeUserId: created_by || undefined,
+          });
+        }
+      } catch (notifyErr) {
+        console.warn("[api/db/comments] team notify failed:", notifyErr);
+      }
     }
 
     return NextResponse.json(data);

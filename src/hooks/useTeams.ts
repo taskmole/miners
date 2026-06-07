@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api-client";
+import { logActivity } from "@/lib/supabaseHelpers";
 
 export interface Team {
   id: string;
@@ -141,12 +142,17 @@ export function useTeams() {
           body: JSON.stringify({ team_id: teamId, user_id: memberId, role }),
         });
         await fetchTeams();
+        // In-app notice for the added member (they match on target_user_id).
+        logActivity("added_to_team", {
+          teamName: getTeam(teamId)?.name ?? null,
+          target_user_id: memberId,
+        });
       } catch (err) {
         console.error("[useTeams] addMember error:", err);
         throw err;
       }
     },
-    [isReady, fetchTeams]
+    [isReady, fetchTeams, getTeam]
   );
 
   const removeMember = useCallback(
@@ -159,12 +165,17 @@ export function useTeams() {
           { method: "DELETE" }
         );
         await fetchTeams();
+        // In-app notice for the removed member (they match on target_user_id).
+        logActivity("removed_from_team", {
+          teamName: getTeam(teamId)?.name ?? null,
+          target_user_id: memberId,
+        });
       } catch (err) {
         console.error("[useTeams] removeMember error:", err);
         throw err;
       }
     },
-    [isReady, fetchTeams]
+    [isReady, fetchTeams, getTeam]
   );
 
   const changeMemberRole = useCallback(
