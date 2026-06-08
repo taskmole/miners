@@ -29,6 +29,7 @@ dotenv.config({ path: path.join(__dirname, "../../.env.local") });
 import * as fs from "fs";
 import * as readline from "readline";
 import * as cheerio from "cheerio";
+import * as zlib from "zlib";
 import { getCityIds, getCity, hasIdealistaSupport } from "./config/cities";
 import { SOURCES, getCategoryForIdealista } from "./lib/categories";
 import {
@@ -101,6 +102,19 @@ async function getProxyAgent(): Promise<unknown> {
   }
 }
 
+async function readResponseBody(response: Response): Promise<string> {
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.length === 0) return "";
+  if (buffer.length >= 2 && buffer[0] === 0x1f && buffer[1] === 0x8b) {
+    try {
+      return zlib.gunzipSync(buffer).toString("utf-8");
+    } catch {
+      console.log("    Warning: gzip magic detected but decompression failed, using raw text");
+    }
+  }
+  return buffer.toString("utf-8");
+}
+
 async function fetchWithRetry(
   url: string,
   timeoutMs: number,
@@ -129,7 +143,7 @@ async function fetchWithRetry(
 
       if (response.status === 404) return null;
 
-      if (response.ok) return await response.text();
+      if (response.ok) return await readResponseBody(response);
 
       // Retryable status
       if (attempt < maxRetries) {
