@@ -417,6 +417,19 @@ export function Sidebar({
         onEuctFilterChange?.(v);
     };
 
+    // The cafe layer is split into sub-categories, so "turning it on" means
+    // enabling whichever cafe sub-categories actually have data. Used by the
+    // Min. Rating slider so dragging it always shows results.
+    const ensureCafeLayerActive = () => {
+        const subs = placeCategories.find(c => c.id === "cafe")?.subcategories ?? [];
+        if (subs.some(s => activeFilters.has(s.id))) return;
+        const newFilters = new Set(activeFilters);
+        subs.forEach(s => {
+            if (getCount(s.countKey) > 0) newFilters.add(s.id);
+        });
+        onFilterChange(newFilters);
+    };
+
     const getCount = (key: string) => {
         if (!counts) return 0;
         return counts[key as keyof typeof counts] ?? 0;
@@ -692,7 +705,7 @@ export function Sidebar({
                                                                         </div>
                                                                         <Slider
                                                                             value={[localRating]}
-                                                                            onValueChange={([v]) => setLocalRating(v)}
+                                                                            onValueChange={([v]) => { ensureCafeLayerActive(); setLocalRating(v); }}
                                                                             max={5}
                                                                             step={0.5}
                                                                         />
@@ -790,7 +803,7 @@ export function Sidebar({
                                                                         </div>
                                                                         <Slider
                                                                             value={[localScore]}
-                                                                            onValueChange={([v]) => setLocalScore(v)}
+                                                                            onValueChange={([v]) => { ensureLayerActive("property"); setLocalScore(v); }}
                                                                             max={100}
                                                                             step={5}
                                                                         />
