@@ -38,7 +38,7 @@ import {
   buildApiUrl,
   CATEGORY_TYPE_SLUGS,
   CATEGORY_MAIN_SLUGS,
-  CATEGORY_SUB_SLUGS,
+  CATEGORY_SUB_DETAIL_SLUGS,
 } from "./config/sreality";
 import { getCity } from "./config/cities";
 import {
@@ -151,16 +151,31 @@ function isValidCzCoordinate(lat: number, lon: number): boolean {
   );
 }
 
-// Photo URLs come back protocol-relative ("//d18-a.sdn.cz/..."); add https.
-function normalizePhoto(url: string | undefined): string | null {
-  if (!url) return null;
-  return url.startsWith("//") ? `https:${url}` : url;
+// sReality's image CDN (sdn.cz) returns HTTP 401 for a bare image URL. A
+// transform suffix is mandatory and only specific whitelisted presets work.
+// This preset is the one sreality.cz itself serves; it yields a ~750px JPEG.
+const SREALITY_IMG_TRANSFORM = "?fl=res,749,562,3|shr,,20|jpg,90";
+
+// Normalize one raw image entry into a ready-to-display URL.
+// The search (list) API returns advert_images as bare strings
+// ("//d18-a.sdn.cz/..."); the detail API returns objects ({ url: "//..." }).
+// Accept either shape, force https, and append the CDN transform.
+function normalizePhoto(img: string | SrealityImage | undefined): string | null {
+  const raw = typeof img === "string" ? img : img?.url;
+  if (!raw || typeof raw !== "string") return null;
+  let url = raw.startsWith("//") ? `https:${raw}` : raw;
+  // Append the CDN transform only when the URL carries no query string yet, so
+  // an already-transformed (or otherwise signed) URL is never double-appended.
+  if (url.includes("sdn.cz") && !url.includes("?")) {
+    url += SREALITY_IMG_TRANSFORM;
+  }
+  return url;
 }
 
-function collectPhotos(images: SrealityImage[] | undefined): string[] {
+function collectPhotos(images: Array<string | SrealityImage> | undefined): string[] {
   if (!images) return [];
   return images
-    .map((img) => normalizePhoto(img.url))
+    .map(normalizePhoto)
     .filter((u): u is string => u !== null);
 }
 
@@ -205,7 +220,7 @@ function buildDetailUrl(
 ): string {
   const typeSlug = (typeCb && CATEGORY_TYPE_SLUGS[typeCb]) || "pronajem";
   const mainSlug = (mainCb && CATEGORY_MAIN_SLUGS[mainCb]) || "komercni";
-  const subSlug = (subCb && CATEGORY_SUB_SLUGS[subCb]) || "ostatni-komercni-prostory";
+  const subSlug = (subCb && CATEGORY_SUB_DETAIL_SLUGS[subCb]) || "ostatni-komercni-prostory";
   const localitySlug = buildLocalitySlug(loc);
   return `https://www.sreality.cz/detail/${typeSlug}/${mainSlug}/${subSlug}/${localitySlug}/${hashId}`;
 }
