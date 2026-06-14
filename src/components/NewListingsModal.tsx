@@ -472,7 +472,10 @@ export function NewListingsModal({
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0 safe-area-pt">
+        <div
+          className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0"
+          style={isMobile ? { paddingTop: "calc(16px + env(safe-area-inset-top, 0px))" } : undefined}
+        >
           <h2 className="font-outfit text-lg font-semibold text-zinc-900">
             New Listings
           </h2>
