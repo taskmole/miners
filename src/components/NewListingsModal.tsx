@@ -61,9 +61,10 @@ function formatAge(createdAt?: string): string {
 // Currency by source: Prague (sreality) = CZK, Madrid (idealista) = EUR.
 // Matches the map popup convention in EnhancedMapContainer.
 function formatPrice(amount: number, source: string): string {
-  return source === "sreality"
-    ? `${amount.toLocaleString()} Kč`
-    : `€${amount.toLocaleString()}`;
+  // Round to whole units (scraped values can be fractional, e.g. 26866.667)
+  // and pin the locale so grouping is identical on every device.
+  const rounded = Math.round(amount).toLocaleString("en-US");
+  return source === "sreality" ? `${rounded} Kč` : `€${rounded}`;
 }
 
 function sortProperties(
