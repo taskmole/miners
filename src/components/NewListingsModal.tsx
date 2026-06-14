@@ -407,7 +407,10 @@ export function NewListingsModal({
               lon: property.longitude,
               placeId: property.placeId,
               placeType: "property",
-              data: property,
+              // The map popup (PropertyData) reads `title`, but the inbox uses
+              // `name`. Map it across so the popup heading isn't blank, and tag
+              // the type the popup expects.
+              data: { ...property, title: property.name, type: "property" },
             },
           }),
         );
