@@ -28,9 +28,15 @@ export const CATEGORY_MAIN_SLUGS: Record<number, string> = {
   5: "ostatni",
 };
 
-// Commercial (category_main_cb=4) subtypes. In the rebuilt API the search-URL
-// slug and the detail-URL slug are identical (both plural), so one table serves
-// both directions. Codes verified live against /api/v1/estates/filter_page.
+// Commercial (category_main_cb=4) subtypes, keyed by category_sub_cb code.
+//
+// IMPORTANT: sReality uses DIFFERENT slugs for SEARCH URLs vs DETAIL URLs.
+//   - Search URLs (what a user pastes) use the PLURAL form: "obchodni-prostory"
+//   - Detail URLs (the public listing page) use the SINGULAR form: "obchodni-prostor"
+// Building a detail link with the plural slug returns HTTP 404. Both tables
+// below were verified live in 2026-06 against the public detail-page redirect.
+
+// Search-URL slugs (plural). Inverted below to parse pasted search URLs.
 export const CATEGORY_SUB_SLUGS: Record<number, string> = {
   25: "kancelare",
   26: "sklady",
@@ -44,6 +50,24 @@ export const CATEGORY_SUB_SLUGS: Record<number, string> = {
   49: "virtualni-kancelare",
   56: "ordinace",
   57: "apartmany",
+};
+
+// Detail-URL slugs. Used to build the public listing link. sReality singularizes
+// the commercial types here (sklad, obchodni-prostor, ...), so these diverge from
+// the search slugs above. A wrong slug here = a dead 404 link on the map.
+export const CATEGORY_SUB_DETAIL_SLUGS: Record<number, string> = {
+  25: "kancelare",
+  26: "sklad",
+  27: "vyrobni-prostor",
+  28: "obchodni-prostor",
+  29: "ubytovani",
+  30: "restaurace",
+  31: "zemedelsky",
+  32: "ostatni-komercni-prostory",
+  38: "cinzovni-dum",
+  49: "virtualni-kancelar",
+  56: "ordinace",
+  57: "apartman",
 };
 
 // ---------------------------------------------------------------------------

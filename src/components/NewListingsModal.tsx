@@ -61,9 +61,10 @@ function formatAge(createdAt?: string): string {
 // Currency by source: Prague (sreality) = CZK, Madrid (idealista) = EUR.
 // Matches the map popup convention in EnhancedMapContainer.
 function formatPrice(amount: number, source: string): string {
-  return source === "sreality"
-    ? `${amount.toLocaleString()} Kč`
-    : `€${amount.toLocaleString()}`;
+  // Round to whole units (scraped values can be fractional, e.g. 26866.667)
+  // and pin the locale so grouping is identical on every device.
+  const rounded = Math.round(amount).toLocaleString("en-US");
+  return source === "sreality" ? `${rounded} Kč` : `€${rounded}`;
 }
 
 function sortProperties(
@@ -472,7 +473,10 @@ export function NewListingsModal({
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0 safe-area-pt">
+        <div
+          className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0"
+          style={isMobile ? { paddingTop: "calc(16px + env(safe-area-inset-top, 0px))" } : undefined}
+        >
           <h2 className="font-outfit text-lg font-semibold text-zinc-900">
             New Listings
           </h2>

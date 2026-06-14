@@ -1802,7 +1802,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                     <div className="popup-price-main">
                         {property.price > 0 ? (
                             <>
-                                <span className="price-amount">{property.source === "sreality" ? `${property.price.toLocaleString()} Kč` : `€${property.price.toLocaleString()}`}</span>
+                                <span className="price-amount">{property.source === "sreality" ? `${Math.round(property.price).toLocaleString("en-US")} Kč` : `€${Math.round(property.price).toLocaleString("en-US")}`}</span>
                                 <span className="price-period">/month</span>
                             </>
                         ) : (

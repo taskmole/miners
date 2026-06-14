@@ -383,6 +383,53 @@ export function Sidebar({
         onFilterChange(newFilters);
     };
 
+    // Make sure a map layer is switched on before one of its sub-filters runs.
+    // Without this, sub-filter buttons (e.g. "Last 7d") can be clicked while the
+    // layer is off, so they appear to do nothing because there's nothing on the
+    // map to filter.
+    const ensureLayerActive = (layerId: string) => {
+        if (!activeFilters.has(layerId)) {
+            const newFilters = new Set(activeFilters);
+            newFilters.add(layerId);
+            onFilterChange(newFilters);
+        }
+    };
+
+    // Sub-filter handlers: turn the parent layer on, then apply the sub-filter.
+    const handlePropertyPostedChange = (v: PropertyPostedFilter) => {
+        ensureLayerActive("property");
+        onPropertyPostedFilterChange?.(v);
+    };
+    const handlePropertyTransferChange = (v: PropertyTransferFilter) => {
+        ensureLayerActive("property");
+        onPropertyTransferFilterChange?.(v);
+    };
+    const handlePropertyPriceChangeChange = (v: PropertyPriceChangeFilter) => {
+        ensureLayerActive("property");
+        onPropertyPriceChangeFilterChange?.(v);
+    };
+    const handlePropertyPitchStatusChange = (v: PropertyPitchStatusFilter) => {
+        ensureLayerActive("property");
+        onPropertyPitchStatusFilterChange?.(v);
+    };
+    const handleEuctChange = (v: EuctFilter) => {
+        ensureLayerActive("eu_coffee_trip");
+        onEuctFilterChange?.(v);
+    };
+
+    // The cafe layer is split into sub-categories, so "turning it on" means
+    // enabling whichever cafe sub-categories actually have data. Used by the
+    // Min. Rating slider so dragging it always shows results.
+    const ensureCafeLayerActive = () => {
+        const subs = placeCategories.find(c => c.id === "cafe")?.subcategories ?? [];
+        if (subs.some(s => activeFilters.has(s.id))) return;
+        const newFilters = new Set(activeFilters);
+        subs.forEach(s => {
+            if (getCount(s.countKey) > 0) newFilters.add(s.id);
+        });
+        onFilterChange(newFilters);
+    };
+
     const getCount = (key: string) => {
         if (!counts) return 0;
         return counts[key as keyof typeof counts] ?? 0;
@@ -658,7 +705,7 @@ export function Sidebar({
                                                                         </div>
                                                                         <Slider
                                                                             value={[localRating]}
-                                                                            onValueChange={([v]) => setLocalRating(v)}
+                                                                            onValueChange={([v]) => { ensureCafeLayerActive(); setLocalRating(v); }}
                                                                             max={5}
                                                                             step={0.5}
                                                                         />
@@ -710,7 +757,7 @@ export function Sidebar({
                                                                                                 {euctFilterOptions.map((opt) => (
                                                                                                     <button
                                                                                                         key={opt.value}
-                                                                                                        onClick={() => onEuctFilterChange?.(opt.value)}
+                                                                                                        onClick={() => handleEuctChange(opt.value)}
                                                                                                         className={cn(
                                                                                                             "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
                                                                                                             euctFilter === opt.value
@@ -756,7 +803,7 @@ export function Sidebar({
                                                                         </div>
                                                                         <Slider
                                                                             value={[localScore]}
-                                                                            onValueChange={([v]) => setLocalScore(v)}
+                                                                            onValueChange={([v]) => { ensureLayerActive("property"); setLocalScore(v); }}
                                                                             max={100}
                                                                             step={5}
                                                                         />
@@ -767,7 +814,7 @@ export function Sidebar({
                                                                         label="Added"
                                                                         options={propertyAddedOptions}
                                                                         value={propertyPostedFilter}
-                                                                        onChange={onPropertyPostedFilterChange}
+                                                                        onChange={handlePropertyPostedChange}
                                                                         counts={[getCount("property"), getCount("propertyLast7d")]}
                                                                     />
 
@@ -777,7 +824,7 @@ export function Sidebar({
                                                                             label="Transfer"
                                                                             options={propertyTransferOptions}
                                                                             value={propertyTransferFilter}
-                                                                            onChange={onPropertyTransferFilterChange}
+                                                                            onChange={handlePropertyTransferChange}
                                                                         />
                                                                     )}
 
@@ -786,7 +833,7 @@ export function Sidebar({
                                                                         label="Price"
                                                                         options={propertyPriceChangeOptions}
                                                                         value={propertyPriceChangeFilter}
-                                                                        onChange={onPropertyPriceChangeFilterChange}
+                                                                        onChange={handlePropertyPriceChangeChange}
                                                                         counts={[getCount("property"), getCount("propertyPriceChanged")]}
                                                                     />
 
@@ -795,7 +842,7 @@ export function Sidebar({
                                                                         label="Status"
                                                                         options={propertyPitchStatusOptions}
                                                                         value={propertyPitchStatusFilter}
-                                                                        onChange={onPropertyPitchStatusFilterChange}
+                                                                        onChange={handlePropertyPitchStatusChange}
                                                                         counts={[getCount("property"), myAssignmentCount, scoutedCount]}
                                                                     />
                                                                 </div>
