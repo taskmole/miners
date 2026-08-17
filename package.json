@@ -18,11 +18,13 @@
     "fetch:gyms": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/fetch-google-gyms.ts",
     "fetch:osm-pois": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/fetch-overpass-pois.ts",
     "generate-gravity": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/generate-gravity-scores.ts",
+    "score": "npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/score-listings.ts",
     "email:preview": "npx email dev --dir src/emails --port 3001",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.106.0",
     "@mapbox/mapbox-gl-draw": "^1.5.1",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-checkbox": "^1.3.3",

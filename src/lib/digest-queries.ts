@@ -18,6 +18,9 @@ export interface Listing {
   score?: number;
   photoUrl: string;
   reason?: string;
+  monthlyEbitda?: number;
+  paybackMonths?: number | null;
+  qualitativeScore?: number;
   listingUrl?: string;
   listedDaysAgo?: number;
 }
@@ -71,7 +74,7 @@ export async function getNewListingsForCityAndSource(
 
   const { data, error } = await supabase
     .from("places")
-    .select("address, metadata, photos, score, created_at")
+    .select("address, metadata, photos, score, image_analysis, created_at")
     .in("source", SOURCE_DB_VALUES[source])
     .eq("city_id", city)
     .gte("created_at", cutoff.toISOString())
@@ -83,24 +86,41 @@ export async function getNewListingsForCityAndSource(
 
   const now = new Date();
 
-  return data.map((row) => {
+  const listings = data.map((row) => {
     const meta = (row.metadata as Record<string, unknown>) ?? {};
     const createdAt = new Date(row.created_at);
     const daysAgo = Math.floor(
       (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24),
     );
+    const aiText = (row.image_analysis as Record<string, unknown>)?.text as
+      | Record<string, unknown>
+      | undefined;
+
+    const gravityScore = row.score != null ? Number(row.score) : undefined;
+    const aiScore =
+      aiText?.qualitative_score != null
+        ? Number(aiText.qualitative_score)
+        : undefined;
 
     return {
       address: row.address ?? "Unknown address",
       district: (meta.district as string) ?? "",
       sizeSqm: (meta.size as number) ?? 0,
       monthlyRent: (meta.price as number) ?? 0,
-      score: row.score != null ? Number(row.score) : undefined,
+      // Cities without gravity data (e.g. Prague) fall back to the AI score
+      // so the digest still shows a badge and ranks meaningfully.
+      score: gravityScore ?? aiScore,
       photoUrl: row.photos[0],
+      reason: (aiText?.reason as string) ?? undefined,
+      qualitativeScore: aiScore,
       listingUrl: (meta.url as string) ?? undefined,
       listedDaysAgo: daysAgo,
     };
   });
+
+  // Re-sort: the SQL orders by gravity score only, which is null for cities
+  // without gravity data. Sort by effective score, unscored last.
+  return listings.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 }
 
 export const SAMPLE_LISTINGS: Listing[] = [

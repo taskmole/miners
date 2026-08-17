@@ -165,6 +165,20 @@ jobs:
             scripts/data-pipeline/send-combined-report.ts \
             --stats /tmp/stats-rental.json --stats /tmp/stats-transfer.json
 
+      # continue-on-error: scoring failures (missing key, API outage) must
+      # never block the digest email — unscored listings just show no reason.
+      - name: Score listings with AI
+        if: success()
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npx ts-node --project scripts/data-pipeline/tsconfig.json \
+            scripts/data-pipeline/score-listings.ts \
+            --city ${{ github.event.inputs.city || 'madrid' }}
+
       - name: Send Idealista digest email
         if: success()
         env:
@@ -207,6 +221,19 @@ jobs:
           npx ts-node --project scripts/data-pipeline/tsconfig.json \
             scripts/data-pipeline/fetch-sreality.ts \
             --headless --url "${{ secrets.SREALITY_SEARCH_URL }}" --city prague
+
+      # continue-on-error: scoring failures must never block the digest email.
+      - name: Score listings with AI
+        if: success()
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npx ts-node --project scripts/data-pipeline/tsconfig.json \
+            scripts/data-pipeline/score-listings.ts \
+            --city prague
 
       - name: Send Sreality digest email
         if: success()
