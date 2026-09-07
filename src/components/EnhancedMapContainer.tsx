@@ -21,7 +21,7 @@ import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
 import { generatePlaceId, generatePropertyPlaceId, parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { logActivity } from "@/lib/supabaseHelpers";
 import { notifyTeam } from "@/lib/notify-team";
-import { evaluatePropertyActions } from "@/lib/property-actions";
+import { evaluatePropertyActions, pendingPropertyActions } from "@/lib/property-actions";
 import { useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
@@ -1299,7 +1299,7 @@ function freshTooltipText(dateStr: string): string {
 }
 
 function PropertyActionsFooter({
-    property, placeId, cityId, mapsUrl, canAccessDashboard, checkCanPitch, pitchStatus,
+    property, placeId, cityId, mapsUrl, canAccessDashboard, roleResolved, checkCanPitch, pitchStatus,
     assignableUsers, assignProperty, preRejectProperty, removeAssignment,
     assignment, createTrip, updateTrip, showToast, onClose,
 }: {
@@ -1308,6 +1308,8 @@ function PropertyActionsFooter({
     cityId: string;
     mapsUrl: string;
     canAccessDashboard: boolean;
+    /** False until the server has confirmed this session's role. */
+    roleResolved: boolean;
     checkCanPitch: (placeId: string) => { allowed: boolean; reason: string | null };
     pitchStatus: ScoutingTripStatus | null;
     assignableUsers: { id: string; display_name: string | null; email: string | null; role: string }[];
@@ -1351,7 +1353,7 @@ function PropertyActionsFooter({
 
     // One decision for the whole menu. See src/lib/property-actions.ts for why
     // this is a single function rather than a condition per button.
-    const actions = evaluatePropertyActions({
+    const actions = roleResolved ? evaluatePropertyActions({
         isAdmin: canAccessDashboard,
         isPreRejected: preRejected,
         rejectionReason: assignment?.rejection_reason ?? null,
@@ -1361,7 +1363,7 @@ function PropertyActionsFooter({
         pitchStatus,
         hasPendingRequest: alreadyRequested,
         wasRejectedForMe: wasRejectedForMe(placeId),
-    });
+    }) : pendingPropertyActions();
 
     const handleRequest = async () => {
         try {
@@ -1709,7 +1711,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
     const placeId = generatePropertyPlaceId(property);
     const { getPitchStatus, getPitchDate, getPitchRejectionReason, getPitchReturnReason } = usePitchStatusContext();
     const { getAssignment, canPitch: checkCanPitch, users: assignableUsers, assignProperty, preRejectProperty, removeAssignment } = usePropertyAssignmentContext();
-    const { canAccessDashboard } = useUserProfiles();
+    const { canAccessDashboard, roleResolved } = useUserProfiles();
     const { createTrip, updateTrip } = useScoutingTrips();
     const { showToast } = useToast();
     const pitchStatus = getPitchStatus(placeId);
@@ -1931,6 +1933,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                 cityId={cityId}
                 mapsUrl={mapsUrl}
                 canAccessDashboard={canAccessDashboard}
+                roleResolved={roleResolved}
                 checkCanPitch={checkCanPitch}
                 pitchStatus={pitchStatus}
                 assignableUsers={assignableUsers}

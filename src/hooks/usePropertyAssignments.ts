@@ -135,16 +135,6 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
     return { allowed: true, reason: null };
   }, [assignmentMap, userId, users, userTeamIds]);
 
-  const myAssignmentCount = useMemo(() => {
-    if (!userId) return 0;
-    return assignments.filter(a => {
-      if (a.status !== "assigned") return false;
-      if (a.assigned_to === userId) return true;
-      if (a.assigned_to_team && userTeamIds.includes(a.assigned_to_team)) return true;
-      return false;
-    }).length;
-  }, [assignments, userId, userTeamIds]);
-
   const assignProperty = useCallback(async (
     placeId: string,
     assignedTo: string | null,
@@ -207,7 +197,6 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
     getAssignment,
     isAssignedToMe,
     canPitch,
-    myAssignmentCount,
     assignProperty,
     preRejectProperty,
     removeAssignment,

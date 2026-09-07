@@ -78,7 +78,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { error } = await resend.emails.send({
       from: getFromAddress(),
       to: "founders@taskmole.co",
-      subject: `Feedback from ${city}${userEmail ? ` (${userEmail})` : ""}`,
+      subject: "New feedback",
       html,
       attachments: attachments.length > 0 ? attachments : undefined,
     });

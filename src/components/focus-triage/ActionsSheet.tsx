@@ -1,34 +1,39 @@
 "use client";
 
 import React, { useState } from "react";
-import { Route, ListPlus, UserPlus, Ban, Hand, Check } from "lucide-react";
+import { Route, ListPlus, UserPlus, UserMinus, Ban, Hand, Check, Undo2 } from "lucide-react";
+import type { PropertyActionState } from "@/lib/property-actions";
 
 interface ActionsSheetProps {
-  /** Reviewers assign directly. */
-  showAssign: boolean;
-  /** Everyone else asks for the property instead of taking it. */
-  showRequest: boolean;
+  /**
+   * Which entries to show. Built by evaluatePropertyActions so this sheet and
+   * the map popup can never disagree about who is allowed to do what. This
+   * sheet used to hardcode "Create trip" as always visible, which let a
+   * franchisee start a trip on a property that was not theirs.
+   */
+  actions: PropertyActionState;
   /** True once this person has a request waiting on this property. */
   hasRequested: boolean;
-  showPreReject: boolean;
   onAssign: () => void;
   onRequest: () => void;
   onCreateTrip: () => void;
   onAddToList: () => void;
   onPreReject: (reason: string) => void;
+  onUndoPreReject: () => void;
+  onRemoveAssignment: () => void;
   onClose: () => void;
 }
 
 export function ActionsSheet({
-  showAssign,
-  showRequest,
+  actions,
   hasRequested,
-  showPreReject,
   onAssign,
   onRequest,
   onCreateTrip,
   onAddToList,
   onPreReject,
+  onUndoPreReject,
+  onRemoveAssignment,
   onClose,
 }: ActionsSheetProps) {
   const [showRejectInput, setShowRejectInput] = useState(false);
@@ -57,8 +62,13 @@ export function ActionsSheet({
             Actions
           </h3>
 
+          {/* Hidden entries lose their explanation, so the caption carries it. */}
+          {actions.caption && (
+            <p className="text-xs text-zinc-500 mb-2">{actions.caption}</p>
+          )}
+
           <div className="space-y-0.5">
-            {showAssign && (
+            {actions.showAssign && (
               <button
                 onClick={onAssign}
                 className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-zinc-50 transition-colors"
@@ -68,7 +78,7 @@ export function ActionsSheet({
               </button>
             )}
 
-            {showRequest && (
+            {actions.showRequest && (
               hasRequested ? (
                 <div className="w-full flex items-center gap-3 py-3">
                   <Check className="w-4 h-4 text-emerald-500" />
@@ -85,14 +95,18 @@ export function ActionsSheet({
               )
             )}
 
-            <button
-              onClick={() => { onCreateTrip(); onClose(); }}
-              className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-zinc-50 transition-colors"
-            >
-              <Route className="w-4 h-4 text-zinc-400" />
-              <span className="text-sm text-zinc-700">Create trip</span>
-            </button>
+            {actions.showCreateTrip && (
+              <button
+                onClick={() => { onCreateTrip(); onClose(); }}
+                className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-zinc-50 transition-colors"
+              >
+                <Route className="w-4 h-4 text-zinc-400" />
+                <span className="text-sm text-zinc-700">Create trip</span>
+              </button>
+            )}
 
+            {/* Bookmarking is private and has no side effects, so it stays
+                available in every state. See property-actions.ts. */}
             <button
               onClick={() => { onAddToList(); onClose(); }}
               className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-zinc-50 transition-colors"
@@ -101,7 +115,33 @@ export function ActionsSheet({
               <span className="text-sm text-zinc-700">Add to list</span>
             </button>
 
-            {showPreReject && (
+            {actions.showRemoveAssignment && (
+              <>
+                <div className="border-t border-zinc-100 my-1" />
+                <button
+                  onClick={() => { onRemoveAssignment(); onClose(); }}
+                  className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  <UserMinus className="w-4 h-4 text-red-500" />
+                  <span className="text-sm text-red-600">Remove assignment</span>
+                </button>
+              </>
+            )}
+
+            {actions.showUndoPreReject && (
+              <>
+                <div className="border-t border-zinc-100 my-1" />
+                <button
+                  onClick={() => { onUndoPreReject(); onClose(); }}
+                  className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-zinc-50 transition-colors"
+                >
+                  <Undo2 className="w-4 h-4 text-zinc-400" />
+                  <span className="text-sm text-zinc-700">Undo pre-reject</span>
+                </button>
+              </>
+            )}
+
+            {actions.showPreReject && (
               <>
                 <div className="border-t border-zinc-100 my-1" />
                 {!showRejectInput ? (

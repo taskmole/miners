@@ -1055,18 +1055,17 @@ function AdminContent() {
     }
   };
 
+  // The server resolves the recipient from the pitch's owner. This used to
+  // look the owner up in the client-side users list and silently skip the
+  // email whenever that list had not loaded, which is invisible in the UI.
   const sendTripStatusEmail = (pitchId: string, status: string, reason?: string) => {
     const pitch = [...pendingSubmissions, ...processedSubmissions].find(p => p.id === pitchId);
-    if (!pitch?.createdBy) return;
-    const owner = users.find(u => u.id === pitch.createdBy);
-    if (!owner?.email) return;
     apiFetch('/api/send-trip-status', {
       method: 'POST',
       body: JSON.stringify({
-        tripName: pitch.name || pitch.address || 'Untitled trip',
-        tripAddress: pitch.address || '',
-        recipientEmail: owner.email,
-        recipientName: owner.display_name || owner.email,
+        pitchId,
+        tripName: pitch?.name || pitch?.address || 'Untitled trip',
+        tripAddress: pitch?.address || '',
         status,
         reason: reason || '',
         reviewerName: 'Admin',

@@ -14,15 +14,14 @@ import {
   Font,
 } from "@react-email/components";
 import { SAMPLE_LISTINGS, type Listing } from "@/lib/digest-queries";
+import { LOGO_URL, FEEDBACK_EMAIL } from "./_shell";
+import { toCityLabel } from "@/lib/utils";
 
 interface MinersDigestProps {
   city: string;
   listings: Listing[];
   appUrl: string;
 }
-
-const LOGO_URL =
-  "https://raw.githubusercontent.com/taskmole/miners/main/public/assets/miners-logo-cropped.png";
 
 const LOGO_WHITE_URL =
   "https://raw.githubusercontent.com/taskmole/miners/main/public/assets/miners-logo-cropped-white.png";
@@ -77,28 +76,55 @@ function ListingRow({ listing, city }: { listing: Listing; city: string }) {
         />
       </Column>
       <Column className="listing-text-col" style={{ verticalAlign: "top", paddingLeft: "12px" }}>
-        <div className="listing-title" style={listingTitle}>
-          {hasScore && (
-            <span
-              className="mobile-score"
-              style={{
-                display: "none",
-                float: "right",
-                backgroundColor: scoreColor(listing.score!),
-                color: "#ffffff",
-                fontSize: "12px",
-                fontWeight: 700,
-                lineHeight: "24px",
-                borderRadius: "12px",
-                padding: "0 10px",
-                marginLeft: "8px",
-              }}
-            >
-              {listing.score}
-            </span>
-          )}
-          {listing.address}
-        </div>
+        {/* Title and score share one row so the badge's right edge lines up
+            with the callout below it. The score used to live in a third
+            column of the outer table, outside this one, so it always sat
+            further right than the callout and looked like it had escaped
+            the box. */}
+        <table
+          cellPadding="0"
+          cellSpacing="0"
+          border={0}
+          width="100%"
+          style={{ width: "100%", borderCollapse: "collapse" }}
+        >
+          <tbody>
+            <tr>
+              <td style={{ verticalAlign: "top" }}>
+                <div className="listing-title" style={listingTitle}>
+                  {listing.address}
+                </div>
+              </td>
+              {hasScore && (
+                <td
+                  style={{
+                    verticalAlign: "top",
+                    textAlign: "right" as const,
+                    paddingLeft: "8px",
+                    width: "44px",
+                  }}
+                >
+                  <span
+                    className="listing-score"
+                    style={{
+                      display: "inline-block",
+                      backgroundColor: scoreColor(listing.score!),
+                      color: "#ffffff",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      lineHeight: "22px",
+                      borderRadius: "12px",
+                      padding: "0 9px",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {listing.score}
+                  </span>
+                </td>
+              )}
+            </tr>
+          </tbody>
+        </table>
         <div className="listing-meta" style={listingMeta}>
           {listing.district} · {listing.sizeSqm}m² ·{" "}
           {formatPrice(listing.monthlyRent, city)}
@@ -125,31 +151,6 @@ function ListingRow({ listing, city }: { listing: Listing; city: string }) {
           {listedAgoLabel(listing.listedDaysAgo)}
         </div>
       </Column>
-      {hasScore && (
-        <Column className="listing-score-col" style={{ width: "48px", verticalAlign: "top", textAlign: "right" as const }}>
-          <table cellPadding="0" cellSpacing="0" border={0}>
-            <tbody>
-              <tr>
-                <td
-                  style={{
-                    backgroundColor: scoreColor(listing.score!),
-                    color: "#ffffff",
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    textAlign: "center",
-                    lineHeight: "24px",
-                    borderRadius: "12px",
-                    padding: "0 10px",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {listing.score}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </Column>
-      )}
     </Row>
   );
 }
@@ -162,7 +163,7 @@ export default function MinersDigest({
   const MAX_SHOWN = 5;
   const displayListings = listings.slice(0, MAX_SHOWN);
   const topCount = listings.length;
-  const cityName = city.charAt(0).toUpperCase() + city.slice(1);
+  const cityName = toCityLabel(city);
 
   return (
     <Html lang="en">
@@ -192,12 +193,8 @@ export default function MinersDigest({
               padding-left: 0 !important;
               padding-top: 4px !important;
             }
-            .listing-score-col {
-              display: none !important;
-            }
-            .mobile-score {
-              display: inline-block !important;
-            }
+            /* The score now lives beside the title in every width, so
+               there is no separate column to hide here any more. */
             .listing-title {
               font-size: 22px !important;
               line-height: 28px !important;
@@ -218,7 +215,7 @@ export default function MinersDigest({
               font-size: 15px !important;
               line-height: 20px !important;
             }
-            .mobile-score {
+            .listing-score {
               font-size: 14px !important;
             }
           }
@@ -284,9 +281,9 @@ export default function MinersDigest({
                       <Img
                         src={ARROW_URL}
                         alt="→"
-                        width={14}
-                        height={14}
-                        style={{ display: "block" }}
+                        width={12}
+                        height={12}
+                        style={{ display: "inline-block", verticalAlign: "middle" }}
                       />
                     </td>
                   </tr>
@@ -303,8 +300,8 @@ export default function MinersDigest({
             </Text>
             <Text style={footerDesc}>
               Got feedback? Email{" "}
-              <Link href="mailto:matus.husar@theminers.eu" style={footerLink}>
-                matus.husar@theminers.eu
+              <Link href={`mailto:${FEEDBACK_EMAIL}`} style={footerLink}>
+                {FEEDBACK_EMAIL}
               </Link>
             </Text>
           </Section>
@@ -328,12 +325,14 @@ const container: React.CSSProperties = {
 };
 
 const logoSection: React.CSSProperties = {
-  padding: "40px 24px 0",
+  padding: "40px 32px 0",
   textAlign: "center",
 };
 
+// 32px each side, matched by ctaSection and footer, so every row in the
+// email starts and ends on the same two vertical lines.
 const contentSection: React.CSSProperties = {
-  padding: "0 24px",
+  padding: "0 32px",
 };
 
 const heading: React.CSSProperties = {
@@ -408,37 +407,41 @@ const listingListedAgo: React.CSSProperties = {
 };
 
 const ctaSection: React.CSSProperties = {
-  padding: "32px 24px 36px",
+  padding: "32px 32px 36px",
   textAlign: "center",
 };
 
+// Matches the button in trip-status-update.tsx and property-assigned.tsx.
+// It was 16px/64px at 15px text with a 10px radius, which made the digest's
+// CTA noticeably chunkier than the same button everywhere else.
 const ctaButton: React.CSSProperties = {
   backgroundColor: "#18181b",
   color: "#ffffff",
   textDecoration: "none",
   textAlign: "center",
-  padding: "16px 64px",
-  borderRadius: "10px",
-  fontSize: "15px",
+  padding: "10px 20px",
+  borderRadius: "8px",
+  fontSize: "13px",
+  lineHeight: "18px",
   fontWeight: 600,
   display: "inline-block",
 };
 
 const ctaTextCell: React.CSSProperties = {
   color: "#ffffff",
-  fontSize: "15px",
+  fontSize: "13px",
   fontWeight: 600,
-  lineHeight: "14px",
-  paddingRight: "8px",
+  lineHeight: "18px",
+  paddingRight: "7px",
 };
 
 const ctaArrowCell: React.CSSProperties = {
-  lineHeight: 0,
+  lineHeight: "18px",
   fontSize: 0,
 };
 
 const footer: React.CSSProperties = {
-  padding: "28px 24px 36px",
+  padding: "28px 32px 36px",
   borderTop: "1px solid #f4f4f5",
   textAlign: "center",
 };

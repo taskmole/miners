@@ -71,11 +71,14 @@ export async function notifyReviewersOfRequest(
       authorName: ctx.requesterName,
       submittedAt: new Date().toISOString(),
       appUrl: appUrl(),
+      // A request is not a submission: this picks the request wording and
+      // points the button at the Requests tab rather than Submissions.
+      kind: "request",
     }),
   );
 
   const results = await sendAppEmails(emails, {
-    subject: `New property request from ${ctx.requesterName}: ${title}`,
+    subject: "New property request",
     html,
   });
 
@@ -108,13 +111,16 @@ export async function notifyRequesterOfDecision(
       reviewerName: ctx.reviewerName,
       appUrl: appUrl(),
       placeId: ctx.propertyPlaceId ?? null,
+      // Picks the request wording. Without this an approved request arrived
+      // headed "Your scouting trip has been approved", which it is not.
+      isRequest: true,
     }),
   );
 
   const subject =
     ctx.decision === "approved"
-      ? `Your request for ${title} was approved`
-      : `Your request for ${title} was not approved`;
+      ? "Your request was approved"
+      : "Your request was rejected";
 
   const result = await sendAppEmail({ to: ctx.requesterEmail, subject, html });
   return { sent: result.error ? 0 : 1 };

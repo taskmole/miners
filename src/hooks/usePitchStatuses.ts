@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import type { ScoutingTripStatus } from '@/types/scouting';
 
@@ -65,22 +65,11 @@ export function usePitchStatuses() {
     return statusMap[placeId]?.returnReason ?? null;
   }, [statusMap]);
 
-  const { scoutedCount, rejectedCount } = useMemo(() => {
-    let rejected = 0;
-    const entries = Object.values(statusMap);
-    for (const e of entries) {
-      if (e.status === 'rejected') rejected++;
-    }
-    return { scoutedCount: entries.length, rejectedCount: rejected };
-  }, [statusMap]);
-
   return {
     isLoaded,
     getPitchStatus,
     getPitchDate,
     getPitchRejectionReason,
     getPitchReturnReason,
-    scoutedCount,
-    rejectedCount,
   };
 }
