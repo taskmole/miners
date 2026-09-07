@@ -278,6 +278,20 @@ function calculatePoiScore(
   return Math.min(totalScore, 1);
 }
 
+/**
+ * Tracks which data sources are available for a city.
+ * When a source is missing, its weight gets redistributed
+ * across the sources that do have data. This way cities with
+ * fewer data files still produce a full 0-1 score range.
+ */
+interface AvailableSources {
+  hasPopulation: boolean;
+  hasIncome: boolean;
+  hasMetro: boolean;
+  hasTraffic: boolean;
+  hasPois: boolean;
+}
+
 function calculateGravityScore(
   point: GridPoint,
   data: {
@@ -287,7 +301,8 @@ function calculateGravityScore(
     trafficData: TrafficSensor[];
     pois: POI[];
   },
-  cosLat: number
+  cosLat: number,
+  available: AvailableSources
 ): number {
   const popScore = calculatePopulationScore(point, data.populationData, cosLat);
   const incomeScore = calculateIncomeScore(point, data.incomeData, cosLat);
@@ -295,16 +310,34 @@ function calculateGravityScore(
   const trafficScore = calculateTrafficScore(point, data.trafficData, cosLat);
   const poiScore = calculatePoiScore(point, data.pois, cosLat);
 
-  const totalWeight = WEIGHTS.population + WEIGHTS.income + WEIGHTS.metro +
-                      WEIGHTS.traffic + WEIGHTS.poi;
+  // Only count weights for sources that actually have data.
+  // This redistributes weight to available sources so the score
+  // still uses the full 0-1 range even with missing datasets.
+  let totalWeight = 0;
+  let weightedSum = 0;
 
-  const weightedSum =
-    (popScore * WEIGHTS.population) +
-    (incomeScore * WEIGHTS.income) +
-    (metroScore * WEIGHTS.metro) +
-    (trafficScore * WEIGHTS.traffic) +
-    (poiScore * WEIGHTS.poi);
+  if (available.hasPopulation) {
+    weightedSum += popScore * WEIGHTS.population;
+    totalWeight += WEIGHTS.population;
+  }
+  if (available.hasIncome) {
+    weightedSum += incomeScore * WEIGHTS.income;
+    totalWeight += WEIGHTS.income;
+  }
+  if (available.hasMetro) {
+    weightedSum += metroScore * WEIGHTS.metro;
+    totalWeight += WEIGHTS.metro;
+  }
+  if (available.hasTraffic) {
+    weightedSum += trafficScore * WEIGHTS.traffic;
+    totalWeight += WEIGHTS.traffic;
+  }
+  if (available.hasPois) {
+    weightedSum += poiScore * WEIGHTS.poi;
+    totalWeight += WEIGHTS.poi;
+  }
 
+  if (totalWeight === 0) return 0;
   return weightedSum / totalWeight;
 }
 
@@ -343,6 +376,22 @@ function getPolygonCentroid(feature: GeoJSONFeature): GridPoint | null {
 // ============================================================
 // DATA LOADING
 // ============================================================
+
+/**
+ * Try to resolve a data file with city-specific name first, then generic fallback.
+ * Returns the first path that exists, or null if neither does.
+ */
+function resolveDataFile(dataDir: string, candidates: string[]): string | null {
+  for (const filename of candidates) {
+    const fullPath = path.join(dataDir, filename);
+    if (fs.existsSync(fullPath)) {
+      console.log(`  Found: ${filename}`);
+      return fullPath;
+    }
+  }
+  console.log(`  Not found: ${candidates.join(" / ")}`);
+  return null;
+}
 
 function loadGeoJSON(filePath: string): GeoJSONCollection | null {
   try {
@@ -475,6 +524,49 @@ function loadTrafficData(filePath: string): TrafficSensor[] {
   }
 }
 
+// CSV record type for OSM POIs
+interface OsmPoiRecord {
+  Category: string;
+  Name: string;
+  Lat: string;
+  Lon: string;
+}
+
+/**
+ * Map OSM category names to our POI type system
+ */
+function mapOsmCategory(category: string): string {
+  const lower = category.toLowerCase();
+  if (lower.includes("cafe") || lower.includes("coffee")) return "cafe";
+  if (lower.includes("gym") || lower.includes("fitness")) return "gym";
+  if (lower.includes("metro") || lower.includes("train") || lower.includes("tram")) return "metro";
+  return "other";
+}
+
+function loadOsmPois(filePath: string): POI[] {
+  try {
+    if (!fs.existsSync(filePath)) return [];
+
+    const content = fs.readFileSync(filePath, "utf-8");
+    const records = parse(content, { columns: true, skip_empty_lines: true }) as OsmPoiRecord[];
+
+    const pois: POI[] = [];
+    for (const record of records) {
+      const lat = parseFloat(record.Lat);
+      const lon = parseFloat(record.Lon);
+      if (!isNaN(lat) && !isNaN(lon)) {
+        pois.push({ lat, lon, type: mapOsmCategory(record.Category) });
+      }
+    }
+
+    console.log(`  OSM POIs: ${pois.length}`);
+    return pois;
+  } catch {
+    console.log(`  Warning: Could not load OSM POIs`);
+    return [];
+  }
+}
+
 // ============================================================
 // MAIN
 // ============================================================
@@ -497,18 +589,51 @@ async function main() {
   console.log(`\nCity: ${city.name}`);
   logParams(); // Log weights, beta, resolution from config
 
-  // Load data
+  // Load data (city-specific file first, then generic fallback)
   console.log("\nLoading data...");
   const dataDir = path.join(__dirname, "../../public/data");
 
-  const populationData = loadGeoJSON(path.join(dataDir, "barrios_with_density.geojson"));
-  const incomeData = loadGeoJSON(path.join(dataDir, "madrid_income_2023.geojson"));
-  const metroStations = loadMetroStations(path.join(dataDir, "metro.geojson"));
-  const cafes = loadCafes(path.join(dataDir, "cafe_info.csv"));
-  const gyms = loadGyms(path.join(dataDir, `gyms_${cityId}.csv`));
-  const trafficData = loadTrafficData(path.join(dataDir, "footfall_data.csv"));
+  // Population density
+  // Generic fallbacks (barrios_with_density.geojson, etc.) are Madrid legacy files.
+  // Only fall back to them for madrid; other cities need their own file.
+  const popCandidates = [`barrios_with_density_${cityId}.geojson`];
+  if (cityId === "madrid") popCandidates.push("barrios_with_density.geojson");
+  const popFile = resolveDataFile(dataDir, popCandidates);
+  const populationData = popFile ? loadGeoJSON(popFile) : null;
 
-  const pois = [...cafes, ...gyms];
+  // Income data
+  const incomeCandidates = [`${cityId}_income_2023.geojson`];
+  if (cityId === "madrid") incomeCandidates.push("income_2023.geojson");
+  const incomeFile = resolveDataFile(dataDir, incomeCandidates);
+  const incomeData = incomeFile ? loadGeoJSON(incomeFile) : null;
+
+  // Metro stations
+  const metroCandidates = [`metro_${cityId}.geojson`];
+  if (cityId === "madrid") metroCandidates.push("metro.geojson");
+  const metroFile = resolveDataFile(dataDir, metroCandidates);
+  const metroStations = metroFile ? loadMetroStations(metroFile) : [];
+
+  // Cafes
+  const cafeCandidates = [`${cityId}_cafe_info.csv`];
+  if (cityId === "madrid") cafeCandidates.push("cafe_info.csv");
+  const cafeFile = resolveDataFile(dataDir, cafeCandidates);
+  const cafes = cafeFile ? loadCafes(cafeFile) : [];
+
+  // Gyms
+  const gymFile = resolveDataFile(dataDir, [`gyms_${cityId}.csv`]);
+  const gyms = gymFile ? loadGyms(gymFile) : [];
+
+  // Traffic / footfall
+  const trafficCandidates = [`footfall_data_${cityId}.csv`];
+  if (cityId === "madrid") trafficCandidates.push("footfall_data.csv");
+  const trafficFile = resolveDataFile(dataDir, trafficCandidates);
+  const trafficData = trafficFile ? loadTrafficData(trafficFile) : [];
+
+  // OSM POIs (additional POIs if available)
+  const osmFile = resolveDataFile(dataDir, [`osm_pois_${cityId}.csv`]);
+  const osmPois = osmFile ? loadOsmPois(osmFile) : [];
+
+  const pois = [...cafes, ...gyms, ...osmPois];
 
   // Add metro as POIs too
   for (const station of metroStations) {
@@ -522,6 +647,27 @@ async function main() {
   }
   if (incomeData) {
     console.log(`  Income zones: ${incomeData.features.length}`);
+  }
+
+  // Track which data sources are available for weight redistribution
+  const available: AvailableSources = {
+    hasPopulation: populationData !== null && populationData.features.length > 0,
+    hasIncome: incomeData !== null && incomeData.features.length > 0,
+    hasMetro: metroStations.length > 0,
+    hasTraffic: trafficData.length > 0,
+    hasPois: pois.length > 0,
+  };
+
+  const sourceCount = Object.values(available).filter(Boolean).length;
+  console.log(`\n  Data sources available: ${sourceCount}/5`);
+  if (sourceCount < 5) {
+    const missing = [];
+    if (!available.hasPopulation) missing.push("population");
+    if (!available.hasIncome) missing.push("income");
+    if (!available.hasMetro) missing.push("metro");
+    if (!available.hasTraffic) missing.push("traffic");
+    if (!available.hasPois) missing.push("pois");
+    console.log(`  Missing (weights redistributed): ${missing.join(", ")}`);
   }
 
   // Generate grid
@@ -548,7 +694,7 @@ async function main() {
       metroStations,
       trafficData,
       pois,
-    }, cosLat);
+    }, cosLat, available);
 
     minScore = Math.min(minScore, score);
     maxScore = Math.max(maxScore, score);
@@ -572,13 +718,23 @@ async function main() {
   console.log(`\n  Done in ${elapsed}s`);
   console.log(`  Score range: ${minScore.toFixed(3)} - ${maxScore.toFixed(3)}`);
 
-  // Normalize scores to 0-1 range
+  // Normalize scores to 0-1 range and estimate daily traffic
+  // MAX_ESTIMATED_TRAFFIC is a rough calibration based on busy Madrid streets.
+  // Will be replaced by real data later.
+  const MAX_ESTIMATED_TRAFFIC = 15000;
   console.log("\nNormalizing scores...");
   const range = maxScore - minScore;
   if (range > 0) {
     for (const feature of features) {
       const originalScore = feature.properties.score as number;
-      feature.properties.normalizedScore = (originalScore - minScore) / range;
+      const normalized = (originalScore - minScore) / range;
+      feature.properties.normalizedScore = normalized;
+      feature.properties.estimatedTraffic = Math.round(normalized * MAX_ESTIMATED_TRAFFIC);
+    }
+  } else {
+    for (const feature of features) {
+      feature.properties.normalizedScore = 0;
+      feature.properties.estimatedTraffic = 0;
     }
   }
 

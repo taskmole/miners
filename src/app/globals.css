@@ -1820,6 +1820,27 @@
   }
 }
 
+/* Focus triage card animations */
+@keyframes triage-card-exit {
+  from { transform: translateX(0) rotate(0); opacity: 1; }
+  to { transform: translateX(-120%) rotate(-8deg); opacity: 0; }
+}
+
+@keyframes triage-card-enter {
+  from { transform: translateX(40px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes triage-toast-in {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes triage-sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 /* ===========================================
    HIDDEN POI MARKERS
    =========================================== */

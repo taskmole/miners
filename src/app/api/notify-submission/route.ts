@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
 import { render } from "@react-email/render";
 import React from "react";
 import { NewSubmissionNotification } from "@/emails/new-submission-notification";
 import { authenticateRequest } from "@/lib/supabase-server";
 import { sendTeamEmails } from "@/lib/team-notify-server";
+import { sendAppEmails } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -60,8 +60,6 @@ export async function POST(request: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://theminers.vercel.app";
 
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-
     const html = await render(
       React.createElement(NewSubmissionNotification, {
         title,
@@ -72,36 +70,22 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    // Strip control chars and cap length so client-supplied text can't garble
-    // or bloat the subject line.
-    const subject = `New trip submitted: ${title}${cityLabel ? ` (${cityLabel})` : ""}`
-      .replace(/[\r\n\t]+/g, " ")
-      .slice(0, 200);
+    const subject = `New trip submitted: ${title}${cityLabel ? ` (${cityLabel})` : ""}`;
 
-    // Send per-recipient (not one `to:` array). With the Resend sandbox sender,
-    // a single send to a non-allowed address fails the whole batch; sending one
-    // at a time lets the verified owner address through and isolates failures.
-    const results: { email: string; status: string }[] = [];
-    let transientFailure = false;
-    for (const email of NOTIFY_RECIPIENTS) {
-      const { error } = await resend.emails.send({
-        from: "Miners Scout <onboarding@resend.dev>",
-        to: email,
-        subject,
-        html,
-      });
-      if (error) {
-        console.warn(`[notify-submission] send to ${email} failed:`, error.message);
-        // Retry only on transient errors (rate limit / Resend outage). Permanent
-        // failures (sandbox sender restriction, validation) must NOT retry, or the
-        // queued job loops forever until the sending domain is verified.
-        const statusCode = (error as { statusCode?: number }).statusCode;
-        if (typeof statusCode === "number" && (statusCode === 429 || statusCode >= 500)) {
-          transientFailure = true;
-        }
-      }
-      results.push({ email, status: error ? `Failed: ${error.message}` : "Sent" });
-    }
+    // One send per recipient. sendAppEmails handles the sandbox redirect and
+    // tags each subject with the address it was really meant for.
+    const sends = await sendAppEmails(NOTIFY_RECIPIENTS, { subject, html });
+    const results = NOTIFY_RECIPIENTS.map((email, i) => ({
+      email,
+      status: sends[i].error ? `Failed: ${sends[i].error}` : "Sent",
+    }));
+
+    // Retry only on transient errors (rate limit / Resend outage). Permanent
+    // failures (validation, unverified sender) must NOT retry, or the queued
+    // job loops forever until the sending domain is verified.
+    const transientFailure = sends.some(
+      r => typeof r.statusCode === "number" && (r.statusCode === 429 || r.statusCode >= 500),
+    );
 
     // Also notify the trip's team (if any), skipping the submitter. Exclude the
     // pitch owner (passed in the payload), not the request's auth user, since

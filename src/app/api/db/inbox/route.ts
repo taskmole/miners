@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 
     const { data: places, error: placesError } = await supabase
       .from("places")
-      .select("id, name, address, location, source, metadata, photos, score, created_at")
+      .select("id, name, address, location, source, metadata, photos, score, image_analysis, created_at")
       .eq("city_id", cityId)
       .in("source", PROPERTY_SOURCES)
       .eq("status", "active")
@@ -127,6 +127,8 @@ export async function GET(request: NextRequest) {
           image_url: p.photos?.[0] || undefined,
           photos: p.photos?.length ? p.photos : undefined,
           score: p.score != null ? Number(p.score) : undefined,
+          aiScore: (p.image_analysis as any)?.text?.qualitative_score ?? undefined,
+          aiReason: (p.image_analysis as any)?.text?.reason ?? undefined,
           createdAt: p.created_at || undefined,
         };
       })

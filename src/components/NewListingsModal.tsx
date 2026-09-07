@@ -1,302 +1,27 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  ArrowUpDown,
   Check,
-  CheckCheck,
-  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
   X,
   Loader2,
-  Route,
-  ListPlus,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useListsContext } from "@/contexts/ListsContext";
-import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { useToast } from "@/contexts/ToastContext";
 import { useMobile } from "@/hooks/useMobile";
 import { apiFetch } from "@/lib/api-client";
+import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
+import { useListsContext } from "@/contexts/ListsContext";
+import { useScoutingTrips } from "@/hooks/useScoutingTrips";
+import { useUserProfiles } from "@/hooks/useUserProfiles";
+import { usePropertyRequests } from "@/hooks/usePropertyRequests";
+import { logActivity } from "@/lib/supabaseHelpers";
+import { notifyTeam } from "@/lib/notify-team";
+import { FocusTriageCard, AssignSheet, ActionsSheet } from "@/components/focus-triage";
+import type { InboxProperty } from "@/types/inbox";
 import type { PlaceInfo } from "@/types/lists";
 import type { LinkedItem } from "@/types/scouting";
-
-interface InboxProperty {
-  id: string;
-  placeId: string;
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  source: string;
-  price: number;
-  size: number;
-  priceByArea: number;
-  district: string;
-  hasAirConditioning: boolean;
-  url: string;
-  transfer?: number;
-  hasBathroom: boolean;
-  hasStorefront: boolean;
-  image_url?: string;
-  photos?: string[];
-  score?: number;
-  createdAt?: string;
-}
-
-type SortKey = "age" | "rent" | "size" | "district";
-const SORT_CYCLE: SortKey[] = ["age", "rent", "size", "district"];
-
-function formatAge(createdAt?: string): string {
-  if (!createdAt) return "";
-  const days = Math.floor(
-    (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24),
-  );
-  if (days === 0) return "Listed today";
-  if (days === 1) return "1 day ago";
-  if (days < 7) return `${days} days ago`;
-  if (days < 14) return "1 week ago";
-  return `${Math.floor(days / 7)} weeks ago`;
-}
-
-// Currency by source: Prague (sreality) = CZK, Madrid (idealista) = EUR.
-// Matches the map popup convention in EnhancedMapContainer.
-function formatPrice(amount: number, source: string): string {
-  // Round to whole units (scraped values can be fractional, e.g. 26866.667)
-  // and pin the locale so grouping is identical on every device.
-  const rounded = Math.round(amount).toLocaleString("en-US");
-  return source === "sreality" ? `${rounded} Kč` : `€${rounded}`;
-}
-
-function sortProperties(
-  properties: InboxProperty[],
-  key: SortKey,
-): InboxProperty[] {
-  return [...properties].sort((a, b) => {
-    switch (key) {
-      case "age":
-        return (
-          new Date(b.createdAt || 0).getTime() -
-          new Date(a.createdAt || 0).getTime()
-        );
-      case "rent": {
-        const aVal = a.transfer || a.price;
-        const bVal = b.transfer || b.price;
-        return bVal - aVal;
-      }
-      case "size":
-        return (b.size || 0) - (a.size || 0);
-      case "district":
-        return (a.district || "").localeCompare(b.district || "");
-      default:
-        return 0;
-    }
-  });
-}
-
-function ActionsDropdown({
-  property,
-  cityId,
-  onActioned,
-}: {
-  property: InboxProperty;
-  cityId: string;
-  onActioned: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [subMenu, setSubMenu] = useState<"addToList" | null>(null);
-  const [newListName, setNewListName] = useState("");
-  const menuRef = useRef<HTMLDivElement>(null);
-  const { lists, toggleInList, isPlaceInList, createList } = useListsContext();
-  const { createTrip, updateTrip } = useScoutingTrips();
-  const { showToast } = useToast();
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSubMenu(null);
-      }
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
-
-  const placeInfo: PlaceInfo = {
-    placeId: property.placeId,
-    placeType: "property",
-    placeName: property.name || property.address,
-    placeAddress: property.address,
-    lat: property.latitude,
-    lon: property.longitude,
-  };
-
-  const handleCreateTrip = () => {
-    const tripName = property.name || property.address;
-    const trip = createTrip(cityId);
-    const linkedItem: LinkedItem = {
-      type: "place",
-      id: property.placeId,
-      name: tripName,
-      address: property.address,
-      data: property,
-    };
-    updateTrip(trip.id, { name: tripName, property: linkedItem });
-    window.dispatchEvent(
-      new CustomEvent("create-trip-from-property", {
-        detail: { trip: { ...trip, name: tripName, property: linkedItem } },
-      }),
-    );
-    setOpen(false);
-    onActioned(property.id);
-  };
-
-  const handleToggleList = (e: React.MouseEvent, listId: string) => {
-    e.stopPropagation();
-    toggleInList(listId, placeInfo);
-    showToast("Added to list");
-    setOpen(false);
-    onActioned(property.id);
-  };
-
-  const handleCreateList = () => {
-    if (!newListName.trim()) return;
-    const list = createList(newListName.trim());
-    toggleInList(list.id, placeInfo);
-    showToast("Added to new list");
-    setNewListName("");
-    setSubMenu(null);
-    setOpen(false);
-    onActioned(property.id);
-  };
-
-  return (
-    <div ref={menuRef} style={{ position: "relative" }}>
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen(!open); setSubMenu(null); }}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 h-8 text-xs font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-      >
-        Actions
-      </button>
-      {open && !subMenu && (
-        <div className="actions-dropdown" style={{ right: 0, left: "auto", bottom: "auto", top: "100%", marginTop: 4, marginBottom: 0, zIndex: 50 }} onClick={(e) => e.stopPropagation()}>
-          <button className="actions-item" onClick={(e) => { e.stopPropagation(); handleCreateTrip(); }}>
-            <Route size={14} />
-            <span>Create trip</span>
-          </button>
-          <button className="actions-item" onClick={(e) => { e.stopPropagation(); setSubMenu("addToList"); }}>
-            <ListPlus size={14} />
-            <span>Add to list</span>
-          </button>
-        </div>
-      )}
-      {open && subMenu === "addToList" && (
-        <div className="actions-dropdown" style={{ right: 0, left: "auto", bottom: "auto", top: "100%", marginTop: 4, marginBottom: 0, zIndex: 50 }} onClick={(e) => e.stopPropagation()}>
-          <div className="actions-header">
-            <button className="actions-back" onClick={() => setSubMenu(null)}>&larr;</button>
-            Add to list
-          </div>
-          {lists.map((list) => (
-            <button
-              key={list.id}
-              className="actions-item"
-              onClick={(e) => handleToggleList(e, list.id)}
-            >
-              <span>{list.name}</span>
-              {isPlaceInList(property.placeId, list.id) && (
-                <Check size={14} style={{ marginLeft: "auto", color: "#10b981" }} />
-              )}
-            </button>
-          ))}
-          <div style={{ borderTop: "1px solid #e5e7eb", padding: "8px 12px" }}>
-            <input
-              type="text"
-              placeholder="New list name..."
-              value={newListName}
-              onChange={(e) => setNewListName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreateList()}
-              className="w-full text-xs border border-zinc-200 rounded px-2 py-1.5 bg-transparent"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PropertyCard({
-  property,
-  onMarkRead,
-  onNavigate,
-  cityId,
-}: {
-  property: InboxProperty;
-  onMarkRead: (id: string) => void;
-  onNavigate: (property: InboxProperty) => void;
-  cityId: string;
-}) {
-  const rentLabel = property.price
-    ? `${formatPrice(property.price, property.source)}/mo`
-    : null;
-  const transferLabel = property.transfer
-    ? `${formatPrice(property.transfer, property.source)} transfer`
-    : null;
-
-  return (
-    <div
-      className="cursor-pointer hover:bg-zinc-50/80 active:bg-zinc-100/80 transition-colors relative rounded-xl border border-zinc-200/60"
-      onClick={() => onNavigate(property)}
-      style={{ overflow: "visible" }}
-    >
-      {/* Top: photo + info */}
-      <div className="flex gap-3 p-3 pb-0">
-        {property.image_url && (
-          <img
-            src={property.image_url}
-            alt=""
-            className="w-14 h-14 rounded-lg object-cover shrink-0"
-            loading="lazy"
-          />
-        )}
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-zinc-900 leading-snug line-clamp-2">
-            {property.name || property.address}
-          </p>
-          <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
-            {property.district}
-            {property.size ? ` · ${property.size} m²` : ""}
-            {` · ${formatAge(property.createdAt)}`}
-          </p>
-        </div>
-      </div>
-      {/* Bottom: price left, actions right */}
-      <div className="flex items-center justify-between px-3 py-2">
-        <div className="flex items-center gap-1.5 min-w-0">
-          {rentLabel && (
-            <span className="text-[13px] font-bold text-zinc-900 whitespace-nowrap">{rentLabel}</span>
-          )}
-          {transferLabel && (
-            <span className="text-[10px] font-medium text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded-md whitespace-nowrap">{transferLabel}</span>
-          )}
-          {!rentLabel && !transferLabel && (
-            <span className="text-[12px] text-zinc-400">Price on request</span>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <ActionsDropdown property={property} cityId={cityId} onActioned={onMarkRead} />
-          <button
-            onClick={(e) => { e.stopPropagation(); onMarkRead(property.id); }}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-zinc-200 hover:bg-zinc-100 transition-colors"
-            title="Mark as read"
-          >
-            <Check className="w-3.5 h-3.5 text-zinc-400" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 interface NewListingsModalProps {
   isOpen: boolean;
@@ -311,12 +36,49 @@ export function NewListingsModal({
 }: NewListingsModalProps) {
   const isMobile = useMobile();
   const { showToast } = useToast();
+  const { assignProperty, preRejectProperty, assignments } = usePropertyAssignmentContext();
+  const { canAccessDashboard } = useUserProfiles();
+  const { hasPendingRequest, requestProperty } = usePropertyRequests();
+  const { lists, toggleInList, createList } = useListsContext();
+  const { createTrip, updateTrip } = useScoutingTrips();
 
+  // Data state
   const [properties, setProperties] = useState<InboxProperty[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortKey, setSortKey] = useState<SortKey>("age");
-  const [navigatedAway, setNavigatedAway] = useState(false);
 
+  // Triage state
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [cardAnim, setCardAnim] = useState<"idle" | "exiting" | "entering">("idle");
+  const [activeSheet, setActiveSheet] = useState<"assign" | "actions" | null>(null);
+  const [snapshotProperty, setSnapshotProperty] = useState<InboxProperty | null>(null);
+
+  // Score-sorted deck, filtered for non-admin users
+  const deck = useMemo(() => {
+    let filtered = [...properties];
+
+    if (!canAccessDashboard) {
+      const rejectedPlaceIds = new Set(
+        assignments
+          .filter((a) => a.status === "pre_rejected")
+          .map((a) => a.property_place_id),
+      );
+      filtered = filtered.filter((p) => !rejectedPlaceIds.has(p.placeId));
+    }
+
+    return filtered.sort((a, b) => (b.aiScore ?? -1) - (a.aiScore ?? -1));
+  }, [properties, canAccessDashboard, assignments]);
+
+  // Clamp currentIndex when deck shrinks
+  useEffect(() => {
+    if (deck.length > 0 && currentIndex >= deck.length) {
+      setCurrentIndex(deck.length - 1);
+    }
+  }, [deck.length, currentIndex]);
+
+  // Current property (use snapshot during exit animation)
+  const currentProperty = snapshotProperty ?? deck[currentIndex];
+
+  // Load listings
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -327,7 +89,10 @@ export function NewListingsModal({
         const data = await apiFetch<InboxProperty[]>(
           `/api/db/inbox?city_id=${cityId}`,
         );
-        if (!cancelled) setProperties(data || []);
+        if (!cancelled) {
+          setProperties(data || []);
+          setCurrentIndex(0);
+        }
       } catch (err) {
         console.error("Failed to load listings:", err);
         if (!cancelled) setProperties([]);
@@ -337,31 +102,25 @@ export function NewListingsModal({
     }
 
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [isOpen, cityId]);
 
-  const visibleProperties = useMemo(() => {
-    return sortProperties(properties, sortKey);
-  }, [properties, sortKey]);
-
+  // Mark single listing as read (optimistic)
   const handleMarkRead = useCallback(
-    async (placeId: string) => {
-      const removed = properties.find((p) => p.id === placeId);
-      setProperties((prev) => prev.filter((p) => p.id !== placeId));
+    async (propertyId: string) => {
+      const removed = properties.find((p) => p.id === propertyId);
+      setProperties((prev) => prev.filter((p) => p.id !== propertyId));
       try {
         await apiFetch("/api/db/inbox", {
           method: "POST",
           body: JSON.stringify({
             action: "mark_read",
-            place_ids: [placeId],
+            place_ids: [propertyId],
             city_id: cityId,
           }),
         });
       } catch (err) {
         console.error("Failed to mark as read:", err);
-        // Restore the card so the UI matches reality.
         if (removed) setProperties((prev) => [...prev, removed]);
         showToast("Couldn't save, please try again", "error");
       }
@@ -369,13 +128,13 @@ export function NewListingsModal({
     [properties, cityId, showToast],
   );
 
+  // Mark all as read
   const handleMarkAllRead = useCallback(async () => {
-    const removed = [...visibleProperties];
-    const ids = removed.map((p) => p.id);
+    const ids = deck.map((p) => p.id);
     if (ids.length === 0) return;
 
-    // Optimistically clear UI, then persist immediately so it's remembered.
-    setProperties((prev) => prev.filter((p) => !ids.includes(p.id)));
+    const removed = [...properties];
+    setProperties([]);
 
     try {
       await apiFetch("/api/db/inbox", {
@@ -389,70 +148,180 @@ export function NewListingsModal({
       showToast(`Marked ${ids.length} as read`);
     } catch (err) {
       console.error("Failed to mark all as read:", err);
-      // Restore the cards so the UI matches reality.
-      setProperties((prev) => [...removed, ...prev]);
+      setProperties(removed);
       showToast("Couldn't save, please try again", "error");
     }
-  }, [visibleProperties, cityId, showToast]);
+  }, [deck, properties, cityId, showToast]);
 
-  const handleNavigate = useCallback(
-    (property: InboxProperty) => {
-      setNavigatedAway(true);
-      onClose();
+  // Advance to next card with animation
+  const handleAdvance = useCallback(
+    (markRead = true) => {
+      if (!currentProperty) return;
+
+      setSnapshotProperty(currentProperty);
+
+      if (markRead) {
+        handleMarkRead(currentProperty.id);
+      }
+
+      setCardAnim("exiting");
+
       setTimeout(() => {
-        window.dispatchEvent(
-          new CustomEvent("navigate-and-open-popup", {
-            detail: {
-              lat: property.latitude,
-              lon: property.longitude,
-              placeId: property.placeId,
-              placeType: "property",
-              // The map popup (PropertyData) reads `title`, but the inbox uses
-              // `name`. Map it across so the popup heading isn't blank, and tag
-              // the type the popup expects.
-              data: { ...property, title: property.name, type: "property" },
-            },
-          }),
-        );
-      }, 100);
+        setSnapshotProperty(null);
+        setCardAnim("entering");
+      }, 350);
+
+      setTimeout(() => {
+        setCardAnim("idle");
+      }, 600);
     },
-    [onClose],
+    [currentProperty, handleMarkRead],
   );
 
-  // When user closes the POI popup on the map after navigating from listings, reopen
-  useEffect(() => {
-    if (!navigatedAway) return;
-    const handlePopupClosed = () => {
-      setNavigatedAway(false);
-      // Small delay to let popup close animation finish
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("reopen-new-listings"));
-      }, 150);
-    };
-    window.addEventListener("closePopup", handlePopupClosed);
-    window.addEventListener("popup-closed", handlePopupClosed);
-    return () => {
-      window.removeEventListener("closePopup", handlePopupClosed);
-      window.removeEventListener("popup-closed", handlePopupClosed);
-    };
-  }, [navigatedAway]);
+  // Assign handler
+  const handleAssign = useCallback(
+    async (targetId: string, targetName: string, type: "team" | "user") => {
+      if (!currentProperty) return;
 
-  useEffect(() => {
-    const handleTripCreated = () => {
-      showToast("Trip created");
-    };
-    window.addEventListener("create-trip-from-property", handleTripCreated);
-    return () => {
-      window.removeEventListener("create-trip-from-property", handleTripCreated);
-    };
-  }, [showToast]);
+      const propertyMeta = {
+        placeName: currentProperty.name || currentProperty.address,
+        placeAddress: currentProperty.address,
+        placeId: currentProperty.placeId,
+        lat: currentProperty.latitude,
+        lon: currentProperty.longitude,
+      };
 
-  const cycleSortKey = () => {
-    setSortKey((prev) => {
-      const idx = SORT_CYCLE.indexOf(prev);
-      return SORT_CYCLE[(idx + 1) % SORT_CYCLE.length];
-    });
-  };
+      setActiveSheet(null);
+
+      try {
+        if (type === "team") {
+          await assignProperty(currentProperty.placeId, null, { teamId: targetId });
+          logActivity("assigned_property", {
+            ...propertyMeta,
+            team_id: targetId,
+            teamName: targetName,
+          });
+          notifyTeam({
+            teamId: targetId,
+            kind: "assigned",
+            placeName: currentProperty.name || currentProperty.address,
+            placeAddress: currentProperty.address,
+          });
+        } else {
+          await assignProperty(currentProperty.placeId, targetId);
+          logActivity("assigned_property", {
+            ...propertyMeta,
+            assigned_to: targetId,
+            assigneeName: targetName,
+          });
+        }
+      } catch {
+        showToast("Failed to assign", "error");
+        return;
+      }
+
+      showToast(`Assigned to ${targetName}`);
+      setTimeout(() => handleAdvance(true), 200);
+    },
+    [currentProperty, assignProperty, showToast, handleAdvance],
+  );
+
+  // Create trip handler
+  const handleCreateTrip = useCallback(() => {
+    if (!currentProperty) return;
+    const tripName = currentProperty.name || currentProperty.address;
+    const trip = createTrip(cityId);
+    const linkedItem: LinkedItem = {
+      type: "place",
+      id: currentProperty.placeId,
+      name: tripName,
+      address: currentProperty.address,
+      data: currentProperty,
+    };
+    updateTrip(trip.id, { name: tripName, property: linkedItem });
+    window.dispatchEvent(
+      new CustomEvent("create-trip-from-property", {
+        detail: { trip: { ...trip, name: tripName, property: linkedItem } },
+      }),
+    );
+    showToast("Trip created");
+  }, [currentProperty, cityId, createTrip, updateTrip, showToast]);
+
+  // Add to list handler (adds to first list, or creates a default one)
+  const handleAddToList = useCallback(() => {
+    if (!currentProperty) return;
+    const placeInfo: PlaceInfo = {
+      placeId: currentProperty.placeId,
+      placeType: "property",
+      placeName: currentProperty.name || currentProperty.address,
+      placeAddress: currentProperty.address,
+      lat: currentProperty.latitude,
+      lon: currentProperty.longitude,
+    };
+    if (lists.length > 0) {
+      toggleInList(lists[0].id, placeInfo);
+      showToast(`Added to ${lists[0].name}`);
+    } else {
+      const list = createList("Saved properties");
+      toggleInList(list.id, placeInfo);
+      showToast("Added to Saved properties");
+    }
+  }, [currentProperty, lists, toggleInList, createList, showToast]);
+
+  // Pre-reject handler
+  const handlePreReject = useCallback(
+    async (reason: string) => {
+      if (!currentProperty) return;
+
+      setActiveSheet(null);
+
+      try {
+        await preRejectProperty(currentProperty.placeId, reason);
+        logActivity("pre_rejected_property", {
+          placeName: currentProperty.name || currentProperty.address,
+          placeAddress: currentProperty.address,
+          placeId: currentProperty.placeId,
+          lat: currentProperty.latitude,
+          lon: currentProperty.longitude,
+          rejectionReason: reason,
+        });
+        showToast("Pre-rejected");
+        setTimeout(() => handleAdvance(true), 200);
+      } catch {
+        showToast("Failed to pre-reject", "error");
+      }
+    },
+    [currentProperty, preRejectProperty, showToast, handleAdvance],
+  );
+
+  // Request handler (franchisees). Copies the listing details onto the request
+  // so the review queue still reads correctly after the listing is re-scraped.
+  const handleRequest = useCallback(async () => {
+    if (!currentProperty) return;
+
+    try {
+      await requestProperty(currentProperty.placeId, {
+        property_name: currentProperty.name || null,
+        property_address: currentProperty.address || null,
+        property_url: currentProperty.url || null,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to send request";
+      showToast(message, "error");
+      return;
+    }
+
+    showToast("Request sent");
+    setTimeout(() => handleAdvance(true), 200);
+  }, [currentProperty, requestProperty, showToast, handleAdvance]);
+
+  // Card animation styles
+  const cardTransform =
+    cardAnim === "exiting"
+      ? { animation: "triage-card-exit 300ms ease-in forwards" }
+      : cardAnim === "entering"
+        ? { animation: "triage-card-enter 250ms ease-out forwards" }
+        : {};
 
   if (!isOpen) return null;
 
@@ -464,7 +333,7 @@ export function NewListingsModal({
       />
 
       <div
-        className={`relative flex flex-col ${
+        className={`relative flex flex-col overflow-hidden ${
           isMobile
             ? "w-full h-full"
             : "max-w-lg w-full max-h-[80vh] rounded-2xl"
@@ -472,79 +341,129 @@ export function NewListingsModal({
         style={{
           background: isMobile ? "#ffffff" : "rgba(255, 255, 255, 0.92)",
           backdropFilter: isMobile ? undefined : "blur(16px) saturate(180%)",
-          boxShadow: isMobile ? undefined : "0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 32px rgba(0, 0, 0, 0.12)",
+          boxShadow: isMobile
+            ? undefined
+            : "0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 32px rgba(0, 0, 0, 0.12)",
         }}
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0"
-          style={isMobile ? { paddingTop: "calc(16px + env(safe-area-inset-top, 0px))" } : undefined}
+          className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0"
+          style={
+            isMobile
+              ? { paddingTop: "calc(12px + env(safe-area-inset-top, 0px))" }
+              : undefined
+          }
         >
-          <h2 className="font-outfit text-lg font-semibold text-zinc-900">
-            New Listings
-          </h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors"
-          >
-            <X className="w-4 h-4 text-zinc-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+              disabled={currentIndex === 0 || deck.length === 0}
+              className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30"
+            >
+              <ChevronLeft className="w-5 h-5 text-zinc-600" />
+            </button>
+            <span
+              className="text-sm font-medium text-zinc-500"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {deck.length > 0 ? `${currentIndex + 1} / ${deck.length}` : "0 / 0"}
+            </span>
+            <button
+              onClick={() =>
+                setCurrentIndex((i) => Math.min(deck.length - 1, i + 1))
+              }
+              disabled={currentIndex >= deck.length - 1 || deck.length === 0}
+              className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30"
+            >
+              <ChevronRight className="w-5 h-5 text-zinc-600" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            {deck.length > 0 && (
+              <button
+                onClick={handleMarkAllRead}
+                className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors px-2 py-1"
+              >
+                Skip all
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors"
+            >
+              <X className="w-5 h-5 text-zinc-400" />
+            </button>
+          </div>
         </div>
 
-        {/* Toolbar */}
-        {!loading && visibleProperties.length > 0 && (
-          <div className="flex items-center justify-between px-4 pb-2 shrink-0">
-            <span className="text-xs text-zinc-400">
-              {visibleProperties.length}{" "}
-              {visibleProperties.length === 1 ? "property" : "properties"}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={cycleSortKey}>
-                <ArrowUpDown className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium capitalize ml-1">
-                  {sortKey}
-                </span>
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
-                <CheckCheck className="w-3.5 h-3.5" />
-                <span className="text-xs ml-1">Mark all as read</span>
-              </Button>
-            </div>
+        {/* Progress bar */}
+        {deck.length > 0 && (
+          <div className="w-full h-[3px] bg-zinc-100 shrink-0">
+            <div
+              className="h-full bg-zinc-900 transition-all duration-300"
+              style={{
+                width: `${((currentIndex + 1) / deck.length) * 100}%`,
+              }}
+            />
           </div>
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-4 pb-48">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
+          </div>
+        ) : deck.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-20">
+            <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
+              <Check className="w-6 h-6 text-emerald-600" />
             </div>
-          ) : visibleProperties.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
-                <Check className="w-6 h-6 text-emerald-600" />
-              </div>
-              <p className="text-sm font-medium text-zinc-900">
-                All caught up
-              </p>
-              <p className="text-xs text-zinc-400 mt-1">
-                No new properties to review.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {visibleProperties.map((property) => (
-                <PropertyCard
-                  key={property.id}
-                  property={property}
-                  onMarkRead={handleMarkRead}
-                  onNavigate={handleNavigate}
-                  cityId={cityId}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+            <p className="text-sm font-medium text-zinc-900">All caught up</p>
+            <p className="text-xs text-zinc-400 mt-1">
+              No new properties to review.
+            </p>
+          </div>
+        ) : currentProperty ? (
+          <div
+            key={currentProperty.id}
+            className="flex-1 overflow-y-auto flex flex-col"
+            style={cardTransform}
+          >
+            <FocusTriageCard
+              property={currentProperty}
+              isDesktop={!isMobile}
+              canAssign={canAccessDashboard}
+              canRequest={!canAccessDashboard}
+              hasRequested={hasPendingRequest(currentProperty.placeId)}
+              onAssign={() => setActiveSheet("assign")}
+              onRequest={handleRequest}
+              onNext={() => handleAdvance(true)}
+              onActions={() => setActiveSheet("actions")}
+            />
+          </div>
+        ) : null}
+
+        {/* Assign sheet */}
+        {activeSheet === "assign" && (
+          <AssignSheet
+            onAssign={handleAssign}
+            onClose={() => setActiveSheet(null)}
+          />
+        )}
+
+        {/* Actions sheet */}
+        {activeSheet === "actions" && currentProperty && (
+          <ActionsSheet
+            showAssign={canAccessDashboard}
+            showPreReject={canAccessDashboard}
+            onAssign={() => setActiveSheet("assign")}
+            onCreateTrip={handleCreateTrip}
+            onAddToList={handleAddToList}
+            onPreReject={handlePreReject}
+            onClose={() => setActiveSheet(null)}
+          />
+        )}
       </div>
     </div>
   );

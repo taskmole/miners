@@ -38,6 +38,8 @@ jobs:
     if: >-
       (github.event_name == 'schedule' && github.event.schedule == '0 6 * * 1,4')
       || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'idealista' || github.event.inputs.scraper == 'idealista-rental' || github.event.inputs.scraper == 'both'))
+    outputs:
+      score_outcome: ${{ steps.score.outcome }}
 
     steps:
       - name: Checkout
@@ -73,6 +75,23 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      # Scoring runs right after the scrape, not in the report job, so Madrid
+      # listings get scored even when the combined report fails.
+      # continue-on-error keeps a scoring failure from blocking the digest;
+      # the scoring-status job at the end turns the run red instead.
+      - name: Score listings with AI
+        id: score
+        if: success()
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC }}
+          SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npx ts-node --project scripts/data-pipeline/tsconfig.json \
+            scripts/data-pipeline/score-listings.ts \
+            --city ${{ github.event.inputs.city || 'madrid' }}
+
   # Transfers run on their own days (Tue+Fri) so Idealista's anti-bot systems
   # aren't already on alert from the rental scrape. `needs` + `always()` still
   # enforce sequential order for manual dispatch (scraper: idealista/both),
@@ -87,6 +106,8 @@ jobs:
       always()
       && ((github.event_name == 'schedule' && github.event.schedule == '0 6 * * 2,5')
         || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'idealista' || github.event.inputs.scraper == 'idealista-transfer' || github.event.inputs.scraper == 'both')))
+    outputs:
+      score_outcome: ${{ steps.score.outcome }}
 
     steps:
       - name: Checkout
@@ -121,6 +142,21 @@ jobs:
           path: /tmp/stats-transfer.json
           if-no-files-found: ignore
           retention-days: 7
+
+      # See the rental job: scoring lives next to the scrape, failures are
+      # surfaced by the scoring-status job rather than blocking the digest.
+      - name: Score listings with AI
+        id: score
+        if: success()
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC }}
+          SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npx ts-node --project scripts/data-pipeline/tsconfig.json \
+            scripts/data-pipeline/score-listings.ts \
+            --city ${{ github.event.inputs.city || 'madrid' }}
 
   # Report + digest email runs after this workflow's Idealista job(s) finish.
   # Rentals and transfers now run on separate scheduled days (see above), so
@@ -191,6 +227,8 @@ jobs:
     if: >-
       (github.event_name == 'schedule' && github.event.schedule == '0 6 * * 1,4')
       || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'sreality' || github.event.inputs.scraper == 'both'))
+    outputs:
+      score_outcome: ${{ steps.score.outcome }}
 
     steps:
       - name: Checkout
@@ -215,6 +253,21 @@ jobs:
             scripts/data-pipeline/fetch-sreality.ts \
             --headless --url "${{ secrets.SREALITY_SEARCH_URL }}" --city prague
 
+      # continue-on-error: scoring failures must never block the digest email.
+      # The scoring-status job below still fails the run so it is not silent.
+      - name: Score listings with AI
+        id: score
+        if: success()
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC }}
+          SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npx ts-node --project scripts/data-pipeline/tsconfig.json \
+            scripts/data-pipeline/score-listings.ts \
+            --city prague
+
       - name: Send Sreality digest email
         if: success()
         env:
@@ -226,3 +279,31 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"source":"sreality","city":"prague"}' \
             --fail --silent --show-error
+
+  # Turns the whole run red if any scoring step failed. Scoring is allowed to
+  # fail without blocking scrapes or digests, but it must not fail silently —
+  # a broken scoring step went unnoticed for three weeks because the run
+  # stayed green. Skipped jobs report an empty outcome and are ignored.
+  scoring-status:
+    runs-on: ubuntu-latest
+    needs: [scrape-idealista-rental, scrape-idealista-transfer, scrape-sreality]
+    if: always()
+
+    steps:
+      - name: Fail if any scoring step failed
+        env:
+          RENTAL: ${{ needs.scrape-idealista-rental.outputs.score_outcome }}
+          TRANSFER: ${{ needs.scrape-idealista-transfer.outputs.score_outcome }}
+          SREALITY: ${{ needs.scrape-sreality.outputs.score_outcome }}
+        run: |
+          failed=""
+          if [ "$RENTAL" = "failure" ]; then failed="$failed idealista-rental"; fi
+          if [ "$TRANSFER" = "failure" ]; then failed="$failed idealista-transfer"; fi
+          if [ "$SREALITY" = "failure" ]; then failed="$failed sreality"; fi
+
+          if [ -n "$failed" ]; then
+            echo "::error::AI scoring failed for:$failed - open those jobs and read the 'Score listings with AI' step"
+            exit 1
+          fi
+
+          echo "Scoring outcomes - rental: ${RENTAL:-skipped}, transfer: ${TRANSFER:-skipped}, sreality: ${SREALITY:-skipped}"

@@ -1173,6 +1173,37 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['property_assignments']['Insert']>;
       };
 
+      property_requests: {
+        Row: {
+          id: string;
+          property_place_id: string;
+          requested_by: string;
+          status: string;
+          property_name: string | null;
+          property_address: string | null;
+          property_url: string | null;
+          note: string | null;
+          decided_by: string | null;
+          decided_at: string | null;
+          decision_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          property_place_id: string;
+          requested_by: string;
+          status?: string;
+          property_name?: string | null;
+          property_address?: string | null;
+          property_url?: string | null;
+          note?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['property_requests']['Insert']>;
+      };
+
       teams: {
         Row: {
           id: string;
