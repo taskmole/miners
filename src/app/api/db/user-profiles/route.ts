@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, createServerSupabase, getTokenFromRequest } from "@/lib/supabase-server";
+import { isEmailAllowed, ALLOWED_DOMAINS } from "@/lib/auth-config";
 
 export const dynamic = "force-dynamic";
 
@@ -146,6 +147,23 @@ export async function POST(request: NextRequest) {
     const email = body.email?.trim()?.toLowerCase();
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    }
+
+    // The check_email_domain() trigger on auth.users refuses sign-ups from
+    // addresses outside the allowlist, and GoTrue reports that refusal as an
+    // opaque "Database error saving new user". Inviting such an address here
+    // would create a profile for someone who can never log in, with nothing
+    // to explain why. Reject it up front, while we can still say so.
+    if (!isEmailAllowed(email)) {
+      return NextResponse.json(
+        {
+          error:
+            `${email} cannot sign in: only ${ALLOWED_DOMAINS.join(" and ")} ` +
+            `addresses are permitted. Adding an exception means updating both ` +
+            `src/lib/auth-config.ts and the check_email_domain() database function.`,
+        },
+        { status: 400 },
+      );
     }
 
     // Check caller's role for privilege escalation prevention

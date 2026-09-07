@@ -433,13 +433,8 @@ export function NewListingsModal({
             <FocusTriageCard
               property={currentProperty}
               isDesktop={!isMobile}
-              canAssign={canAccessDashboard}
-              canRequest={!canAccessDashboard}
-              hasRequested={hasPendingRequest(currentProperty.placeId)}
-              onAssign={() => setActiveSheet("assign")}
-              onRequest={handleRequest}
-              onNext={() => handleAdvance(true)}
               onActions={() => setActiveSheet("actions")}
+              onNext={() => handleAdvance(true)}
             />
           </div>
         ) : null}
@@ -456,8 +451,11 @@ export function NewListingsModal({
         {activeSheet === "actions" && currentProperty && (
           <ActionsSheet
             showAssign={canAccessDashboard}
+            showRequest={!canAccessDashboard}
+            hasRequested={hasPendingRequest(currentProperty.placeId)}
             showPreReject={canAccessDashboard}
             onAssign={() => setActiveSheet("assign")}
+            onRequest={handleRequest}
             onCreateTrip={handleCreateTrip}
             onAddToList={handleAddToList}
             onPreReject={handlePreReject}
