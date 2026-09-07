@@ -6,6 +6,7 @@ import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, ChevronRi
 import { useUserProfiles } from '@/hooks/useUserProfiles';
 import { useTeams, type Team, type TeamMember } from '@/hooks/useTeams';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
+import { usePropertyRequests } from '@/hooks/usePropertyRequests';
 import { useCafeProfiles, CafeProfile, CafeCategory, CATEGORY_LABELS } from '@/hooks/useCafeProfiles';
 import { apiFetch } from '@/lib/api-client';
 import { logActivity } from '@/lib/supabaseHelpers';
@@ -23,8 +24,9 @@ import {
 import { parseCompetitors } from '@/components/NearbyCompetitors';
 import { useScoutingDefaults, type ScoutingDefaults, type CurrencyCode, type MarketDefaults, MARKET_LABELS } from '@/hooks/useScoutingDefaults';
 import { Input } from '@/components/ui/input';
+import { RequestsTab } from '@/components/admin/RequestsTab';
 
-type Tab = 'submissions' | 'users' | 'settings' | 'cafe-profiles' | 'teams';
+type Tab = 'submissions' | 'requests' | 'users' | 'settings' | 'cafe-profiles' | 'teams';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -928,6 +930,14 @@ function AdminContent() {
     refetch: refetchSubmissions,
   } = useAdminSubmissions();
 
+  // Property requests (franchisees asking for a property)
+  const {
+    pending: pendingRequests,
+    processed: processedRequests,
+    isLoaded: requestsLoaded,
+    decideRequest,
+  } = usePropertyRequests();
+
   // Cafe profiles hook
   const {
     cafes: cafeProfiles,
@@ -1170,6 +1180,23 @@ function AdminContent() {
             {pendingSubmissions.length > 0 && (
               <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
                 {pendingSubmissions.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => handleTabChange('requests')}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+              activeTab === 'requests'
+                ? "border-zinc-900 text-zinc-900"
+                : "border-transparent text-zinc-500 hover:text-zinc-700"
+            )}
+          >
+            <UserPlus className="w-4 h-4" />
+            Requests
+            {pendingRequests.length > 0 && (
+              <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+                {pendingRequests.length}
               </span>
             )}
           </button>
@@ -1491,6 +1518,19 @@ function AdminContent() {
               )}
             </section>
           </div>
+        )}
+
+        {activeTab === 'requests' && (
+          <RequestsTab
+            pending={pendingRequests}
+            processed={processedRequests}
+            users={users}
+            canReview={isAdmin}
+            loading={!requestsLoaded}
+            onDecide={async (id, decision, reason) => {
+              await decideRequest(id, decision, reason);
+            }}
+          />
         )}
 
         {activeTab === 'cafe-profiles' && (

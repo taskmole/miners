@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { getFromAddress } from "@/lib/email";
 
 const MAX_FILES = 3;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     `;
 
     const { error } = await resend.emails.send({
-      from: "Miners Scout <onboarding@resend.dev>",
+      from: getFromAddress(),
       to: "founders@taskmole.co",
       subject: `Feedback from ${city}${userEmail ? ` (${userEmail})` : ""}`,
       html,

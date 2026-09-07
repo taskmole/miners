@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
 import { render } from "@react-email/render";
 import React from "react";
 import { TripStatusUpdate } from "@/emails/trip-status-update";
 import { getTokenFromRequest, createServerSupabase } from "@/lib/supabase-server";
+import { sendAppEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -56,8 +56,6 @@ export async function POST(request: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://theminers.vercel.app";
 
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-
     const html = await render(
       React.createElement(TripStatusUpdate, {
         tripName: body.tripName,
@@ -76,14 +74,13 @@ export async function POST(request: NextRequest) {
       returned: `Your trip "${body.tripName}" needs changes`,
     };
 
-    await resend.emails.send({
-      from: "Miners Scout <onboarding@resend.dev>",
+    const result = await sendAppEmail({
       to: body.recipientEmail,
       subject: subjectMap[body.status],
       html,
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: !result.error, ...result });
   } catch (err) {
     console.error("[send-trip-status] Error:", err);
     return NextResponse.json({ error: "Failed to send email" }, { status: 500 });

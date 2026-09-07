@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
 import { render } from "@react-email/render";
 import React from "react";
 import MinersDigest from "@/emails/miners-digest";
+import { sendAppEmail } from "@/lib/email";
 import {
   getSubscribedUsers,
   getNewListingsForCityAndSource,
@@ -51,7 +51,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
     const users = await getSubscribedUsers();
     const results: {
       email: string;
@@ -76,8 +75,7 @@ export async function POST(request: NextRequest) {
         }),
       );
 
-      const { error } = await resend.emails.send({
-        from: "Miners Scout <onboarding@resend.dev>",
+      const { error } = await sendAppEmail({
         to: user.email,
         subject: `${listings.length} new locations found in ${city}`,
         html,
@@ -87,7 +85,7 @@ export async function POST(request: NextRequest) {
         email: user.email,
         source,
         city,
-        status: error ? `Failed: ${error.message}` : "Sent",
+        status: error ? `Failed: ${error}` : "Sent",
       });
     }
 

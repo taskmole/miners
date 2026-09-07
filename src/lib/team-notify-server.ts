@@ -7,13 +7,13 @@
  * The caller is always excluded, and email failures are swallowed so a flaky
  * mail provider never blocks the underlying action.
  *
- * NOTE: emails send from the Resend sandbox sender, which only delivers to the
- * verified account address until a real sending domain is verified. In-app
- * notifications cover everyone in the meantime.
+ * NOTE: while no sending domain is configured, sendAppEmail redirects every
+ * message to the sandbox inbox with the real recipient in the subject line.
+ * In-app notifications cover everyone in the meantime.
  */
 
-import { Resend } from "resend";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sendAppEmail } from "./email";
 
 export type TeamEmailKind =
   | "assigned"
@@ -47,8 +47,6 @@ interface TeamMemberRow {
   email: string | null;
   display_name: string | null;
 }
-
-const FROM = "Miners Scout <onboarding@resend.dev>";
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "https://theminers.vercel.app";
@@ -179,20 +177,11 @@ export async function sendTeamEmails(
   if (recipients.length === 0) return { sent: 0, skipped: "no-recipients" };
 
   const { subject, html } = buildTeamEmail(opts);
-  const resend = new Resend(process.env.RESEND_API_KEY);
 
   let sent = 0;
   for (const r of recipients) {
-    try {
-      const { error: sendErr } = await resend.emails.send({ from: FROM, to: r.email as string, subject, html });
-      if (sendErr) {
-        console.warn(`[team-notify] send to ${r.email} failed:`, sendErr.message);
-      } else {
-        sent++;
-      }
-    } catch (err) {
-      console.warn("[team-notify] send threw:", err);
-    }
+    const result = await sendAppEmail({ to: r.email as string, subject, html });
+    if (!result.error) sent++;
   }
   return { sent };
 }
