@@ -31,7 +31,16 @@ const DEFAULT_SANDBOX_INBOX = "founders@taskmole.co";
  * verified in Resend, e.g. `Miners Scout <scout@theminers.eu>`.
  */
 export function getFromAddress(): string {
-  return process.env.RESEND_FROM?.trim() || SANDBOX_FROM;
+  // Strip surrounding quotes. Local .env files are read by dotenv, which
+  // removes them; the Vercel dashboard stores the literal string, so a value
+  // pasted as `"Miners Scout <x@y.com>"` reaches us with the quotes attached
+  // and Resend rejects the whole send with a 422 validation_error. Cheap to
+  // tolerate, and the failure it prevents is silent (mail simply never
+  // arrives, in production only).
+  const raw = process.env.RESEND_FROM?.trim();
+  if (!raw) return SANDBOX_FROM;
+  const unquoted = raw.replace(/^["']|["']$/g, "").trim();
+  return unquoted || SANDBOX_FROM;
 }
 
 /**

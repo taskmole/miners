@@ -103,7 +103,20 @@ const ACTION_TYPE_MAP: Record<string, { type: ActivityType; action: string; targ
   returned_scouting_trip: { type: 'updated', action: 'returned scouting trip for', targetType: 'property' },
   added_to_team: { type: 'added', action: 'added', targetType: 'list' },
   removed_from_team: { type: 'deleted', action: 'removed', targetType: 'list' },
+  requested_property: { type: 'added', action: 'requested', targetType: 'property' },
+  approved_request: { type: 'updated', action: 'approved the request for', targetType: 'property' },
+  rejected_request: { type: 'deleted', action: 'rejected the request for', targetType: 'property' },
 };
+
+/**
+ * Readable fallback for an action type with no entry above.
+ * Without this a new action type leaks its raw key into the feed, e.g.
+ * "Jaro requested_property Pronajem restaurace". Turning underscores into
+ * spaces is never as good as a hand-written label, but it is never wrong.
+ */
+function humanizeActionType(actionType: string): string {
+  return actionType.replace(/_/g, ' ').trim();
+}
 
 function parseSummary(summary: string | null): Record<string, unknown> {
   if (!summary) return {};
@@ -212,7 +225,7 @@ function transformActivityLogRow(
   lastReadTime: number,
 ): ActivityItem {
   const summary = parseSummary(row.summary);
-  const config = ACTION_TYPE_MAP[row.action_type] || { type: 'added' as ActivityType, action: row.action_type, targetType: 'poi' as const };
+  const config = ACTION_TYPE_MAP[row.action_type] || { type: 'added' as ActivityType, action: humanizeActionType(row.action_type), targetType: 'poi' as const };
   const typeLabel = friendlyPlaceType(summary.placeType as string);
   const placeName = (summary.placeName as string) || 'a place';
   const nameWithType = typeLabel ? `${typeLabel} ${placeName}` : placeName;

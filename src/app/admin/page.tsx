@@ -1528,7 +1528,24 @@ function AdminContent() {
             canReview={isAdmin}
             loading={!requestsLoaded}
             onDecide={async (id, decision, reason) => {
+              const request = pendingRequests.find((r) => r.id === id);
               await decideRequest(id, decision, reason);
+              // target_user_id is what puts this in the requester's activity
+              // feed: the franchisee filter in /api/db/activities only shows
+              // an entry logged by someone else when it names them. Without
+              // it a franchisee never learns their request was decided.
+              if (request) {
+                logActivity(
+                  decision === "approved" ? "approved_request" : "rejected_request",
+                  {
+                    placeId: request.property_place_id,
+                    placeName: request.property_name,
+                    placeAddress: request.property_address,
+                    target_user_id: request.requested_by,
+                    rejectionReason: decision === "rejected" ? reason ?? null : null,
+                  },
+                );
+              }
             }}
           />
         )}

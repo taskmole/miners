@@ -23,6 +23,10 @@ import { useListsContext } from "@/contexts/ListsContext";
 import { useScoutingTripsContext } from "@/contexts/ScoutingTripsContext";
 import { useSheetState } from "@/contexts/SheetContext";
 import { useToast } from "@/contexts/ToastContext";
+import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
+import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
+import { useUserProfiles } from "@/hooks/useUserProfiles";
+import { evaluatePropertyActions } from "@/lib/property-actions";
 import { MobilePanel } from "@/components/ui/mobile-panel";
 import { useMobile } from "@/hooks/useMobile";
 import type { LinkedItem, ScoutingTrip } from "@/types/scouting";
@@ -223,6 +227,31 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
     } = useScoutingTripsContext();
 
     const { showToast } = useToast();
+    const { canAccessDashboard } = useUserProfiles();
+    const { getAssignment, isAssignedToMe } = usePropertyAssignmentContext();
+    const { getPitchStatus } = usePitchStatusContext();
+
+    /**
+     * Starting a trip from a list has to obey the same rules as starting one
+     * from the property popup. Without this, "add to list" would be a way
+     * around them: bookmark a property you may not scout, then create the trip
+     * from the list instead. Non-property list entries are unaffected.
+     */
+    const blockedReason = (item: ListItem | null): string | null => {
+        if (!item || item.placeType !== "property") return null;
+        const a = getAssignment(item.placeId);
+        const actions = evaluatePropertyActions({
+            isAdmin: canAccessDashboard,
+            isPreRejected: a?.status === "pre_rejected",
+            rejectionReason: a?.rejection_reason ?? null,
+            hasAssignment: !!a && a.status !== "pre_rejected",
+            isAssignedToMe: isAssignedToMe(item.placeId),
+            assigneeLabel: null,
+            pitchStatus: getPitchStatus(item.placeId),
+            hasPendingRequest: false,
+        });
+        return actions.showCreateTrip ? null : (actions.caption || "You can't scout this property");
+    };
 
     // Use SheetContext for coordinated open/close
     const { isOpen: isExpanded, open, close } = useSheetState("lists");
@@ -327,6 +356,14 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
         selectedArea: { areaId: string; areaType: string; name: string } | null
     ) => {
         if (!cityId) return;
+
+        const blocked = blockedReason(selectedItem);
+        if (blocked) {
+            showToast(blocked, 'error');
+            setIsPropertyPickerOpen(false);
+            setSelectedListForTrip(null);
+            return;
+        }
 
         // Create the main property LinkedItem
         let propertyLinkedItem: LinkedItem | null = null;
