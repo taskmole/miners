@@ -14,6 +14,9 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendAppEmail } from "./email";
+import React from "react";
+import { render } from "@react-email/render";
+import { PropertyAssigned } from "@/emails/property-assigned";
 
 export type TeamEmailKind =
   | "assigned"
@@ -36,6 +39,10 @@ export interface TeamEmailOptions {
   teamName?: string;
   /** Only email this single member (used for added/removed-from-team). */
   targetUserId?: string;
+  /** Deep-links the assignment email straight to the property. */
+  placeId?: string;
+  /** False when the property went to one person rather than a whole team. */
+  isTeam?: boolean;
   /** Never email this user (the person who triggered the action). */
   excludeUserId?: string;
   /** Extra user ids to skip (e.g. the pitch owner already emailed personally). */
@@ -77,8 +84,14 @@ function wrapHtml(heading: string, body: string, ctaUrl: string): string {
   </div>`;
 }
 
-/** Build the subject + HTML for a given team event. */
-function buildTeamEmail(opts: TeamEmailOptions): { subject: string; html: string } {
+/**
+ * Build the subject + HTML for a given team event.
+ *
+ * Async because the "assigned" case renders a React Email template, so it
+ * matches the trip-status email instead of the plainer inline HTML used by
+ * the remaining kinds.
+ */
+async function buildTeamEmail(opts: TeamEmailOptions): Promise<{ subject: string; html: string }> {
   const place = opts.placeName ? escapeHtml(opts.placeName) : "a property";
   const trip = opts.tripName ? escapeHtml(opts.tripName) : place;
   const team = opts.teamName ? escapeHtml(opts.teamName) : "your team";
@@ -86,15 +99,27 @@ function buildTeamEmail(opts: TeamEmailOptions): { subject: string; html: string
   const url = appUrl();
 
   switch (opts.kind) {
-    case "assigned":
+    case "assigned": {
+      // isTeam defaults to true only when a teamId is present, so an
+      // individual assignment can never be described as a team one.
+      const toTeam = opts.isTeam ?? Boolean(opts.teamId);
+      const name = opts.placeName || "a property";
       return {
-        subject: `New property assigned to your team: ${opts.placeName || "a property"}`,
-        html: wrapHtml(
-          "New property assigned to your team",
-          `<strong>${place}</strong>${opts.placeAddress ? ` (${escapeHtml(opts.placeAddress)})` : ""} was assigned to your team to scout.`,
-          url,
+        subject: toTeam
+          ? `New property for your team: ${name}`
+          : `A property was assigned to you: ${name}`,
+        html: await render(
+          React.createElement(PropertyAssigned, {
+            propertyName: name,
+            propertyAddress: opts.placeAddress || "",
+            isTeam: toTeam,
+            teamName: opts.teamName || "",
+            placeId: opts.placeId ?? null,
+            appUrl: url,
+          }),
         ),
       };
+    }
     case "submitted":
       return {
         subject: `New team pitch submitted: ${opts.tripName || opts.placeName || "a pitch"}`,
@@ -176,7 +201,7 @@ export async function sendTeamEmails(
   );
   if (recipients.length === 0) return { sent: 0, skipped: "no-recipients" };
 
-  const { subject, html } = buildTeamEmail(opts);
+  const { subject, html } = await buildTeamEmail(opts);
 
   let sent = 0;
   for (const r of recipients) {
@@ -214,7 +239,7 @@ export async function sendAssigneeEmail(
   }
   if (!row?.email || row.is_active === false) return { sent: 0, skipped: "no-recipient" };
 
-  const { subject, html } = buildTeamEmail({ ...opts, teamId: "" });
+  const { subject, html } = await buildTeamEmail({ ...opts, teamId: "", isTeam: false });
   const result = await sendAppEmail({ to: row.email, subject, html });
   return { sent: result.error ? 0 : 1 };
 }

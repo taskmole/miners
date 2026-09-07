@@ -204,6 +204,7 @@ export function NewListingsModal({
           notifyTeam({
             teamId: targetId,
             kind: "assigned",
+            placeId: currentProperty.placeId,
             placeName: currentProperty.name || currentProperty.address,
             placeAddress: currentProperty.address,
           });
@@ -218,6 +219,7 @@ export function NewListingsModal({
           notifyTeam({
             userId: targetId,
             kind: "assigned",
+            placeId: currentProperty.placeId,
             placeName: currentProperty.name || currentProperty.address,
             placeAddress: currentProperty.address,
           });

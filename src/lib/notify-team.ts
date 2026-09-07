@@ -14,6 +14,8 @@ export interface NotifyTeamInput {
   kind: "assigned" | "status";
   placeName?: string;
   placeAddress?: string;
+  /** Deep-links the email to the property. */
+  placeId?: string;
   tripName?: string;
   status?: "approved" | "rejected" | "returned";
   reason?: string;

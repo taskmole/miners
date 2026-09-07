@@ -1415,6 +1415,7 @@ function PropertyActionsFooter({
             notifyTeam({
                 userId,
                 kind: "assigned",
+                placeId,
                 placeName: property.title,
                 placeAddress: property.address,
             });
@@ -1440,6 +1441,7 @@ function PropertyActionsFooter({
             // domain is verified). Never blocks the assignment.
             notifyTeam({
                 teamId,
+                placeId,
                 kind: "assigned",
                 placeName: property.title,
                 placeAddress: property.address,
