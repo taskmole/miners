@@ -14,6 +14,8 @@ const ALLOWED_DOMAINS = [
 // Specific email addresses that are allowed (for individual exceptions)
 const ALLOWED_EMAILS = [
   'founders@taskmole.co',
+  // Jaro's franchisee-role test account, used to check the franchisee view.
+  'jzapletal1@gmail.com',
 ];
 
 /**
