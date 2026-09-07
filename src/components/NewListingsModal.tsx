@@ -214,6 +214,13 @@ export function NewListingsModal({
             assigned_to: targetId,
             assigneeName: targetName,
           });
+          // Same as the team branch above: tell the person they were given it.
+          notifyTeam({
+            userId: targetId,
+            kind: "assigned",
+            placeName: currentProperty.name || currentProperty.address,
+            placeAddress: currentProperty.address,
+          });
         }
       } catch {
         showToast("Failed to assign", "error");

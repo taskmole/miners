@@ -27,6 +27,8 @@ export interface RequestEmailContext {
   propertyAddress: string | null;
   requesterName: string;
   requesterEmail: string | null;
+  /** Lets the email's CTA deep-link to the property itself. */
+  propertyPlaceId?: string | null;
 }
 
 /** Best label for the property across both templates. */
@@ -105,6 +107,7 @@ export async function notifyRequesterOfDecision(
       reason: ctx.reason || undefined,
       reviewerName: ctx.reviewerName,
       appUrl: appUrl(),
+      placeId: ctx.propertyPlaceId ?? null,
     }),
   );
 

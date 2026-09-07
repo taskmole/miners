@@ -1329,7 +1329,7 @@ function PropertyActionsFooter({
     const { teams } = useTeamsContext();
     const { isAssignedToMe } = usePropertyAssignmentContext();
     // Admins assign directly and never request, so skip the fetch for them.
-    const { hasPendingRequest, requestProperty } = usePropertyRequests(!canAccessDashboard);
+    const { hasPendingRequest, wasRejectedForMe, requestProperty } = usePropertyRequests(!canAccessDashboard);
 
     React.useEffect(() => {
         if (!menuOpen) return;
@@ -1360,6 +1360,7 @@ function PropertyActionsFooter({
         assigneeLabel: assignee?.display_name || assignee?.email || null,
         pitchStatus,
         hasPendingRequest: alreadyRequested,
+        wasRejectedForMe: wasRejectedForMe(placeId),
     });
 
     const handleRequest = async () => {
@@ -1408,6 +1409,14 @@ function PropertyActionsFooter({
                 ...propertyMeta,
                 assigned_to: userId,
                 assigneeName: user?.display_name || user?.email || null,
+            });
+            // Tell the assignee. Assigning to a team already emailed; assigning
+            // to one person used to send nothing at all.
+            notifyTeam({
+                userId,
+                kind: "assigned",
+                placeName: property.title,
+                placeAddress: property.address,
             });
         } catch {
             showToast("Failed to assign", 'error');
@@ -2512,6 +2521,7 @@ export function EnhancedMapContainer({
                 assigneeLabel: null,
                 pitchStatus: getPitchStatus(item.id),
                 hasPendingRequest: false,
+                wasRejectedForMe: false,
             });
             if (!linkActions.showCreateTrip) {
                 showToast(linkActions.caption || "You can't scout this property", 'error');

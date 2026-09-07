@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/supabase-server";
-import { sendTeamEmails, type TeamEmailOptions } from "@/lib/team-notify-server";
+import { sendTeamEmails, sendAssigneeEmail, type TeamEmailOptions } from "@/lib/team-notify-server";
 
 export const dynamic = "force-dynamic";
 
@@ -17,22 +17,32 @@ export async function POST(request: NextRequest) {
   if (auth.error) return auth.error;
   const { supabase, userId } = auth;
 
-  let body: Partial<TeamEmailOptions>;
+  let body: Partial<TeamEmailOptions> & { userId?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  if (!body.teamId || !body.kind) {
-    return NextResponse.json({ error: "teamId and kind are required" }, { status: 400 });
+  if (!body.kind || (!body.teamId && !body.userId)) {
+    return NextResponse.json(
+      { error: "kind plus one of teamId or userId is required" },
+      { status: 400 },
+    );
   }
 
   try {
-    const result = await sendTeamEmails(supabase, {
-      ...(body as TeamEmailOptions),
-      excludeUserId: userId,
-    });
+    // userId: a property assigned to one person. teamId: assigned to a team.
+    const result = body.userId
+      ? await sendAssigneeEmail(supabase, {
+          ...(body as TeamEmailOptions),
+          userId: body.userId,
+          excludeUserId: userId,
+        })
+      : await sendTeamEmails(supabase, {
+          ...(body as TeamEmailOptions),
+          excludeUserId: userId,
+        });
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error("[notify-team] error:", err);

@@ -34,6 +34,8 @@ export interface PropertyActionInput {
   assigneeLabel: string | null;
   pitchStatus: ScoutingTripStatus | null;
   hasPendingRequest: boolean;
+  /** This user has already been turned down for this property. */
+  wasRejectedForMe: boolean;
 }
 
 const NOTHING: Omit<PropertyActionState, "caption"> = {
@@ -63,6 +65,7 @@ export function evaluatePropertyActions(input: PropertyActionInput): PropertyAct
   const {
     isAdmin, isPreRejected, rejectionReason, hasAssignment,
     isAssignedToMe, assigneeLabel, pitchStatus, hasPendingRequest,
+    wasRejectedForMe,
   } = input;
 
   // 1. Pre-rejected beats everything, including for the admin who set it.
@@ -113,6 +116,11 @@ export function evaluatePropertyActions(input: PropertyActionInput): PropertyAct
       ...NOTHING,
       caption: assigneeLabel ? `Assigned to ${assigneeLabel}` : "Assigned to someone else",
     };
+  }
+
+  // A rejection is final for this person, so do not offer the button again.
+  if (wasRejectedForMe) {
+    return { ...NOTHING, caption: "Your request for this property was declined" };
   }
 
   return {

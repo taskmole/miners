@@ -185,3 +185,36 @@ export async function sendTeamEmails(
   }
   return { sent };
 }
+
+/**
+ * Email one person that a property has been assigned to them.
+ *
+ * Assigning to a *team* has always sent mail; assigning to an *individual*
+ * sent nothing at all, so the most common case, head office giving a property
+ * to one franchisee, was silent. Reuses the same template as the team email.
+ */
+export async function sendAssigneeEmail(
+  supabase: SupabaseClient,
+  opts: Omit<TeamEmailOptions, "teamId"> & { userId: string },
+): Promise<{ sent: number; skipped?: string }> {
+  if (!process.env.RESEND_API_KEY) return { sent: 0, skipped: "no-resend-key" };
+  // Assigning a property to yourself should not email you about it.
+  if (opts.userId === opts.excludeUserId) return { sent: 0, skipped: "self" };
+
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select("email, is_active")
+    .eq("id", opts.userId)
+    .maybeSingle();
+
+  const row = data as { email: string | null; is_active: boolean | null } | null;
+  if (error) {
+    console.warn("[team-notify] assignee lookup failed:", error.message);
+    return { sent: 0, skipped: "lookup-failed" };
+  }
+  if (!row?.email || row.is_active === false) return { sent: 0, skipped: "no-recipient" };
+
+  const { subject, html } = buildTeamEmail({ ...opts, teamId: "" });
+  const result = await sendAppEmail({ to: row.email, subject, html });
+  return { sent: result.error ? 0 : 1 };
+}

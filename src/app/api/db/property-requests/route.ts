@@ -129,6 +129,30 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // A rejection is final for the person who was rejected. Without this the
+    // partial unique index only stops a second *pending* request, so anyone
+    // turned down could immediately ask again and the reviewer would see the
+    // same request back in the queue.
+    const { data: priorRejection } = await db(supabase)
+      .from("property_requests")
+      .select("id, decision_reason")
+      .eq("property_place_id", body.property_place_id)
+      .eq("requested_by", userId)
+      .eq("status", "rejected")
+      .limit(1)
+      .maybeSingle();
+
+    if (priorRejection) {
+      return NextResponse.json(
+        {
+          error: priorRejection.decision_reason
+            ? `Your request for this property was already declined: ${priorRejection.decision_reason}`
+            : "Your request for this property was already declined.",
+        },
+        { status: 409 },
+      );
+    }
+
     const { data, error } = await db(supabase)
       .from("property_requests")
       .insert({
@@ -417,6 +441,7 @@ async function sendDecisionEmail(
     await notifyRequesterOfDecision({
       propertyName: req.property_name,
       propertyAddress: req.property_address,
+      propertyPlaceId: req.property_place_id,
       requesterName: requester.name,
       requesterEmail: requester.email,
       decision,
