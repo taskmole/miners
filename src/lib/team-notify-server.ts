@@ -17,6 +17,7 @@ import { sendAppEmail } from "./email";
 import React from "react";
 import { render } from "@react-email/render";
 import { PropertyAssigned } from "@/emails/property-assigned";
+import { TeamNotification, STATUS_LABEL } from "@/emails/team-notification";
 
 export type TeamEmailKind =
   | "assigned"
@@ -59,43 +60,16 @@ function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "https://theminers.vercel.app";
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function wrapHtml(heading: string, body: string, ctaUrl: string): string {
-  return `
-  <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f4f4f5;padding:24px">
-    <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;border:1px solid #e4e4e7;overflow:hidden">
-      <div style="padding:20px 24px;border-bottom:1px solid #f4f4f5">
-        <span style="font-weight:700;color:#18181b;font-size:16px">Miners</span>
-      </div>
-      <div style="padding:24px">
-        <h1 style="margin:0 0 12px;font-size:18px;color:#18181b">${heading}</h1>
-        <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#3f3f46">${body}</p>
-        <a href="${ctaUrl}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px">Open Miners</a>
-      </div>
-    </div>
-  </div>`;
-}
-
 /**
  * Build the subject + HTML for a given team event.
  *
- * Async because the "assigned" case renders a React Email template, so it
- * matches the trip-status email instead of the plainer inline HTML used by
- * the remaining kinds.
+ * Every kind now renders a React Email template, so they all share one logo,
+ * card, button and footer. React escapes interpolated text itself, which is
+ * why the old manual escapeHtml/wrapHtml pair is gone.
  */
 async function buildTeamEmail(opts: TeamEmailOptions): Promise<{ subject: string; html: string }> {
-  const place = opts.placeName ? escapeHtml(opts.placeName) : "a property";
-  const trip = opts.tripName ? escapeHtml(opts.tripName) : place;
-  const team = opts.teamName ? escapeHtml(opts.teamName) : "your team";
-  const actor = opts.actorName ? escapeHtml(opts.actorName) : "Someone";
+  const place = opts.placeName || "a property";
+  const trip = opts.tripName || place;
   const url = appUrl();
 
   switch (opts.kind) {
@@ -105,9 +79,11 @@ async function buildTeamEmail(opts: TeamEmailOptions): Promise<{ subject: string
       const toTeam = opts.isTeam ?? Boolean(opts.teamId);
       const name = opts.placeName || "a property";
       return {
+        // Subjects stay short and carry no address: the inbox list truncates
+        // anything longer, and the property is named in the body anyway.
         subject: toTeam
-          ? `New property for your team: ${name}`
-          : `A property was assigned to you: ${name}`,
+          ? "New property for your team"
+          : "New property assigned to you",
         html: await render(
           React.createElement(PropertyAssigned, {
             propertyName: name,
@@ -122,54 +98,53 @@ async function buildTeamEmail(opts: TeamEmailOptions): Promise<{ subject: string
     }
     case "submitted":
       return {
-        subject: `New team pitch submitted: ${opts.tripName || opts.placeName || "a pitch"}`,
-        html: wrapHtml(
-          "New team pitch submitted",
-          `${actor} submitted a pitch for <strong>${trip}</strong> on behalf of your team.`,
-          url,
-        ),
+        subject: "New team pitch",
+        html: await render(React.createElement(TeamNotification, {
+          kind: "submitted", subject: trip, actorName: opts.actorName,
+          teamName: opts.teamName, placeId: opts.placeId ?? null, appUrl: url,
+        })),
       };
     case "status": {
-      const map = {
-        approved: { h: "A team pitch was approved", s: "approved" },
-        rejected: { h: "A team pitch was not accepted", s: "not accepted" },
-        returned: { h: "A team pitch needs changes", s: "returned for changes" },
-      } as const;
-      const m = map[opts.status || "approved"];
+      const st = opts.status || "approved";
       return {
-        subject: `Team pitch ${m.s}: ${opts.tripName || "a pitch"}`,
-        html: wrapHtml(
-          m.h,
-          `Your team's pitch <strong>${trip}</strong> was ${m.s}.${opts.reason ? ` Note: ${escapeHtml(opts.reason)}` : ""}`,
-          url,
-        ),
+        // Same phrasing table the email body uses, so they cannot drift.
+        subject: `Team pitch ${STATUS_LABEL[st].word}`,
+        html: await render(React.createElement(TeamNotification, {
+          kind: "status", subject: trip, status: st, reason: opts.reason ?? null,
+          teamName: opts.teamName, placeId: opts.placeId ?? null, appUrl: url,
+        })),
       };
     }
     case "comment":
       return {
-        subject: `New comment on your team's property: ${opts.placeName || "a property"}`,
-        html: wrapHtml(
-          "New comment on your team's property",
-          `${actor} commented on <strong>${place}</strong>${opts.commentSnippet ? `: "${escapeHtml(opts.commentSnippet)}"` : "."}`,
-          url,
-        ),
+        subject: "New comment on a property",
+        html: await render(React.createElement(TeamNotification, {
+          kind: "comment", subject: place, actorName: opts.actorName,
+          commentText: opts.commentSnippet ?? null, teamName: opts.teamName,
+          placeId: opts.placeId ?? null, appUrl: url,
+        })),
       };
     case "added":
       return {
-        subject: `You were added to team ${opts.teamName || ""}`.trim(),
-        html: wrapHtml("You were added to a team", `You are now a member of <strong>${team}</strong>.`, url),
+        subject: `You joined ${opts.teamName || "a team"}`,
+        html: await render(React.createElement(TeamNotification, {
+          kind: "added", teamName: opts.teamName, appUrl: url,
+        })),
       };
     case "removed":
       return {
-        subject: `You were removed from team ${opts.teamName || ""}`.trim(),
-        html: wrapHtml("You were removed from a team", `You are no longer a member of <strong>${team}</strong>.`, url),
+        subject: `You left ${opts.teamName || "a team"}`,
+        html: await render(React.createElement(TeamNotification, {
+          kind: "removed", teamName: opts.teamName, appUrl: url,
+        })),
       };
     default:
-      // Unknown kind (e.g. a malformed request body): fall back to a generic
-      // message rather than returning undefined and throwing on destructure.
+      // Unknown kind (a malformed request body): say only what we know.
       return {
         subject: "Update from your team",
-        html: wrapHtml("Team update", "Something in your team's workspace changed.", url),
+        html: await render(React.createElement(TeamNotification, {
+          kind: "generic", teamName: opts.teamName, appUrl: url,
+        })),
       };
   }
 }

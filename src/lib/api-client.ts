@@ -36,14 +36,19 @@ export async function apiFetch<T = unknown>(
     }
   }
 
-  let res = await fetch(url, { ...fetchOptions, headers });
+  // cache: "no-store" skips the browser HTTP cache. localhost:3000 is shared
+  // by every project ever run on this machine, and a cacheable redirect left
+  // there by another app replays from cache forever (ERR_TOO_MANY_REDIRECTS)
+  // without the request ever reaching the server. Our API routes are all
+  // force-dynamic anyway, so there is nothing worth caching here.
+  let res = await fetch(url, { cache: "no-store", ...fetchOptions, headers });
 
   // 401 = token expired during request. Wait for refresh, retry once.
   if (res.status === 401 && !noAuth && _waitForFreshToken) {
     const freshToken = await _waitForFreshToken();
     if (freshToken) {
       headers.set("Authorization", `Bearer ${freshToken}`);
-      res = await fetch(url, { ...fetchOptions, headers });
+      res = await fetch(url, { cache: "no-store", ...fetchOptions, headers });
     }
   }
 

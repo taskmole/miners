@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
     Coffee,
     Train,
@@ -26,6 +26,8 @@ import { cn } from "@/lib/utils";
 import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter, PropertyPitchStatusFilter } from "@/types/filters";
 import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
 import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
+import { generatePropertyPlaceId } from "@/lib/place-id";
+import type { PropertyData } from "@/hooks/useMapData";
 
 interface SidebarProps {
     cityId?: string;
@@ -84,6 +86,8 @@ interface SidebarProps {
     propertyPriceChangeFilter?: PropertyPriceChangeFilter;
     onPropertyPriceChangeFilterChange?: (filter: PropertyPriceChangeFilter) => void;
     propertyPitchStatusFilter?: PropertyPitchStatusFilter;
+    /** The properties currently on the map, for the Mine / Scouted counts. */
+    properties?: PropertyData[];
     onPropertyPitchStatusFilterChange?: (filter: PropertyPitchStatusFilter) => void;
 }
 
@@ -231,12 +235,28 @@ export function Sidebar({
     propertyPriceChangeFilter = "all",
     onPropertyPriceChangeFilterChange,
     propertyPitchStatusFilter = "all",
+    properties = [],
     onPropertyPitchStatusFilterChange,
 }: SidebarProps) {
     // Get hidden POIs count from context
     const { hiddenCount } = useHiddenPoisContext();
-    const { scoutedCount, rejectedCount } = usePitchStatusContext();
-    const { myAssignmentCount } = usePropertyAssignmentContext();
+    const { isAssignedToMe } = usePropertyAssignmentContext();
+    const { getPitchStatus } = usePitchStatusContext();
+
+    // "Mine" and "Scouted" counted over the properties actually on the map.
+    // The contexts' own counters included delisted listings too, so the badge
+    // could say "Mine 1" while the filter correctly showed nothing.
+    const { mineCount, scoutedCount } = useMemo(() => {
+        let mine = 0;
+        let scouted = 0;
+        for (const property of properties) {
+            const placeId = generatePropertyPlaceId(property);
+            if (isAssignedToMe(placeId)) mine++;
+            if (getPitchStatus(placeId)) scouted++;
+        }
+        return { mineCount: mine, scoutedCount: scouted };
+    }, [properties, isAssignedToMe, getPitchStatus]);
+
     // Use SheetContext for coordinated open/close
     const { isOpen, open, close } = useSheetState("filters");
     const isMobile = useMobile();
@@ -843,7 +863,7 @@ export function Sidebar({
                                                                         options={propertyPitchStatusOptions}
                                                                         value={propertyPitchStatusFilter}
                                                                         onChange={handlePropertyPitchStatusChange}
-                                                                        counts={[getCount("property"), myAssignmentCount, scoutedCount]}
+                                                                        counts={[getCount("property"), mineCount, scoutedCount]}
                                                                     />
                                                                 </div>
                                                             </div>

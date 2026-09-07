@@ -47,6 +47,18 @@ const NOTHING: Omit<PropertyActionState, "caption"> = {
   showUndoPreReject: false,
 };
 
+/**
+ * What to show before the server has told us this session's role.
+ *
+ * "Unknown" must not fall through to the franchisee branch, or an admin sees
+ * "Request this property" for a moment on every load - and, more importantly,
+ * a stale or failed role lookup must never open an action rather than close
+ * one. Every entry is hidden until we actually know.
+ */
+export function pendingPropertyActions(): PropertyActionState {
+  return { ...NOTHING, caption: "Checking your permissions" };
+}
+
 function pitchCaption(status: ScoutingTripStatus): string {
   switch (status) {
     case "approved": return "Already approved";
@@ -93,28 +105,29 @@ export function evaluatePropertyActions(input: PropertyActionInput): PropertyAct
     };
   }
 
-  // 3. Free property.
+  // 3. Assigned property: the assignment is the state, so the menu offers
+  //    only its reversal. Re-assigning or pre-rejecting over the holder's
+  //    head would silently cancel their claim; removing it first makes that
+  //    an explicit step, for admins too.
+  if (hasAssignment) {
+    return {
+      ...NOTHING,
+      showCreateTrip: isAssignedToMe,
+      showRemoveAssignment: isAdmin,
+      caption: isAssignedToMe
+        ? null
+        : assigneeLabel ? `Assigned to ${assigneeLabel}` : "Assigned to someone else",
+    };
+  }
+
+  // 4. Free property.
   if (isAdmin) {
     return {
       ...NOTHING,
       showCreateTrip: true,
       showAssign: true,
       showPreReject: true,
-      showRemoveAssignment: hasAssignment,
       caption: null,
-    };
-  }
-
-  // Franchisee: scouting requires the property to be theirs first, which
-  // happens either because an admin assigned it or a request was approved.
-  if (isAssignedToMe) {
-    return { ...NOTHING, showCreateTrip: true, caption: null };
-  }
-
-  if (hasAssignment) {
-    return {
-      ...NOTHING,
-      caption: assigneeLabel ? `Assigned to ${assigneeLabel}` : "Assigned to someone else",
     };
   }
 

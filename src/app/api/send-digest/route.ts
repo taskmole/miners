@@ -3,6 +3,7 @@ import { render } from "@react-email/render";
 import React from "react";
 import MinersDigest from "@/emails/miners-digest";
 import { sendAppEmail } from "@/lib/email";
+import { toCityLabel } from "@/lib/utils";
 import {
   getSubscribedUsers,
   getNewListingsForCityAndSource,
@@ -75,9 +76,13 @@ export async function POST(request: NextRequest) {
         }),
       );
 
+      // `city` is the raw id ("prague"), so the subject used to read
+      // "3 new locations found in prague" while the body said "Prague".
+      const cityName = toCityLabel(city);
+
       const { error } = await sendAppEmail({
         to: user.email,
-        subject: `${listings.length} new locations found in ${city}`,
+        subject: `${listings.length} new locations in ${cityName}`,
         html,
       });
 

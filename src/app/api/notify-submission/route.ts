@@ -5,23 +5,21 @@ import { NewSubmissionNotification } from "@/emails/new-submission-notification"
 import { authenticateRequest } from "@/lib/supabase-server";
 import { sendTeamEmails } from "@/lib/team-notify-server";
 import { sendAppEmails } from "@/lib/email";
+import { toCityLabel } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 // Reviewers who get notified when a scout submits a trip.
-// Hardcoded for now, mirroring the digest recipient list.
+//
+// Deliberately a fixed pair rather than resolved by role. A role-based
+// lookup (submission_reviewer_emails) was built and then withdrawn: it would
+// have added every head office exec, and for now only these two want the
+// traffic. Widening this means either adding an address here or reinstating
+// that function, see 20260907000005 in the git history.
 const NOTIFY_RECIPIENTS = [
   "matus.husar@theminers.eu",
   "founders@taskmole.co",
 ];
-
-// Turn a city id ("madrid") into a display label ("Madrid").
-// There is no central city-label map; the digest emails also use the raw
-// string, so a simple capitalize keeps things consistent with no new deps.
-function toCityLabel(cityId: string): string {
-  if (!cityId) return "";
-  return cityId.charAt(0).toUpperCase() + cityId.slice(1);
-}
 
 export async function POST(request: NextRequest) {
   // Require a real logged-in user (blocks anonymous spam). Any authenticated
@@ -70,7 +68,7 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    const subject = `New trip submitted: ${title}${cityLabel ? ` (${cityLabel})` : ""}`;
+    const subject = "New trip submitted";
 
     // One send per recipient. sendAppEmails handles the sandbox redirect and
     // tags each subject with the address it was really meant for.

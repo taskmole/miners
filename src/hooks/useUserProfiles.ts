@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Database } from '@/lib/supabase';
 
 type UserProfile = Database['public']['Tables']['user_profiles']['Row'];
@@ -29,8 +30,12 @@ const REVIEW_ROLES: UserRole[] = ['super_admin', 'head_office_exec'];
 const FINANCE_ROLES: UserRole[] = ['super_admin', 'head_office_exec', 'finance_reviewer'];
 
 export function useUserProfiles() {
+  const { userId, isReady } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  // False until the server has told us this session's role. Permission gates
+  // must treat "unknown" as "no", not as "franchisee".
+  const [roleResolved, setRoleResolved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,20 +50,29 @@ export function useUserProfiles() {
     }
   }, []);
 
+  /**
+   * Resolve this session's role from the server, every time.
+   *
+   * This used to prime state from a sessionStorage entry keyed 'mls-user-role'
+   * with no user id in it, and nothing ever cleared it - not signOut(), not an
+   * account switch. Signing in as a franchisee in a tab that had held an admin
+   * session restored 'super_admin' before the fetch resolved, so the franchisee
+   * got the admin action set (Assign, Pre-reject, Create trip on a property
+   * that was never theirs). A role is a permission, not a preference, so it is
+   * not worth caching to save one request.
+   *
+   * On failure the role is cleared rather than left alone. The old catch only
+   * logged, so a 401 during a token refresh left the previous role in place.
+   */
   const fetchCurrentUserRole = useCallback(async () => {
-    if (typeof window !== 'undefined') {
-      const cached = sessionStorage.getItem('mls-user-role');
-      if (cached) setCurrentUserRole(cached as UserRole);
-    }
     try {
       const data = await apiFetch<{ role: string }>('/api/db/user-profiles?mode=current');
-      const role = (data?.role as UserRole) || 'franchisee';
-      setCurrentUserRole(role);
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('mls-user-role', role);
-      }
+      setCurrentUserRole((data?.role as UserRole) || 'franchisee');
     } catch (err) {
       console.error('Error fetching current user role:', err);
+      setCurrentUserRole(null);
+    } finally {
+      setRoleResolved(true);
     }
   }, []);
 
@@ -131,13 +145,31 @@ export function useUserProfiles() {
   const canReviewSubmissions = currentUserRole ? REVIEW_ROLES.includes(currentUserRole) : false;
   const canSeeRevenue = currentUserRole ? FINANCE_ROLES.includes(currentUserRole) : false;
 
+  // Keyed on userId so switching accounts in the same tab re-resolves instead
+  // of carrying the previous user's role in React state.
   useEffect(() => {
+    if (!isReady) return;
+
+    setCurrentUserRole(null);
+    setRoleResolved(false);
+    // The users list carries every profile's email and role, so it must not
+    // survive a sign-out or account switch any more than the role does.
+    setUsers([]);
+
+    if (!userId) {
+      setRoleResolved(true);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     Promise.all([fetchCurrentUserRole(), fetchUsers()]).finally(() => setLoading(false));
-  }, [fetchCurrentUserRole, fetchUsers]);
+  }, [userId, isReady, fetchCurrentUserRole, fetchUsers]);
 
   return {
     users,
     currentUserRole,
+    roleResolved,
     isAdmin,
     canAccessDashboard,
     canReviewSubmissions,

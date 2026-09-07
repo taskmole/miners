@@ -1,17 +1,22 @@
 import React from "react";
+import { Link, Section, Text } from "@react-email/components";
 import {
-  Body,
-  Container,
-  Head,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Section,
-  Text,
-  Font,
-} from "@react-email/components";
+  EmailShell,
+  DetailCard,
+  propertyUrl,
+  headingStyle,
+  textStyle,
+  buttonStyle,
+  notedBlockStyle,
+  notedLabelStyle,
+  notedTextStyle,
+} from "./_shell";
 
+/**
+ * A reviewer decided something: a scouting trip, or a property request.
+ * Both land here because the shape is identical - one thing, one verdict,
+ * optional feedback.
+ */
 interface TripStatusUpdateProps {
   tripName: string;
   tripAddress: string;
@@ -20,252 +25,99 @@ interface TripStatusUpdateProps {
   reason?: string;
   reviewerName: string;
   appUrl?: string;
-  /**
-   * Place id of the property. When present the CTA deep-links straight to it
-   * via ?focus=, which src/app/page.tsx already handles. Without it the CTA
-   * only opens the app, and says so.
-   */
+  /** Deep-links the CTA to the property via ?focus=. */
   placeId?: string | null;
+  /** A property request rather than a completed scouting trip. */
+  isRequest?: boolean;
 }
-
-const LOGO_URL =
-  "https://raw.githubusercontent.com/taskmole/miners/main/public/assets/miners-logo-cropped.png";
 
 const STATUS_CONFIG = {
   approved: {
     color: "#16a34a",
     label: "Approved",
-    heading: "Your scouting trip has been approved!",
-    message: "Great work. Your submission passed review and has been accepted.",
+    trip: {
+      heading: "Your scouting trip has been approved",
+      message: "Great work. Your submission passed review and has been accepted.",
+    },
+    request: {
+      heading: "Your property request was approved",
+      message: "This property is now yours to scout. You can start a trip on it whenever you are ready.",
+    },
   },
   rejected: {
     color: "#dc2626",
     label: "Rejected",
-    heading: "Your scouting trip was not accepted",
-    message: "The reviewer provided feedback below. Please review and consider submitting a new trip.",
+    trip: {
+      heading: "Your scouting trip was not accepted",
+      message: "The reviewer's feedback is below. You can submit a new trip for another property.",
+    },
+    request: {
+      heading: "Your property request was not approved",
+      message: "The reviewer's reason is below. This property will not be available to request again.",
+    },
   },
   returned: {
     color: "#d97706",
-    label: "Returned for Edits",
-    heading: "Your scouting trip needs some changes",
-    message: "The reviewer has sent your trip back for revisions. Please make the requested changes and resubmit.",
+    label: "Returned for edits",
+    trip: {
+      heading: "Your scouting trip needs some changes",
+      message: "The reviewer sent your trip back for revisions. Please make the changes below and resubmit.",
+    },
+    request: {
+      heading: "Your property request needs some changes",
+      message: "The reviewer sent your request back. Please see the note below.",
+    },
   },
-};
+} as const;
 
 export function TripStatusUpdate({
   tripName = "Sample Trip",
-  tripAddress = "123 Main Street",
+  tripAddress = "",
   recipientName = "Scout",
   status = "approved",
   reason,
-  reviewerName = "Admin",
+  reviewerName = "",
   appUrl = "https://theminers.vercel.app",
   placeId = null,
+  isRequest = false,
 }: TripStatusUpdateProps) {
   const config = STATUS_CONFIG[status];
+  const copy = isRequest ? config.request : config.trip;
 
-  // The address is often the same string as the name (a request snapshot uses
-  // the address for both), and printing it twice looked like a bug.
-  const showAddress =
-    Boolean(tripAddress) && tripAddress.trim() !== tripName.trim();
+  const target = propertyUrl(appUrl, placeId);
 
-  const target = placeId
-    ? `${appUrl}/?focus=${encodeURIComponent(placeId)}`
-    : appUrl;
-  const ctaLabel = status === "returned"
+  const cta = status === "returned"
     ? (placeId ? "Open property to edit" : "Open app to edit")
     : (placeId ? "View property" : "Open app");
 
   return (
-    <Html>
-      <Head>
-        <Font
-          fontFamily="Outfit"
-          fallbackFontFamily="Arial"
-          webFont={{
-            url: "https://fonts.gstatic.com/s/outfit/v11/QGYyz_MVcBeNP4NjuGObqx1XmO1I4TC1C4S-EiAou6Y.woff2",
-            format: "woff2",
-          }}
-        />
-      </Head>
-      <Preview>{config.heading}</Preview>
-      <Body style={bodyStyle}>
-        <Container style={containerStyle}>
-          <Section style={{ padding: "32px 24px" }}>
-            <Section style={{ textAlign: "center" as const, padding: "0 0 8px" }}>
-              <Img src={LOGO_URL} alt="Miners" width={168} height={47} style={logoStyle} />
-            </Section>
+    <EmailShell preview={copy.heading}>
+      <Text style={headingStyle}>{copy.heading}</Text>
+      <Text style={textStyle}>Hi {recipientName},</Text>
+      <Text style={textStyle}>{copy.message}</Text>
 
-            <Text style={headingStyle}>{config.heading}</Text>
-
-            <Text style={textStyle}>Hi {recipientName},</Text>
-
-            <Text style={textStyle}>{config.message}</Text>
-
-            {/* One callout. The reviewer's feedback lives inside it rather
-                than in a second box of its own. */}
-            <Section style={cardStyle}>
-              <Text style={cardTitleStyle}>{tripName}</Text>
-              {showAddress && <Text style={cardSubtitleStyle}>{tripAddress}</Text>}
-              <Text style={{ ...statusBadgeStyle, backgroundColor: config.color }}>
-                {config.label}
-              </Text>
-              {reason && (
-                <Section style={reasonBlockStyle}>
-                  <Text style={reasonLabelStyle}>Feedback from {reviewerName}</Text>
-                  <Text style={reasonTextStyle}>{reason}</Text>
-                </Section>
-              )}
-            </Section>
-
-            <Link href={target} style={buttonStyle}>
-              {ctaLabel}
-            </Link>
-
-            <Section style={footerSectionStyle}>
-              <Text style={footerBrandStyle}>
-                <Link href="https://theminers.eu" style={footerLinkStyle}>
-                  The Miners
-                </Link>
-              </Text>
-              <Text style={footerDescStyle}>
-                Got feedback? Email{" "}
-                <Link href="mailto:matus.husar@theminers.eu" style={footerLinkStyle}>
-                  matus.husar@theminers.eu
-                </Link>
-              </Text>
-            </Section>
+      {/* One callout: the property, its verdict, and the reviewer's words. */}
+      <DetailCard
+        title={tripName}
+        subtitle={tripAddress}
+        badge={config.label}
+        badgeColor={config.color}
+      >
+        {reason && (
+          <Section style={notedBlockStyle}>
+            <Text style={notedLabelStyle}>
+              {reviewerName ? `Feedback from ${reviewerName}` : "Reviewer feedback"}
+            </Text>
+            <Text style={notedTextStyle}>{reason}</Text>
           </Section>
-        </Container>
-      </Body>
-    </Html>
+        )}
+      </DetailCard>
+
+      <Link href={target} style={buttonStyle}>
+        {cta}
+      </Link>
+    </EmailShell>
   );
 }
 
 export default TripStatusUpdate;
-
-const bodyStyle: React.CSSProperties = {
-  backgroundColor: "#f4f4f5",
-  fontFamily: "'Outfit', Arial, sans-serif",
-  margin: 0,
-  padding: "40px 0",
-};
-
-const containerStyle: React.CSSProperties = {
-  backgroundColor: "#ffffff",
-  borderRadius: "12px",
-  maxWidth: "480px",
-  margin: "0 auto",
-  overflow: "hidden",
-};
-
-const headingStyle: React.CSSProperties = {
-  fontSize: "20px",
-  fontWeight: 700,
-  color: "#18181b",
-  margin: "24px 0 8px",
-  lineHeight: "1.3",
-};
-
-const textStyle: React.CSSProperties = {
-  fontSize: "14px",
-  color: "#52525b",
-  lineHeight: "1.5",
-  margin: "8px 0",
-};
-
-const cardStyle: React.CSSProperties = {
-  backgroundColor: "#f9fafb",
-  borderRadius: "8px",
-  padding: "16px",
-  margin: "20px 0",
-  border: "1px solid #e4e4e7",
-};
-
-const cardTitleStyle: React.CSSProperties = {
-  fontSize: "15px",
-  fontWeight: 600,
-  color: "#18181b",
-  margin: "0 0 4px",
-};
-
-const cardSubtitleStyle: React.CSSProperties = {
-  fontSize: "13px",
-  color: "#71717a",
-  margin: "0 0 12px",
-};
-
-const statusBadgeStyle: React.CSSProperties = {
-  display: "inline-block",
-  color: "#ffffff",
-  fontSize: "11px",
-  fontWeight: 600,
-  padding: "3px 10px",
-  borderRadius: "20px",
-  margin: "0",
-};
-
-const logoStyle: React.CSSProperties = {
-  display: "block",
-  margin: "0 auto",
-};
-
-// Sits inside the property card, separated by a rule rather than being its
-// own bordered box.
-const reasonBlockStyle: React.CSSProperties = {
-  borderTop: "1px solid #e4e4e7",
-  margin: "14px 0 0",
-  padding: "14px 0 0",
-};
-
-const reasonLabelStyle: React.CSSProperties = {
-  fontSize: "12px",
-  fontWeight: 600,
-  color: "#71717a",
-  margin: "0 0 6px",
-};
-
-const reasonTextStyle: React.CSSProperties = {
-  fontSize: "13px",
-  color: "#3f3f46",
-  lineHeight: "1.5",
-  margin: 0,
-};
-
-const buttonStyle: React.CSSProperties = {
-  display: "inline-block",
-  backgroundColor: "#18181b",
-  color: "#ffffff",
-  fontSize: "13px",
-  fontWeight: 600,
-  padding: "10px 20px",
-  borderRadius: "8px",
-  textDecoration: "none",
-  margin: "16px 0",
-};
-
-const footerSectionStyle: React.CSSProperties = {
-  padding: "28px 0 0",
-  borderTop: "1px solid #f4f4f5",
-  textAlign: "center" as const,
-  marginTop: "24px",
-};
-
-const footerLinkStyle: React.CSSProperties = {
-  color: "#71717a",
-  textDecoration: "none",
-};
-
-const footerBrandStyle: React.CSSProperties = {
-  margin: "0",
-  fontSize: "13px",
-  fontWeight: 600,
-  color: "#71717a",
-};
-
-const footerDescStyle: React.CSSProperties = {
-  marginTop: "8px",
-  color: "#a1a1aa",
-  fontSize: "12px",
-  lineHeight: "1.5",
-};

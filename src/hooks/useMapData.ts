@@ -91,8 +91,34 @@ const TIMEOUT_MS = 15_000;
 function fetchWithTimeout(url: string, timeoutMs = TIMEOUT_MS): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+    // cache: "no-store" skips the browser HTTP cache entirely. localhost:3000
+    // is shared by every project ever run on this machine, and a cacheable
+    // redirect left there by another app replays forever without ever hitting
+    // the server (net::ERR_TOO_MANY_REDIRECTS). Freshness is SWR's job anyway.
+    return fetch(url, { signal: controller.signal, cache: "no-store" }).finally(() => clearTimeout(timer));
 }
+
+/**
+ * Fetch one supporting dataset, falling back rather than throwing.
+ *
+ * These used to be bare fetches inside a Promise.all, so a single failed
+ * request discarded the whole batch and blanked the map with "Error loading
+ * data: Failed to fetch". A dropped connection, a slow response, or a dev
+ * server restart was enough. Properties still throw on failure - that one is
+ * the product, and an empty map would be a lie.
+ */
+async function fetchJson<T>(url: string, fallback: T): Promise<T> {
+    try {
+        const res = await fetchWithTimeout(url);
+        if (!res.ok) return fallback;
+        return (await res.json()) as T;
+    } catch {
+        return fallback;
+    }
+}
+
+/** Every supporting dataset is a JSON array that falls back to empty. */
+const fetchArray = (url: string) => fetchJson<any[]>(url, []);
 
 function mapEuctCsvCafes(raw: any[], city: CafeData["city"]): CafeData[] {
     return raw
@@ -147,11 +173,9 @@ function mapGooglePlacesCafes(raw: any[], city: CafeData["city"]): CafeData[] {
         }));
 }
 
-async function applyGoogleEnrichment(cafes: CafeData[], enrichmentRes: Response): Promise<void> {
-    if (!enrichmentRes.ok) return;
-    const enrichmentRaw = await enrichmentRes.json();
+function applyGoogleEnrichment(cafes: CafeData[], enrichmentRaw: any[]): void {
     const enrichmentMap = new Map<string, any>();
-    (enrichmentRaw as any[]).forEach((e: any) => {
+    enrichmentRaw.forEach((e: any) => {
         const key = `${parseFloat(e.euct_lat).toFixed(4)},${parseFloat(e.euct_lon).toFixed(4)}`;
         enrichmentMap.set(key, e);
     });
@@ -176,20 +200,18 @@ async function loadCafes(cityId: string): Promise<CafeData[]> {
 }
 
 async function loadMadridCafes(): Promise<CafeData[]> {
-    const [cafesRes, cafeInfoRes, googleMadridRes, googleEnrichmentRes] = await Promise.all([
-        fetchWithTimeout("/api/data?type=data"),
-        fetchWithTimeout("/api/data?type=cafes"),
-        fetchWithTimeout("/api/data?type=google_madrid"),
-        fetchWithTimeout("/api/data?type=google_enrichment"),
+    const [cafesRaw, cafeInfoRaw, googleMadridRaw, googleEnrichmentRaw] = await Promise.all([
+        fetchArray("/api/data?type=data"),
+        fetchArray("/api/data?type=cafes"),
+        fetchArray("/api/data?type=google_madrid"),
+        fetchArray("/api/data?type=google_enrichment"),
     ]);
 
-    const cafeInfoRaw = await cafeInfoRes.json();
     const cafeInfoMap = new Map<string, any>();
     cafeInfoRaw.forEach((info: any) => {
         if (info.link) cafeInfoMap.set(info.link, info);
     });
 
-    const cafesRaw = await cafesRes.json();
     const madridCafes: CafeData[] = cafesRaw
         .filter((c: any) => c.lat && c.lon && c.link?.includes("europeancoffeetrip"))
         .map((c: any) => {
@@ -217,37 +239,29 @@ async function loadMadridCafes(): Promise<CafeData[]> {
             };
         });
 
-    await applyGoogleEnrichment(madridCafes, googleEnrichmentRes);
+    applyGoogleEnrichment(madridCafes, googleEnrichmentRaw);
 
-    const googleCafes = googleMadridRes.ok
-        ? mapGooglePlacesCafes(await googleMadridRes.json(), "madrid")
-        : [];
+    const googleCafes = mapGooglePlacesCafes(googleMadridRaw, "madrid");
 
     return [...madridCafes, ...googleCafes];
 }
 
 async function loadBarcelonaCafes(): Promise<CafeData[]> {
-    const res = await fetchWithTimeout("/api/data?type=barcelona_cafes");
-    if (!res.ok) return [];
-    return mapEuctCsvCafes(await res.json(), "barcelona");
+    return mapEuctCsvCafes(await fetchArray("/api/data?type=barcelona_cafes"), "barcelona");
 }
 
 async function loadPragueCafes(): Promise<CafeData[]> {
-    const [euctRes, googleRes, enrichmentRes] = await Promise.all([
-        fetchWithTimeout("/api/data?type=prague_cafes"),
-        fetchWithTimeout("/api/data?type=google_prague"),
-        fetchWithTimeout("/api/data?type=google_enrichment_prague"),
+    const [euctRaw, googleRaw, enrichmentRaw] = await Promise.all([
+        fetchArray("/api/data?type=prague_cafes"),
+        fetchArray("/api/data?type=google_prague"),
+        fetchArray("/api/data?type=google_enrichment_prague"),
     ]);
 
-    const euctCafes = euctRes.ok
-        ? mapEuctCsvCafes(await euctRes.json(), "prague")
-        : [];
+    const euctCafes = mapEuctCsvCafes(euctRaw, "prague");
 
-    await applyGoogleEnrichment(euctCafes, enrichmentRes);
+    applyGoogleEnrichment(euctCafes, enrichmentRaw);
 
-    const googleCafes = googleRes.ok
-        ? mapGooglePlacesCafes(await googleRes.json(), "prague")
-        : [];
+    const googleCafes = mapGooglePlacesCafes(googleRaw, "prague");
 
     return [...euctCafes, ...googleCafes];
 }
@@ -422,8 +436,14 @@ export function useMapData(cityId?: string) {
     const otherPois = otherPoisSWR.data ?? [];
 
     const isLoading = cafesSWR.isLoading || propertiesSWR.isLoading || otherPoisSWR.isLoading;
-    const firstError = cafesSWR.error ?? propertiesSWR.error ?? otherPoisSWR.error;
-    const error = firstError instanceof Error ? firstError.message : firstError ? "Failed to load map data" : null;
+
+    // Only properties can blank the map. Cafes and other POIs are supporting
+    // layers, and this used to take the first error from any of the three, so
+    // a failed cafe request hid properties that had loaded perfectly.
+    const propertiesError = propertiesSWR.error;
+    const error = propertiesError instanceof Error
+        ? propertiesError.message
+        : propertiesError ? "Failed to load map data" : null;
 
     const retry = () => {
         cafesSWR.mutate();

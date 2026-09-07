@@ -10,8 +10,6 @@ interface PitchStatusContextValue {
   getPitchDate: (placeId: string) => string | null;
   getPitchRejectionReason: (placeId: string) => string | null;
   getPitchReturnReason: (placeId: string) => string | null;
-  scoutedCount: number;
-  rejectedCount: number;
 }
 
 const PitchStatusContext = createContext<PitchStatusContextValue | null>(null);

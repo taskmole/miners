@@ -63,6 +63,7 @@ function HomeContent() {
     () => cities.find(c => c.id === "madrid") ?? cities[0]
   );
   const { cafes, properties, otherPois, counts } = useMapData(selectedCity.id);
+
   const { startLinking, isLinking } = useLinking();
   const isMobile = useMobile();
 
@@ -414,6 +415,7 @@ function HomeContent() {
           <Sidebar
             cityId={selectedCity.id}
             counts={counts}
+            properties={properties}
             activeFilters={activeFilters}
             onFilterChange={handleFilterChange}
             ratingFilter={ratingFilter}

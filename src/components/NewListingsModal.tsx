@@ -12,6 +12,8 @@ import { useToast } from "@/contexts/ToastContext";
 import { useMobile } from "@/hooks/useMobile";
 import { apiFetch } from "@/lib/api-client";
 import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
+import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
+import { evaluatePropertyActions, pendingPropertyActions } from "@/lib/property-actions";
 import { useListsContext } from "@/contexts/ListsContext";
 import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
@@ -36,9 +38,18 @@ export function NewListingsModal({
 }: NewListingsModalProps) {
   const isMobile = useMobile();
   const { showToast } = useToast();
-  const { assignProperty, preRejectProperty, assignments } = usePropertyAssignmentContext();
-  const { canAccessDashboard } = useUserProfiles();
-  const { hasPendingRequest, requestProperty } = usePropertyRequests();
+  const {
+    assignProperty,
+    preRejectProperty,
+    removeAssignment,
+    assignments,
+    users: assignableUsers,
+    getAssignment,
+    isAssignedToMe,
+  } = usePropertyAssignmentContext();
+  const { getPitchStatus } = usePitchStatusContext();
+  const { canAccessDashboard, roleResolved } = useUserProfiles();
+  const { hasPendingRequest, wasRejectedForMe, requestProperty } = usePropertyRequests();
   const { lists, toggleInList, createList } = useListsContext();
   const { createTrip, updateTrip } = useScoutingTrips();
 
@@ -77,6 +88,42 @@ export function NewListingsModal({
 
   // Current property (use snapshot during exit animation)
   const currentProperty = snapshotProperty ?? deck[currentIndex];
+
+  // One decision for the whole sheet, shared with the map popup. This sheet
+  // used to hardcode "Create trip", so a franchisee could start a trip on a
+  // property nobody had given them. See src/lib/property-actions.ts.
+  const actions = useMemo(() => {
+    if (!roleResolved) return pendingPropertyActions();
+
+    const placeId = currentProperty?.placeId ?? "";
+    const assignment = placeId ? getAssignment(placeId) : null;
+    const preRejected = assignment?.status === "pre_rejected";
+    const assignee = assignment?.assigned_to
+      ? assignableUsers.find((u) => u.id === assignment.assigned_to)
+      : null;
+
+    return evaluatePropertyActions({
+      isAdmin: canAccessDashboard,
+      isPreRejected: preRejected,
+      rejectionReason: assignment?.rejection_reason ?? null,
+      hasAssignment: !!assignment && !preRejected,
+      isAssignedToMe: placeId ? isAssignedToMe(placeId) : false,
+      assigneeLabel: assignee?.display_name || assignee?.email || null,
+      pitchStatus: placeId ? getPitchStatus(placeId) : null,
+      hasPendingRequest: placeId ? hasPendingRequest(placeId) : false,
+      wasRejectedForMe: placeId ? wasRejectedForMe(placeId) : false,
+    });
+  }, [
+    roleResolved,
+    currentProperty,
+    getAssignment,
+    assignableUsers,
+    canAccessDashboard,
+    isAssignedToMe,
+    getPitchStatus,
+    hasPendingRequest,
+    wasRejectedForMe,
+  ]);
 
   // Load listings
   useEffect(() => {
@@ -277,6 +324,29 @@ export function NewListingsModal({
     }
   }, [currentProperty, lists, toggleInList, createList, showToast]);
 
+  // Undo pre-reject. Pre-rejected properties are filtered out of a
+  // franchisee's deck entirely, so only a reviewer ever reaches this.
+  const handleUndoPreReject = useCallback(async () => {
+    if (!currentProperty) return;
+    try {
+      await removeAssignment(currentProperty.placeId);
+      showToast("Pre-rejection removed");
+    } catch {
+      showToast("Failed to undo pre-rejection", "error");
+    }
+  }, [currentProperty, removeAssignment, showToast]);
+
+  // Free an assigned property so it can be reassigned or pre-rejected.
+  const handleRemoveAssignment = useCallback(async () => {
+    if (!currentProperty) return;
+    try {
+      await removeAssignment(currentProperty.placeId);
+      showToast("Assignment removed");
+    } catch {
+      showToast("Failed to remove assignment", "error");
+    }
+  }, [currentProperty, removeAssignment, showToast]);
+
   // Pre-reject handler
   const handlePreReject = useCallback(
     async (reason: string) => {
@@ -459,15 +529,15 @@ export function NewListingsModal({
         {/* Actions sheet */}
         {activeSheet === "actions" && currentProperty && (
           <ActionsSheet
-            showAssign={canAccessDashboard}
-            showRequest={!canAccessDashboard}
+            actions={actions}
             hasRequested={hasPendingRequest(currentProperty.placeId)}
-            showPreReject={canAccessDashboard}
             onAssign={() => setActiveSheet("assign")}
             onRequest={handleRequest}
             onCreateTrip={handleCreateTrip}
             onAddToList={handleAddToList}
             onPreReject={handlePreReject}
+            onUndoPreReject={handleUndoPreReject}
+            onRemoveAssignment={handleRemoveAssignment}
             onClose={() => setActiveSheet(null)}
           />
         )}
