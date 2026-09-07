@@ -20,6 +20,12 @@ interface TripStatusUpdateProps {
   reason?: string;
   reviewerName: string;
   appUrl?: string;
+  /**
+   * Place id of the property. When present the CTA deep-links straight to it
+   * via ?focus=, which src/app/page.tsx already handles. Without it the CTA
+   * only opens the app, and says so.
+   */
+  placeId?: string | null;
 }
 
 const LOGO_URL =
@@ -54,8 +60,21 @@ export function TripStatusUpdate({
   reason,
   reviewerName = "Admin",
   appUrl = "https://theminers.vercel.app",
+  placeId = null,
 }: TripStatusUpdateProps) {
   const config = STATUS_CONFIG[status];
+
+  // The address is often the same string as the name (a request snapshot uses
+  // the address for both), and printing it twice looked like a bug.
+  const showAddress =
+    Boolean(tripAddress) && tripAddress.trim() !== tripName.trim();
+
+  const target = placeId
+    ? `${appUrl}/?focus=${encodeURIComponent(placeId)}`
+    : appUrl;
+  const ctaLabel = status === "returned"
+    ? (placeId ? "Open property to edit" : "Open app to edit")
+    : (placeId ? "View property" : "Open app");
 
   return (
     <Html>
@@ -73,7 +92,9 @@ export function TripStatusUpdate({
       <Body style={bodyStyle}>
         <Container style={containerStyle}>
           <Section style={{ padding: "32px 24px" }}>
-            <Img src={LOGO_URL} alt="Miners" width={100} height={28} />
+            <Section style={{ textAlign: "center" as const, padding: "0 0 8px" }}>
+              <Img src={LOGO_URL} alt="Miners" width={168} height={47} style={logoStyle} />
+            </Section>
 
             <Text style={headingStyle}>{config.heading}</Text>
 
@@ -81,32 +102,25 @@ export function TripStatusUpdate({
 
             <Text style={textStyle}>{config.message}</Text>
 
+            {/* One callout. The reviewer's feedback lives inside it rather
+                than in a second box of its own. */}
             <Section style={cardStyle}>
               <Text style={cardTitleStyle}>{tripName}</Text>
-              {tripAddress && <Text style={cardSubtitleStyle}>{tripAddress}</Text>}
+              {showAddress && <Text style={cardSubtitleStyle}>{tripAddress}</Text>}
               <Text style={{ ...statusBadgeStyle, backgroundColor: config.color }}>
                 {config.label}
               </Text>
+              {reason && (
+                <Section style={reasonBlockStyle}>
+                  <Text style={reasonLabelStyle}>Feedback from {reviewerName}</Text>
+                  <Text style={reasonTextStyle}>{reason}</Text>
+                </Section>
+              )}
             </Section>
 
-            {reason && (
-              <Section style={reasonBoxStyle}>
-                <Text style={reasonLabelStyle}>Feedback from {reviewerName}:</Text>
-                <Text style={reasonTextStyle}>{reason}</Text>
-              </Section>
-            )}
-
-            {status === "returned" && (
-              <Link href={appUrl} style={buttonStyle}>
-                Open App to Edit
-              </Link>
-            )}
-
-            {status === "approved" && (
-              <Link href={appUrl} style={buttonStyle}>
-                View in App
-              </Link>
-            )}
+            <Link href={target} style={buttonStyle}>
+              {ctaLabel}
+            </Link>
 
             <Section style={footerSectionStyle}>
               <Text style={footerBrandStyle}>
@@ -191,24 +205,29 @@ const statusBadgeStyle: React.CSSProperties = {
   margin: "0",
 };
 
-const reasonBoxStyle: React.CSSProperties = {
-  backgroundColor: "#fffbeb",
-  borderRadius: "8px",
-  padding: "14px 16px",
-  margin: "16px 0",
-  border: "1px solid #fde68a",
+const logoStyle: React.CSSProperties = {
+  display: "block",
+  margin: "0 auto",
+};
+
+// Sits inside the property card, separated by a rule rather than being its
+// own bordered box.
+const reasonBlockStyle: React.CSSProperties = {
+  borderTop: "1px solid #e4e4e7",
+  margin: "14px 0 0",
+  padding: "14px 0 0",
 };
 
 const reasonLabelStyle: React.CSSProperties = {
   fontSize: "12px",
   fontWeight: 600,
-  color: "#92400e",
+  color: "#71717a",
   margin: "0 0 6px",
 };
 
 const reasonTextStyle: React.CSSProperties = {
   fontSize: "13px",
-  color: "#78350f",
+  color: "#3f3f46",
   lineHeight: "1.5",
   margin: 0,
 };

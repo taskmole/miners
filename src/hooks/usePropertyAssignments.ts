@@ -75,6 +75,24 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
     return () => clearInterval(interval);
   }, [isLoaded]);
 
+  // Also refresh whenever the tab regains focus. A franchisee whose request
+  // has just been approved switches back to this tab and expects to be able to
+  // scout the property; waiting up to a minute for the poll reads as the
+  // approval not having worked.
+  useEffect(() => {
+    if (!isLoaded) return;
+    const refresh = async () => {
+      if (document.visibilityState === "hidden") return;
+      setAssignments(await fetchAssignments());
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [isLoaded]);
+
   const assignmentMap = useMemo(() => {
     const map = new Map<string, PropertyAssignment>();
     for (const a of assignments) {

@@ -108,6 +108,22 @@ export function usePropertyRequests(enabled = true) {
     [myPendingPlaceIds],
   );
 
+  /** Place ids this user has already been turned down for. */
+  const myRejectedPlaceIds = useMemo(() => {
+    if (!userId) return new Set<string>();
+    return new Set(
+      requests
+        .filter((r) => r.status === "rejected" && r.requested_by === userId)
+        .map((r) => r.property_place_id),
+    );
+  }, [requests, userId]);
+
+  /** A rejection is final, so the request button is not offered again. */
+  const wasRejectedForMe = useCallback(
+    (placeId: string) => myRejectedPlaceIds.has(placeId),
+    [myRejectedPlaceIds],
+  );
+
   const pending = useMemo(
     () => requests.filter((r) => r.status === "pending"),
     [requests],
@@ -166,6 +182,7 @@ export function usePropertyRequests(enabled = true) {
     pending,
     processed,
     hasPendingRequest,
+    wasRejectedForMe,
     requestProperty,
     decideRequest,
     refresh,

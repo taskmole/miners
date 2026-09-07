@@ -7,7 +7,10 @@
 import { apiFetch } from "@/lib/api-client";
 
 export interface NotifyTeamInput {
-  teamId: string;
+  /** Email a whole team. Supply this or userId. */
+  teamId?: string;
+  /** Email one person (a property assigned to an individual). */
+  userId?: string;
   kind: "assigned" | "status";
   placeName?: string;
   placeAddress?: string;

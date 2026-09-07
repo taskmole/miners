@@ -249,6 +249,7 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
             assigneeLabel: null,
             pitchStatus: getPitchStatus(item.placeId),
             hasPendingRequest: false,
+            wasRejectedForMe: false,
         });
         return actions.showCreateTrip ? null : (actions.caption || "You can't scout this property");
     };
