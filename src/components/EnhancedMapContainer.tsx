@@ -21,7 +21,7 @@ import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
 import { generatePlaceId, generatePropertyPlaceId, parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { logActivity } from "@/lib/supabaseHelpers";
 import { notifyTeam } from "@/lib/notify-team";
-import { evaluatePropertyLock, evaluateTripLock } from "@/lib/property-lock";
+import { evaluatePropertyActions } from "@/lib/property-actions";
 import { useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
@@ -1343,29 +1343,24 @@ function PropertyActionsFooter({
         return () => document.removeEventListener("click", close);
     }, [menuOpen]);
 
-    // Two locks on purpose. scoutLock governs the light actions (adding to a
-    // personal list). tripLock is stricter: a franchisee must have the property
-    // assigned to them before they may scout it, which is the whole point of
-    // the request queue.
-    const scoutLock = evaluatePropertyLock({
-        isAdmin: canAccessDashboard,
-        canPitch: checkCanPitch(placeId),
-        pitchStatus,
-    });
-
     const alreadyRequested = hasPendingRequest(placeId);
+    const preRejected = assignment?.status === "pre_rejected";
+    const assignee = assignment?.assigned_to
+        ? assignableUsers.find(u => u.id === assignment.assigned_to)
+        : null;
 
-    const tripLock = evaluateTripLock({
+    // One decision for the whole menu. See src/lib/property-actions.ts for why
+    // this is a single function rather than a condition per button.
+    const actions = evaluatePropertyActions({
         isAdmin: canAccessDashboard,
+        isPreRejected: preRejected,
+        rejectionReason: assignment?.rejection_reason ?? null,
+        hasAssignment: !!assignment && !preRejected,
         isAssignedToMe: isAssignedToMe(placeId),
-        hasPendingRequest: alreadyRequested,
-        canPitch: checkCanPitch(placeId),
+        assigneeLabel: assignee?.display_name || assignee?.email || null,
         pitchStatus,
+        hasPendingRequest: alreadyRequested,
     });
-
-    // Franchisees ask for anything not already theirs. Admins assign directly
-    // and never need to request.
-    const canRequest = !canAccessDashboard && !isAssignedToMe(placeId) && scoutLock.allowed;
 
     const handleRequest = async () => {
         try {
@@ -1392,8 +1387,8 @@ function PropertyActionsFooter({
     };
 
     const handleCreateTrip = () => {
-        if (!tripLock.allowed) {
-            showToast(tripLock.reason || "You can't scout this property", 'error');
+        if (!actions.showCreateTrip) {
+            showToast(actions.caption || "You can't scout this property", 'error');
             return;
         }
         onClose?.();
@@ -1511,7 +1506,12 @@ function PropertyActionsFooter({
                 </button>
                 {menuOpen && !subMenu && (
                     <div className="actions-dropdown" style={{ right: 0, left: "auto" }} onClick={(e) => e.stopPropagation()}>
-                        {canRequest && (
+                        {/* Entries are hidden rather than greyed out, so this
+                            line carries the reason they are missing. */}
+                        {actions.caption && (
+                            <div className="actions-caption">{actions.caption}</div>
+                        )}
+                        {actions.showRequest && (
                             <button
                                 className="actions-item"
                                 onClick={handleRequest}
@@ -1522,36 +1522,40 @@ function PropertyActionsFooter({
                                 <span>{alreadyRequested ? "Requested" : "Request this property"}</span>
                             </button>
                         )}
-                        <button
-                            className="actions-item"
-                            onClick={handleCreateTrip}
-                            disabled={!tripLock.allowed}
-                            title={tripLock.allowed ? undefined : tripLock.reason || undefined}
-                        >
-                            <Route size={14} />
-                            <span>Create trip</span>
-                        </button>
-                        <button className="actions-item" onClick={() => setSubMenu("addToList")} disabled={!scoutLock.allowed}>
+                        {actions.showCreateTrip && (
+                            <button className="actions-item" onClick={handleCreateTrip}>
+                                <Route size={14} />
+                                <span>Create trip</span>
+                            </button>
+                        )}
+                        {/* Always available: a list is a private bookmark. */}
+                        <button className="actions-item" onClick={() => setSubMenu("addToList")}>
                             <ListPlus size={14} />
                             <span>Add to list</span>
                         </button>
-                        {canAccessDashboard && (
-                            <>
-                                <button className="actions-item" onClick={() => setSubMenu("assign")}>
-                                    <UserPlus size={14} />
-                                    <span>Assign to...</span>
-                                </button>
-                                <button className="actions-item actions-danger" onClick={() => setSubMenu("reject")}>
-                                    <Ban size={14} />
-                                    <span>Pre-reject</span>
-                                </button>
-                                {assignment && (
-                                    <button className="actions-item actions-danger" onClick={handleRemoveAssignment}>
-                                        <Trash2 size={14} />
-                                        <span>{assignment.status === "pre_rejected" ? "Undo pre-reject" : "Remove assignment"}</span>
-                                    </button>
-                                )}
-                            </>
+                        {actions.showAssign && (
+                            <button className="actions-item" onClick={() => setSubMenu("assign")}>
+                                <UserPlus size={14} />
+                                <span>Assign to...</span>
+                            </button>
+                        )}
+                        {actions.showPreReject && (
+                            <button className="actions-item actions-danger" onClick={() => setSubMenu("reject")}>
+                                <Ban size={14} />
+                                <span>Pre-reject</span>
+                            </button>
+                        )}
+                        {actions.showRemoveAssignment && (
+                            <button className="actions-item actions-danger" onClick={handleRemoveAssignment}>
+                                <Trash2 size={14} />
+                                <span>Remove assignment</span>
+                            </button>
+                        )}
+                        {actions.showUndoPreReject && (
+                            <button className="actions-item actions-danger" onClick={handleRemoveAssignment}>
+                                <Trash2 size={14} />
+                                <span>Undo pre-reject</span>
+                            </button>
                         )}
                     </div>
                 )}
@@ -2498,20 +2502,24 @@ export function EnhancedMapContainer({
         data?: any;
     }) => {
         if (isLinkingMode) {
-            const lock = evaluateTripLock({
+            const a = getPropertyAssignment(item.id);
+            const linkActions = evaluatePropertyActions({
                 isAdmin: canAccessDashboard,
+                isPreRejected: a?.status === "pre_rejected",
+                rejectionReason: a?.rejection_reason ?? null,
+                hasAssignment: !!a && a.status !== "pre_rejected",
                 isAssignedToMe: isAssignedToMe(item.id),
-                hasPendingRequest: false,
-                canPitch: canPitch(item.id),
+                assigneeLabel: null,
                 pitchStatus: getPitchStatus(item.id),
+                hasPendingRequest: false,
             });
-            if (!lock.allowed) {
-                showToast(lock.reason || "You can't scout this property", 'error');
+            if (!linkActions.showCreateTrip) {
+                showToast(linkActions.caption || "You can't scout this property", 'error');
                 return;
             }
             addLinkingItem(item);
         }
-    }, [isLinkingMode, addLinkingItem, canPitch, getPitchStatus, canAccessDashboard, isAssignedToMe, showToast]);
+    }, [isLinkingMode, addLinkingItem, getPropertyAssignment, getPitchStatus, canAccessDashboard, isAssignedToMe, showToast]);
 
     // Miners cafes from DB - ALWAYS visible regardless of filters (filtered by city only)
     const minersCafes = useMemo(

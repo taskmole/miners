@@ -1125,6 +1125,14 @@
   color: #374151;
 }
 
+.actions-caption {
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #71717a;
+  border-bottom: 1px solid #f0f0ef;
+}
+
 .actions-empty {
   padding: 12px 16px;
   font-size: 12px;
