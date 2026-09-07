@@ -37,3 +37,40 @@ export function evaluatePropertyLock({ isAdmin, canPitch, pitchStatus }: {
       return { allowed: true, reason: null };
   }
 }
+
+/**
+ * Whether the current user may start a scouting trip on a property.
+ *
+ * Stricter than evaluatePropertyLock. A franchisee must have the property
+ * assigned to them first, which happens either because an admin assigned it
+ * directly or because their request for it was approved. Without this, anyone
+ * could scout any unclaimed property and the request queue would be pointless.
+ *
+ * Admins are unaffected: they scout whatever evaluatePropertyLock allows.
+ *
+ * Deliberately separate from evaluatePropertyLock, which still governs the
+ * lighter actions (adding to a personal list). Bookmarking a property you have
+ * not been given is harmless; scouting it is not.
+ */
+export function evaluateTripLock({ isAdmin, isAssignedToMe, hasPendingRequest, canPitch, pitchStatus }: {
+  isAdmin: boolean;
+  isAssignedToMe: boolean;
+  hasPendingRequest: boolean;
+  canPitch: PropertyLock;
+  pitchStatus: ScoutingTripStatus | null;
+}): PropertyLock {
+
+  const base = evaluatePropertyLock({ isAdmin, canPitch, pitchStatus });
+  if (isAdmin || !base.allowed) return base;
+
+  if (!isAssignedToMe) {
+    return {
+      allowed: false,
+      reason: hasPendingRequest
+        ? "Waiting for your request to be approved"
+        : "Request this property first",
+    };
+  }
+
+  return { allowed: true, reason: null };
+}

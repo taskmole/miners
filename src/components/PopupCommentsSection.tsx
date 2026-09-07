@@ -52,8 +52,7 @@ export const PopupCommentsSection = React.memo(function PopupCommentsSection({ p
 
   return (
     <div
-      className="group/section hover:bg-zinc-100 transition-colors duration-150 cursor-pointer rounded-md -mx-2 px-2"
-      style={{ padding: '12px 22px' }}
+      className="popup-section group/section hover:bg-zinc-100 transition-colors duration-150 cursor-pointer"
       onClick={() => setIsExpanded(!isExpanded)}
     >
       {/* Header row */}

@@ -886,6 +886,19 @@
   color: #D4D4D8;
 }
 
+/* Collapsible sections (attachments, comments) and the assignment line.
+   These sit between the price card and the footer and must share the card's
+   24px horizontal padding, otherwise their labels fall out of line with the
+   price card and the feature pills directly above them. Set here rather than
+   inline so the mobile override below can reach them. */
+.popup-section {
+  padding: 12px 24px;
+}
+
+.popup-assignment-line {
+  padding: 2px 24px 10px 24px;
+}
+
 /* Description text */
 .popup-description {
   font-size: 14px;
@@ -1172,10 +1185,17 @@
   .popup-address { padding: 4px 20px 12px 20px; }
   .popup-body { padding: 0 20px 12px 20px; }
   .popup-chips-row { padding: 4px 20px 16px 20px; }
-  .popup-details-row { padding: 4px 16px; }
-  .popup-price-card { margin: 12px 16px; padding: 16px 16px; }
+  /* One horizontal rhythm for the whole card: every row starts at 20px so the
+     price box, the feature pills, the section labels and the assignment line
+     all share the title's left edge. The price card and details row used to
+     sit at 16px while the header sat at 20px, which read as a wobble down the
+     left side of the sheet. */
+  .popup-details-row { padding: 4px 20px; }
+  .popup-section { padding: 12px 20px; }
+  .popup-assignment-line { padding: 2px 20px 10px 20px; }
+  .popup-price-card { margin: 12px 20px; padding: 16px 16px; }
   .popup-price-top-row { gap: 8px; }
-  .header-badges { padding: 6px 16px 0; }
+  .header-badges { padding: 6px 20px 0; }
 
   /* Pull image up to extend behind the drag handle (content area has pt-10 = 40px) */
   .popup-image {
@@ -1426,10 +1446,9 @@
    ATTACHMENT COMPONENTS
    =========================================== */
 
-/* Attachment section in popups */
-.popup-attachments {
-  padding: 12px 20px;
-}
+/* Attachment section in popups.
+   Horizontal padding comes from .popup-section so it stays in step with the
+   comments section and the price card. */
 
 /* Attachment grid */
 .attachment-grid {
