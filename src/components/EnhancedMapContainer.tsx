@@ -21,7 +21,7 @@ import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
 import { generatePlaceId, generatePropertyPlaceId, parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { logActivity } from "@/lib/supabaseHelpers";
 import { notifyTeam } from "@/lib/notify-team";
-import { evaluatePropertyLock } from "@/lib/property-lock";
+import { evaluatePropertyLock, evaluateTripLock } from "@/lib/property-lock";
 import { useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
@@ -31,6 +31,7 @@ import { PopupActionBar } from "@/components/PopupActionBar";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
 import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
+import { usePropertyRequests } from "@/hooks/usePropertyRequests";
 import type { PropertyAssignment } from "@/hooks/usePropertyAssignments";
 import { useTeamsContext } from "@/contexts/TeamsContext";
 import { useListsContext } from "@/contexts/ListsContext";
@@ -89,6 +90,8 @@ import {
     Ban,
     UserPlus,
     Trash2,
+    Hand,
+    Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCompactNumber } from "@/lib/format-numbers";
@@ -885,8 +888,7 @@ const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ pl
 
     return (
         <div
-            className="popup-attachments group/section hover:bg-zinc-100 transition-colors duration-150 cursor-pointer rounded-md -mx-2 px-2"
-            style={{ padding: '12px 22px' }}
+            className="popup-attachments popup-section group/section hover:bg-zinc-100 transition-colors duration-150 cursor-pointer"
             onClick={() => setIsExpanded(!isExpanded)}
         >
             {/* Header row */}
@@ -1325,6 +1327,9 @@ function PropertyActionsFooter({
     const menuRef = React.useRef<HTMLDivElement>(null);
     const { lists, toggleInList, isPlaceInList, createList } = useListsContext();
     const { teams } = useTeamsContext();
+    const { isAssignedToMe } = usePropertyAssignmentContext();
+    // Admins assign directly and never request, so skip the fetch for them.
+    const { hasPendingRequest, requestProperty } = usePropertyRequests(!canAccessDashboard);
 
     React.useEffect(() => {
         if (!menuOpen) return;
@@ -1338,11 +1343,44 @@ function PropertyActionsFooter({
         return () => document.removeEventListener("click", close);
     }, [menuOpen]);
 
+    // Two locks on purpose. scoutLock governs the light actions (adding to a
+    // personal list). tripLock is stricter: a franchisee must have the property
+    // assigned to them before they may scout it, which is the whole point of
+    // the request queue.
     const scoutLock = evaluatePropertyLock({
         isAdmin: canAccessDashboard,
         canPitch: checkCanPitch(placeId),
         pitchStatus,
     });
+
+    const alreadyRequested = hasPendingRequest(placeId);
+
+    const tripLock = evaluateTripLock({
+        isAdmin: canAccessDashboard,
+        isAssignedToMe: isAssignedToMe(placeId),
+        hasPendingRequest: alreadyRequested,
+        canPitch: checkCanPitch(placeId),
+        pitchStatus,
+    });
+
+    // Franchisees ask for anything not already theirs. Admins assign directly
+    // and never need to request.
+    const canRequest = !canAccessDashboard && !isAssignedToMe(placeId) && scoutLock.allowed;
+
+    const handleRequest = async () => {
+        try {
+            await requestProperty(placeId, {
+                property_name: property.title,
+                property_address: property.address,
+                property_url: property.url,
+            });
+            showToast("Request sent for approval");
+            logActivity("requested_property", propertyMeta);
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : "Could not send request", 'error');
+        }
+        setMenuOpen(false);
+    };
 
     // Shared metadata for all property activity log entries
     const propertyMeta = {
@@ -1354,8 +1392,8 @@ function PropertyActionsFooter({
     };
 
     const handleCreateTrip = () => {
-        if (!scoutLock.allowed) {
-            showToast(scoutLock.reason || "You can't scout this property", 'error');
+        if (!tripLock.allowed) {
+            showToast(tripLock.reason || "You can't scout this property", 'error');
             return;
         }
         onClose?.();
@@ -1473,7 +1511,23 @@ function PropertyActionsFooter({
                 </button>
                 {menuOpen && !subMenu && (
                     <div className="actions-dropdown" style={{ right: 0, left: "auto" }} onClick={(e) => e.stopPropagation()}>
-                        <button className="actions-item" onClick={handleCreateTrip} disabled={!scoutLock.allowed}>
+                        {canRequest && (
+                            <button
+                                className="actions-item"
+                                onClick={handleRequest}
+                                disabled={alreadyRequested}
+                                title={alreadyRequested ? "Waiting for a reviewer" : "Ask an admin for this property"}
+                            >
+                                {alreadyRequested ? <Check size={14} /> : <Hand size={14} />}
+                                <span>{alreadyRequested ? "Requested" : "Request this property"}</span>
+                            </button>
+                        )}
+                        <button
+                            className="actions-item"
+                            onClick={handleCreateTrip}
+                            disabled={!tripLock.allowed}
+                            title={tripLock.allowed ? undefined : tripLock.reason || undefined}
+                        >
                             <Route size={14} />
                             <span>Create trip</span>
                         </button>
@@ -1846,7 +1900,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                 const assignee = assignableUsers.find(u => u.id === assignment.assigned_to);
                 const assigneeName = assignee?.display_name || assignee?.email || "someone";
                 return (
-                    <div className="px-3 py-1.5 text-xs" style={{ color: isPreRejected ? "#f87171" : "#60a5fa" }}>
+                    <div className="popup-assignment-line text-xs" style={{ color: isPreRejected ? "#f87171" : "#60a5fa" }}>
                         {isPreRejected
                             ? `Pre-rejected${assignment.rejection_reason ? `: ${assignment.rejection_reason}` : ""}`
                             : `Assigned to ${assigneeName}`
@@ -2444,8 +2498,10 @@ export function EnhancedMapContainer({
         data?: any;
     }) => {
         if (isLinkingMode) {
-            const lock = evaluatePropertyLock({
+            const lock = evaluateTripLock({
                 isAdmin: canAccessDashboard,
+                isAssignedToMe: isAssignedToMe(item.id),
+                hasPendingRequest: false,
                 canPitch: canPitch(item.id),
                 pitchStatus: getPitchStatus(item.id),
             });
@@ -2455,7 +2511,7 @@ export function EnhancedMapContainer({
             }
             addLinkingItem(item);
         }
-    }, [isLinkingMode, addLinkingItem, canPitch, getPitchStatus, canAccessDashboard, showToast]);
+    }, [isLinkingMode, addLinkingItem, canPitch, getPitchStatus, canAccessDashboard, isAssignedToMe, showToast]);
 
     // Miners cafes from DB - ALWAYS visible regardless of filters (filtered by city only)
     const minersCafes = useMemo(
