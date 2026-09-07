@@ -1,12 +1,18 @@
 "use client";
 
 import React, { useState } from "react";
-import { Route, ListPlus, UserPlus, Ban } from "lucide-react";
+import { Route, ListPlus, UserPlus, Ban, Hand, Check } from "lucide-react";
 
 interface ActionsSheetProps {
+  /** Reviewers assign directly. */
   showAssign: boolean;
+  /** Everyone else asks for the property instead of taking it. */
+  showRequest: boolean;
+  /** True once this person has a request waiting on this property. */
+  hasRequested: boolean;
   showPreReject: boolean;
   onAssign: () => void;
+  onRequest: () => void;
   onCreateTrip: () => void;
   onAddToList: () => void;
   onPreReject: (reason: string) => void;
@@ -15,8 +21,11 @@ interface ActionsSheetProps {
 
 export function ActionsSheet({
   showAssign,
+  showRequest,
+  hasRequested,
   showPreReject,
   onAssign,
+  onRequest,
   onCreateTrip,
   onAddToList,
   onPreReject,
@@ -57,6 +66,23 @@ export function ActionsSheet({
                 <UserPlus className="w-4 h-4 text-zinc-400" />
                 <span className="text-sm text-zinc-700">Assign to...</span>
               </button>
+            )}
+
+            {showRequest && (
+              hasRequested ? (
+                <div className="w-full flex items-center gap-3 py-3">
+                  <Check className="w-4 h-4 text-emerald-500" />
+                  <span className="text-sm text-zinc-400">Already requested</span>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { onRequest(); onClose(); }}
+                  className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-zinc-50 transition-colors"
+                >
+                  <Hand className="w-4 h-4 text-zinc-400" />
+                  <span className="text-sm text-zinc-700">Request this property</span>
+                </button>
+              )
             )}
 
             <button

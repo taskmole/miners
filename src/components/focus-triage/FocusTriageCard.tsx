@@ -17,16 +17,10 @@ import type { InboxProperty } from "@/types/inbox";
 interface FocusTriageCardProps {
   property: InboxProperty;
   isDesktop: boolean;
-  /** Reviewers assign directly. */
-  canAssign: boolean;
-  /** Everyone else asks for the property instead of taking it. */
-  canRequest: boolean;
-  /** True once this person has a request waiting on this property. */
-  hasRequested: boolean;
-  onAssign: () => void;
-  onRequest: () => void;
-  onNext: () => void;
+  /** Opens the actions menu, which holds every role-specific choice. */
   onActions: () => void;
+  /** Moves to the next property without doing anything. */
+  onNext: () => void;
 }
 
 function paybackColor(months: number | null | undefined) {
@@ -45,13 +39,8 @@ function paybackLabel(months: number | null | undefined) {
 export function FocusTriageCard({
   property,
   isDesktop,
-  canAssign,
-  canRequest,
-  hasRequested,
-  onAssign,
-  onRequest,
-  onNext,
   onActions,
+  onNext,
 }: FocusTriageCardProps) {
   const [showRevenue, setShowRevenue] = useState(false);
 
@@ -233,38 +222,21 @@ export function FocusTriageCard({
 
       {/* Sticky action buttons */}
       <div className="sticky bottom-0 mt-auto px-5 pt-3 pb-8 bg-white">
+        {/* Everything a person can do lives behind Action, so the row stays
+            the same whoever is looking at it. Skip sits on the right, under
+            the thumb, since it is the one pressed most often. */}
         <div className="flex gap-3 items-center">
+          <button
+            onClick={onActions}
+            className="flex-[3] py-3.5 rounded-full bg-zinc-900 text-sm font-medium text-white"
+          >
+            Action
+          </button>
           <button
             onClick={onNext}
             className="flex-[2] py-3.5 rounded-full bg-zinc-100 text-sm font-medium text-zinc-600"
           >
-            Next
-          </button>
-          {canAssign ? (
-            <button
-              onClick={onAssign}
-              className="flex-[3] py-3.5 rounded-full bg-zinc-900 text-sm font-medium text-white"
-            >
-              Assign
-            </button>
-          ) : canRequest ? (
-            <button
-              onClick={onRequest}
-              disabled={hasRequested}
-              className={
-                hasRequested
-                  ? "flex-[3] py-3.5 rounded-full bg-zinc-100 text-sm font-medium text-zinc-400"
-                  : "flex-[3] py-3.5 rounded-full bg-zinc-900 text-sm font-medium text-white"
-              }
-            >
-              {hasRequested ? "Requested" : "Request"}
-            </button>
-          ) : null}
-          <button
-            onClick={onActions}
-            className="w-11 h-11 shrink-0 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 text-lg font-bold"
-          >
-            &middot;&middot;&middot;
+            Skip
           </button>
         </div>
       </div>
