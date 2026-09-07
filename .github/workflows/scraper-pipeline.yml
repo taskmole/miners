@@ -2,8 +2,11 @@ name: Scraper Pipeline
 
 on:
   schedule:
-    # Both scrapers: Monday and Thursday at 06:00 UTC
+    # Rentals + SReality: Monday and Thursday at 06:00 UTC
     - cron: '0 6 * * 1,4'
+    # Transfers: Tuesday and Friday at 06:00 UTC (separate day to avoid
+    # Idealista rate-limiting after the rental scrape)
+    - cron: '0 6 * * 2,5'
   workflow_dispatch:
     inputs:
       scraper:
@@ -33,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     if: >-
-      (github.event_name == 'schedule')
+      (github.event_name == 'schedule' && github.event.schedule == '0 6 * * 1,4')
       || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'idealista' || github.event.inputs.scraper == 'idealista-rental' || github.event.inputs.scraper == 'both'))
     outputs:
       score_outcome: ${{ steps.score.outcome }}
@@ -89,17 +92,19 @@ jobs:
             scripts/data-pipeline/score-listings.ts \
             --city ${{ github.event.inputs.city || 'madrid' }}
 
-  # Idealista transfers run after rentals (sequential) to avoid hammering the
-  # shared CAPTCHA-solver API key (magic.xhr.dev) with two parallel processes.
-  # `needs: scrape-idealista-rental` enforces the order. `if: always()` lets
-  # transfers run even if rental was skipped (single-mode dispatch) or failed.
+  # Transfers run on their own days (Tue+Fri) so Idealista's anti-bot systems
+  # aren't already on alert from the rental scrape. `needs` + `always()` still
+  # enforce sequential order for manual dispatch (scraper: idealista/both),
+  # where both jobs' conditions can be true on the same run. On a normal
+  # split-day schedule run, rental is skipped, which satisfies `needs`
+  # immediately without actually blocking on it.
   scrape-idealista-transfer:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     needs: scrape-idealista-rental
     if: >-
       always()
-      && ((github.event_name == 'schedule')
+      && ((github.event_name == 'schedule' && github.event.schedule == '0 6 * * 2,5')
         || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'idealista' || github.event.inputs.scraper == 'idealista-transfer' || github.event.inputs.scraper == 'both')))
     outputs:
       score_outcome: ${{ steps.score.outcome }}
@@ -153,9 +158,11 @@ jobs:
             scripts/data-pipeline/score-listings.ts \
             --city ${{ github.event.inputs.city || 'madrid' }}
 
-  # Combined report + digest email runs once after both scrapers finish.
-  # Downloads each scraper's stats artifact (if it exists), sends the combined
-  # email, then triggers the user-facing digest. Runs even if one scraper
+  # Report + digest email runs after this workflow's Idealista job(s) finish.
+  # Rentals and transfers now run on separate scheduled days (see above), so
+  # on a normal schedule run only one of the two stats artifacts exists —
+  # this job downloads whichever is present (missing ones are skipped, not
+  # an error) and sends a report/digest for it. Runs even if one scraper
   # failed, as long as at least one produced data.
   idealista-report:
     runs-on: ubuntu-latest
@@ -218,7 +225,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: >-
-      (github.event_name == 'schedule')
+      (github.event_name == 'schedule' && github.event.schedule == '0 6 * * 1,4')
       || (github.event_name == 'workflow_dispatch' && (github.event.inputs.scraper == 'sreality' || github.event.inputs.scraper == 'both'))
     outputs:
       score_outcome: ${{ steps.score.outcome }}

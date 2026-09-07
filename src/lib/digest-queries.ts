@@ -109,8 +109,10 @@ export async function getNewListingsForCityAndSource(
 
   // Anchor on the most recent insert for this source+city. A single scrape
   // session inserts all rows within minutes, so a 12h window backward from
-  // the latest row captures only that scrape's batch (next-most-recent
-  // scrape happens days earlier on Mon/Thu cadence).
+  // the latest row captures only that scrape's batch. Idealista rental and
+  // transfer scrapes now run on separate days (Mon/Thu vs Tue/Fri) but share
+  // this digest source; the 12h window still isolates each batch since the
+  // gap between any two scrapes is always >= 24h.
   const { data: anchor } = await supabase
     .from("places")
     .select("created_at")
