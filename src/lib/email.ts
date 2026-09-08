@@ -29,18 +29,37 @@ const DEFAULT_SANDBOX_INBOX = "founders@taskmole.co";
 /**
  * The address emails are sent from. Set RESEND_FROM once a sending domain is
  * verified in Resend, e.g. `Miners Scout <scout@theminers.eu>`.
+ *
+ * The value is rebuilt from whatever is stored rather than used verbatim.
+ * Local .env files are read by dotenv, which strips quotes, but the Vercel
+ * dashboard stores the literal string, so a value pasted with quotes, smart
+ * quotes, a stray line break, or no angle brackets reaches us as typed and
+ * Resend rejects the entire send with a 422. That failure is invisible in
+ * production: mail simply never arrives. Pulling the address out of the
+ * string and reassembling it makes every one of those pastes work.
  */
 export function getFromAddress(): string {
-  // Strip surrounding quotes. Local .env files are read by dotenv, which
-  // removes them; the Vercel dashboard stores the literal string, so a value
-  // pasted as `"Miners Scout <x@y.com>"` reaches us with the quotes attached
-  // and Resend rejects the whole send with a 422 validation_error. Cheap to
-  // tolerate, and the failure it prevents is silent (mail simply never
-  // arrives, in production only).
-  const raw = process.env.RESEND_FROM?.trim();
+  const raw = process.env.RESEND_FROM;
   if (!raw) return SANDBOX_FROM;
-  const unquoted = raw.replace(/^["']|["']$/g, "").trim();
-  return unquoted || SANDBOX_FROM;
+
+  // Newlines and repeated spaces are rejected outright, so flatten first.
+  const value = raw.replace(/\s+/g, " ").trim();
+
+  const email = value.match(/[^\s<>@"'`]+@[^\s<>@"'`]+\.[^\s<>@"'`]+/)?.[0];
+  if (!email) {
+    console.warn("[email] RESEND_FROM has no usable address, using sandbox sender");
+    return SANDBOX_FROM;
+  }
+
+  // Whatever precedes the address is the display name. Keep it only when it
+  // is plainly a name; anything else (a leftover `RESEND_FROM=`, punctuation
+  // from a broken paste) is dropped rather than mailed out as the sender.
+  const name = value
+    .slice(0, value.indexOf(email))
+    .replace(/[<>"'`‘’“”]/g, "")
+    .trim();
+
+  return /^[A-Za-z0-9 .,'-]+$/.test(name) ? `${name} <${email}>` : email;
 }
 
 /**
