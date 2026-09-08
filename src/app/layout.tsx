@@ -24,7 +24,13 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Scout",
   },
+  // Declaring `icons` overrides Next's file-convention icons, so the browser
+  // tab icon must be listed explicitly alongside the Apple touch icon.
   icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192x192.png", type: "image/png", sizes: "192x192" },
+    ],
     apple: "/icons/apple-touch-icon.png",
   },
 };
