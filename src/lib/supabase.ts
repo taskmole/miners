@@ -18,6 +18,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { setAuthUserId } from './browser-session';
 
 // Environment variables (set in .env.local)
 // These are the PUBLIC keys - safe to expose in browser
@@ -103,11 +104,52 @@ export async function isLoggedIn(): Promise<boolean> {
 }
 
 /**
+ * Remove Supabase's stored auth session from localStorage
+ *
+ * Fallback for a failed server sign-out. Supabase persists the session under
+ * `sb-<project-ref>-auth-token`, and when its own sign-out bails early that
+ * entry survives, which would restore the session on the next page load.
+ */
+function clearStoredSupabaseSession(): void {
+  if (typeof window === 'undefined') return;
+
+  // Object.keys() snapshots the keys, so removing while looping is safe.
+  for (const key of Object.keys(window.localStorage)) {
+    if (key.startsWith('sb-') && key.includes('-auth-token')) {
+      window.localStorage.removeItem(key);
+    }
+  }
+}
+
+/**
  * Sign out the current user
+ *
+ * Clears the Supabase session, drops the cached auth user id, then hard-reloads
+ * the app. The reload matters: the page keeps user-scoped state (landing page
+ * hidden, selected city, active-account flag) that is only set on sign-in and
+ * never reset, so without it the UI still looks signed in.
  */
 export async function signOut(): Promise<void> {
-  if (!supabase) return;
-  await supabase.auth.signOut();
+  if (supabase) {
+    // signOut() reports failure by returning an error rather than throwing, and
+    // on anything other than a 401/403/404 it returns before clearing local
+    // storage. Left alone that stale session comes straight back on reload, so
+    // clear it ourselves whenever the call did not succeed.
+    let failed = false;
+    try {
+      const { error } = await supabase.auth.signOut();
+      failed = Boolean(error);
+    } catch {
+      failed = true;
+    }
+
+    if (failed) clearStoredSupabaseSession();
+  }
+
+  if (typeof window !== 'undefined') {
+    setAuthUserId(null);
+    window.location.href = '/';
+  }
 }
 
 // ===========================================
