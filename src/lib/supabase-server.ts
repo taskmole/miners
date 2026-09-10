@@ -60,6 +60,17 @@ export async function authenticateRequest(
   return { supabase, userId: user.id };
 }
 
+/**
+ * The repo's hand-written Database type does not describe every table, so the
+ * typed query builder collapses to `never` on the ones it misses. Routes that
+ * touch those tables drop the schema generic through this and lean on their
+ * own row types instead.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function untypedDb(client: unknown): SupabaseClient<any> {
+  return client as SupabaseClient;
+}
+
 export async function getUserTeamIds(supabase: SupabaseClient<Database>, userId: string): Promise<string[]> {
   const { data } = await supabase
     .from("team_members")

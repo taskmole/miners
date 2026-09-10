@@ -10,7 +10,11 @@ interface RequestsTabProps {
   pending: PropertyRequest[];
   processed: PropertyRequest[];
   users: UserProfile[];
-  /** Only super admins get the approve and reject buttons. */
+  /**
+   * Who gets the approve and reject buttons: super admins and head office.
+   * Other dashboard roles see the queue read-only, and the database agrees
+   * (property_requests UPDATE is gated on is_admin()).
+   */
   canReview: boolean;
   loading: boolean;
   onDecide: (

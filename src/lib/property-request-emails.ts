@@ -16,6 +16,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { NewSubmissionNotification } from "@/emails/new-submission-notification";
 import { TripStatusUpdate } from "@/emails/trip-status-update";
 import { sendAppEmail, sendAppEmails } from "@/lib/email";
+import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
+import { countryForCoordinates, withCountryReviewers } from "@/lib/notify-routing";
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "https://theminers.vercel.app";
@@ -31,6 +33,18 @@ export interface RequestEmailContext {
   propertyPlaceId?: string | null;
 }
 
+/**
+ * Which country's rules apply to this request, read from the coordinates
+ * baked into the place id. Best effort: an unknown country simply means no
+ * extra recipients, never a failed send.
+ */
+function requestCountry(ctx: RequestEmailContext): string | null {
+  const coords = ctx.propertyPlaceId
+    ? parseCoordinatesFromPlaceId(ctx.propertyPlaceId)
+    : null;
+  return coords ? countryForCoordinates(coords.lat, coords.lon) : null;
+}
+
 /** Best label for the property across both templates. */
 function propertyTitle(ctx: Pick<RequestEmailContext, "propertyName" | "propertyAddress">): string {
   return ctx.propertyAddress || ctx.propertyName || "a property";
@@ -41,7 +55,8 @@ function propertyTitle(ctx: Pick<RequestEmailContext, "propertyName" | "property
  *
  * Reviewer emails come from the request_reviewer_emails() SECURITY DEFINER
  * function: a franchisee cannot read other people's profiles under RLS, so it
- * cannot look the recipients up directly.
+ * cannot look the recipients up directly. On top of that list, a country can
+ * have its own watcher (Spain does), added by notify-routing.
  */
 export async function notifyReviewersOfRequest(
   supabase: SupabaseClient,
@@ -51,16 +66,19 @@ export async function notifyReviewersOfRequest(
   const { data, error } = await (supabase.rpc as any)("request_reviewer_emails");
   if (error) {
     console.warn("[property-request-emails] reviewer lookup failed:", error.message);
-    return { sent: 0, skipped: "lookup-failed" };
   }
 
-  const emails = ((data as { email: string | null }[]) || [])
+  const reviewers = ((data as { email: string | null }[]) || [])
     .map(r => r.email)
     .filter((e): e is string => Boolean(e));
 
+  // The country's own watcher is added even when the reviewer lookup came back
+  // empty or failed, so a Spanish request still reaches someone.
+  const emails = withCountryReviewers(reviewers, requestCountry(ctx));
+
   if (emails.length === 0) {
     console.warn("[property-request-emails] no active super admins to notify");
-    return { sent: 0, skipped: "no-reviewers" };
+    return { sent: 0, skipped: error ? "lookup-failed" : "no-reviewers" };
   }
 
   const title = propertyTitle(ctx);
