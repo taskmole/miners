@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { authenticateRequest } from "@/lib/supabase-server";
+import { authenticateRequest, untypedDb as db } from "@/lib/supabase-server";
 import {
   notifyReviewersOfRequest,
   notifyRequesterOfDecision,
@@ -10,17 +9,6 @@ export const dynamic = "force-dynamic";
 
 /** Postgres unique-violation code. */
 const UNIQUE_VIOLATION = "23505";
-
-/**
- * The repo's hand-written Database type does not describe every table, which
- * makes the typed query builder collapse to `never` (other routes here hit the
- * same thing). Drop the schema generic for this table and lean on the explicit
- * PropertyRequestRow type below instead.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function db(supabase: unknown): SupabaseClient<any> {
-  return supabase as SupabaseClient;
-}
 
 const AUTO_REJECT_REASON = "Another request for this property was approved.";
 
@@ -187,6 +175,9 @@ export async function POST(request: NextRequest) {
       propertyAddress: data.property_address,
       requesterName: requester.name,
       requesterEmail: requester.email,
+      // Carries the property's coordinates, which is how the country (and so
+      // any extra country reviewer, e.g. Spain's) is worked out.
+      propertyPlaceId: data.property_place_id,
     }).catch(err => console.warn("[api/db/property-requests] reviewer email failed:", err));
 
     return NextResponse.json(data);
@@ -302,7 +293,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    // No row came back: RLS refused it (not a super admin) or someone else
+    // No row came back: RLS refused it (not a reviewer) or someone else
     // decided it a moment ago. Re-read to tell those apart.
     if (!updated) {
       const { data: current } = await db(supabase)

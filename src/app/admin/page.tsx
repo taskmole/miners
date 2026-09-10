@@ -1524,7 +1524,7 @@ function AdminContent() {
             pending={pendingRequests}
             processed={processedRequests}
             users={users}
-            canReview={isAdmin}
+            canReview={canReviewSubmissions}
             loading={!requestsLoaded}
             onDecide={async (id, decision, reason) => {
               const request = pendingRequests.find((r) => r.id === id);
