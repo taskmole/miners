@@ -82,22 +82,80 @@ export function getTransferFilters(cityId: string): IdealistaFilters {
 }
 
 // ---------------------------------------------------------------------------
-// Proxy configuration
+// Proxy configuration (Bright Data Web Unlocker, native proxy mode)
 // ---------------------------------------------------------------------------
 
+/**
+ * Build the Bright Data proxy URL from environment credentials.
+ *
+ * Web Unlocker is addressed as an ordinary HTTP proxy. Auth lives in the
+ * username, which encodes the customer, the zone, and any targeting options
+ * (we pin to Spain because Idealista is a Spanish site and Spanish exit IPs
+ * look less unusual to its anti-bot layer).
+ */
+export function buildProxyUri(): string {
+  const customer = process.env.BRIGHTDATA_CUSTOMER_ID;
+  const zone = process.env.BRIGHTDATA_ZONE;
+  const password = process.env.BRIGHTDATA_PASSWORD;
+
+  if (!customer || !zone || !password) {
+    throw new Error(
+      "Bright Data credentials missing. Set BRIGHTDATA_CUSTOMER_ID, " +
+      "BRIGHTDATA_ZONE and BRIGHTDATA_PASSWORD in .env.local or CI secrets."
+    );
+  }
+
+  const username = `brd-customer-${customer}-zone-${zone}-country-${PROXY_CONFIG.country}`;
+  return `http://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${PROXY_CONFIG.host}`;
+}
+
 export const PROXY_CONFIG = {
-  url: "https://magic.xhr.dev",
-  searchTimeoutMs: 30_000,
-  detailTimeoutMs: 30_000,
-  maxRetries: 3,
-  backoffMs: [2_000, 4_000, 8_000],
+  host: "brd.superproxy.io:44445",
+  country: "es",
+
+  // Web Unlocker solves the anti-bot challenge itself, which legitimately takes
+  // 15-25s per page (measured on Idealista, 2026-09-11). A short timeout would
+  // abort requests that were about to succeed, so these are deliberately long.
+  searchTimeoutMs: 90_000,
+  detailTimeoutMs: 90_000,
+
+  // Bright Data retries internally and bills only on success, so we need far
+  // fewer retries than the old proxy required.
+  maxRetries: 2,
+  backoffMs: [5_000, 15_000],
+
   maxSearchPages: 34,
-  delayBetweenSearchPagesMs: 5_000,
-  delayBetweenDetailPagesMs: 2_000,
-  detailBatchSizes: [40, 55, 45, 60] as readonly number[],
-  detailBatchPausesMs: [[38_000, 48_000], [78_000, 95_000]] as readonly (readonly number[])[],
-  circuitBreakerThreshold: 5,
-  circuitBreakerPauseMs: 120_000,
+
+  // Stop Phase 1 after this many search pages fail back to back.
+  searchFailureThreshold: 3,
+
+  // Detail pages are fetched in parallel. At ~17s each, serial fetching would
+  // take ~3h for a transfer run. Six at a time brings that to ~30min. Lower
+  // this first if the failure rate climbs.
+  detailConcurrency: 6,
+
+  // Search pages stay sequential: we must stop as soon as we hit the last page,
+  // and page count is unknown up front.
+  delayBetweenSearchPagesMs: 1_000,
+
+  // Listings are written to Supabase in chunks as they are scraped, so a run
+  // that dies late keeps the work it already did.
+  publishChunkSize: 50,
+
+  // Kill switch if Bright Data itself goes down. Counts CONSECUTIVE fetch
+  // failures (not missing coordinates: a listing can legitimately have no map
+  // pin, and treating that as a provider outage aborted healthy runs).
+  circuitBreakerThreshold: 8,
+
+  // Hard spend cap. Bright Data's own account limits are only checked every
+  // ~15 minutes, so a runaway loop could overshoot them. This stops the run
+  // dead instead. A normal rental run uses ~290 requests and a transfer run
+  // ~650 including search pages. Retries are counted too, so 1000 sat under 2x
+  // real transfer volume: one growth spurt or retry storm would trip it and red
+  // the job for no good reason. 1500 keeps genuine runaways bounded while
+  // leaving real headroom. The $20/month auto-pause on the zone is the true
+  // backstop; this is the fast-acting one.
+  maxRequestsPerRun: 1_500,
 } as const;
 
 // ---------------------------------------------------------------------------

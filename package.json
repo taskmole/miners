@@ -63,7 +63,8 @@
     "react-email": "^6.0.0",
     "resend": "^6.12.2",
     "swr": "^2.4.1",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "undici": "7.29.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",
