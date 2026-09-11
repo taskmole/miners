@@ -6,6 +6,11 @@ import {
   untypedDb as db,
 } from "@/lib/supabase-server";
 import { isEmailAllowed, ALLOWED_DOMAINS } from "@/lib/auth-config";
+import {
+  sendInviteEmail,
+  notifySuperAdminsOfUserChange,
+  describeGrants,
+} from "@/lib/user-emails";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +121,40 @@ const PRIVILEGED_FIELDS = ["role", "is_super_admin", "is_active", "city_ids"] as
 /** Postgres insufficient_privilege, raised by enforce_profile_field_locks(). */
 const INSUFFICIENT_PRIVILEGE = "42501";
 
+/** The pre-update picture of a profile, read by PATCH's permission lookup. */
+interface ProfileBefore {
+  id: string;
+  is_super_admin: boolean;
+  email: string | null;
+  display_name: string | null;
+  is_active: boolean;
+}
+
+/**
+ * How a person's access reads right now, for the alert emails.
+ *
+ * Its own small query because it is only wanted when something worth
+ * alerting about actually changed, which is a handful of times a week.
+ * Returns a plain sentence, never throws, and degrades to a blank rather
+ * than failing the change that has already been written.
+ */
+async function currentAccessLabel(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: any,
+  userId: string,
+  isSuperAdmin: boolean,
+): Promise<string> {
+  try {
+    const { data } = await client
+      .from("user_city_grants")
+      .select("city_id, level")
+      .eq("user_id", userId);
+    return describeGrants(data || [], isSuperAdmin);
+  } catch {
+    return describeGrants([], isSuperAdmin);
+  }
+}
+
 export async function PATCH(request: NextRequest) {
   // getUser() rather than a bare token read: this handler decides permissions
   // from the caller's identity, so the identity has to be verified, not
@@ -146,12 +185,24 @@ export async function PATCH(request: NextRequest) {
     // disagree, the answer people see stops matching what actually happened.
     const touchesPrivileged = PRIVILEGED_FIELDS.some(field => field in updates);
 
+    /**
+     * What the target looked like before this update, used to tell a real
+     * change from someone re-saving a value that was already set. Filled by
+     * the permission lookup below, which has to happen anyway.
+     */
+    let before: ProfileBefore | null = null;
+
+    /** Who is making the change, for the "Changed by" line in the alerts. */
+    let changedByName: string | null = null;
+
     if (touchesPrivileged) {
       // Caller and target in one trip. Someone editing their own profile is
       // both, hence the de-duplicated id list.
+      // email, display_name and is_active ride along on a query that already
+      // runs, which is what makes the "before" picture free.
       const { data: rows, error: lookupError } = await db(supabase)
         .from("user_profiles")
-        .select("id, is_super_admin")
+        .select("id, is_super_admin, email, display_name, is_active")
         .in("id", [...new Set([userId, id])]);
 
       // A failed lookup is not a refusal. Saying "only an admin can do this"
@@ -165,9 +216,14 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
+      const profileRows = (rows as ProfileBefore[] | null) || [];
+      before = profileRows.find(r => r.id === id) || null;
+
+      const callerRow = profileRows.find(r => r.id === userId);
+      changedByName = callerRow?.display_name || callerRow?.email || null;
+
       const isSuperAdminOf = (who: string) =>
-        (rows as { id: string; is_super_admin: boolean }[] | null)
-          ?.find(r => r.id === who)?.is_super_admin === true;
+        profileRows.find(r => r.id === who)?.is_super_admin === true;
 
       // "Can run the user screen" is now "approves somewhere, or holds the
       // switch", which is what is_admin() means in the database. Asked of the
@@ -216,6 +272,55 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 403 });
       }
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    /**
+     * Alerts, after the change has committed.
+     *
+     * Only real changes count: re-saving a value that was already set sends
+     * nothing. Ordinary edits (a display name) never reach here at all,
+     * because they are not privileged fields and `before` stays null.
+     *
+     * The response shape is deliberately unchanged. Nothing in the UI needs
+     * the alert result, and the user list and detail page both read this
+     * response as a profile row.
+     */
+    if (before) {
+      const switchedOnOff =
+        typeof updates.is_active === "boolean" && before.is_active !== data.is_active;
+      const superAdminChanged =
+        typeof updates.is_super_admin === "boolean" &&
+        before.is_super_admin !== data.is_super_admin;
+
+      if (switchedOnOff || superAdminChanged) {
+        const access = await currentAccessLabel(
+          db(supabase),
+          id,
+          data.is_super_admin === true,
+        );
+        if (switchedOnOff) {
+          await notifySuperAdminsOfUserChange({
+            kind: data.is_active ? "reactivated" : "deactivated",
+            personId: id,
+            personName: data.display_name,
+            personEmail: data.email,
+            personAccess: access,
+            changedByName,
+          });
+        }
+
+        if (superAdminChanged) {
+          await notifySuperAdminsOfUserChange({
+            kind: "super-admin",
+            personId: id,
+            personName: data.display_name,
+            personEmail: data.email,
+            personAccess: access,
+            granted: data.is_super_admin === true,
+            changedByName,
+          });
+        }
+      }
     }
 
     return NextResponse.json(data);
@@ -274,13 +379,16 @@ export async function POST(request: NextRequest) {
 
     const cityId: string | undefined = body.city_id || undefined;
 
+    // The name comes along for the ride: this lookup already happens, and the
+    // invite and the alerts both want to say who did it.
     const { data: caller } = await db(supabase)
       .from("user_profiles")
-      .select("is_super_admin")
+      .select("is_super_admin, display_name, email")
       .eq("id", auth.userId)
       .single();
 
     const callerIsSuperAdmin = caller?.is_super_admin === true;
+    const inviterName: string | null = caller?.display_name || caller?.email || null;
 
     if (!callerIsSuperAdmin && !cityId) {
       return NextResponse.json(
@@ -317,7 +425,32 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: readError.message }, { status: 500 });
       }
 
-      return NextResponse.json(data, { status: 201 });
+      // Everything below is best effort and happens only after the profile
+      // exists. Neither call can throw, and neither result can fail the
+      // request: creating a user must never break because of email.
+      const access = describeGrants([{ city_id: cityId, level: "contribute" }]);
+
+      const invite = await sendInviteEmail({
+        email: data.email,
+        isActive: data.is_active !== false,
+        inviterName,
+      });
+
+      await notifySuperAdminsOfUserChange({
+        kind: "added",
+        personId: data.id,
+        personName: data.display_name,
+        personEmail: data.email,
+        personAccess: access,
+        changedByName: inviterName,
+      });
+
+      // Two extra fields so the form can say what actually happened. The user
+      // list strips them before storing the row.
+      return NextResponse.json(
+        { ...data, invite_sent: invite.sent, invite_redirected: invite.redirected },
+        { status: 201 },
+      );
     }
 
     // No city, super admin only: a blank profile, switched off.
@@ -347,7 +480,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data, { status: 201 });
+    // No invite on this path, on purpose. This person is switched off and has
+    // no cities, so "you are in, go and sign in" would be a lie that ends at
+    // the Account Pending screen. The super admins are still told, because a
+    // half-configured profile nobody goes back to is exactly what gets missed.
+    await notifySuperAdminsOfUserChange({
+      kind: "added",
+      personId: data.id,
+      personName: data.display_name,
+      personEmail: data.email,
+      personAccess: "No cities yet, switched off",
+      changedByName: inviterName,
+    });
+
+    return NextResponse.json(
+      { ...data, invite_sent: false, invite_redirected: false },
+      { status: 201 },
+    );
   } catch (err) {
     console.error("[api/db/user-profiles] unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

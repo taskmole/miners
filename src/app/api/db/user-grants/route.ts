@@ -5,6 +5,7 @@ import {
   getTokenFromRequest,
   untypedDb as db,
 } from "@/lib/supabase-server";
+import { notifySuperAdminsOfUserChange, describeGrants } from "@/lib/user-emails";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,33 @@ type GrantRow = {
   can_see_financials: boolean;
   receives_alerts: boolean;
 };
+
+type ProfileRow = {
+  id: string;
+  display_name: string | null;
+  email: string | null;
+  is_super_admin: boolean;
+};
+
+type GrantRowLike = { city_id: string; level: GrantRow["level"] };
+
+/**
+ * Did anything actually move? Compared as a sorted "city:level" list, so the
+ * order rows come back in cannot make a re-save look like a change. The
+ * financials and alerts ticks are deliberately ignored: they are settings on
+ * an access someone already has, not a change to what they can do.
+ */
+function grantsDiffer(
+  before: GrantRowLike[] | null,
+  after: GrantRowLike[] | null,
+): boolean {
+  const key = (rows: GrantRowLike[] | null) =>
+    (rows || [])
+      .map((g) => `${g.city_id}:${g.level}`)
+      .sort()
+      .join("|");
+  return key(before) !== key(after);
+}
 
 /** Postgres insufficient_privilege, raised when RLS refuses a write. */
 const INSUFFICIENT_PRIVILEGE = "42501";
@@ -157,6 +185,15 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // The "before" picture, read before anything is deleted. Changing
+    // somebody's city access is the most common access change there is, and
+    // it never touches the profiles route, so this is the only place it can
+    // be noticed at all.
+    const { data: previousGrants } = await db(supabase)
+      .from("user_city_grants")
+      .select("city_id, level")
+      .eq("user_id", userId);
+
     const keep = incoming.map((g) => g.city_id);
 
     // Remove the cities that are no longer in the list. Done first, so a
@@ -215,6 +252,35 @@ export async function PUT(request: NextRequest) {
     if (error) {
       console.error("[api/db/user-grants] reread error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Alert the super admins, after the change has committed, only when
+    // something actually moved. Re-saving the same cities sends nothing.
+    // Nothing below can throw or fail the request.
+    if (grantsDiffer(previousGrants as GrantRowLike[] | null, data as GrantRow[] | null)) {
+      const { data: people } = await db(supabase)
+        .from("user_profiles")
+        .select("id, display_name, email, is_super_admin")
+        .in("id", [...new Set([userId, auth.userId])]);
+
+      const rows = (people as ProfileRow[] | null) || [];
+      const target = rows.find((r) => r.id === userId);
+      const actor = rows.find((r) => r.id === auth.userId);
+
+      const isSuperAdmin = target?.is_super_admin === true;
+      const beforeLabel = describeGrants(previousGrants as GrantRowLike[], isSuperAdmin);
+      const afterLabel = describeGrants(data as GrantRowLike[], isSuperAdmin);
+
+      await notifySuperAdminsOfUserChange({
+        kind: "access",
+        personId: userId,
+        personName: target?.display_name ?? null,
+        personEmail: target?.email ?? null,
+        personAccess: afterLabel,
+        accessBefore: beforeLabel,
+        accessAfter: afterLabel,
+        changedByName: actor?.display_name || actor?.email || null,
+      });
     }
 
     return NextResponse.json((data as GrantRow[]) || []);

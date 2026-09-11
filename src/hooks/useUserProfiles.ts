@@ -38,6 +38,23 @@ interface AddUserData {
   team_id?: string | null;
 }
 
+/** The two extra fields POST adds to say what the invite email did. */
+interface InviteOutcome {
+  invite_sent?: boolean;
+  invite_redirected?: boolean;
+}
+
+/**
+ * What the Add User form gets back: the new person, plus whether they were
+ * actually emailed. The form says different things for sent, redirected to
+ * the test inbox, and failed.
+ */
+interface AddUserResult {
+  profile: UserProfile;
+  inviteSent: boolean;
+  inviteRedirected: boolean;
+}
+
 interface UpdateUserData {
   display_name?: string | null;
   team_id?: string | null;
@@ -198,16 +215,20 @@ export function useUserProfiles() {
    * Contribute and active. The server decides which of those applies, and
    * refuses anything else.
    */
-  const addUser = useCallback(async (data: AddUserData): Promise<UserProfile | null> => {
+  const addUser = useCallback(async (data: AddUserData): Promise<AddUserResult | null> => {
     try {
-      const result = await apiFetch<UserProfile>('/api/db/user-profiles', {
+      const result = await apiFetch<UserProfile & InviteOutcome>('/api/db/user-profiles', {
         method: 'POST',
         body: JSON.stringify(data),
       });
       if (result) {
-        setUsers(prev => [result, ...prev]);
+        // The two invite fields describe what the send did, not who the
+        // person is, so they are stripped before the row joins the list.
+        const { invite_sent, invite_redirected, ...profile } = result;
+        setUsers(prev => [profile as UserProfile, ...prev]);
+        return { profile: profile as UserProfile, inviteSent: invite_sent === true, inviteRedirected: invite_redirected === true };
       }
-      return result;
+      return null;
     } catch (err) {
       console.error('Error adding user:', err);
       throw err;
@@ -314,4 +335,4 @@ export function useUserProfiles() {
   };
 }
 
-export type { UserProfile, UserRole, CityGrant, CityLevel, Access };
+export type { UserProfile, UserRole, CityGrant, CityLevel, Access, AddUserResult };
