@@ -882,9 +882,16 @@ const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ pl
         return result;
     };
 
-    const handleRemove = (attachmentId: string) => {
-        removePoiAttachment(placeId, attachmentId, { placeName, placeType });
-        showToast('Deleted');
+    const handleRemove = async (attachmentId: string) => {
+        const result = await removePoiAttachment(placeId, attachmentId, { placeName, placeType });
+        // Nothing was there to remove, usually a double tap. Stay quiet rather
+        // than showing a second "Deleted" for a delete that already happened.
+        if (result.noop) return;
+        if (result.success) {
+            showToast('Deleted');
+        } else {
+            showToast(result.error || 'Could not delete that file', 'error');
+        }
     };
 
     return (
