@@ -422,39 +422,51 @@ export function ScoutingTripForm({
     }
   }, [deposit, transferFee, fitoutCost, investmentManual]);
 
-  // Auto-calculate: Revenue + Payback
-  useEffect(() => {
-    if (!defaults) return;
-    const footfall = parseFloat(footfallEstimate);
-    if (isNaN(footfall) || footfall <= 0) return;
+  // ---------------------------------------------------------------------------
+  // Estimated revenue and payback are switched off, here and everywhere else
+  // they were shown. They came from a guessed model (footfall x conversion x
+  // ticket, then investment over profit) rather than from anything measured,
+  // and a confident number nobody stands behind is worse than no number. Same
+  // call as the property card and the financials switch-off.
+  //
+  // The three fields keep their state and stay in buildTripData, so a trip that
+  // already recorded them still carries them through an edit. Only the guessing
+  // and the display are gone.
+  // ---------------------------------------------------------------------------
 
-    const currencyCode = CURRENCY_MAP[currency] as keyof typeof defaults;
-    const cd = defaults[currencyCode];
-    if (!cd) return;
-    const rate = cd.conversionRate / 100;
-    const ticket = cd.avgTicket;
-
-    const dailyRev = Math.round(footfall * rate * ticket);
-    const monthlyRev = dailyRev * 30;
-
-    if (!dailyRevenueManual) {
-      setExpectedDailyRevenue(dailyRev.toString());
-    }
-    if (!monthlyRevenueManual) {
-      setMonthlyRevenueRange(monthlyRev.toLocaleString());
-    }
-    if (!paybackManual) {
-      const rent = parseFloat(monthlyRent) || 0;
-      const fees = parseFloat(serviceFees) || 0;
-      const investment = investmentManual
-        ? (parseFloat(openingInvestment) || 0)
-        : (parseFloat(deposit) || 0) + (parseFloat(transferFee) || 0) + (parseFloat(fitoutCost) || 0);
-      const monthlyProfit = monthlyRev - rent - fees;
-      if (monthlyProfit > 0 && investment > 0) {
-        setPaybackMonths(Math.ceil(investment / monthlyProfit).toString());
-      }
-    }
-  }, [footfallEstimate, monthlyRent, serviceFees, openingInvestment, deposit, transferFee, fitoutCost, investmentManual, currency, defaults, dailyRevenueManual, monthlyRevenueManual, paybackManual]);
+  // Auto-calculate: Revenue + Payback. Off, see above.
+  // useEffect(() => {
+  //   if (!defaults) return;
+  //   const footfall = parseFloat(footfallEstimate);
+  //   if (isNaN(footfall) || footfall <= 0) return;
+  //
+  //   const currencyCode = CURRENCY_MAP[currency] as keyof typeof defaults;
+  //   const cd = defaults[currencyCode];
+  //   if (!cd) return;
+  //   const rate = cd.conversionRate / 100;
+  //   const ticket = cd.avgTicket;
+  //
+  //   const dailyRev = Math.round(footfall * rate * ticket);
+  //   const monthlyRev = dailyRev * 30;
+  //
+  //   if (!dailyRevenueManual) {
+  //     setExpectedDailyRevenue(dailyRev.toString());
+  //   }
+  //   if (!monthlyRevenueManual) {
+  //     setMonthlyRevenueRange(monthlyRev.toLocaleString());
+  //   }
+  //   if (!paybackManual) {
+  //     const rent = parseFloat(monthlyRent) || 0;
+  //     const fees = parseFloat(serviceFees) || 0;
+  //     const investment = investmentManual
+  //       ? (parseFloat(openingInvestment) || 0)
+  //       : (parseFloat(deposit) || 0) + (parseFloat(transferFee) || 0) + (parseFloat(fitoutCost) || 0);
+  //     const monthlyProfit = monthlyRev - rent - fees;
+  //     if (monthlyProfit > 0 && investment > 0) {
+  //       setPaybackMonths(Math.ceil(investment / monthlyProfit).toString());
+  //     }
+  //   }
+  // }, [footfallEstimate, monthlyRent, serviceFees, openingInvestment, deposit, transferFee, fitoutCost, investmentManual, currency, defaults, dailyRevenueManual, monthlyRevenueManual, paybackManual]);
 
   const buildTripData = (): Partial<ScoutingTrip> => ({
     name,
@@ -813,6 +825,8 @@ export function ScoutingTripForm({
                   />
                 </FormField>
 
+                {/* Revenue and payback, off. See the note above the auto-calc. */}
+                {/*
                 <div className="grid grid-cols-1 gap-4">
                   <FormField label="Revenue (daily)">
                     <AutoInput
@@ -840,6 +854,7 @@ export function ScoutingTripForm({
                     isAuto={!paybackManual}
                   />
                 </FormField>
+                */}
               </FormSection>
 
               {/* Operational */}

@@ -147,8 +147,6 @@ function downloadPitchAsPdf(pitch: AdminPitch) {
           <div class="field"><div class="label">Deposit</div><div class="value">${pitch.deposit ? '€' + pitch.deposit.toLocaleString() : '—'}</div></div>
           <div class="field"><div class="label">Transfer Fee</div><div class="value">${pitch.transferFee ? '€' + pitch.transferFee.toLocaleString() : '—'}</div></div>
           <div class="field"><div class="label">Fitout Cost</div><div class="value">${pitch.fitoutCost ? '€' + pitch.fitoutCost.toLocaleString() : '—'}</div></div>
-          <div class="field"><div class="label">Expected Daily Revenue</div><div class="value">${pitch.expectedDailyRevenue ? '€' + pitch.expectedDailyRevenue.toLocaleString() : '—'}</div></div>
-          <div class="field"><div class="label">Payback</div><div class="value">${pitch.paybackMonths ? pitch.paybackMonths + ' months' : '—'}</div></div>
         </div>
       </div>
 

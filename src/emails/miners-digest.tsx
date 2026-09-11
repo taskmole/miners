@@ -49,10 +49,6 @@ function formatPrice(rent: number, city: string): string {
   return `€${rent.toLocaleString("en-US")}/mo`;
 }
 
-function formatCurrency(amount: number, city: string): string {
-  if (city === "prague") return `${amount.toLocaleString("en-US")} Kč`;
-  return `€${amount.toLocaleString("en-US")}`;
-}
 
 function ListingRow({ listing, city }: { listing: Listing; city: string }) {
   const hasScore = listing.score != null;
@@ -134,16 +130,6 @@ function ListingRow({ listing, city }: { listing: Listing; city: string }) {
             <div className="listing-callout" style={reasonCallout}>
               <span style={{ fontWeight: 700 }}>Why: </span>
               {listing.reason}
-            </div>
-          </div>
-        )}
-        {listing.monthlyEbitda != null && (
-          <div style={{ marginTop: "4px" }}>
-            <div className="listing-callout" style={revenueCallout}>
-              <span style={{ fontWeight: 700 }}>Est. </span>
-              {formatCurrency(listing.monthlyEbitda, city)}/mo EBITDA
-              {listing.paybackMonths != null &&
-                ` · ~${listing.paybackMonths}mo payback`}
             </div>
           </div>
         )}
@@ -387,15 +373,6 @@ const reasonCallout: React.CSSProperties = {
   color: "#15803d",
 };
 
-const revenueCallout: React.CSSProperties = {
-  backgroundColor: "#dbeafe",
-  border: "1px solid #bfdbfe",
-  borderRadius: "5px",
-  padding: "3px 8px",
-  fontSize: "12px",
-  lineHeight: "16px",
-  color: "#1d4ed8",
-};
 
 const listingListedAgo: React.CSSProperties = {
   fontSize: "11px",
