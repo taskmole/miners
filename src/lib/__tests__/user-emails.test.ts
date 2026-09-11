@@ -62,8 +62,8 @@ describe("the access line", () => {
         {
           isSuperAdmin: false,
           grants: [
-            { cityId: "madrid", level: "view", canSeeFinancials: false, receivesAlerts: false },
-            { cityId: "prague", level: "approve", canSeeFinancials: false, receivesAlerts: false },
+            { cityId: "madrid", level: "view", receivesAlerts: false },
+            { cityId: "prague", level: "approve", receivesAlerts: false },
           ],
         },
         cityNames,

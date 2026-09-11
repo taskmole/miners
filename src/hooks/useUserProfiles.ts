@@ -166,7 +166,6 @@ export function useUserProfiles() {
             grants: grants.map((g) => ({
               city_id: g.cityId,
               level: g.level,
-              can_see_financials: g.canSeeFinancials,
               receives_alerts: g.receivesAlerts,
             })),
           }),
@@ -206,14 +205,14 @@ export function useUserProfiles() {
   );
 
   /**
-   * Set the person-level financials column. Super admins only, enforced by the
-   * profiles route and again by a database trigger.
+   * Set the Financials switch on somebody's profile. Super admins only,
+   * enforced by the profiles route and again by a database trigger.
    *
-   * Nothing on screen sets this directly. Financials is ticked per city on the
-   * user page, which then calls this with a mirror of those ticks, because
-   * is_finance_plus() reads this column OR any city tick. Left alone, a column
-   * switched on long ago would keep showing revenue after every city tick had
-   * been cleared.
+   * Nothing calls this yet. The user screen shows Financials as coming soon
+   * and off for everybody, because not one of the six finance tables has a
+   * city column, so the control could not mean what a per-city tick implied.
+   * Kept here, wired and tested, so switching the feature on later is a
+   * screen change and not a round trip through the API and the trigger again.
    */
   const setCanSeeFinancials = useCallback(
     async (targetUserId: string, canSee: boolean): Promise<boolean> => {

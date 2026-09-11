@@ -24,7 +24,6 @@ const grant = (
 ): CityGrant => ({
   cityId,
   level,
-  canSeeFinancials: false,
   receivesAlerts: false,
   ...extras,
 });
@@ -101,7 +100,7 @@ describe("the dashboard door", () => {
 
 describe("financials", () => {
   it("are independent of the level", () => {
-    const richViewer = person([grant("madrid", "view", { canSeeFinancials: true })]);
+    const richViewer = person([grant("madrid", "view")], false, { canSeeFinancials: true });
     const poorApprover = person([grant("madrid", "approve")]);
     expect(canSeeRevenue(richViewer)).toBe(true);
     expect(canSeeRevenue(poorApprover)).toBe(false);
@@ -161,10 +160,10 @@ describe("summaries and parsing", () => {
   it("reads database rows into the shape the screens use", () => {
     expect(
       toGrants([
-        { city_id: "madrid", level: "approve", can_see_financials: true, receives_alerts: false },
+        { city_id: "madrid", level: "approve", receives_alerts: false },
       ]),
     ).toEqual([
-      { cityId: "madrid", level: "approve", canSeeFinancials: true, receivesAlerts: false },
+      { cityId: "madrid", level: "approve", receivesAlerts: false },
     ]);
     expect(toGrants(null)).toEqual([]);
   });
@@ -195,7 +194,7 @@ describe("an account that is switched off", () => {
 
   it("cannot see revenue, from either home of the flag", () => {
     expect(
-      canSeeRevenue(person([grant("madrid", "approve", { canSeeFinancials: true })], false, { isActive: false })),
+      canSeeRevenue(person([grant("madrid", "approve")], false, { isActive: false, canSeeFinancials: true })),
     ).toBe(false);
     expect(
       canSeeRevenue(person([], false, { isActive: false, canSeeFinancials: true })),
@@ -217,20 +216,17 @@ describe("an account that is switched off", () => {
 });
 
 /**
- * Financials reads both homes of the flag: the new one on the person and the
- * old per-city ticks, until the grant column is dropped. Neither alone may be
- * missed, and neither present may be ignored.
+ * Financials is one switch per person. It was a tick per city until the six
+ * finance tables turned out to have no city column to filter on, which made
+ * the per-city reading a fiction. Off for everybody today; the user screen
+ * shows it as coming soon.
  */
 describe("the financials switch", () => {
-  it("is true from the person's own flag, with no city ticked", () => {
+  it("is true from the person's own flag, whatever their level", () => {
     expect(canSeeRevenue(person([grant("madrid", "view")], false, { canSeeFinancials: true }))).toBe(true);
   });
 
-  it("is true from an old per-city tick alone", () => {
-    expect(canSeeRevenue(person([grant("madrid", "view", { canSeeFinancials: true })]))).toBe(true);
-  });
-
-  it("is true with the flag on and no cities at all, which is now a real state", () => {
+  it("is true with the flag on and no cities at all, which is a real state", () => {
     expect(canSeeRevenue(person([], false, { canSeeFinancials: true }))).toBe(true);
   });
 

@@ -96,7 +96,7 @@ export function CityAccessEditor({
     // New access starts quiet: View, no financials, no alerts. All opt-in.
     onChange([
       ...grants,
-      { cityId, level: "view", canSeeFinancials: false, receivesAlerts: false },
+      { cityId, level: "view", receivesAlerts: false },
     ]);
   };
 
@@ -171,17 +171,13 @@ export function CityAccessEditor({
                     {CITY_LEVELS.find((l) => l.id === grant.level)?.hint}
                   </p>
 
-                  {/* 3. The two extras, one per line, financials first. Both
-                         hang off the level above rather than forming a
-                         settings section of their own, so they get no
-                         separator. */}
-                  <div className="mt-2.5 space-y-1.5">
-                    <ExtraToggle
-                      label="Can see financials"
-                      on={grant.canSeeFinancials}
-                      disabled={!editable}
-                      onChange={(v) => setExtra(city.id, { canSeeFinancials: v })}
-                    />
+                  {/* 3. The one extra that is genuinely per city.
+                         Financials used to sit here beside it. It never was a
+                         per-city choice: is_finance_plus() returned true if
+                         ANY city had the tick, and not one of the six finance
+                         tables has a city column. It is one row per person at
+                         the top of the panel now, and switched off. */}
+                  <div className="mt-2.5">
                     <ExtraToggle
                       label="Gets alerts for this city"
                       on={grant.receivesAlerts}

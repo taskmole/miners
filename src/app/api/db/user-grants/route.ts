@@ -23,7 +23,6 @@ type GrantRow = {
   user_id: string;
   city_id: string;
   level: "view" | "contribute" | "approve";
-  can_see_financials: boolean;
   receives_alerts: boolean;
 };
 
@@ -78,7 +77,7 @@ export async function GET(request: NextRequest) {
     if (mode === "all") {
       const { data, error } = await db(supabase)
         .from("user_city_grants")
-        .select("user_id, city_id, level, can_see_financials, receives_alerts");
+        .select("user_id, city_id, level, receives_alerts");
 
       if (error) {
         console.error("[api/db/user-grants] all query error:", error);
@@ -96,7 +95,7 @@ export async function GET(request: NextRequest) {
 
       const { data, error } = await db(supabase)
         .from("user_city_grants")
-        .select("user_id, city_id, level, can_see_financials, receives_alerts")
+        .select("user_id, city_id, level, receives_alerts")
         .eq("user_id", userId);
 
       if (error) {
@@ -122,7 +121,7 @@ export async function GET(request: NextRequest) {
           .single(),
         db(auth.supabase)
           .from("user_city_grants")
-          .select("city_id, level, can_see_financials, receives_alerts")
+          .select("city_id, level, receives_alerts")
           .eq("user_id", auth.userId),
       ]);
 
@@ -217,13 +216,6 @@ export async function PUT(request: NextRequest) {
       p_grants: incoming.map((g) => ({
         city_id: g.city_id,
         level: g.level,
-        // Passed through only when it is actually present. The screen always
-        // sends it, but set_user_grants() keeps the column's existing value
-        // for any key a caller leaves out, so an older client cannot quietly
-        // clear a flag the finance helper is still reading.
-        ...(g.can_see_financials === undefined
-          ? {}
-          : { can_see_financials: g.can_see_financials === true }),
         receives_alerts: g.receives_alerts === true,
       })),
     });

@@ -57,7 +57,7 @@ async function accessFor(
         .maybeSingle(),
       db(supabase)
         .from("user_city_grants")
-        .select("city_id, level, can_see_financials, receives_alerts")
+        .select("city_id, level, receives_alerts")
         .eq("user_id", userId),
     ]);
 

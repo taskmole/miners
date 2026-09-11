@@ -8,11 +8,12 @@
  *   isActive      is the account switched on at all. Off means no access, no
  *                 matter what the grants say. A super admin is exempt, so that
  *                 an accidental switch-off cannot lock the founders out.
- *   canSeeFinancials  a person-level mirror of the per-city money ticks, kept
- *                 in step by the user screen so the flag can be turned off
- *                 again. Never set on its own.
- *   grants        a level per city, plus a financials tick and an alerts
- *                 tick. No grant means no access.
+ *   canSeeFinancials  the money switch. One per person, covering every city,
+ *                 because not one of the six finance tables has a city
+ *                 column. Off for everybody today and not settable from the
+ *                 screen; the user page shows it as coming soon.
+ *   grants        a level per city, plus an alerts tick. No grant means no
+ *                 access.
  *
  * The rule, in one sentence: being in a team means you share and edit
  * together; seeing everything in a city is what Approve means; seeing
@@ -32,7 +33,6 @@ export type CityLevel = 'view' | 'contribute' | 'approve';
 export interface CityGrant {
   cityId: string;
   level: CityLevel;
-  canSeeFinancials: boolean;
   /** Property alert emails, chosen per city rather than once globally. */
   receivesAlerts: boolean;
 }
@@ -72,13 +72,13 @@ export interface Access {
    */
   isActive: boolean;
   /**
-   * A mirror of "is financials ticked in any city", stored on the person so
-   * that is_finance_plus() can answer without a join.
+   * May they see revenue figures on café records?
    *
-   * The tick itself is chosen per city, on `grants[].canSeeFinancials`, and
-   * the user screen writes this column to match on every save. It is not a
-   * second switch: setting it on its own would grant revenue access that no
-   * city row explains.
+   * One switch for the whole person. It was a tick per city until today,
+   * which read as a per-city choice and never was one: is_finance_plus()
+   * returned true if ANY city had the tick, and no finance table has a city
+   * to filter on. Making it genuinely per-city means giving those tables a
+   * city_id, which is a separate job and not blocked by anything here.
    */
   canSeeFinancials: boolean;
   grants: CityGrant[];
@@ -129,13 +129,14 @@ export function canAccessDashboard(access: Access): boolean {
 }
 
 /**
- * Mirrors is_finance_plus(), which reads both places the flag is held: the
- * per-city ticks, and the person-level mirror of them.
+ * Mirrors is_finance_plus(). A super admin sees revenue through the Super
+ * Admin switch whatever this says, which is why the user screen shows the
+ * Financials row as On for them and Off for everyone else.
  */
 export function canSeeRevenue(access: Access): boolean {
   if (access.isSuperAdmin) return true;
   if (!access.isActive) return false;
-  return access.canSeeFinancials || access.grants.some((g) => g.canSeeFinancials);
+  return access.canSeeFinancials;
 }
 
 /** Can they act in this city: submit a pitch, request a property, comment, draw. */
@@ -236,7 +237,6 @@ export function historyCityScope(viewer: Access, allCityIds: string[]): string[]
 export interface CityGrantRow {
   city_id: string;
   level: CityLevel;
-  can_see_financials: boolean;
   receives_alerts: boolean;
 }
 
@@ -244,7 +244,6 @@ export function toGrants(rows: CityGrantRow[] | null | undefined): CityGrant[] {
   return (rows ?? []).map((r) => ({
     cityId: r.city_id,
     level: r.level,
-    canSeeFinancials: r.can_see_financials,
     receivesAlerts: r.receives_alerts,
   }));
 }

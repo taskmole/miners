@@ -54,7 +54,6 @@ export default function UserDetailPage() {
     loading: authLoading,
     updateGrants,
     setSuperAdmin,
-    setCanSeeFinancials,
     toggleActive,
   } = useUserProfiles();
 
@@ -167,30 +166,10 @@ export default function UserDetailPage() {
       JSON.stringify(
         [...list]
           .sort((a, b) => a.cityId.localeCompare(b.cityId))
-          .map((g) => [g.cityId, g.level, g.canSeeFinancials, g.receivesAlerts]),
+          .map((g) => [g.cityId, g.level, g.receivesAlerts]),
       );
     return key(formGrants) !== key(savedGrants);
   }, [formGrants, savedGrants]);
-
-  /**
-   * Is the person-level financials column out of step with the city ticks?
-   *
-   * It is a mirror of "financials is ticked in at least one city", and it can
-   * drift: people carried a value in this column from before the tick moved
-   * back onto the city rows. Drift matters because is_finance_plus() reads the
-   * column OR any tick, so somebody with the column set and no tick anywhere
-   * still sees revenue while the screen shows every tick off.
-   *
-   * Counting it as an unsaved change is what makes that fixable: the Save
-   * button lights up on a person who looks untouched, and pressing it brings
-   * the column back in line.
-   */
-  const financialsAnywhere = useMemo(
-    () => formGrants.some((g) => g.canSeeFinancials),
-    [formGrants],
-  );
-  const financialsMirrorStale =
-    canEditAccess && !!user && financialsAnywhere !== (user.can_see_financials === true);
 
   const isDirty = useMemo(() => {
     if (!user) return false;
@@ -198,10 +177,9 @@ export default function UserDetailPage() {
       formActive !== user.is_active ||
       formDisplayName !== (user.display_name || '') ||
       formSuperAdmin !== (user.is_super_admin === true) ||
-      financialsMirrorStale ||
       grantsChanged
     );
-  }, [user, formActive, formDisplayName, formSuperAdmin, financialsMirrorStale, grantsChanged]);
+  }, [user, formActive, formDisplayName, formSuperAdmin, grantsChanged]);
 
   const handleSuperAdminToggle = (on: boolean) => {
     if (on) {
@@ -235,27 +213,6 @@ export default function UserDetailPage() {
       if (grantsChanged) {
         if (!(await updateGrants(user.id, formGrants))) {
           setSaveError('Could not save city access. Only a super admin can change it.');
-          return;
-        }
-      }
-
-      /* Financials is chosen per city, on the rows above, and the person-level
-         column is kept as a mirror of those ticks rather than as a second
-         control somebody has to remember to set.
-         Without this the column would be write-once: is_finance_plus() returns
-         true if the column OR any city tick is set, so a person whose column
-         was already true would keep seeing revenue after every city tick had
-         been cleared, with nothing on the screen to turn it off.
-
-         Two things about where this sits. It runs after the grants, so a
-         failed grant save cannot leave the column claiming an access no city
-         row explains. And it runs only for a super admin: an Approver may
-         switch somebody on and off, the profiles route refuses this column to
-         anybody else, and without the guard an Approver's save would stop here
-         on a 403 and silently lose the rest of their changes. */
-      if (financialsMirrorStale) {
-        if (!(await setCanSeeFinancials(user.id, financialsAnywhere))) {
-          setSaveError('Only a super admin can change who sees financials.');
           return;
         }
       }
@@ -430,6 +387,39 @@ export default function UserDetailPage() {
               on={formSuperAdmin}
               disabled={!isSuperAdmin}
               onChange={handleSuperAdminToggle}
+            />
+          </div>
+
+          {/* Financials, one row per person, deliberately not switchable.
+              It used to be a tick per city, which read as a per-city choice
+              and never was one: is_finance_plus() returns true if ANY city had
+              the tick, and not one of the six finance tables has a city
+              column. Five of those tables are empty and the sixth holds a
+              single number, so rather than ship a control that cannot mean
+              what it says, the row states that the view is coming and stays
+              off for everybody.
+
+              A super admin reads On because that is the truth: the Super Admin
+              switch carries revenue with it whatever this column says. Turning
+              the row off for them would be the same lie in the other
+              direction. */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium text-zinc-400">Financials</div>
+                <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-400 bg-zinc-100 rounded px-1.5 py-0.5">
+                  Coming soon
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400">
+                Revenue figures on café records. Off for everyone for now.
+              </p>
+            </div>
+            <OnOffSegments
+              ariaLabel="Financials"
+              on={formSuperAdmin}
+              disabled
+              onChange={() => {}}
             />
           </div>
 

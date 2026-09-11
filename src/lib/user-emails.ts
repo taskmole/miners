@@ -85,7 +85,6 @@ export function describeGrants(
       grants: (grants || []).map((g) => ({
         cityId: g.city_id,
         level: g.level,
-        canSeeFinancials: false,
         receivesAlerts: false,
       })),
     },
