@@ -7,11 +7,31 @@
  *   - a Super Admin switch (everything, everywhere)
  *   - a level per city, plus per-city extras
  *
- * One line per city. The level control always shows all four options including
- * "No access", so the off state is a visible choice rather than an absence, and
- * so the cumulative ladder is readable left to right. The extras only appear
- * once the person actually has access, because financials and alerts are
- * meaningless for a city they cannot open.
+ * One row per city, and the row answers two separate questions in the order
+ * somebody actually asks them:
+ *
+ *   1. Can they open this city at all?   -> the Off / On control on the right
+ *   2. And what may they do in it?       -> View / Contribute / Approve
+ *
+ * That split is why the four-way "No access | View | Contribute | Approve"
+ * control is gone. Four labels sharing one track meant "No access" competed
+ * for attention with three things it is not, and at 375px "Contribute" had
+ * about 63px to live in. Off / On is the same control used for Account and
+ * Super Admin higher up the page, so every yes/no on the screen now sits on
+ * the same right-hand edge at the same height.
+ *
+ * Everything below the head line only exists once the city is on, because the
+ * level, the financials tick and the alerts tick are all meaningless for a
+ * city somebody cannot open.
+ *
+ * One layout, phone and desktop alike. There is no wide variant that puts the
+ * level control on the same line as the city name. The extra width made the
+ * row harder to read, not easier: four controls strung across 850px gave the
+ * eye no order to follow, and the hint line ended up floating between two
+ * things it did not obviously belong to. Stacked, the row reads top to bottom
+ * in the order the questions are actually asked - can they open it, what may
+ * they do, then the two extras - and every control lands on the same
+ * right-hand edge.
  *
  * Presentation only. It holds no opinion about who is allowed to change what;
  * the caller passes the limits and the database enforces the truth.
@@ -19,24 +39,15 @@
 
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LEVEL_RANK, type CityGrant, type CityLevel } from "@/lib/permissions";
 
-/** What a person may do in one city. Ordered weakest to strongest. */
-export type CityLevel = "view" | "contribute" | "approve";
+export type { CityGrant, CityLevel };
 
 export const CITY_LEVELS: { id: CityLevel; label: string; hint: string }[] = [
-  { id: "view", label: "View", hint: "Can look at the map. Nothing else." },
-  { id: "contribute", label: "Contribute", hint: "Can submit pitches, request properties, comment and draw." },
-  { id: "approve", label: "Approve", hint: "Everything above, plus approves requests and gets the decision emails." },
+  { id: "view", label: "View", hint: "Can see the city on the map. Nothing else." },
+  { id: "contribute", label: "Contribute", hint: "Can add locations, photos and notes for review." },
+  { id: "approve", label: "Approve", hint: "Can contribute and sign off on submissions." },
 ];
-
-/** One city's access for one person. Absent from the array means no access. */
-export interface CityGrant {
-  cityId: string;
-  level: CityLevel;
-  canSeeFinancials: boolean;
-  /** Property alert emails, now chosen per city rather than once globally. */
-  receivesAlerts: boolean;
-}
 
 export interface CityOption {
   id: string;
@@ -53,18 +64,15 @@ interface CityAccessEditorProps {
   allowedCityIds?: string[];
   /** Highest level the editor may hand out. Approvers can only give Contribute. */
   maxLevel?: CityLevel;
+  /**
+   * Greys the whole list out and stops it responding. Used when the person is
+   * a Super Admin: the rows stay on screen, faded, so it is obvious there is a
+   * city list and equally obvious it no longer decides anything. Hiding it
+   * instead made the panel look broken the first time somebody flipped the
+   * switch.
+   */
+  dimmed?: boolean;
 }
-
-const LEVEL_RANK: Record<CityLevel, number> = { view: 0, contribute: 1, approve: 2 };
-
-/** The four states of the control, with "none" first so off reads as a choice. */
-type Segment = "none" | CityLevel;
-const SEGMENTS: { id: Segment; label: string }[] = [
-  { id: "none", label: "No access" },
-  { id: "view", label: "View" },
-  { id: "contribute", label: "Contribute" },
-  { id: "approve", label: "Approve" },
-];
 
 export function CityAccessEditor({
   cities,
@@ -72,25 +80,28 @@ export function CityAccessEditor({
   onChange,
   allowedCityIds,
   maxLevel = "approve",
+  dimmed = false,
 }: CityAccessEditorProps) {
   const grantFor = (cityId: string) => grants.find((g) => g.cityId === cityId);
-  const mayEdit = (cityId: string) => !allowedCityIds || allowedCityIds.includes(cityId);
+  const mayEdit = (cityId: string) =>
+    !dimmed && (!allowedCityIds || allowedCityIds.includes(cityId));
 
-  const setLevel = (cityId: string, segment: Segment) => {
-    if (segment === "none") {
+  /** Turning a city on starts at the weakest level. Promotion is deliberate. */
+  const setAccess = (cityId: string, on: boolean) => {
+    if (!on) {
       onChange(grants.filter((g) => g.cityId !== cityId));
       return;
     }
-    const existing = grantFor(cityId);
-    if (existing) {
-      onChange(grants.map((g) => (g.cityId === cityId ? { ...g, level: segment } : g)));
-      return;
-    }
-    // New access starts quiet: no financials, no alerts. Both are opt-in.
+    if (grantFor(cityId)) return;
+    // New access starts quiet: View, no financials, no alerts. All opt-in.
     onChange([
       ...grants,
-      { cityId, level: segment, canSeeFinancials: false, receivesAlerts: false },
+      { cityId, level: "view", canSeeFinancials: false, receivesAlerts: false },
     ]);
+  };
+
+  const setLevel = (cityId: string, level: CityLevel) => {
+    onChange(grants.map((g) => (g.cityId === cityId ? { ...g, level } : g)));
   };
 
   const setExtra = (cityId: string, patch: Partial<CityGrant>) => {
@@ -98,132 +109,145 @@ export function CityAccessEditor({
   };
 
   return (
-    /* Rows, not nested cards.
-       Each city used to be its own bordered box with its own padding, which
-       pushed every label 13px right of "Super Admin" above it and every
-       control 13px left of the Account control. Plain rows separated by a
-       hairline put the whole screen on one left edge and one right edge.
-       A city with no access is still obvious: its name greys out and the
-       white pill sits on "No access". */
-    <div className="divide-y divide-zinc-100 border-t border-zinc-100">
-      {cities.map((city) => {
-        const grant = grantFor(city.id);
-        const editable = mayEdit(city.id);
-        const current: Segment = grant?.level ?? "none";
+    <div className={cn(dimmed && "opacity-40 pointer-events-none select-none")}>
+      <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+        Cities
+      </h3>
 
-        return (
-          <div key={city.id} className="py-2.5">
-            {/* Two layouts, one breakpoint.
-                Below sm the city name gets its own line and the level control
-                sits underneath at full width, because four labels sharing a
-                row with the city name leaves about 60px each and "Contribute"
-                does not fit: the segments overflowed their cells and collided
-                with "Approve".
-                From sm up there is room for the original single line. */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-              <div className="flex items-baseline gap-2 sm:block sm:w-24 sm:shrink-0 min-w-0">
-                <div
-                  className={cn(
-                    "text-sm font-medium truncate",
-                    grant ? "text-zinc-900" : "text-zinc-500",
+      {/* Rows, not nested cards.
+          Each city used to be its own bordered box with its own padding, which
+          pushed every label 13px right of "Super Admin" above it and every
+          control 13px left of the Account control. Plain rows separated by a
+          hairline put the whole screen on one left edge and one right edge. */}
+      <div className="divide-y divide-zinc-100 border-t border-zinc-100">
+        {cities.map((city) => {
+          const grant = grantFor(city.id);
+          const editable = mayEdit(city.id);
+
+          return (
+            <div key={city.id} className="py-3">
+              {/* 1. Can they open this city at all? */}
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1 flex items-baseline gap-2">
+                  <span
+                    className={cn(
+                      "text-sm font-medium truncate",
+                      grant ? "text-zinc-900" : "text-zinc-500",
+                    )}
+                  >
+                    {city.name}
+                  </span>
+                  {!city.enabled && (
+                    <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-zinc-100 text-zinc-400">
+                      Soon
+                    </span>
                   )}
-                >
-                  {city.name}
                 </div>
-                {!city.enabled && (
-                  <div className="text-[10px] uppercase tracking-wide text-zinc-400 leading-tight">
-                    soon
+
+                <OnOffSegments
+                  ariaLabel={`Access to ${city.name}`}
+                  on={!!grant}
+                  disabled={!editable}
+                  onChange={(on) => setAccess(city.id, on)}
+                />
+              </div>
+
+              {grant && (
+                <>
+                  {/* 2. And what may they do in it? Full width, directly under
+                         the switch that turned it on. */}
+                  <LevelSegments
+                    cityName={city.name}
+                    level={grant.level}
+                    maxLevel={maxLevel}
+                    disabled={!editable}
+                    onChange={(level) => setLevel(city.id, level)}
+                    className="w-full mt-2.5"
+                  />
+
+                  {/* Plain English under the control, because "Contribute"
+                      means nothing to somebody setting up their first user. */}
+                  <p className="text-xs text-zinc-500 mt-1.5">
+                    {CITY_LEVELS.find((l) => l.id === grant.level)?.hint}
+                  </p>
+
+                  {/* 3. The one extra that is genuinely per city. Financials
+                         used to sit here beside it and no longer does: the
+                         six finance tables have no city column, so the tick
+                         was global whatever the screen implied. It is one row
+                         per person at the top of the page now. */}
+                  <div className="mt-2.5">
+                    <ExtraToggle
+                      label="Gets alerts for this city"
+                      on={grant.receivesAlerts}
+                      disabled={!editable}
+                      onChange={(v) => setExtra(city.id, { receivesAlerts: v })}
+                    />
                   </div>
-                )}
-              </div>
-
-              <div
-                role="radiogroup"
-                aria-label={`Access level for ${city.name}`}
-                /* p-1 not p-0.5: at 2px the selected white pill sat almost on
-                   the grey edge and the control read as one solid slab. 4px
-                   is enough for the pill to look seated inside a track. The
-                   height it adds is taken back off the buttons below, so the
-                   whole control is shorter than before, not taller. */
-                className="w-full sm:w-[420px] sm:shrink-0 sm:ml-auto grid grid-cols-4 gap-0.5 p-1 rounded-lg bg-zinc-100"
-              >
-                {SEGMENTS.map((segment) => {
-                  const selected = current === segment.id;
-                  const tooStrong =
-                    segment.id !== "none" && LEVEL_RANK[segment.id] > LEVEL_RANK[maxLevel];
-                  const disabled = !editable || tooStrong;
-                  return (
-                    <button
-                      key={segment.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      disabled={disabled}
-                      title={
-                        tooStrong
-                          ? "Only a Super Admin can give this level"
-                          : segment.id === "none"
-                            ? "Cannot open this city at all"
-                            : CITY_LEVELS.find((l) => l.id === segment.id)?.hint
-                      }
-                      onClick={() => setLevel(city.id, segment.id)}
-                      className={cn(
-                        // min-w-0 lets the grid cell actually shrink, and
-                        // truncate keeps a long label inside it. Without the
-                        // pair, "Contribute" spilled out of its cell and sat
-                        // on top of "Approve" instead of being clipped.
-                        //
-                        // No side padding below sm. At 375px each cell is
-                        // about 63px and "Contribute" needs 57px, so padding
-                        // is the difference between fitting and truncating.
-                        // The label is centred, so it costs nothing to drop.
-                        "min-w-0 truncate min-h-[30px] sm:min-h-[28px] rounded-md",
-                        "text-[11px] sm:text-xs font-medium transition-colors px-0 sm:px-2 leading-none",
-                        selected
-                          // ring, not just shadow: on a zinc-100 track a plain
-                          // shadow-sm gives the white pill almost no edge.
-                          ? segment.id === "none"
-                            ? "bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-900/5"
-                            : "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/5"
-                          : "text-zinc-500 hover:text-zinc-900",
-                        disabled && !selected && "opacity-40 cursor-not-allowed hover:text-zinc-400",
-                      )}
-                    >
-                      {segment.label}
-                    </button>
-                  );
-                })}
-              </div>
+                </>
+              )}
             </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-            {/* Extras appear only once there is access to attach them to.
-                They are two small on/off extras hanging off the level above,
-                not a separate settings section, so they get no separator and
-                sit directly under the control they belong to.
-
-                Below sm they stack, one per line, label left and switch right,
-                the same shape as every other switch row on this screen. Side
-                by side they left about 70px for a label and a 44px switch,
-                which is where the row started fighting itself. From sm up they
-                sit inline again, aligned to the control rather than to the
-                city name. */}
-            {grant && (
-              <div className="mt-1.5 space-y-0.5 sm:space-y-0 sm:flex sm:items-center sm:justify-end sm:gap-5">
-                <ExtraToggle
-                  label="Financials"
-                  on={grant.canSeeFinancials}
-                  disabled={!editable}
-                  onChange={(v) => setExtra(city.id, { canSeeFinancials: v })}
-                />
-                <ExtraToggle
-                  label="Alerts"
-                  on={grant.receivesAlerts}
-                  disabled={!editable}
-                  onChange={(v) => setExtra(city.id, { receivesAlerts: v })}
-                />
-              </div>
+/** View / Contribute / Approve as three segments, full width under the city. */
+function LevelSegments({
+  cityName,
+  level,
+  maxLevel,
+  disabled,
+  onChange,
+  className,
+}: {
+  cityName: string;
+  level: CityLevel;
+  maxLevel: CityLevel;
+  disabled: boolean;
+  onChange: (level: CityLevel) => void;
+  className?: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={`Access level for ${cityName}`}
+      /* p-1 not p-0.5: at 2px the selected white pill sat almost on the grey
+         edge and the control read as one solid slab. 4px is enough for the
+         pill to look seated inside a track. */
+      className={cn("grid grid-cols-3 gap-0.5 p-1 rounded-lg bg-zinc-100", className)}
+    >
+      {CITY_LEVELS.map((option) => {
+        const selected = level === option.id;
+        const tooStrong = LEVEL_RANK[option.id] > LEVEL_RANK[maxLevel];
+        const locked = disabled || tooStrong;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            disabled={locked}
+            title={tooStrong ? "Only a super admin can give this level" : option.hint}
+            onClick={() => onChange(option.id)}
+            className={cn(
+              // min-w-0 lets the grid cell actually shrink and truncate keeps a
+              // long label inside it. Without the pair, "Contribute" spilled
+              // out of its cell and sat on top of "Approve".
+              "min-w-0 truncate min-h-[32px] sm:min-h-[30px] rounded-md",
+              "text-xs font-medium transition-colors px-1 sm:px-2 leading-none",
+              selected
+                // ring, not just shadow: on a zinc-100 track a plain shadow-sm
+                // gives the white pill almost no edge.
+                ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/5"
+                : "text-zinc-500 hover:text-zinc-900",
+              locked && !selected && "opacity-40 cursor-not-allowed hover:text-zinc-500",
             )}
-          </div>
+          >
+            {option.label}
+          </button>
         );
       })}
     </div>
@@ -233,15 +257,9 @@ export function CityAccessEditor({
 /**
  * A small on/off extra attached to one city's access.
  *
- * Off / On as a two-segment control rather than a switch, matching the level
- * control directly above it. Two reasons. The app's switch is 48x28 on mobile
- * by design, which next to a 30px-tall level control made the extras read as
- * the most important thing in the row. And a switch only ever shows one state,
- * so "is this on?" depends on reading the thumb position; Off and On written
- * out cannot be misread.
- *
- * Green for On is the one place colour is used here, because these two are the
- * settings somebody scans a page for.
+ * Written as a full sentence rather than a one-word label. "Financials" needed
+ * the row around it to be readable; "Can see financials" does not, which is
+ * what lets these sit on their own lines instead of side by side.
  */
 function ExtraToggle({
   label,
@@ -255,17 +273,10 @@ function ExtraToggle({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <div
-      className={cn(
-        // Label left, control right on mobile, the same shape as the rest of
-        // the page. Inline and snug from sm up, where the two fit side by side.
-        "flex items-center justify-between gap-3",
-        "sm:justify-start sm:gap-2",
-      )}
-    >
+    <div className="flex items-center justify-between gap-3">
       <span
         className={cn(
-          "text-xs",
+          "text-xs min-w-0 truncate",
           on ? "text-zinc-900 font-medium" : "text-zinc-500",
           disabled && "opacity-50",
         )}
@@ -284,6 +295,14 @@ function ExtraToggle({
  * the user page use it too. One control for every yes/no on that screen means
  * they all sit on the same right-hand edge at the same height, instead of the
  * page mixing 48px switches with 30px segments.
+ *
+ * A switch only ever shows one state, so "is this on?" depends on reading a
+ * thumb position. Off and On written out cannot be misread.
+ *
+ * On is zinc-900, the same near-black as every primary button in the app,
+ * rather than a green borrowed from the mock-up. Green here would be the only
+ * colour on the screen and would read as a status ("healthy") rather than as a
+ * setting somebody chose.
  */
 export function OnOffSegments({
   on,
@@ -316,13 +335,13 @@ export function OnOffSegments({
             disabled={disabled}
             onClick={() => onChange(value)}
             className={cn(
-              "min-w-0 truncate min-h-[30px] sm:min-h-[28px] rounded-md",
-              "text-[11px] sm:text-xs font-medium transition-colors leading-none",
+              "min-w-0 truncate min-h-[32px] sm:min-h-[30px] rounded-md",
+              "text-xs font-medium transition-colors leading-none",
               selected
                 ? value
-                  ? "bg-emerald-600 text-white shadow-sm"
+                  ? "bg-zinc-900 text-white shadow-sm"
                   : "bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-900/5"
-                : "text-zinc-500 hover:text-zinc-900",
+                : "text-zinc-400 hover:text-zinc-900",
               disabled && "cursor-not-allowed",
             )}
           >
@@ -334,12 +353,23 @@ export function OnOffSegments({
   );
 }
 
-/** The collapsed line shown instead of the city list for a Super Admin. */
+/**
+ * The line shown above the city list for a Super Admin.
+ *
+ * Green, and the one place colour appears in this panel, because it is a
+ * statement of fact about the account rather than a control: it says the rows
+ * below have stopped mattering, and it needs to be told apart from them at a
+ * glance.
+ */
 export function SuperAdminBanner() {
   return (
-    <div className="flex items-center gap-2 px-3 py-3 rounded-lg bg-zinc-900 text-white">
-      <Check className="w-4 h-4 shrink-0" />
-      <span className="text-sm">Full access to every city, nothing to choose</span>
+    <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-emerald-50 border border-emerald-100">
+      <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center">
+        <Check className="w-3 h-3 text-white" strokeWidth={3} />
+      </span>
+      <span className="text-sm text-emerald-800">
+        Has full access to every city. The city settings below do not apply.
+      </span>
     </div>
   );
 }

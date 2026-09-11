@@ -29,9 +29,16 @@ const grant = (
   ...extras,
 });
 
-const person = (grants: CityGrant[], isSuperAdmin = false): Access => ({
+const person = (
+  grants: CityGrant[],
+  isSuperAdmin = false,
+  extras: Partial<Access> = {},
+): Access => ({
   isSuperAdmin,
+  isActive: true,
+  canSeeFinancials: false,
   grants,
+  ...extras,
 });
 
 // The five people the migration actually has to get right.
@@ -160,5 +167,75 @@ describe("summaries and parsing", () => {
       { cityId: "madrid", level: "approve", canSeeFinancials: true, receivesAlerts: false },
     ]);
     expect(toGrants(null)).toEqual([]);
+  });
+});
+
+/**
+ * The switch that was enforced nowhere.
+ *
+ * Until 20260911000010, is_active hid the app in the browser and locked
+ * nothing: a switched-off account with its grants intact read every place,
+ * the Madrid CSV and the revenue figure straight from PostgREST. These tests
+ * pin the TypeScript half to the same shape as the SQL, including the one
+ * exemption that keeps it safe.
+ */
+describe("an account that is switched off", () => {
+  const inactiveApprover = person([grant("madrid", "approve")], false, { isActive: false });
+  const inactiveSuperAdmin = person([], true, { isActive: false });
+
+  it("holds no level in any city", () => {
+    expect(hasCityLevel(inactiveApprover, "madrid", "view")).toBe(false);
+    expect(canContribute(inactiveApprover, "madrid")).toBe(false);
+    expect(canApprove(inactiveApprover, "madrid")).toBe(false);
+  });
+
+  it("cannot open the dashboard, however strong the grant", () => {
+    expect(canAccessDashboard(inactiveApprover)).toBe(false);
+  });
+
+  it("cannot see revenue, from either home of the flag", () => {
+    expect(
+      canSeeRevenue(person([grant("madrid", "approve", { canSeeFinancials: true })], false, { isActive: false })),
+    ).toBe(false);
+    expect(
+      canSeeRevenue(person([], false, { isActive: false, canSeeFinancials: true })),
+    ).toBe(false);
+  });
+
+  /**
+   * The exemption, and why it is not an oversight. is_admin() guards the
+   * user_profiles UPDATE policy and the field-lock trigger stops a non-admin
+   * changing is_active even on their own row. Gating the super admin branch
+   * would mean an inactive super admin could never switch themselves or each
+   * other back on, and the only way out would be the Supabase dashboard.
+   */
+  it("still lets a super admin through, so nobody can be locked out for good", () => {
+    expect(canAccessDashboard(inactiveSuperAdmin)).toBe(true);
+    expect(hasCityLevel(inactiveSuperAdmin, "madrid", "approve")).toBe(true);
+    expect(canSeeRevenue(inactiveSuperAdmin)).toBe(true);
+  });
+});
+
+/**
+ * Financials reads both homes of the flag: the new one on the person and the
+ * old per-city ticks, until the grant column is dropped. Neither alone may be
+ * missed, and neither present may be ignored.
+ */
+describe("the financials switch", () => {
+  it("is true from the person's own flag, with no city ticked", () => {
+    expect(canSeeRevenue(person([grant("madrid", "view")], false, { canSeeFinancials: true }))).toBe(true);
+  });
+
+  it("is true from an old per-city tick alone", () => {
+    expect(canSeeRevenue(person([grant("madrid", "view", { canSeeFinancials: true })]))).toBe(true);
+  });
+
+  it("is true with the flag on and no cities at all, which is now a real state", () => {
+    expect(canSeeRevenue(person([], false, { canSeeFinancials: true }))).toBe(true);
+  });
+
+  it("is false from neither", () => {
+    expect(canSeeRevenue(person([grant("madrid", "approve")]))).toBe(false);
+    expect(canSeeRevenue(nobody)).toBe(false);
   });
 });

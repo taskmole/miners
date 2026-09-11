@@ -335,6 +335,12 @@ export interface Database {
           city_ids: string[] | null;
           can_approve_level: number | null;
           is_active: boolean;
+          /**
+           * The money switch, one per person rather than per city. The six
+           * finance tables have no city column, so a per-city financials tick
+           * was always a global one wearing a disguise.
+           */
+          can_see_financials: boolean;
           team_id: string | null;
           /** Legacy. Superseded by user_city_grants.receives_alerts. */
           receives_scraper_emails: boolean;
@@ -351,6 +357,7 @@ export interface Database {
           city_ids?: string[] | null;
           can_approve_level?: number | null;
           is_active?: boolean;
+          can_see_financials?: boolean;
           team_id?: string | null;
           receives_scraper_emails?: boolean;
         };

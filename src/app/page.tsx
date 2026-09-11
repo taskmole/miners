@@ -117,8 +117,10 @@ function HomeContent() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Account active status - null means not yet checked
+  // Account active status - null means not yet checked, or checked and failed
   const [isActive, setIsActive] = useState<boolean | null>(null);
+  // The check itself failed, twice. Told apart from "switched off" on purpose.
+  const [activeCheckFailed, setActiveCheckFailed] = useState(false);
 
   // New listings modal
   const [isNewListingsOpen, setIsNewListingsOpen] = useState(false);
@@ -152,16 +154,44 @@ function HomeContent() {
   // Onboarding city picker - shown to new users after Google sign-in
   const [showCityPicker, setShowCityPicker] = useState(false);
 
+  /**
+   * Is this account switched on?
+   *
+   * This used to swallow any failure and set active = true, which meant a
+   * switched-off account stayed switched on for anyone whose request happened
+   * to fail. That hole is closed in the database now (20260911000010), so this
+   * check no longer has to be aggressive: it exists to explain, not to enforce.
+   *
+   * One retry first, because the common failure here is a token being refreshed
+   * mid-flight. Only if that fails too does the screen say so, and it says the
+   * check failed, NOT that the account is pending. A single network blip must
+   * not tell a legitimate person their account is awaiting approval with no way
+   * out of the screen.
+   */
   const checkUserActive = useCallback(async (): Promise<boolean> => {
-    try {
-      const data = await apiFetch<{ role: string; is_active: boolean }>('/api/db/user-profiles?mode=current');
-      const active = data?.is_active ?? true;
-      setIsActive(active);
-      return active;
-    } catch {
-      setIsActive(true);
-      return true;
+    const read = async () => {
+      const data = await apiFetch<{ role: string; is_active: boolean }>(
+        '/api/db/user-profiles?mode=current',
+      );
+      return data?.is_active ?? true;
+    };
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const active = await read();
+        setActiveCheckFailed(false);
+        setIsActive(active);
+        return active;
+      } catch {
+        // fall through to the retry, then to the failure state
+      }
     }
+
+    setActiveCheckFailed(true);
+    setIsActive(null);
+    // The database decides what they can actually reach. Returning true here
+    // only means "do not slam a door we are not sure about".
+    return true;
   }, []);
 
   // Check for auth session on mount and listen for changes
@@ -614,6 +644,40 @@ function HomeContent() {
             >
               Sign Out
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Could not check the account. Deliberately not the Account Pending
+          screen: that one accuses somebody of not being approved, and a failed
+          request is not evidence of that. */}
+      {user && activeCheckFailed && (
+        <div className="fixed inset-0 z-[175] bg-black flex flex-col items-center justify-center px-6">
+          <div className="flex flex-col items-center gap-6 max-w-md text-center">
+            <div className="w-16 h-16 rounded-full bg-zinc-500/20 flex items-center justify-center">
+              <svg className="w-8 h-8 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-semibold text-white">Could not check your account</h1>
+            <p className="text-zinc-400 text-sm leading-relaxed">
+              We could not reach the server to see whether your account is active.
+              Nothing has changed about your access.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => { void checkUserActive(); }}
+                className="px-6 py-3 bg-white text-zinc-800 rounded-lg hover:bg-zinc-100 transition-colors font-medium"
+              >
+                Try again
+              </button>
+              <button
+                onClick={() => signOut()}
+                className="px-6 py-3 text-zinc-400 hover:text-white transition-colors font-medium"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       )}

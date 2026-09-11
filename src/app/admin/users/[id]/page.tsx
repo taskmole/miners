@@ -54,6 +54,7 @@ export default function UserDetailPage() {
     loading: authLoading,
     updateGrants,
     setSuperAdmin,
+    setCanSeeFinancials,
     toggleActive,
   } = useUserProfiles();
 
@@ -65,6 +66,7 @@ export default function UserDetailPage() {
   const [formActive, setFormActive] = useState(true);
   const [formDisplayName, setFormDisplayName] = useState('');
   const [formSuperAdmin, setFormSuperAdmin] = useState(false);
+  const [formFinancials, setFormFinancials] = useState(false);
   const [formGrants, setFormGrants] = useState<CityGrant[]>([]);
   const [savedGrants, setSavedGrants] = useState<CityGrant[]>([]);
 
@@ -109,6 +111,7 @@ export default function UserDetailPage() {
       setFormActive(profile.is_active);
       setFormDisplayName(profile.display_name || '');
       setFormSuperAdmin(profile.is_super_admin === true);
+      setFormFinancials(profile.can_see_financials === true);
       setFormGrants(grants);
       setSavedGrants(grants);
       setGrantsBeforeSuperAdmin(grants);
@@ -177,9 +180,10 @@ export default function UserDetailPage() {
       formActive !== user.is_active ||
       formDisplayName !== (user.display_name || '') ||
       formSuperAdmin !== (user.is_super_admin === true) ||
+      formFinancials !== (user.can_see_financials === true) ||
       grantsChanged
     );
-  }, [user, formActive, formDisplayName, formSuperAdmin, grantsChanged]);
+  }, [user, formActive, formDisplayName, formSuperAdmin, formFinancials, grantsChanged]);
 
   const handleSuperAdminToggle = (on: boolean) => {
     if (on) {
@@ -206,6 +210,13 @@ export default function UserDetailPage() {
       if (formSuperAdmin !== (user.is_super_admin === true)) {
         if (!(await setSuperAdmin(user.id, formSuperAdmin))) {
           setSaveError('Only a super admin can grant or remove the Super Admin switch.');
+          return;
+        }
+      }
+
+      if (formFinancials !== (user.can_see_financials === true)) {
+        if (!(await setCanSeeFinancials(user.id, formFinancials))) {
+          setSaveError('Only a super admin can change who sees financials.');
           return;
         }
       }
@@ -390,21 +401,46 @@ export default function UserDetailPage() {
             />
           </div>
 
-          {formSuperAdmin ? (
-            <SuperAdminBanner />
-          ) : (
-            <CityAccessEditor
-              cities={cityOptions}
-              grants={formGrants}
-              onChange={setFormGrants}
-              // An empty allow-list disables every row, which is what an
-              // Approver looking at somebody else's page should see: the
-              // levels are visible so the shape of the person is readable,
-              // and nothing is pressable.
-              allowedCityIds={canEditAccess ? undefined : []}
-              maxLevel={canEditAccess ? 'approve' : 'contribute'}
+          {/* Financials, one switch for the whole person.
+              It used to be a tick per city, which read as a per-city choice
+              and never was one: is_finance_plus() returned true if ANY city
+              had the tick, and not one of the six finance tables has a city
+              column. Sitting here, above the city list, the screen says what
+              the database actually does. */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-zinc-900">Financials</div>
+              <p className="text-xs text-zinc-500">
+                Revenue figures, in every city they can open.
+              </p>
+            </div>
+            <OnOffSegments
+              ariaLabel="Financials"
+              on={formSuperAdmin || formFinancials}
+              disabled={!isSuperAdmin || formSuperAdmin}
+              onChange={setFormFinancials}
             />
-          )}
+          </div>
+
+          {/* The city list stays on screen for a Super Admin, greyed out,
+              with the banner above it saying why. Removing it instead made the
+              panel look like it had broken the first time somebody flipped the
+              switch, and it hid the fact that the grants underneath are still
+              there and come back when the switch goes off again. */}
+          {formSuperAdmin && <SuperAdminBanner />}
+
+          <CityAccessEditor
+            cities={cityOptions}
+            grants={formGrants}
+            onChange={setFormGrants}
+            // An empty allow-list disables every row, which is what an
+            // Approver looking at somebody else's page should see: the
+            // levels are visible so the shape of the person is readable,
+            // and nothing is pressable.
+            allowedCityIds={canEditAccess ? undefined : []}
+            maxLevel={canEditAccess ? 'approve' : 'contribute'}
+            dimmed={formSuperAdmin}
+          />
 
           {!canEditAccess && (
             <p className="text-xs text-zinc-500">
@@ -415,6 +451,9 @@ export default function UserDetailPage() {
 
           {saveError && <div className="text-xs text-red-600">{saveError}</div>}
 
+          {/* Full width at every size, like everything else in this panel.
+              The button says what it did; there is no separate status line to
+              read as well. */}
           <Button
             onClick={handleSave}
             disabled={saving || !isDirty}
@@ -422,10 +461,10 @@ export default function UserDetailPage() {
               'w-full h-10',
               isDirty
                 ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
-                : 'bg-zinc-200 text-zinc-500 cursor-not-allowed',
+                : 'bg-zinc-100 text-zinc-400 cursor-not-allowed hover:bg-zinc-100',
             )}
           >
-            {saving ? 'Saving...' : isDirty ? 'Save Changes' : 'No Changes'}
+            {saving ? 'Saving...' : isDirty ? 'Save changes' : 'Saved'}
           </Button>
         </section>
 

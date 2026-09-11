@@ -128,11 +128,23 @@ export function useUserProfiles() {
     try {
       const data = await apiFetch<{
         isSuperAdmin: boolean;
+        isActive: boolean;
+        canSeeFinancials: boolean;
         grants: CityGrantRow[];
       }>('/api/db/user-grants?mode=current');
 
       setAccess({
         isSuperAdmin: data?.isSuperAdmin === true,
+        // The endpoint has always returned this and this hook has always
+        // thrown it away, which was harmless while the database ignored
+        // is_active too. It does not any more: without this line an inactive
+        // Approver's browser still believes it may open /admin, and they land
+        // on a screen that loads nothing.
+        //
+        // Only an explicit false counts as off, matching the SQL's
+        // `IS DISTINCT FROM false`. A missing field must not lock anyone out.
+        isActive: data?.isActive !== false,
+        canSeeFinancials: data?.canSeeFinancials === true,
         grants: toGrants(data?.grants),
       });
     } catch (err) {
@@ -151,10 +163,13 @@ export function useUserProfiles() {
           method: 'PUT',
           body: JSON.stringify({
             user_id: targetUserId,
+            // No can_see_financials. It is a property of the person now and
+            // is saved through the profile route. The database keeps the old
+            // per-city column's value for any key left out here, so this is a
+            // stop sending, not a clear.
             grants: grants.map((g) => ({
               city_id: g.cityId,
               level: g.level,
-              can_see_financials: g.canSeeFinancials,
               receives_alerts: g.receivesAlerts,
             })),
           }),
@@ -187,6 +202,35 @@ export function useUserProfiles() {
         return true;
       } catch (err) {
         console.error('Error updating super admin flag:', err);
+        return false;
+      }
+    },
+    [userId, fetchAccess],
+  );
+
+  /**
+   * Turn the Financials switch on or off. Super admins only, enforced by the
+   * profiles route and again by a database trigger.
+   *
+   * One switch per person, covering every city. That is what it already did:
+   * is_finance_plus() was an any-city OR and not one of the finance tables has
+   * a city column. The switch moved onto the person so the screen stops
+   * implying a per-city choice that never existed.
+   */
+  const setCanSeeFinancials = useCallback(
+    async (targetUserId: string, canSee: boolean): Promise<boolean> => {
+      try {
+        await apiFetch('/api/db/user-profiles', {
+          method: 'PATCH',
+          body: JSON.stringify({ id: targetUserId, can_see_financials: canSee }),
+        });
+        setUsers((prev) =>
+          prev.map((u) => (u.id === targetUserId ? { ...u, can_see_financials: canSee } : u)),
+        );
+        if (targetUserId === userId) await fetchAccess();
+        return true;
+      } catch (err) {
+        console.error('Error updating financials flag:', err);
         return false;
       }
     },
@@ -328,6 +372,7 @@ export function useUserProfiles() {
     error,
     updateGrants,
     setSuperAdmin,
+    setCanSeeFinancials,
     toggleActive,
     addUser,
     updateUser,

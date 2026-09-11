@@ -54,10 +54,12 @@ function grantsDiffer(
   return key(before) !== key(after);
 }
 
-/** Postgres insufficient_privilege, raised when RLS refuses a write. */
+/** Postgres insufficient_privilege, raised when RLS or set_user_grants refuses. */
 const INSUFFICIENT_PRIVILEGE = "42501";
-/** Postgres row-level-security violation on an INSERT's WITH CHECK. */
-const RLS_VIOLATION = "42501";
+/** foreign_key_violation. set_user_grants raises it for a city that does not exist. */
+const NO_SUCH_CITY = "23503";
+/** invalid_parameter_value. A bad level, a repeated city, a malformed list. */
+const BAD_REQUEST_DATA = "22023";
 
 export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get("mode") || "current";
@@ -115,7 +117,7 @@ export async function GET(request: NextRequest) {
       await Promise.all([
         db(auth.supabase)
           .from("user_profiles")
-          .select("is_super_admin, is_active, display_name")
+          .select("is_super_admin, is_active, can_see_financials, display_name")
           .eq("id", auth.userId)
           .single(),
         db(auth.supabase)
@@ -142,6 +144,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       isSuperAdmin: profile?.is_super_admin === true,
       isActive: profile?.is_active !== false,
+      // The financials switch lives on the person now. The per-city ticks are
+      // still in `grants` and still read, until the grant column is dropped.
+      canSeeFinancials: profile?.can_see_financials === true,
       grants: grants || [],
     });
   } catch (err) {
@@ -194,65 +199,55 @@ export async function PUT(request: NextRequest) {
       .select("city_id, level")
       .eq("user_id", userId);
 
-    const keep = incoming.map((g) => g.city_id);
+    // One call, one transaction, one answer.
+    //
+    // This used to be a DELETE followed by an UPSERT, which was wrong twice
+    // over. A DELETE that matches zero rows under RLS is not an error, so a
+    // caller who was not a super admin got back 200 and an unchanged list: the
+    // screen said saved and the database had said no. And with no transaction
+    // around the pair, a bad city meant the delete landed and the insert threw,
+    // leaving the person with no cities at all.
+    //
+    // set_user_grants() re-checks is_super_admin() inside itself (SECURITY
+    // DEFINER means RLS is no longer doing that job), validates every city
+    // before it writes anything, and does the delete and the insert in one
+    // function body.
+    const { data: saved, error: saveError } = await db(supabase).rpc("set_user_grants", {
+      p_user_id: userId,
+      p_grants: incoming.map((g) => ({
+        city_id: g.city_id,
+        level: g.level,
+        // The financials tick moved onto the person and the screen no longer
+        // sends it. Passed through only when it is actually present: the
+        // function keeps the column's existing value for any key the caller
+        // leaves out, so a save cannot quietly clear a flag the finance helper
+        // is still reading.
+        ...(g.can_see_financials === undefined
+          ? {}
+          : { can_see_financials: g.can_see_financials === true }),
+        receives_alerts: g.receives_alerts === true,
+      })),
+    });
 
-    // Remove the cities that are no longer in the list. Done first, so a
-    // request that drops every city still clears them.
-    let deleteQuery = db(supabase)
-      .from("user_city_grants")
-      .delete()
-      .eq("user_id", userId);
-    if (keep.length > 0) {
-      deleteQuery = deleteQuery.not("city_id", "in", `(${keep.join(",")})`);
-    }
-    const { error: deleteError } = await deleteQuery;
-
-    if (deleteError) {
-      console.error("[api/db/user-grants] delete error:", deleteError);
-      if (deleteError.code === INSUFFICIENT_PRIVILEGE) {
+    if (saveError) {
+      console.error("[api/db/user-grants] save error:", saveError);
+      if (saveError.code === INSUFFICIENT_PRIVILEGE) {
         return NextResponse.json(
           { error: "Only a super admin can change who has access to a city." },
           { status: 403 },
         );
       }
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
-    }
-
-    if (incoming.length > 0) {
-      const { error: upsertError } = await db(supabase)
-        .from("user_city_grants")
-        .upsert(
-          incoming.map((g) => ({
-            user_id: userId,
-            city_id: g.city_id,
-            level: g.level,
-            can_see_financials: g.can_see_financials === true,
-            receives_alerts: g.receives_alerts === true,
-          })),
-          { onConflict: "user_id,city_id" },
-        );
-
-      if (upsertError) {
-        console.error("[api/db/user-grants] upsert error:", upsertError);
-        if (upsertError.code === RLS_VIOLATION) {
-          return NextResponse.json(
-            { error: "Only a super admin can change who has access to a city." },
-            { status: 403 },
-          );
-        }
-        return NextResponse.json({ error: upsertError.message }, { status: 500 });
+      // Everything the function validates by hand: an unknown city, an unknown
+      // level, the same city twice, a person who does not exist. These are bad
+      // requests, not server faults, and the message is already written for a
+      // human to read.
+      if (saveError.code === NO_SUCH_CITY || saveError.code === BAD_REQUEST_DATA) {
+        return NextResponse.json({ error: saveError.message }, { status: 400 });
       }
+      return NextResponse.json({ error: saveError.message }, { status: 500 });
     }
 
-    const { data, error } = await db(supabase)
-      .from("user_city_grants")
-      .select("user_id, city_id, level, can_see_financials, receives_alerts")
-      .eq("user_id", userId);
-
-    if (error) {
-      console.error("[api/db/user-grants] reread error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const data = (saved as GrantRow[] | null) || [];
 
     // Alert the super admins, after the change has committed, only when
     // something actually moved. Re-saving the same cities sends nothing.

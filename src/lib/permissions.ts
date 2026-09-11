@@ -1,12 +1,16 @@
 /**
  * What a person is allowed to do, in one place.
  *
- * Two things define a person and nothing else:
+ * Four things define a person and nothing else:
  *
  *   isSuperAdmin  one on/off switch. Everything everywhere, plus users,
  *                 settings, scoring rules and cities.
- *   grants        a level per city, plus an independent "can see financials"
- *                 tick and an alerts tick. No grant means no access.
+ *   isActive      is the account switched on at all. Off means no access, no
+ *                 matter what the grants say. A super admin is exempt, so that
+ *                 an accidental switch-off cannot lock the founders out.
+ *   canSeeFinancials  the money switch, one per person rather than per city.
+ *   grants        a level per city, plus an alerts tick. No grant means no
+ *                 access.
  *
  * The rule, in one sentence: being in a team means you share and edit
  * together; seeing everything in a city is what Approve means; seeing
@@ -55,18 +59,46 @@ export const LEVEL_LABELS: Record<CityLevel, string> = {
 /** The shape the screens work with, assembled once per session. */
 export interface Access {
   isSuperAdmin: boolean;
+  /**
+   * Is the account switched on? An account that is off keeps its cities and
+   * its history, and can do nothing with them.
+   *
+   * Required, not optional, on purpose. If it were optional then every place
+   * that forgot to set it would read as `undefined`, which is falsy, which
+   * would lock a legitimate person out with no compiler complaint. A missing
+   * field is a build error instead.
+   */
+  isActive: boolean;
+  /**
+   * The financials switch, which lives on the person rather than on any one
+   * city. `grants[].canSeeFinancials` is the old home of the same idea and is
+   * still read until the grant column is dropped.
+   */
+  canSeeFinancials: boolean;
   grants: CityGrant[];
 }
 
-export const NO_ACCESS: Access = { isSuperAdmin: false, grants: [] };
+export const NO_ACCESS: Access = {
+  isSuperAdmin: false,
+  isActive: false,
+  canSeeFinancials: false,
+  grants: [],
+};
 
 function grantFor(access: Access, cityId: string): CityGrant | undefined {
   return access.grants.find((g) => g.cityId === cityId);
 }
 
-/** Does this person hold at least `level` in this city? */
+/**
+ * Does this person hold at least `level` in this city?
+ *
+ * The `isActive` test sits below the super admin switch, exactly as the SQL
+ * does in 20260911000010. Gating the super admin branch too would let an
+ * inactive super admin lock every super admin out with no way back.
+ */
 export function hasCityLevel(access: Access, cityId: string, level: CityLevel): boolean {
   if (access.isSuperAdmin) return true;
+  if (!access.isActive) return false;
   const grant = grantFor(access, cityId);
   return !!grant && LEVEL_RANK[grant.level] >= LEVEL_RANK[level];
 }
@@ -85,12 +117,19 @@ export function approvesIn(access: Access, allCityIds: string[]): string[] {
 
 /** Mirrors is_admin() and is_dashboard_role(), which are now the same thing. */
 export function canAccessDashboard(access: Access): boolean {
-  return access.isSuperAdmin || access.grants.some((g) => g.level === 'approve');
+  if (access.isSuperAdmin) return true;
+  if (!access.isActive) return false;
+  return access.grants.some((g) => g.level === 'approve');
 }
 
-/** Mirrors is_finance_plus(). */
+/**
+ * Mirrors is_finance_plus(), which reads both homes of the flag: the one on
+ * the person, and the old per-city ticks, until the grant column goes.
+ */
 export function canSeeRevenue(access: Access): boolean {
-  return access.isSuperAdmin || access.grants.some((g) => g.canSeeFinancials);
+  if (access.isSuperAdmin) return true;
+  if (!access.isActive) return false;
+  return access.canSeeFinancials || access.grants.some((g) => g.canSeeFinancials);
 }
 
 /** Can they act in this city: submit a pitch, request a property, comment, draw. */
@@ -123,9 +162,13 @@ function joinNames(names: string[]): string {
  *
  * Takes a city-name lookup rather than importing one, so this module stays
  * free of every other import. Ids are used as-is for anything not in it.
+ *
+ * Takes only the two fields it reads, not a whole Access. The alert emails
+ * describe access from a grants query that never looked at the profile, and
+ * making them invent an `isActive` they do not know would be a lie in a type.
  */
 export function accessSummary(
-  { isSuperAdmin, grants }: Access,
+  { isSuperAdmin, grants }: Pick<Access, 'isSuperAdmin' | 'grants'>,
   cityNames: Record<string, string> = {},
 ): string {
   if (isSuperAdmin) return 'Super admin, every city';

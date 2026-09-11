@@ -89,13 +89,27 @@ BEGIN
       WHERE g->>'city_id' = d.city_id
     );
 
+  -- A key the caller left out keeps whatever the row already had, rather than
+  -- being read as "off". The screen stopped sending the per-city financials
+  -- tick when the switch moved onto the person, and without this the first
+  -- save after that would quietly clear the old column on every city, on a
+  -- table the finance helper is still reading.
+  WITH incoming AS (
+    SELECT g->>'city_id'                        AS city_id,
+           g->>'level'                          AS level,
+           (g->>'can_see_financials')::boolean  AS fin,
+           (g->>'receives_alerts')::boolean     AS alerts
+    FROM jsonb_array_elements(p_grants) g
+  )
   INSERT INTO public.user_city_grants (user_id, city_id, level, can_see_financials, receives_alerts)
   SELECT p_user_id,
-         g->>'city_id',
-         g->>'level',
-         coalesce((g->>'can_see_financials')::boolean, false),
-         coalesce((g->>'receives_alerts')::boolean, false)
-  FROM jsonb_array_elements(p_grants) g
+         i.city_id,
+         i.level,
+         coalesce(i.fin,    cur.can_see_financials, false),
+         coalesce(i.alerts, cur.receives_alerts,    false)
+  FROM incoming i
+  LEFT JOIN public.user_city_grants cur
+    ON cur.user_id = p_user_id AND cur.city_id = i.city_id
   ON CONFLICT (user_id, city_id) DO UPDATE
     SET level              = excluded.level,
         can_see_financials = excluded.can_see_financials,

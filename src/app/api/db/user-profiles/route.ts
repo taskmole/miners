@@ -116,7 +116,13 @@ export async function GET(request: NextRequest) {
  * can be rolled back, which only works while it stays truthful. Letting it be
  * written by hand in the meantime would poison exactly that.
  */
-const PRIVILEGED_FIELDS = ["role", "is_super_admin", "is_active", "city_ids"] as const;
+const PRIVILEGED_FIELDS = [
+  "role",
+  "is_super_admin",
+  "is_active",
+  "city_ids",
+  "can_see_financials",
+] as const;
 
 /** Postgres insufficient_privilege, raised by enforce_profile_field_locks(). */
 const INSUFFICIENT_PRIVILEGE = "42501";
@@ -171,7 +177,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
-    const ALLOWED_FIELDS = ['is_super_admin', 'is_active', 'display_name', 'team_id'];
+    const ALLOWED_FIELDS = [
+      'is_super_admin',
+      'is_active',
+      'can_see_financials',
+      'display_name',
+      'team_id',
+    ];
     const updates: Record<string, unknown> = {};
     for (const key of ALLOWED_FIELDS) {
       if (key in rawUpdates) updates[key] = rawUpdates[key];
@@ -253,6 +265,19 @@ export async function PATCH(request: NextRequest) {
       ) {
         return NextResponse.json(
           { error: "Only a super admin can grant, remove or suspend the super admin role." },
+          { status: 403 },
+        );
+      }
+
+      // Money is a super admin's call, on anyone's row including the editor's
+      // own. The UPDATE policy on user_profiles lets anyone edit their own row
+      // and any admin edit anyone's, so without this an Approver could tick
+      // their own financials. enforce_profile_field_locks() refuses it too;
+      // this is here so the answer is a sentence and a 403 rather than a
+      // Postgres exception that reads like a crash.
+      if (!isSuperAdminOf(userId) && "can_see_financials" in updates) {
+        return NextResponse.json(
+          { error: "Only a super admin can change who sees financials." },
           { status: 403 },
         );
       }

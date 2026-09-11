@@ -50,7 +50,11 @@ async function accessFor(
 ): Promise<Access | null> {
   const [{ data: profile, error: profileError }, { data: grants, error: grantsError }] =
     await Promise.all([
-      db(supabase).from("user_profiles").select("is_super_admin").eq("id", userId).maybeSingle(),
+      db(supabase)
+        .from("user_profiles")
+        .select("is_super_admin, is_active, can_see_financials")
+        .eq("id", userId)
+        .maybeSingle(),
       db(supabase)
         .from("user_city_grants")
         .select("city_id, level, can_see_financials, receives_alerts")
@@ -61,6 +65,10 @@ async function accessFor(
 
   return {
     isSuperAdmin: profile.is_super_admin === true,
+    // Only an explicit false counts as off, matching the SQL's
+    // `IS DISTINCT FROM false`.
+    isActive: profile.is_active !== false,
+    canSeeFinancials: profile.can_see_financials === true,
     grants: toGrants(grants as CityGrantRow[]),
   };
 }
