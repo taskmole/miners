@@ -113,22 +113,13 @@ export interface InviteResult {
 export async function sendInviteEmail(ctx: {
   email: string | null | undefined;
   isActive: boolean;
-  inviterName?: string | null;
-  inviterEmail?: string | null;
 }): Promise<InviteResult> {
   try {
     if (!ctx.email) return { sent: false, redirected: false, skipped: "no-email" };
     if (!ctx.isActive) return { sent: false, redirected: false, skipped: "inactive" };
 
-    const inviter =
-      ctx.inviterName?.trim() || ctx.inviterEmail?.trim() || "The Miners team";
-
     const html = await render(
-      React.createElement(UserInvited, {
-        inviterName: inviter,
-        recipientEmail: ctx.email,
-        appUrl: appUrl(),
-      }),
+      React.createElement(UserInvited, { appUrl: appUrl() }),
     );
 
     const result = await withTimeout(

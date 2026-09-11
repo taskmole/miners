@@ -89,21 +89,17 @@ describe("the invite", () => {
     const result = await sendInviteEmail({
       email: "ana@theminers.eu",
       isActive: true,
-      inviterName: "Jaro",
     });
     expect(result.sent).toBe(false);
     expect(result.skipped).toBe("no-resend-key");
   });
 
-  it("names the invited address, because the match is by address", async () => {
-    const html = await render(
-      React.createElement(UserInvited, {
-        inviterName: "Jaro Zapletal",
-        recipientEmail: "ana.gomez@theminers.eu",
-      }),
-    );
-    expect(html).toContain("ana.gomez@theminers.eu");
-    expect(html).toContain("Jaro Zapletal");
+  it("says the one thing the person has to do, and nothing else", async () => {
+    const html = await render(React.createElement(UserInvited, {}));
+    expect(html).toContain("You have been added to Miners Scout");
+    expect(html).toContain("Sign in with your Miners Google account.");
+    // Deliberately bare: no level, no cities, no team, no address.
+    expect(html).not.toMatch(/Contribute|Approve|Your access|Team:/);
   });
 });
 

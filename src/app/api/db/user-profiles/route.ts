@@ -433,7 +433,6 @@ export async function POST(request: NextRequest) {
       const invite = await sendInviteEmail({
         email: data.email,
         isActive: data.is_active !== false,
-        inviterName,
       });
 
       await notifySuperAdminsOfUserChange({
