@@ -18,8 +18,6 @@ export interface Listing {
   score?: number;
   photoUrl: string;
   reason?: string;
-  monthlyEbitda?: number;
-  paybackMonths?: number | null;
   qualitativeScore?: number;
   listingUrl?: string;
   listedDaysAgo?: number;

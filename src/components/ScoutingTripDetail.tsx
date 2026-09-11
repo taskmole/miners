@@ -352,15 +352,15 @@ export function ScoutingTripDetail({
     trip.neighbourhoodProfile ||
     trip.nearbyCompetitors;
 
+  // Estimated revenue and payback are switched off across the app (guessed
+  // model, not measured), so they no longer count here either: a trip that
+  // recorded only those would otherwise open an empty Financial section.
   const hasFinancialData =
     trip.monthlyRent ||
     trip.serviceFees ||
     trip.deposit ||
     trip.fitoutCost ||
-    trip.openingInvestment ||
-    trip.expectedDailyRevenue ||
-    trip.monthlyRevenueRange ||
-    trip.paybackMonths;
+    trip.openingInvestment;
 
   const hasOperationalData =
     trip.ventilation ||
@@ -623,6 +623,8 @@ export function ScoutingTripDetail({
                     value={formatCurrency(trip.openingInvestment)}
                   />
                 )}
+                {/* Estimated revenue and payback, off. */}
+                {/*
                 {trip.expectedDailyRevenue && (
                   <DetailRow
                     label="Expected Daily Revenue"
@@ -641,6 +643,7 @@ export function ScoutingTripDetail({
                     value={`${trip.paybackMonths} months`}
                   />
                 )}
+                */}
               </div>
             </DetailSection>
           )}
