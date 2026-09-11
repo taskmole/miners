@@ -3,7 +3,11 @@ import fs from "fs";
 import path from "path";
 import { CITIES } from "../../../scripts/data-pipeline/config/cities";
 
-const selectorPath = path.resolve(__dirname, "../../components/CitySelector.tsx");
+// The city list moved out of CitySelector.tsx into src/lib/cities.ts, which is
+// now the single source the map picker, the admin screens and the server
+// routes all read. This test still parses the text rather than importing it,
+// so a city added as a bare literal is caught the same way it always was.
+const selectorPath = path.resolve(__dirname, "../cities.ts");
 const selectorContent = fs.readFileSync(selectorPath, "utf-8");
 
 const routePath = path.resolve(__dirname, "../../app/api/data/route.ts");
@@ -44,7 +48,7 @@ describe("city configuration consistency", () => {
         for (const cityId of pipelineCityIds) {
             expect(
                 allFrontendCities,
-                `City "${cityId}" is in the pipeline config but missing from CitySelector.tsx`,
+                `City "${cityId}" is in the pipeline config but missing from src/lib/cities.ts`,
             ).toContain(cityId);
         }
     });

@@ -20,9 +20,11 @@ export async function GET(request: NextRequest) {
   const { supabase, userId } = auth;
 
   try {
-    // Fetch caller's role + teams in parallel with the three data sources
+    // Fetch whether the caller has a dashboard, plus their teams, in parallel
+    // with the three data sources
     const [roleRes, commentsRes, listsRes, activityLogRes, myTeamIds] = await Promise.all([
-      supabase.from("user_profiles").select("role").eq("id", userId).single(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.rpc as any)("is_dashboard_role"),
       supabase
         .from("comments")
         .select("id, entity_type, entity_id, entity_name, created_by, content, created_at")
@@ -46,8 +48,11 @@ export async function GET(request: NextRequest) {
     if (listsRes.error) console.error("[api/db/activities] lists error:", listsRes.error);
     if (activityLogRes.error) console.error("[api/db/activities] activity_log error:", activityLogRes.error);
 
-    const callerRole = roleRes.data?.role || "franchisee";
-    const isFranchisee = callerRole === "franchisee";
+    // "Franchisee" as a role is going away. What this check actually means is
+    // "somebody with no dashboard", which is is_dashboard_role() inverted.
+    // Defaulting to the narrow view on a failed lookup is the safe direction:
+    // seeing too little is a support ticket, seeing too much is a leak.
+    const isFranchisee = roleRes.data !== true;
 
     let comments = commentsRes.data || [];
     let lists = listsRes.data || [];
@@ -102,7 +107,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ comments, lists, activityLog, userProfiles, callerRole, myTeamIds });
+    // A boolean rather than a role name. The realtime handler in
+    // useActivities applies the same narrowing to rows that arrive live, and
+    // it used to compare against the string 'franchisee' with a default of
+    // 'admin', so a missing value quietly handed somebody the unfiltered
+    // feed. There is no role to send any more, and the safe default for a
+    // boolean is false.
+    return NextResponse.json({
+      comments, lists, activityLog, userProfiles, myTeamIds,
+      hasDashboard: roleRes.data === true,
+    });
   } catch (err) {
     console.error("[api/db/activities] unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

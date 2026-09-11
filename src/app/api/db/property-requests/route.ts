@@ -15,6 +15,13 @@ const AUTO_REJECT_REASON = "Another request for this property was approved.";
 interface PropertyRequestRow {
   id: string;
   property_place_id: string;
+  /**
+   * Which city the property is in. Filled by a database trigger from the
+   * coordinates in property_place_id, and the thing the row policies and the
+   * reviewer notification both key on. Nullable only for a property that sits
+   * nowhere near a known city.
+   */
+  city_id: string | null;
   requested_by: string;
   status: "pending" | "approved" | "rejected";
   property_name: string | null;
@@ -175,8 +182,11 @@ export async function POST(request: NextRequest) {
       propertyAddress: data.property_address,
       requesterName: requester.name,
       requesterEmail: requester.email,
-      // Carries the property's coordinates, which is how the country (and so
-      // any extra country reviewer, e.g. Spain's) is worked out.
+      // The city decides who is told: everyone who approves there, plus
+      // super admins. A database trigger fills city_id in from the place id
+      // on insert, so it is almost always present; propertyPlaceId is the
+      // fallback, carrying the coordinates the city is derived from.
+      cityId: data.city_id,
       propertyPlaceId: data.property_place_id,
     }).catch(err => console.warn("[api/db/property-requests] reviewer email failed:", err));
 

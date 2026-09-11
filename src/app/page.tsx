@@ -25,6 +25,7 @@ import {
   shouldShowOnboardingPicker,
 } from "@/lib/userPreferences";
 import { useMapData } from "@/hooks/useMapData";
+import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { useMobile } from "@/hooks/useMobile";
 import { generatePropertyPlaceId } from "@/lib/place-id";
 import { ListsProvider } from "@/contexts/ListsContext";
@@ -62,6 +63,7 @@ function HomeContent() {
   const [selectedCity, setSelectedCity] = useState<City>(
     () => cities.find(c => c.id === "madrid") ?? cities[0]
   );
+
   const { cafes, properties, otherPois, counts } = useMapData(selectedCity.id);
 
   const { startLinking, isLinking } = useLinking();
@@ -69,6 +71,49 @@ function HomeContent() {
 
   // Auth state
   const [user, setUser] = useState<User | null>(null);
+
+  /**
+   * Which cities this person may actually open.
+   *
+   * Until the per-city permissions work, everybody could open everything, so
+   * the picker simply listed every live city. Now the map data itself is
+   * restricted, and offering a city somebody has no grant in produces a blank
+   * map with no explanation, which reads as a broken product rather than as a
+   * permission.
+   *
+   * Signed out, and while access is still resolving, the full list stands:
+   * there is a landing page over the top at that point, and narrowing a list
+   * we do not yet know the answer for would flicker.
+   *
+   * /demo is NOT exempt, even though it is a demo. It re-exports this same
+   * page and sits behind the same landing page, so its visitors are signed-in
+   * colleagues. Exempting it would offer cities whose data the database then
+   * refuses to hand over, which is a blank map rather than a demo.
+   */
+  const { visibleCities, accessResolved } = useUserProfiles();
+  const grantedCities = React.useMemo(() => {
+    if (!user || !accessResolved) return cities;
+    return cities.filter(c => visibleCities.includes(c.id));
+  }, [user, accessResolved, visibleCities]);
+
+  const hasNoCities = !!user && accessResolved && grantedCities.length === 0;
+
+  /**
+   * Keep the selected city inside what they hold.
+   *
+   * Two ways it can drift out. The saved default city lives in auth metadata
+   * and survives being narrowed, so somebody moved out of Madrid would keep
+   * asking for Madrid forever. And useMapData falls back to "madrid" for an
+   * empty city id, which would request a city they cannot have and sit on a
+   * retry loop.
+   */
+  useEffect(() => {
+    if (grantedCities.length === 0) return;
+    if (grantedCities.some(c => c.id === selectedCity.id)) return;
+    const fallback = grantedCities.find(c => c.active) ?? grantedCities[0];
+    setSelectedCity(fallback);
+  }, [grantedCities, selectedCity.id]);
+
   const [authError, setAuthError] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -393,6 +438,7 @@ function HomeContent() {
           <div className="fixed left-6 z-50 flex items-center gap-2" style={{ top: "calc(24px + env(safe-area-inset-top, 0px))" }}>
             <CitySelector
               selectedCity={selectedCity}
+              available={grantedCities}
               onCityChange={(city) => {
                 setSelectedCity(city);
                 if (user) {
@@ -574,13 +620,32 @@ function HomeContent() {
 
       {/* City Picker - shown to new users after sign-in */}
       <CityPicker
-        isVisible={showCityPicker}
+        isVisible={showCityPicker && !hasNoCities}
         user={user}
+        available={grantedCities}
         onComplete={(city) => {
           setSelectedCity(city);
           setShowCityPicker(false);
         }}
       />
+
+      {/* Somebody with no cities at all: a freshly invited person who has not
+          been let into one yet, or anyone narrowed to zero by mistake. They
+          get a sentence rather than an empty map, because an empty map looks
+          exactly like a broken one. */}
+      {hasNoCities && (
+        <div className="fixed inset-0 z-[60] bg-zinc-50 flex items-center justify-center p-6">
+          <div className="max-w-sm text-center">
+            <h2 className="text-lg font-bold text-zinc-900 mb-2">
+              No cities assigned yet
+            </h2>
+            <p className="text-sm text-zinc-600">
+              Your account is set up, but nobody has given you access to a city
+              yet. Ask your manager to add one and then reload this page.
+            </p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

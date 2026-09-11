@@ -320,14 +320,23 @@ export interface Database {
       user_profiles: {
         Row: {
           id: string;
+          /**
+           * Legacy. Derived from the grants by a database trigger and kept
+           * only so steps 1 to 3 of the permissions migration can roll back.
+           * Read is_super_admin and user_city_grants instead.
+           */
           role: string;
+          /** Everything, everywhere. The replacement for the super_admin role. */
+          is_super_admin: boolean;
           display_name: string | null;
           email: string | null;
           region_id: string | null;
+          /** Legacy. Superseded by user_city_grants. */
           city_ids: string[] | null;
           can_approve_level: number | null;
           is_active: boolean;
           team_id: string | null;
+          /** Legacy. Superseded by user_city_grants.receives_alerts. */
           receives_scraper_emails: boolean;
           created_at: string;
           updated_at: string;
@@ -335,6 +344,7 @@ export interface Database {
         Insert: {
           id: string;
           role?: string;
+          is_super_admin?: boolean;
           display_name?: string | null;
           email?: string | null;
           region_id?: string | null;
@@ -345,6 +355,34 @@ export interface Database {
           receives_scraper_emails?: boolean;
         };
         Update: Partial<Database['public']['Tables']['user_profiles']['Insert']>;
+      };
+
+      /**
+       * What one person may do in one city. No row means no access.
+       *
+       * This type is not optional decoration: the build ignores type errors
+       * (next.config.ts sets typescript.ignoreBuildErrors), so a missing table
+       * here costs nothing at build time and everything at runtime.
+       */
+      user_city_grants: {
+        Row: {
+          user_id: string;
+          city_id: string;
+          level: 'view' | 'contribute' | 'approve';
+          can_see_financials: boolean;
+          /** Property alert emails for this city. */
+          receives_alerts: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          city_id: string;
+          level: 'view' | 'contribute' | 'approve';
+          can_see_financials?: boolean;
+          receives_alerts?: boolean;
+        };
+        Update: Partial<Database['public']['Tables']['user_city_grants']['Insert']>;
       };
 
       user_activity_state: {

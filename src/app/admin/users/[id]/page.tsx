@@ -2,51 +2,44 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, FileText, Check } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
-import { useUserProfiles, type UserProfile, type UserRole } from '@/hooks/useUserProfiles';
+import { useUserProfiles, type UserProfile } from '@/hooks/useUserProfiles';
 import { useTeams } from '@/hooks/useTeams';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { cityOptions, cityNames } from '@/lib/cities';
+import { CityAccessEditor, SuperAdminBanner } from '@/components/admin/CityAccessEditor';
+import { UserHistory, type HistoryEntry } from '@/components/admin/UserHistory';
+import { toGrants, type CityGrant, type CityGrantRow } from '@/lib/permissions';
 
-const ROLE_LABELS: Record<string, string> = {
-  super_admin: 'Super Admin',
-  head_office_exec: 'Head Office',
-  finance_reviewer: 'Finance',
-  area_coordinator: 'Coordinator',
-  franchisee: 'Franchisee',
-};
+/**
+ * One person's page. Everything true about them, on one screen.
+ *
+ * The order is itself a decision. Account status comes first because whether
+ * somebody can sign in at all is the biggest switch on the page, and it used
+ * to be buried at the bottom under a "Danger Zone" heading where nobody could
+ * find it.
+ *
+ *   1. Account status
+ *   2. Name, email, team
+ *   3. Access: the Super Admin switch, then a row per city
+ *   4. Save
+ *   5. History: what they submitted, and what they decided
+ *
+ * Gone from this screen: the Role dropdown (replaced by the switch and the
+ * city rows), the editable Team dropdown (a duplicate record that mostly
+ * disagreed with the real team membership and that no security rule ever
+ * read), and the global Property Alert Emails switch (alerts are per city
+ * now, sitting next to the access they depend on).
+ */
 
-const ROLE_OPTIONS = [
-  'super_admin',
-  'head_office_exec',
-  'finance_reviewer',
-  'area_coordinator',
-  'franchisee',
-] as const;
-
-const CITY_OPTIONS = [
-  { id: 'madrid', label: 'Madrid' },
-  { id: 'prague', label: 'Prague' },
-];
-
-interface PitchSummary {
-  id: string;
-  address?: string;
-  name?: string;
-  status: string;
-  submitted_at?: string;
-  created_at: string;
-  city_id?: string;
+interface HistoryResponse {
+  canSee: boolean;
+  scope?: string[] | null;
+  submitted: HistoryEntry[];
+  decided: HistoryEntry[];
 }
 
 export default function UserDetailPage() {
@@ -54,55 +47,72 @@ export default function UserDetailPage() {
   const params = useParams();
   const userId = params.id as string;
 
-  const { canAccessDashboard, isAdmin, loading: authLoading, currentUserRole, updateRole, toggleActive } = useUserProfiles();
+  const {
+    canAccessDashboard,
+    isSuperAdmin,
+    approverCities,
+    accessResolved,
+    loading: authLoading,
+    updateGrants,
+    setSuperAdmin,
+    toggleActive,
+  } = useUserProfiles();
 
-  // User data
   const [user, setUser] = useState<UserProfile | null>(null);
   const [userLoading, setUserLoading] = useState(true);
   const [userError, setUserError] = useState<string | null>(null);
 
   // Form state
-  const [formRole, setFormRole] = useState('');
-  const [formTeamId, setFormTeamId] = useState<string | null>(null);
-  const [formCityIds, setFormCityIds] = useState<string[]>([]);
   const [formActive, setFormActive] = useState(true);
-  const [formScraperEmails, setFormScraperEmails] = useState(false);
   const [formDisplayName, setFormDisplayName] = useState('');
+  const [formSuperAdmin, setFormSuperAdmin] = useState(false);
+  const [formGrants, setFormGrants] = useState<CityGrant[]>([]);
+  const [savedGrants, setSavedGrants] = useState<CityGrant[]>([]);
+
+  /**
+   * The grants a person had before the Super Admin switch was turned on.
+   *
+   * Switching it on collapses the city list, because there is genuinely
+   * nothing left to choose. Switching it off has to put back what was there
+   * rather than leaving them with nothing, which would quietly demote someone
+   * to no access at all on a mis-click.
+   */
+  const [grantsBeforeSuperAdmin, setGrantsBeforeSuperAdmin] = useState<CityGrant[]>([]);
+
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Teams
-  const { teams, createTeam, addMember, removeMember } = useTeams();
-  const [newTeamName, setNewTeamName] = useState('');
-  const [showNewTeam, setShowNewTeam] = useState(false);
-  const [creatingTeam, setCreatingTeam] = useState(false);
+  const { teams } = useTeams();
+  const teamName = useMemo(
+    () => teams.find((t) => t.id === user?.team_id)?.name ?? null,
+    [teams, user?.team_id],
+  );
 
-  // Pitches
-  const [pitches, setPitches] = useState<PitchSummary[]>([]);
-  const [pitchesLoading, setPitchesLoading] = useState(true);
-  const [pitchesError, setPitchesError] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryResponse | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
-  // Deactivate dialog
-  const [showDeactivate, setShowDeactivate] = useState(false);
-  const [deactivating, setDeactivating] = useState(false);
-
-  // Fetch user
   const fetchUser = useCallback(async () => {
     setUserLoading(true);
     setUserError(null);
     try {
-      const data = await apiFetch<UserProfile>(`/api/db/user-profiles?mode=single&id=${userId}`);
-      if (!data) {
+      const [profile, grantRows] = await Promise.all([
+        apiFetch<UserProfile>(`/api/db/user-profiles?mode=single&id=${userId}`),
+        apiFetch<(CityGrantRow & { user_id: string })[]>(
+          `/api/db/user-grants?mode=single&user_id=${userId}`,
+        ),
+      ]);
+      if (!profile) {
         setUserError('User not found');
         return;
       }
-      setUser(data);
-      setFormRole(data.role);
-      setFormTeamId(data.team_id);
-      setFormCityIds(data.city_ids || []);
-      setFormActive(data.is_active);
-      setFormScraperEmails(data.receives_scraper_emails);
-      setFormDisplayName(data.display_name || '');
+      const grants = toGrants(grantRows);
+      setUser(profile);
+      setFormActive(profile.is_active);
+      setFormDisplayName(profile.display_name || '');
+      setFormSuperAdmin(profile.is_super_admin === true);
+      setFormGrants(grants);
+      setSavedGrants(grants);
+      setGrantsBeforeSuperAdmin(grants);
     } catch {
       setUserError('Failed to load user');
     } finally {
@@ -110,43 +120,76 @@ export default function UserDetailPage() {
     }
   }, [userId]);
 
-  // Fetch pitches
-  const fetchPitches = useCallback(async () => {
-    setPitchesLoading(true);
-    setPitchesError(null);
+  const fetchHistory = useCallback(async () => {
+    setHistoryLoading(true);
     try {
-      const data = await apiFetch<PitchSummary[]>(`/api/db/pitches?mode=admin&user_id=${userId}`);
-      setPitches(data || []);
+      setHistory(await apiFetch<HistoryResponse>(`/api/db/user-history?user_id=${userId}`));
     } catch {
-      setPitchesError('Failed to load pitches');
+      // A failed fetch is not a refusal, so it must not render as the locked
+      // panel. Leave it null and say nothing rather than accuse the viewer of
+      // lacking a permission they have.
+      setHistory(null);
     } finally {
-      setPitchesLoading(false);
+      setHistoryLoading(false);
     }
   }, [userId]);
 
   useEffect(() => {
-    if (!authLoading && currentUserRole) {
-      if (!canAccessDashboard) {
-        router.replace('/');
-        return;
-      }
-      fetchUser();
-      fetchPitches();
+    if (authLoading || !accessResolved) return;
+    if (!canAccessDashboard) {
+      router.replace('/');
+      return;
     }
-  }, [authLoading, currentUserRole, canAccessDashboard, router, fetchUser, fetchPitches]);
+    fetchUser();
+    fetchHistory();
+  }, [authLoading, accessResolved, canAccessDashboard, router, fetchUser, fetchHistory]);
 
-  // Dirty state detection
+  /**
+   * What this viewer may change on this person.
+   *
+   * Only a super admin edits access; that is enforced by RLS on the grants
+   * table, and repeated here so the controls are visibly disabled rather than
+   * pressable and then refused.
+   *
+   * An Approver may switch somebody on and off, but only somebody who lives
+   * entirely inside the Approver's own cities, and never a super admin.
+   */
+  const subjectIsSuperAdmin = user?.is_super_admin === true;
+  const canEditAccess = isSuperAdmin;
+  const canToggleActive =
+    isSuperAdmin ||
+    (!subjectIsSuperAdmin &&
+      savedGrants.length > 0 &&
+      savedGrants.every((g) => approverCities.includes(g.cityId)));
+
+  const grantsChanged = useMemo(() => {
+    const key = (list: CityGrant[]) =>
+      JSON.stringify(
+        [...list]
+          .sort((a, b) => a.cityId.localeCompare(b.cityId))
+          .map((g) => [g.cityId, g.level, g.canSeeFinancials, g.receivesAlerts]),
+      );
+    return key(formGrants) !== key(savedGrants);
+  }, [formGrants, savedGrants]);
+
   const isDirty = useMemo(() => {
     if (!user) return false;
     return (
-      formRole !== user.role ||
-      formTeamId !== user.team_id ||
-      JSON.stringify(formCityIds.sort()) !== JSON.stringify((user.city_ids || []).sort()) ||
       formActive !== user.is_active ||
-      formScraperEmails !== user.receives_scraper_emails ||
-      formDisplayName !== (user.display_name || '')
+      formDisplayName !== (user.display_name || '') ||
+      formSuperAdmin !== (user.is_super_admin === true) ||
+      grantsChanged
     );
-  }, [user, formRole, formTeamId, formCityIds, formActive, formScraperEmails, formDisplayName]);
+  }, [user, formActive, formDisplayName, formSuperAdmin, grantsChanged]);
+
+  const handleSuperAdminToggle = (on: boolean) => {
+    if (on) {
+      setGrantsBeforeSuperAdmin(formGrants);
+    } else {
+      setFormGrants(grantsBeforeSuperAdmin);
+    }
+    setFormSuperAdmin(on);
+  };
 
   const handleSave = async () => {
     if (!user) return;
@@ -154,54 +197,34 @@ export default function UserDetailPage() {
     setSaveError(null);
 
     try {
-      // Update role separately (uses existing method with escalation prevention)
-      if (formRole !== user.role) {
-        const success = await updateRole(user.id, formRole as UserRole);
-        if (!success) {
-          setSaveError('Failed to update role');
-          setSaving(false);
-          return;
-        }
-      }
-
-      // Update active status separately
       if (formActive !== user.is_active) {
-        const success = await toggleActive(user.id, formActive);
-        if (!success) {
-          setSaveError('Failed to update active status');
-          setSaving(false);
+        if (!(await toggleActive(user.id, formActive))) {
+          setSaveError('Could not change whether they can sign in.');
           return;
         }
       }
 
-      // Update remaining fields
-      const updates: Record<string, unknown> = {};
-      if (formDisplayName !== (user.display_name || '')) updates.display_name = formDisplayName || null;
-      if (formTeamId !== user.team_id) updates.team_id = formTeamId;
-      if (JSON.stringify(formCityIds.sort()) !== JSON.stringify((user.city_ids || []).sort())) updates.city_ids = formCityIds;
-      if (formScraperEmails !== user.receives_scraper_emails) updates.receives_scraper_emails = formScraperEmails;
+      if (formSuperAdmin !== (user.is_super_admin === true)) {
+        if (!(await setSuperAdmin(user.id, formSuperAdmin))) {
+          setSaveError('Only a super admin can grant or remove the Super Admin switch.');
+          return;
+        }
+      }
 
-      if (Object.keys(updates).length > 0) {
+      if (grantsChanged) {
+        if (!(await updateGrants(user.id, formGrants))) {
+          setSaveError('Could not save city access. Only a super admin can change it.');
+          return;
+        }
+      }
+
+      if (formDisplayName !== (user.display_name || '')) {
         await apiFetch('/api/db/user-profiles', {
           method: 'PATCH',
-          body: JSON.stringify({ id: user.id, ...updates }),
+          body: JSON.stringify({ id: user.id, display_name: formDisplayName || null }),
         });
       }
 
-      // Keep team_members (the source of truth the app reads for team pitches
-      // and notifications) in sync with this single-team selector. The team_id
-      // column above is kept only as the selector's backing value. Best effort:
-      // membership errors (last-owner guard, already-a-member) must not block save.
-      if (formTeamId !== user.team_id) {
-        if (user.team_id) {
-          try { await removeMember(user.team_id, user.id); } catch { /* e.g. last owner */ }
-        }
-        if (formTeamId) {
-          try { await addMember(formTeamId, user.id, 'member'); } catch { /* e.g. already a member */ }
-        }
-      }
-
-      // Refresh user data
       await fetchUser();
     } catch {
       setSaveError('Failed to save changes');
@@ -210,46 +233,6 @@ export default function UserDetailPage() {
     }
   };
 
-  const handleCreateTeam = async () => {
-    if (!newTeamName.trim()) return;
-    setCreatingTeam(true);
-    try {
-      const team = await createTeam(newTeamName.trim());
-      if (team) {
-        setFormTeamId(team.id);
-        setNewTeamName('');
-        setShowNewTeam(false);
-      }
-    } catch {
-      // Error handled by hook
-    } finally {
-      setCreatingTeam(false);
-    }
-  };
-
-  const handleDeactivate = async () => {
-    if (!user) return;
-    setDeactivating(true);
-    try {
-      await toggleActive(user.id, false);
-      setShowDeactivate(false);
-      router.push('/admin?tab=users');
-    } catch {
-      // Error handled by hook
-    } finally {
-      setDeactivating(false);
-    }
-  };
-
-  const toggleCity = (cityId: string) => {
-    setFormCityIds(prev =>
-      prev.includes(cityId)
-        ? prev.filter(c => c !== cityId)
-        : [...prev, cityId]
-    );
-  };
-
-  // Loading / auth states
   if (authLoading || (userLoading && !userError)) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
@@ -278,18 +261,17 @@ export default function UserDetailPage() {
     );
   }
 
-  const statusColors: Record<string, string> = {
-    submitted: 'bg-blue-100 text-blue-700',
-    approved: 'bg-green-100 text-green-700',
-    rejected: 'bg-red-100 text-red-700',
-    returned: 'bg-amber-100 text-amber-700',
-    draft: 'bg-zinc-100 text-zinc-600',
-  };
+  const scopeNote =
+    history?.scope && history.scope.length > 0
+      ? `${history.scope.map((c) => cityNames[c] ?? c).join(' and ')} only, because that is where you approve`
+      : undefined;
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* Header */}
-      <header className="bg-white border-b border-zinc-200 sticky top-0 z-10" style={{ paddingTop: "calc(12px + env(safe-area-inset-top, 0px))" }}>
+      <header
+        className="bg-white border-b border-zinc-200 sticky top-0 z-10"
+        style={{ paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))' }}
+      >
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-4">
           <button
             onClick={() => router.push('/admin?tab=users')}
@@ -304,9 +286,51 @@ export default function UserDetailPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
-        {/* Profile + Settings combined */}
+        {/* 1. Account status. First, because it is the biggest switch here,
+               and it turns the whole block amber when it is off so a
+               suspended account cannot be mistaken for a working one. */}
+        <section
+          className={cn(
+            'rounded-xl border p-4',
+            formActive ? 'bg-white border-zinc-200' : 'bg-amber-50 border-amber-300',
+          )}
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <span
+                className={cn(
+                  'w-2.5 h-2.5 rounded-full mt-1.5 shrink-0',
+                  formActive ? 'bg-emerald-500' : 'bg-amber-500',
+                )}
+              />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-zinc-900">
+                  {formActive ? 'Account is on' : 'Account is off'}
+                </div>
+                <p className={cn('text-sm', formActive ? 'text-zinc-600' : 'text-amber-800')}>
+                  {formActive
+                    ? 'They can sign in and use the app.'
+                    : 'They cannot sign in. Their work is kept.'}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={formActive}
+              disabled={!canToggleActive}
+              onCheckedChange={setFormActive}
+            />
+          </div>
+          {!canToggleActive && (
+            <p className="text-xs text-zinc-500 mt-2 pl-[22px]">
+              {subjectIsSuperAdmin
+                ? 'Only a super admin can switch a super admin off.'
+                : 'You can only switch people on and off in your own cities.'}
+            </p>
+          )}
+        </section>
+
+        {/* 2. Who they are. */}
         <section className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
-          {/* Name */}
           <div>
             <label className="block text-xs font-medium text-zinc-500 mb-1">Name</label>
             <input
@@ -318,7 +342,6 @@ export default function UserDetailPage() {
             />
           </div>
 
-          {/* Email (read-only) */}
           <div>
             <label className="block text-xs font-medium text-zinc-500 mb-1">Email</label>
             <div className="px-3 py-2.5 text-sm text-zinc-900 bg-zinc-50 rounded-lg border border-zinc-200">
@@ -326,218 +349,106 @@ export default function UserDetailPage() {
             </div>
           </div>
 
-          {/* Role */}
-          {isAdmin && (
-            <div>
-              <label className="block text-xs font-medium text-zinc-500 mb-1">Role</label>
-              <select
-                value={formRole}
-                onChange={(e) => setFormRole(e.target.value)}
-                className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
-              >
-                {ROLE_OPTIONS.map((role) => (
-                  <option key={role} value={role}>{ROLE_LABELS[role]}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Team */}
+          {/* Team is shown, not edited. Seeing who is paired with whom is
+              worth keeping; the dropdown that used to be here wrote a second,
+              disagreeing copy of team membership that nothing read. */}
           <div>
             <label className="block text-xs font-medium text-zinc-500 mb-1">Team</label>
-            {!showNewTeam ? (
-              <div className="flex gap-2">
-                <select
-                  value={formTeamId || ''}
-                  onChange={(e) => setFormTeamId(e.target.value || null)}
-                  className="flex-1 px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
-                >
-                  <option value="">No team</option>
-                  {teams.map((team) => (
-                    <option key={team.id} value={team.id}>{team.name}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setShowNewTeam(true)}
-                  className="px-3 py-2.5 border border-zinc-200 rounded-lg text-sm text-zinc-600 hover:bg-zinc-50 whitespace-nowrap"
-                >
-                  + New
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newTeamName}
-                  onChange={(e) => setNewTeamName(e.target.value)}
-                  placeholder="Team name"
-                  className="flex-1 px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateTeam();
-                    if (e.key === 'Escape') { setShowNewTeam(false); setNewTeamName(''); }
-                  }}
-                />
-                <button onClick={handleCreateTeam} disabled={creatingTeam || !newTeamName.trim()} className="px-3 py-2.5 bg-zinc-900 text-white rounded-lg text-sm disabled:opacity-50">
-                  {creatingTeam ? '...' : 'Create'}
-                </button>
-                <button onClick={() => { setShowNewTeam(false); setNewTeamName(''); }} className="px-3 py-2.5 border border-zinc-200 rounded-lg text-sm text-zinc-600 hover:bg-zinc-50">
-                  Cancel
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Cities - green chips with check */}
-          <div>
-            <label className="block text-xs font-medium text-zinc-500 mb-2">Cities</label>
-            <div className="flex flex-wrap gap-2">
-              {CITY_OPTIONS.map((city) => {
-                const selected = formCityIds.includes(city.id);
-                return (
-                  <button
-                    key={city.id}
-                    type="button"
-                    onClick={() => toggleCity(city.id)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                      selected
-                        ? "bg-green-100 text-green-700 ring-1 ring-green-300"
-                        : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
-                    )}
-                  >
-                    {selected && <Check className="w-3.5 h-3.5" />}
-                    {city.label}
-                  </button>
-                );
-              })}
+            <div className="px-3 py-2.5 text-sm bg-zinc-50 rounded-lg border border-zinc-200 flex items-center justify-between gap-2">
+              <span className={teamName ? 'text-zinc-900' : 'text-zinc-400'}>
+                {teamName ?? 'No team'}
+              </span>
+              <button
+                type="button"
+                onClick={() => router.push('/admin?tab=teams')}
+                className="text-xs text-zinc-500 hover:text-zinc-900 underline shrink-0"
+              >
+                Manage in Teams
+              </button>
             </div>
+            <p className="text-xs text-zinc-400 mt-1">
+              A team lets people edit each other&apos;s lists and drafts. It never
+              changes what anyone can see.
+            </p>
           </div>
 
-          {/* Active + Alert Emails toggles */}
-          <div className="flex items-center justify-between min-h-[44px]">
-            <label className="text-xs font-medium text-zinc-500">Active</label>
-            <Switch checked={formActive} onCheckedChange={setFormActive} />
-          </div>
-          <div className="flex items-center justify-between min-h-[44px]">
-            <label className="text-xs font-medium text-zinc-500">Property Alert Emails</label>
-            <Switch checked={formScraperEmails} onCheckedChange={setFormScraperEmails} />
-          </div>
-
-          {/* Member since */}
           <div className="text-xs text-zinc-400 pt-1">
             Member since {new Date(user.created_at).toLocaleDateString()}
           </div>
+        </section>
 
-          {/* Save */}
-          {saveError && (
-            <div className="text-xs text-red-600">{saveError}</div>
+        {/* 3. Access. */}
+        <section className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide">Access</h2>
+
+          <div className="flex items-center justify-between gap-4 min-h-[44px]">
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-zinc-900">Super Admin</div>
+              <p className="text-xs text-zinc-500">
+                Everything everywhere, plus users, settings, scoring and cities.
+              </p>
+            </div>
+            <Switch
+              checked={formSuperAdmin}
+              disabled={!isSuperAdmin}
+              onCheckedChange={handleSuperAdminToggle}
+            />
+          </div>
+
+          {formSuperAdmin ? (
+            <SuperAdminBanner />
+          ) : (
+            <CityAccessEditor
+              cities={cityOptions}
+              grants={formGrants}
+              onChange={setFormGrants}
+              // An empty allow-list disables every row, which is what an
+              // Approver looking at somebody else's page should see: the
+              // levels are visible so the shape of the person is readable,
+              // and nothing is pressable.
+              allowedCityIds={canEditAccess ? undefined : []}
+              maxLevel={canEditAccess ? 'approve' : 'contribute'}
+            />
           )}
+
+          {!canEditAccess && (
+            <p className="text-xs text-zinc-500">
+              Only a super admin can change city access. You can invite people
+              into your own cities from the Users tab.
+            </p>
+          )}
+
+          {saveError && <div className="text-xs text-red-600">{saveError}</div>}
+
           <Button
             onClick={handleSave}
             disabled={saving || !isDirty}
             className={cn(
-              "w-full h-10",
+              'w-full h-10',
               isDirty
-                ? "bg-zinc-900 hover:bg-zinc-800 text-white"
-                : "bg-zinc-200 text-zinc-500 cursor-not-allowed"
+                ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
+                : 'bg-zinc-200 text-zinc-500 cursor-not-allowed',
             )}
           >
             {saving ? 'Saving...' : isDirty ? 'Save Changes' : 'No Changes'}
           </Button>
         </section>
 
-        {/* Pitches Section */}
-        <section className="bg-white rounded-xl border border-zinc-200 p-5">
-          <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-4">
-            Pitches ({pitches.length})
-          </h2>
-
-          {pitchesLoading && (
-            <div className="text-sm text-zinc-400 py-4 text-center">Loading pitches...</div>
-          )}
-
-          {pitchesError && (
-            <div className="text-sm text-red-600 py-4 text-center">{pitchesError}</div>
-          )}
-
-          {!pitchesLoading && !pitchesError && pitches.length === 0 && (
-            <div className="text-sm text-zinc-400 py-8 text-center">
-              <FileText className="w-8 h-8 mx-auto mb-2 text-zinc-300" />
-              No pitches submitted yet
-            </div>
-          )}
-
-          {!pitchesLoading && pitches.length > 0 && (
-            <div className="divide-y divide-zinc-100">
-              {pitches.map((pitch) => (
-                <div key={pitch.id} className="py-3 flex items-center justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-zinc-900 truncate">
-                      {pitch.address || pitch.name || 'Untitled'}
-                    </div>
-                    <div className="text-xs text-zinc-500">
-                      {new Date(pitch.submitted_at || pitch.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <span className={cn(
-                    "px-2 py-1 text-xs font-semibold rounded-full shrink-0",
-                    statusColors[pitch.status] || 'bg-zinc-100 text-zinc-600'
-                  )}>
-                    {pitch.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Danger Zone */}
-        {isAdmin && user.is_active && (
-          <section className="bg-white rounded-xl border border-red-200 p-5">
-            <h2 className="text-sm font-semibold text-red-500 uppercase tracking-wide mb-3">Danger Zone</h2>
-            <p className="text-sm text-zinc-600 mb-4">
-              Deactivating this user will revoke their access to the app. They will not be able to sign in or access any features.
-            </p>
-            <Button
-              variant="outline"
-              className="border-red-300 text-red-600 hover:bg-red-50 h-12"
-              onClick={() => setShowDeactivate(true)}
-            >
-              Deactivate User
-            </Button>
+        {/* 5. History. */}
+        {historyLoading ? (
+          <section className="bg-white rounded-xl border border-zinc-200 p-5 text-sm text-zinc-400">
+            Loading history...
           </section>
-        )}
+        ) : history ? (
+          <UserHistory
+            submitted={history.submitted}
+            decided={history.decided}
+            cityNames={cityNames}
+            canSee={history.canSee}
+            scopeNote={scopeNote}
+          />
+        ) : null}
       </main>
-
-      {/* Deactivate Confirmation Dialog */}
-      <Dialog open={showDeactivate} onOpenChange={setShowDeactivate}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Deactivate User</DialogTitle>
-            <DialogDescription>
-              This will deactivate <strong>{user.display_name || user.email}</strong> and revoke their access to the app. You can reactivate them later.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDeactivate(false)}
-              className="h-11"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleDeactivate}
-              disabled={deactivating}
-              className="h-11 bg-red-600 hover:bg-red-700 text-white"
-            >
-              {deactivating ? 'Deactivating...' : 'Deactivate'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

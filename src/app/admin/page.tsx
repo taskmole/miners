@@ -25,6 +25,8 @@ import { parseCompetitors } from '@/components/NearbyCompetitors';
 import { useScoutingDefaults, type ScoutingDefaults, type CurrencyCode, type MarketDefaults, MARKET_LABELS } from '@/hooks/useScoutingDefaults';
 import { Input } from '@/components/ui/input';
 import { RequestsTab } from '@/components/admin/RequestsTab';
+import { cityNames, cityOptions } from '@/lib/cities';
+import { accessSummary } from '@/components/admin/CityAccessEditor';
 
 type Tab = 'submissions' | 'requests' | 'users' | 'settings' | 'cafe-profiles' | 'teams';
 
@@ -75,22 +77,6 @@ class AdminErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundar
     return this.props.children;
   }
 }
-
-const ROLE_LABELS: Record<string, string> = {
-  super_admin: 'Super Admin',
-  head_office_exec: 'Head Office',
-  finance_reviewer: 'Finance',
-  area_coordinator: 'Coordinator',
-  franchisee: 'Franchisee',
-};
-
-const ROLE_OPTIONS = [
-  'super_admin',
-  'head_office_exec',
-  'finance_reviewer',
-  'area_coordinator',
-  'franchisee',
-] as const;
 
 function formatCurrency(value?: number): string {
   if (value === undefined || value === null) return '—';
@@ -392,10 +378,10 @@ const CATEGORY_COLORS: Record<CafeCategory, string> = {
 };
 
 // City display labels
-const CITY_LABELS: Record<string, string> = {
-  madrid: 'Madrid',
-  prague: 'Prague',
-};
+// The fourth hand-written city list in the codebase, now pointed at the one
+// real one. It had no Barcelona and no Seville, so the users tab's city
+// filter simply could not find anybody working there.
+const CITY_LABELS: Record<string, string> = cityNames;
 
 // Inline edit form for a cafe profile
 function CafeProfileForm({
@@ -699,12 +685,19 @@ function AddUserForm({ onSave, onCancel, teams }: {
   onCancel: () => void;
   teams: { id: string; name: string }[];
 }) {
-  const { addUser } = useUserProfiles();
+  const { addUser, isSuperAdmin, approverCities } = useUserProfiles();
   const { createTeam, addMember } = useTeams();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('franchisee');
-  const [cityIds, setCityIds] = useState<string[]>(['madrid', 'prague']);
+  /**
+   * The city the person is being invited into.
+   *
+   * A super admin creates people with no city and inactive, then sets their
+   * access on the profile page, so the picker is optional for them. An
+   * Approver must name one of their own cities, because that is the only
+   * thing they are allowed to hand out, and it is fixed at Contribute.
+   */
+  const [cityId, setCityId] = useState<string>('');
   const [teamId, setTeamId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -712,10 +705,6 @@ function AddUserForm({ onSave, onCancel, teams }: {
   const [showNewTeam, setShowNewTeam] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
   const [creatingTeam, setCreatingTeam] = useState(false);
-
-  const toggleCity = (id: string) => {
-    setCityIds(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
-  };
 
   const handleCreateTeam = async () => {
     if (!newTeamName.trim()) return;
@@ -737,6 +726,7 @@ function AddUserForm({ onSave, onCancel, teams }: {
   const handleSubmit = async () => {
     if (!email.trim()) { setError('Email is required'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('Please enter a valid email address'); return; }
+    if (!isSuperAdmin && !cityId) { setError('Pick the city they will work in'); return; }
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -744,8 +734,7 @@ function AddUserForm({ onSave, onCancel, teams }: {
       const created = await addUser({
         display_name: displayName.trim() || undefined,
         email: email.trim(),
-        role,
-        city_ids: cityIds,
+        city_id: cityId || undefined,
         team_id: teamId || null,
       });
       // Also record real team membership (the source of truth the app reads),
@@ -753,7 +742,11 @@ function AddUserForm({ onSave, onCancel, teams }: {
       if (created?.id && teamId) {
         try { await addMember(teamId, created.id, 'member'); } catch { /* already a member */ }
       }
-      setSuccess(`Profile created for ${email.trim()}. Settings apply when they sign in with Google.`);
+      setSuccess(
+        isSuperAdmin && !cityId
+          ? `Profile created for ${email.trim()}. They have no cities and cannot sign in yet: open their profile to give them access and switch the account on.`
+          : `Profile created for ${email.trim()}. They can contribute in ${CITY_LABELS[cityId] ?? cityId} once they sign in with Google.`,
+      );
       setTimeout(() => onSave(), 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create user');
@@ -790,17 +783,30 @@ function AddUserForm({ onSave, onCancel, teams }: {
             className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
           />
         </div>
+        {/* The city comes before the team, and before anything optional,
+            because for an Approver it is the whole of the decision: they may
+            invite into their own cities, at Contribute, and nothing else. */}
         <div>
-          <label className="block text-xs font-medium text-zinc-500 mb-1">Role</label>
+          <label className="block text-xs font-medium text-zinc-500 mb-1">
+            City {isSuperAdmin ? '' : '*'}
+          </label>
           <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
+            value={cityId}
+            onChange={(e) => setCityId(e.target.value)}
             className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
           >
-            {ROLE_OPTIONS.map((r) => (
-              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+            <option value="">
+              {isSuperAdmin ? 'No city yet, set it on their profile' : 'Pick a city'}
+            </option>
+            {(isSuperAdmin ? cityOptions.map(c => c.id) : approverCities).map((id) => (
+              <option key={id} value={id}>{CITY_LABELS[id] ?? id}</option>
             ))}
           </select>
+          <p className="text-xs text-zinc-400 mt-1">
+            {isSuperAdmin
+              ? 'Leave blank to create the profile with no access, then set it on their page.'
+              : 'They can submit pitches and request properties in this city. Only a super admin can give more.'}
+          </p>
         </div>
         <div>
           <label className="block text-xs font-medium text-zinc-500 mb-1">Team</label>
@@ -847,30 +853,6 @@ function AddUserForm({ onSave, onCancel, teams }: {
             </div>
           )}
         </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-500 mb-2">Cities</label>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(CITY_LABELS).map(([id, label]) => {
-              const selected = cityIds.includes(id);
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => toggleCity(id)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                    selected
-                      ? "bg-green-100 text-green-700 ring-1 ring-green-300"
-                      : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
-                  )}
-                >
-                  {selected && <Check className="w-3.5 h-3.5" />}
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       <div className="flex gap-2 pt-1">
@@ -910,14 +892,14 @@ function AdminContent() {
 
   const {
     users,
-    currentUserRole,
-    isAdmin,
+    accessResolved,
+    isSuperAdmin,
     canAccessDashboard,
     canReviewSubmissions,
     canSeeRevenue,
+    grantsFor,
     loading: usersLoading,
     error: usersError,
-    updateRole,
     toggleActive,
   } = useUserProfiles();
 
@@ -957,21 +939,15 @@ function AdminContent() {
     window.history.replaceState({}, '', url.toString());
   };
 
-  // Auth check - redirect users without dashboard access
+  // Auth check - redirect users without dashboard access. Keyed on
+  // accessResolved rather than on a role string: "we do not know yet" and
+  // "you are not allowed" have to stay distinguishable, or a slow request
+  // bounces an admin off their own dashboard.
   useEffect(() => {
-    if (!usersLoading && currentUserRole && !canAccessDashboard) {
+    if (!usersLoading && accessResolved && !canAccessDashboard) {
       router.replace('/');
     }
-  }, [usersLoading, currentUserRole, canAccessDashboard, router]);
-
-  // Handlers
-  const handleRoleChange = async (userId: string, newRole: string) => {
-    setActionError(null);
-    const success = await updateRole(userId, newRole as typeof ROLE_OPTIONS[number]);
-    if (!success) {
-      setActionError('Failed to update role');
-    }
-  };
+  }, [usersLoading, accessResolved, canAccessDashboard, router]);
 
   const handleToggleActive = async (userId: string, currentActive: boolean) => {
     setActionError(null);
@@ -1118,7 +1094,7 @@ function AdminContent() {
   }
 
   // Not authenticated — show sign-in prompt
-  if (!currentUserRole) {
+  if (!accessResolved) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg border border-zinc-200 p-6 max-w-sm w-full text-center">
@@ -1211,7 +1187,7 @@ function AdminContent() {
             <Coffee className="w-4 h-4" />
             Cafes
           </button>
-          {isAdmin && (
+          {isSuperAdmin && (
             <>
               <button
                 onClick={() => handleTabChange('settings')}
@@ -1709,7 +1685,7 @@ function AdminContent() {
           </div>
         )}
 
-        {activeTab === 'users' && isAdmin && (() => {
+        {activeTab === 'users' && canAccessDashboard && (() => {
           const searchLower = usersSearch.toLowerCase();
           const filteredUsers = users.filter(user => {
             if (!searchLower) return true;
@@ -1791,9 +1767,31 @@ function AdminContent() {
                                 {teamName}
                               </span>
                             )}
-                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-100 text-zinc-600">
-                              {ROLE_LABELS[user.role] || user.role}
-                            </span>
+                            {/* The strongest thing they can do and how widely.
+                                Four separate pills would not fit at 375px, and
+                                "No access" in amber makes a half-configured
+                                person visible at a glance instead of looking
+                                like everybody else. */}
+                            {(() => {
+                              const summary = accessSummary(
+                                user.is_super_admin === true,
+                                grantsFor(user.id),
+                              );
+                              return (
+                                <span
+                                  className={cn(
+                                    'px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap',
+                                    summary.tone === 'dark' && 'bg-zinc-900 text-white',
+                                    summary.tone === 'green' && 'bg-emerald-50 text-emerald-700',
+                                    summary.tone === 'blue' && 'bg-blue-50 text-blue-700',
+                                    summary.tone === 'grey' && 'bg-zinc-100 text-zinc-600',
+                                    summary.tone === 'amber' && 'bg-amber-100 text-amber-800',
+                                  )}
+                                >
+                                  {summary.label}
+                                </span>
+                              );
+                            })()}
                             <ChevronRight className="w-4 h-4 text-zinc-400" />
                           </div>
                         </div>
@@ -1808,7 +1806,7 @@ function AdminContent() {
         {activeTab === 'teams' && (
           <TeamsPanel users={users} />
         )}
-        {activeTab === 'settings' && isAdmin && (
+        {activeTab === 'settings' && isSuperAdmin && (
           <ScoutingSettingsPanel />
         )}
       </main>

@@ -104,12 +104,14 @@ export async function GET(request: NextRequest) {
  *
  * The database trigger locks more than this (email, id, can_approve_level as
  * well), but ALLOWED_FIELDS below already drops those before an update is
- * built, so these three are the only ones that can reach the guard from here.
+ * built, so these are the only ones that can reach the guard from here.
+ *
+ * `role` is still listed even though nothing reads it any more. It is derived
+ * from the grants by a trigger and kept until step 7 purely so steps 1 to 3
+ * can be rolled back, which only works while it stays truthful. Letting it be
+ * written by hand in the meantime would poison exactly that.
  */
-const PRIVILEGED_FIELDS = ["role", "is_active", "city_ids"] as const;
-
-/** Roles that may run the user screen. Mirrors is_admin() in the database. */
-const ADMIN_ROLES = ["super_admin", "head_office_exec"];
+const PRIVILEGED_FIELDS = ["role", "is_super_admin", "is_active", "city_ids"] as const;
 
 /** Postgres insufficient_privilege, raised by enforce_profile_field_locks(). */
 const INSUFFICIENT_PRIVILEGE = "42501";
@@ -130,7 +132,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
-    const ALLOWED_FIELDS = ['role', 'is_active', 'display_name', 'city_ids', 'team_id', 'receives_scraper_emails'];
+    const ALLOWED_FIELDS = ['is_super_admin', 'is_active', 'display_name', 'team_id'];
     const updates: Record<string, unknown> = {};
     for (const key of ALLOWED_FIELDS) {
       if (key in rawUpdates) updates[key] = rawUpdates[key];
@@ -149,7 +151,7 @@ export async function PATCH(request: NextRequest) {
       // both, hence the de-duplicated id list.
       const { data: rows, error: lookupError } = await db(supabase)
         .from("user_profiles")
-        .select("id, role")
+        .select("id, is_super_admin")
         .in("id", [...new Set([userId, id])]);
 
       // A failed lookup is not a refusal. Saying "only an admin can do this"
@@ -163,23 +165,35 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
-      const roleOf = (who: string) =>
-        (rows as { id: string; role: string }[] | null)?.find(r => r.id === who)?.role ?? "";
+      const isSuperAdminOf = (who: string) =>
+        (rows as { id: string; is_super_admin: boolean }[] | null)
+          ?.find(r => r.id === who)?.is_super_admin === true;
 
-      const callerRole = roleOf(userId);
-      if (!ADMIN_ROLES.includes(callerRole)) {
+      // "Can run the user screen" is now "approves somewhere, or holds the
+      // switch", which is what is_admin() means in the database. Asked of the
+      // database rather than re-derived here, so the two cannot drift.
+      const { data: callerIsAdmin, error: adminError } = await db(supabase).rpc("is_admin");
+      if (adminError) {
+        console.error("[api/db/user-profiles] admin check failed:", adminError);
         return NextResponse.json(
-          { error: "Only an admin can change a profile's role, access or cities." },
+          { error: "Could not check permissions, please try again." },
+          { status: 500 },
+        );
+      }
+
+      if (callerIsAdmin !== true) {
+        return NextResponse.json(
+          { error: "Only an admin can change a profile's access or cities." },
           { status: 403 },
         );
       }
 
       // Super admins are off limits to everyone below them, and not only on
-      // the role field: switching one off with is_active would put the
+      // the switch itself: switching one off with is_active would put the
       // founders behind the "account pending" screen just as effectively.
       if (
-        callerRole !== "super_admin" &&
-        (updates.role === "super_admin" || roleOf(id) === "super_admin")
+        !isSuperAdminOf(userId) &&
+        (updates.is_super_admin === true || isSuperAdminOf(id))
       ) {
         return NextResponse.json(
           { error: "Only a super admin can grant, remove or suspend the super admin role." },
@@ -188,7 +202,7 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db(supabase)
       .from("user_profiles")
       .update(updates)
       .eq("id", id)
@@ -211,6 +225,23 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
+/**
+ * Invite somebody.
+ *
+ * Two different defaults, because the two callers mean different things:
+ *
+ *   An Approver names one of their own cities. The person is created at
+ *   Contribute in that city and is active immediately, because chasing a
+ *   super admin to switch the account on would defeat the point of letting
+ *   Approvers invite at all. Written through invite_contributor(), the one
+ *   SECURITY DEFINER path into the grants table, which re-checks every one of
+ *   those conditions in the database.
+ *
+ *   A Super Admin may omit the city. The person is then created with NO
+ *   cities and INACTIVE. This is a change: profiles used to be created active
+ *   with every enabled city. A half-configured person who can already sign in
+ *   is worse than one who cannot, because nobody goes back to check.
+ */
 export async function POST(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if (auth.error) return auth.error;
@@ -241,29 +272,68 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check caller's role for privilege escalation prevention
-    const { data: caller } = await supabase
+    const cityId: string | undefined = body.city_id || undefined;
+
+    const { data: caller } = await db(supabase)
       .from("user_profiles")
-      .select("role")
+      .select("is_super_admin")
       .eq("id", auth.userId)
       .single();
 
-    if (body.role === "super_admin" && caller?.role !== "super_admin") {
-      return NextResponse.json({ error: "Only super admins can create super admin profiles" }, { status: 403 });
+    const callerIsSuperAdmin = caller?.is_super_admin === true;
+
+    if (!callerIsSuperAdmin && !cityId) {
+      return NextResponse.json(
+        { error: "Pick the city this person will work in." },
+        { status: 400 },
+      );
     }
 
+    // With a city: the database function does the work and the checking.
+    if (cityId) {
+      const { data: newId, error } = await db(supabase).rpc("invite_contributor", {
+        p_email: email,
+        p_city_id: cityId,
+        p_display_name: body.display_name?.trim() || null,
+      });
+
+      if (error) {
+        console.error("[api/db/user-profiles] invite_contributor failed:", error);
+        // The function raises in plain words with a fitting SQLSTATE, so pass
+        // its own message through rather than inventing a vaguer one.
+        const status =
+          error.code === INSUFFICIENT_PRIVILEGE ? 403 : error.code === "23505" ? 409 : 400;
+        return NextResponse.json({ error: error.message }, { status });
+      }
+
+      const { data, error: readError } = await db(supabase)
+        .from("user_profiles")
+        .select("*")
+        .eq("id", newId)
+        .single();
+
+      if (readError) {
+        console.error("[api/db/user-profiles] post-invite read failed:", readError);
+        return NextResponse.json({ error: readError.message }, { status: 500 });
+      }
+
+      return NextResponse.json(data, { status: 201 });
+    }
+
+    // No city, super admin only: a blank profile, switched off.
     const profileData = {
       id: crypto.randomUUID(),
       display_name: body.display_name?.trim() || null,
       email,
-      role: body.role || "franchisee",
-      city_ids: body.city_ids || null,
+      role: "franchisee",
+      is_super_admin: false,
+      city_ids: [] as string[],
       team_id: body.team_id || null,
-      receives_scraper_emails: body.receives_scraper_emails || false,
-      is_active: true,
+      receives_scraper_emails: false,
+      is_active: false,
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await db(supabase)
       .from("user_profiles")
       .insert(profileData)
       .select()

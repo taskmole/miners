@@ -17,7 +17,7 @@ import { NewSubmissionNotification } from "@/emails/new-submission-notification"
 import { TripStatusUpdate } from "@/emails/trip-status-update";
 import { sendAppEmail, sendAppEmails } from "@/lib/email";
 import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
-import { countryForCoordinates, withCountryReviewers } from "@/lib/notify-routing";
+import { cityForCoordinates } from "@/lib/notify-routing";
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "https://theminers.vercel.app";
@@ -31,18 +31,26 @@ export interface RequestEmailContext {
   requesterEmail: string | null;
   /** Lets the email's CTA deep-link to the property itself. */
   propertyPlaceId?: string | null;
+  /** The request's city. Decides who is told. Derived when absent. */
+  cityId?: string | null;
 }
 
 /**
- * Which country's rules apply to this request, read from the coordinates
- * baked into the place id. Best effort: an unknown country simply means no
- * extra recipients, never a failed send.
+ * Which city this request belongs to, and therefore who decides it.
+ *
+ * The city is taken from the row when it has one - property_requests gained a
+ * city_id column in step 5 of the permissions migration - and otherwise
+ * worked out from the coordinates baked into the place id. The coordinates
+ * are used rather than whichever city the person happened to have selected,
+ * because the two can disagree (a saved list, a deep link, a stale picker)
+ * and the property is the thing the email is actually about.
  */
-function requestCountry(ctx: RequestEmailContext): string | null {
+function requestCity(ctx: RequestEmailContext): string | null {
+  if (ctx.cityId) return ctx.cityId;
   const coords = ctx.propertyPlaceId
     ? parseCoordinatesFromPlaceId(ctx.propertyPlaceId)
     : null;
-  return coords ? countryForCoordinates(coords.lat, coords.lon) : null;
+  return coords ? cityForCoordinates(coords.lat, coords.lon) : null;
 }
 
 /** Best label for the property across both templates. */
@@ -55,29 +63,39 @@ function propertyTitle(ctx: Pick<RequestEmailContext, "propertyName" | "property
  *
  * Reviewer emails come from the request_reviewer_emails() SECURITY DEFINER
  * function: a franchisee cannot read other people's profiles under RLS, so it
- * cannot look the recipients up directly. On top of that list, a country can
- * have its own watcher (Spain does), added by notify-routing.
+ * cannot look the recipients up directly.
+ *
+ * That function now takes the request's city and returns everyone who
+ * approves there, plus super admins. This is what the whole permissions
+ * migration unblocked. There used to be a hardcoded rule bolting Kirill onto
+ * anything in Spain, because there was no way to express "the person who
+ * approves Madrid"; there is now, so the rule is gone and he is picked up by
+ * his Madrid grant like anybody else.
  */
 export async function notifyReviewersOfRequest(
   supabase: SupabaseClient,
   ctx: RequestEmailContext,
 ): Promise<{ sent: number; skipped?: string }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)("request_reviewer_emails");
+  const cityId = requestCity(ctx);
+  const { data, error } = await (supabase.rpc as any)("request_reviewer_emails", {
+    p_city_id: cityId,
+  });
   if (error) {
     console.warn("[property-request-emails] reviewer lookup failed:", error.message);
   }
 
-  const reviewers = ((data as { email: string | null }[]) || [])
+  const emails = ((data as { email: string | null }[]) || [])
     .map(r => r.email)
     .filter((e): e is string => Boolean(e));
 
-  // The country's own watcher is added even when the reviewer lookup came back
-  // empty or failed, so a Spanish request still reaches someone.
-  const emails = withCountryReviewers(reviewers, requestCountry(ctx));
-
   if (emails.length === 0) {
-    console.warn("[property-request-emails] no active super admins to notify");
+    // Super admins come back for any city, so an empty list here means the
+    // lookup failed or the city could not be worked out - not that nobody
+    // approves this city.
+    console.warn(
+      `[property-request-emails] nobody to notify for city ${cityId ?? "(unknown)"}`,
+    );
     return { sent: 0, skipped: error ? "lookup-failed" : "no-reviewers" };
   }
 

@@ -19,30 +19,31 @@ export const FLAGS: Record<string, React.ComponentType<{ className?: string }>> 
   CZ,
 };
 
-// City type for external use
-export interface City {
-  id: string;
-  name: string;
-  active: boolean;
-  coordinates: [number, number]; // [longitude, latitude] - MapLibre format
-  chip: { text: string; style: string } | null;
-  countryCode: string; // ISO 3166-1 alpha-2 code for flag lookup
-}
-
-// City configuration with coordinates and status chips
-export const cities: City[] = [
-  { id: "madrid", name: "Madrid", active: true, coordinates: [-3.7038, 40.4168], chip: null, countryCode: "ES" },
-  { id: "prague", name: "Prague", active: true, coordinates: [14.4378, 50.0755], chip: { text: "NEW", style: "gold" }, countryCode: "CZ" },
-  { id: "barcelona", name: "Barcelona", active: false, coordinates: [2.1734, 41.3874], chip: { text: "COMING SOON", style: "gray" }, countryCode: "ES" },
-  { id: "seville", name: "Seville", active: false, coordinates: [-5.9845, 37.3891], chip: { text: "COMING SOON", style: "gray" }, countryCode: "ES" },
-];
+// The city list itself lives in src/lib/cities.ts, which is the one source the
+// admin screens and the server routes read too. Re-exported here so the many
+// existing "import { cities, type City } from '@/components/CitySelector'"
+// call sites keep working.
+import { cities, type City } from "@/lib/cities";
+export { cities };
+export type { City };
 
 interface CitySelectorProps {
   selectedCity: City;
   onCityChange: (city: City) => void;
+  /**
+   * The cities this person has been granted. Defaults to all of them, which
+   * is what the demo and the signed-out landing map want. Somebody with
+   * access to one city sees one city here rather than three they cannot open.
+   */
+  available?: City[];
 }
 
-export function CitySelector({ selectedCity, onCityChange }: CitySelectorProps) {
+/**
+ * Only cities that are live AND granted are offered. Cities that are granted
+ * but not live yet still appear, greyed with a "coming soon" chip, because
+ * hiding the roadmap is what made Barcelona invisible in the first place.
+ */
+export function CitySelector({ selectedCity, onCityChange, available = cities }: CitySelectorProps) {
   return (
     <div className="z-50">
       <DropdownMenu>
@@ -58,7 +59,7 @@ export function CitySelector({ selectedCity, onCityChange }: CitySelectorProps) 
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="glass border-none p-1 rounded-xl min-w-[140px]">
-          {cities.map((city) => (
+          {available.map((city) => (
             <DropdownMenuItem
               key={city.id}
               disabled={!city.active}

@@ -1,17 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPublicServerSupabase } from "@/lib/supabase-server";
+import { authenticateRequest } from "@/lib/supabase-server";
 import { parseWkbPoint } from "@/lib/wkb";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Properties on the map, for one city.
+ *
+ * This route used to read the database with the anonymous key and no user
+ * token at all, against a `places` table whose SELECT policy was literally
+ * `USING true`. Anyone with the URL got every property in every city.
+ *
+ * It now runs as the caller, so the city restriction in the database does the
+ * filtering: somebody with no grant in this city gets an empty list, not a
+ * refusal, because "there is nothing here for you" and "this city exists and
+ * you may not have it" are the same answer as far as the map is concerned.
+ * The explicit 401 below is only for having no session whatsoever.
+ */
 export async function GET(request: NextRequest) {
     const cityId = request.nextUrl.searchParams.get("city_id");
     if (!cityId) {
         return NextResponse.json({ error: "city_id required" }, { status: 400 });
     }
 
+    const auth = await authenticateRequest(request);
+    if (auth.error) return auth.error;
+
     try {
-        const supabase = createPublicServerSupabase();
+        const { supabase } = auth;
         const { data, error } = await supabase
             .from("places")
             .select("name, address, location, source, metadata, photos, updated_at, created_at")
@@ -53,8 +69,10 @@ export async function GET(request: NextRequest) {
             })
             .filter(Boolean);
 
+        // Private, not public. The answer now depends on who is asking, so a
+        // shared cache would serve one person's cities to another.
         return NextResponse.json(properties, {
-            headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=300" },
+            headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" },
         });
     } catch (err) {
         console.error("[api/db/places] unexpected error:", err);

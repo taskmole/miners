@@ -14,6 +14,23 @@ export function registerAuthProvider(
   _waitForFreshToken = waitForFreshToken;
 }
 
+/**
+ * The current access token, or null when there is not one yet.
+ *
+ * Exported for the map data loaders, which cannot use apiFetch: they need a
+ * per-request timeout and a fall-back-to-empty behaviour that apiFetch
+ * deliberately does not have. They still have to send the token, because the
+ * map data is now city-restricted and an unauthenticated request to
+ * /api/db/places or /api/data sees nothing at all.
+ */
+export async function getAuthToken(): Promise<string | null> {
+  let token = _getToken ? _getToken() : null;
+  if (!token && _waitForFreshToken) {
+    token = await _waitForFreshToken();
+  }
+  return token;
+}
+
 // Fetch wrapper that injects auth headers and retries once on 401
 export async function apiFetch<T = unknown>(
   url: string,

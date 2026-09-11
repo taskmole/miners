@@ -27,6 +27,8 @@ import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentConte
 import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { evaluatePropertyActions } from "@/lib/property-actions";
+import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
+import { cityForCoordinates } from "@/lib/notify-routing";
 import { MobilePanel } from "@/components/ui/mobile-panel";
 import { useMobile } from "@/hooks/useMobile";
 import type { LinkedItem, ScoutingTrip } from "@/types/scouting";
@@ -227,7 +229,7 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
     } = useScoutingTripsContext();
 
     const { showToast } = useToast();
-    const { canAccessDashboard } = useUserProfiles();
+    const { canApproveIn } = useUserProfiles();
     const { getAssignment, isAssignedToMe } = usePropertyAssignmentContext();
     const { getPitchStatus } = usePitchStatusContext();
 
@@ -240,8 +242,17 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
     const blockedReason = (item: ListItem | null): string | null => {
         if (!item || item.placeType !== "property") return null;
         const a = getAssignment(item.placeId);
+        // Approving is per city now, so "am I an admin here" has to be asked
+        // of this property's city rather than of the person in general. A
+        // saved list can hold properties from anywhere, which is precisely
+        // why this call site is easy to get wrong: an Approver in Madrid
+        // would otherwise get admin treatment on a Prague property they
+        // cannot act on. The city comes from the coordinates in the place id,
+        // the same source the notification routing uses.
+        const coords = parseCoordinatesFromPlaceId(item.placeId);
+        const cityId = coords ? cityForCoordinates(coords.lat, coords.lon) : null;
         const actions = evaluatePropertyActions({
-            isAdmin: canAccessDashboard,
+            isAdmin: cityId ? canApproveIn(cityId) : false,
             isPreRejected: a?.status === "pre_rejected",
             rejectionReason: a?.rejection_reason ?? null,
             hasAssignment: !!a && a.status !== "pre_rejected",
