@@ -70,13 +70,70 @@ Filters are configured per city in `config/idealista.ts`. They control the Ideal
 ## Error handling
 
 - **404**: Listing removed from Idealista. Skipped silently.
-- **403**: Blocked by DataDome/proxy. Retried 3 times with exponential backoff (2s, 4s, 8s).
-- **500**: Proxy or server error. Same retry logic.
-- **Timeout**: 30s for search pages, 60s for detail pages.
+- **403 / 502**: Provider or anti-bot error. Retried twice (5s, 15s).
+- **Timeout**: 90s. Bright Data's Web Unlocker solves the anti-bot challenge
+  itself, which measured 15-25s per page on Idealista, so short timeouts abort
+  requests that were about to succeed.
 
-## Rate limiting
+## Provider
 
-1.5 second delay between detail page requests to avoid proxy rate limits.
+Pages are fetched through **Bright Data Web Unlocker** in native proxy mode
+(`brd.superproxy.io:44445`), pinned to Spanish exit IPs. It returns the raw
+Idealista page, so all parsing is unchanged. Billed per successful request only.
+
+This replaced xhr.dev in September 2026 after that provider stopped responding.
+
+## Speed
+
+Detail pages are fetched 6 at a time (`detailConcurrency`). There are no
+artificial delays: Web Unlocker does its own pacing. Measured ~0.9 min for 12
+listings, so a full Madrid rental run is roughly 20 minutes and a transfer run
+roughly 45, both well inside the 6h GitHub Actions cap.
+
+A circuit breaker aborts the run after 8 consecutive failures, so an outage at
+the provider does not burn credits.
+
+## When the scraper refuses to mark listings inactive
+
+Marking a listing inactive hides it from the dashboard and the digest, so it is
+only safe when the run actually saw the whole catalogue. The run is treated as
+**incomplete**, and inactivation is skipped entirely, if any of these happen:
+
+- Any search page failed (one lost page silently drops ~30 listings)
+- The circuit breaker aborted the run
+- More than 20% of detail pages came back without coordinates
+- `--limit` was used
+
+`markUnseenAsInactive`'s own "did I see at least 50%" guard is not enough on its
+own: a run that dies at 70% passes that guard and would still wrongly hide the
+remaining 30%.
+
+Two related rules:
+
+- **`seenIds` is built from the search results, not the enriched results.**
+  Appearing on a search page proves a listing still exists. Coordinates are
+  required to publish it, not to prove it exists. Building `seenIds` from the
+  enriched set made a detail-page failure look identical to a delisting.
+- An incomplete run still **publishes** what it scraped (upserts are
+  idempotent). It just does not delete anything, and it reports
+  `safetyGuardTripped` so the run is visibly flagged.
+
+If the report says the safety guard tripped, stale listings will linger until
+the next clean run. That is the intended trade: a stale listing is invisible and
+self-heals, a wrongly hidden one is customer-visible.
+
+## Testing without writing to the database
+
+```bash
+npm run fetch:idealista -- --headless --city madrid --dry-run --limit 12
+```
+
+`--dry-run` skips all Supabase writes. `--limit N` caps how many detail pages
+are fetched. Useful because the dev Supabase project is paused.
+
+The GitHub Actions workflow has the same escape hatch: trigger it manually and
+tick **dry_run** to exercise the real CI environment (secrets, runner, Node
+version) against 20 listings without touching production.
 
 ## Automation (GitHub Actions)
 
@@ -85,4 +142,4 @@ The scraper runs automatically via `.github/workflows/scraper-pipeline.yml`:
 - Schedule: Monday and Thursday at 06:00 UTC
 - Can also be triggered manually via GitHub Actions UI
 - Writes directly to PROD in headless mode
-- Required secrets: `XHR_API_KEY`, `SUPABASE_PROD_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- Required secrets: `BRIGHTDATA_CUSTOMER_ID`, `BRIGHTDATA_ZONE`, `BRIGHTDATA_PASSWORD`, `SUPABASE_PROD_URL`, `SUPABASE_SERVICE_ROLE_KEY`

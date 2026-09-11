@@ -28,6 +28,11 @@ on:
         options:
           - madrid
           - barcelona
+      dry_run:
+        description: 'Dry run: scrape 20 listings and write nothing to the database'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   # Idealista rentals run in their own job so the 6h GitHub Actions hard cap
@@ -56,7 +61,9 @@ jobs:
 
       - name: Scrape Idealista rentals
         env:
-          XHR_API_KEY: ${{ secrets.XHR_API_KEY }}
+          BRIGHTDATA_CUSTOMER_ID: ${{ secrets.BRIGHTDATA_CUSTOMER_ID }}
+          BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
+          BRIGHTDATA_PASSWORD: ${{ secrets.BRIGHTDATA_PASSWORD }}
           SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
@@ -64,7 +71,8 @@ jobs:
           npx ts-node --project scripts/data-pipeline/tsconfig.json \
             scripts/data-pipeline/fetch-idealista.ts \
             --headless --city ${{ github.event.inputs.city || 'madrid' }} \
-            --mode rental --skip-report --stats-file /tmp/stats-rental.json
+            --mode rental --skip-report --stats-file /tmp/stats-rental.json \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run --limit 20' || '' }}
 
       - name: Upload rental stats artifact
         if: always()
@@ -124,7 +132,9 @@ jobs:
 
       - name: Scrape Idealista transfers
         env:
-          XHR_API_KEY: ${{ secrets.XHR_API_KEY }}
+          BRIGHTDATA_CUSTOMER_ID: ${{ secrets.BRIGHTDATA_CUSTOMER_ID }}
+          BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
+          BRIGHTDATA_PASSWORD: ${{ secrets.BRIGHTDATA_PASSWORD }}
           SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
@@ -132,7 +142,8 @@ jobs:
           npx ts-node --project scripts/data-pipeline/tsconfig.json \
             scripts/data-pipeline/fetch-idealista.ts \
             --headless --city ${{ github.event.inputs.city || 'madrid' }} \
-            --mode transfer --skip-report --stats-file /tmp/stats-transfer.json
+            --mode transfer --skip-report --stats-file /tmp/stats-transfer.json \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run --limit 20' || '' }}
 
       - name: Upload transfer stats artifact
         if: always()

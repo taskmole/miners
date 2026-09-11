@@ -19,6 +19,12 @@ const cityArgIndex = args.indexOf("--city");
 const CITY_ARG = cityArgIndex !== -1 ? args[cityArgIndex + 1]?.toLowerCase() : null;
 const modeArgIndex = args.indexOf("--mode");
 const MODE: "rental" | "transfer" = modeArgIndex !== -1 && args[modeArgIndex + 1] === "transfer" ? "transfer" : "rental";
+// --dry-run scrapes and reports but never writes to Supabase. --limit N caps
+// how many detail pages are fetched. Both exist so a swap can be proven cheaply
+// without touching production data.
+const DRY_RUN = args.includes("--dry-run");
+const limitArgIndex = args.indexOf("--limit");
+const LIMIT = limitArgIndex !== -1 ? parseInt(args[limitArgIndex + 1], 10) : null;
 const statsFileArgIndex = args.indexOf("--stats-file");
 const STATS_FILE = statsFileArgIndex !== -1 ? args[statsFileArgIndex + 1] : null;
 
@@ -57,6 +63,7 @@ import {
   extractListingId,
   isValidCoordinate,
   PROXY_CONFIG,
+  buildProxyUri,
 } from "./config/idealista";
 
 // ---------------------------------------------------------------------------
@@ -82,7 +89,7 @@ interface IdealistaListing {
 }
 
 // ---------------------------------------------------------------------------
-// HTTP client (XHR proxy)
+// HTTP client (Bright Data Web Unlocker)
 // ---------------------------------------------------------------------------
 
 let proxyAgent: unknown = null;
@@ -92,12 +99,17 @@ async function getProxyAgent(): Promise<unknown> {
   try {
     const { ProxyAgent } = await import("undici");
     proxyAgent = new ProxyAgent({
-      uri: PROXY_CONFIG.url,
+      uri: buildProxyUri(),
+      // Web Unlocker terminates TLS with its own certificate. Bright Data's
+      // documented alternatives are installing their CA or skipping the check;
+      // we skip, since we only ever read public listing pages.
       requestTls: { rejectUnauthorized: false },
+      connections: PROXY_CONFIG.detailConcurrency * 2,
     });
     return proxyAgent;
-  } catch {
-    console.error("Failed to create proxy agent via undici. Install undici or https-proxy-agent.");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Failed to create Bright Data proxy agent: ${msg}`);
     process.exit(1);
   }
 }
@@ -120,20 +132,25 @@ async function fetchWithRetry(
   timeoutMs: number,
   maxRetries = PROXY_CONFIG.maxRetries
 ): Promise<string | null> {
-  const apiKey = process.env.XHR_API_KEY!;
   const agent = await getProxyAgent();
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (requestCount >= PROXY_CONFIG.maxRequestsPerRun) {
+      console.error(
+        `\n  SPEND CAP: hit ${PROXY_CONFIG.maxRequestsPerRun} requests this run. ` +
+        `Refusing further fetches.`
+      );
+      return null;
+    }
+    requestCount++;
+
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+      // No User-Agent header on purpose: Web Unlocker manages the browser
+      // fingerprint itself, and overriding it makes the disguise inconsistent.
       const response = await fetch(url, {
-        headers: {
-          "x-xhr-api-key": apiKey,
-          "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        },
         signal: controller.signal,
         // undici dispatcher for proxy routing
         dispatcher: agent,
@@ -169,12 +186,18 @@ async function fetchWithRetry(
   return null;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Every billable request passes through fetchWithRetry, so counting here
+ * bounds the whole run. Retries count too, deliberately: a retry storm is
+ * exactly the runaway we want to stop.
+ */
+let requestCount = 0;
+export function getRequestCount(): number {
+  return requestCount;
 }
 
-function randomBetween(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ---------------------------------------------------------------------------
@@ -296,11 +319,21 @@ function parseListingCard($: cheerio.CheerioAPI, article: any): Partial<Idealist
   return listing;
 }
 
+/**
+ * Returns the listings found plus whether the sweep was complete.
+ *
+ * `complete` is false if ANY search page failed, not just if we gave up early.
+ * One failed page silently drops ~30 listings, and the inactivation step would
+ * then read those 30 as "no longer on Idealista" and hide them. Losing a page
+ * must therefore disable inactivation for the whole run.
+ */
 async function scrapeSearchPages(
   cityArea: string,
   filters: ReturnType<typeof getFiltersForCity>
-): Promise<Partial<IdealistaListing>[]> {
+): Promise<{ listings: Partial<IdealistaListing>[]; complete: boolean }> {
   const allListings: Partial<IdealistaListing>[] = [];
+  let consecutiveSearchFailures = 0;
+  let anyPageFailed = false;
 
   for (let page = 1; page <= PROXY_CONFIG.maxSearchPages; page++) {
     const url = buildSearchUrl(cityArea, page, filters);
@@ -308,12 +341,25 @@ async function scrapeSearchPages(
 
     const html = await fetchWithRetry(url, PROXY_CONFIG.searchTimeoutMs);
     if (!html) {
+      consecutiveSearchFailures++;
+      anyPageFailed = true;
       console.log(`    Failed to fetch page ${page}, skipping.`);
+
+      // Each failed page costs up to 3 attempts x 90s. Grinding through all 34
+      // would burn ~2.5h before detail pages even start, so give up early when
+      // the provider is clearly down.
+      if (consecutiveSearchFailures >= PROXY_CONFIG.searchFailureThreshold) {
+        console.error(
+          `\n  ${consecutiveSearchFailures} search pages failed in a row. Stopping Phase 1.`
+        );
+        break;
+      }
       if (page < PROXY_CONFIG.maxSearchPages) {
         await sleep(PROXY_CONFIG.delayBetweenSearchPagesMs);
       }
       continue;
     }
+    consecutiveSearchFailures = 0;
 
     const $ = cheerio.load(html);
     const articles = $("article.item");
@@ -342,7 +388,7 @@ async function scrapeSearchPages(
     }
   }
 
-  return allListings;
+  return { listings: allListings, complete: !anyPageFailed };
 }
 
 // ---------------------------------------------------------------------------
@@ -539,10 +585,12 @@ async function main() {
   else console.log("  Mode: INTERACTIVE");
   console.log(`  Type: ${MODE === "transfer" ? "TRANSFERS (traspaso)" : "RENTALS"}`);
 
-  // Check for XHR proxy key
-  if (!process.env.XHR_API_KEY) {
-    console.error("\nError: XHR_API_KEY not found in environment.");
-    console.error("Add it to your .env.local file.");
+  // Check for Bright Data credentials
+  const missingCreds = ["BRIGHTDATA_CUSTOMER_ID", "BRIGHTDATA_ZONE", "BRIGHTDATA_PASSWORD"]
+    .filter((k) => !process.env[k]);
+  if (missingCreds.length > 0) {
+    console.error(`\nError: missing Bright Data credentials: ${missingCreds.join(", ")}`);
+    console.error("Add them to your .env.local file (or to the GitHub Actions secrets).");
     process.exit(1);
   }
 
@@ -603,77 +651,117 @@ async function main() {
 
   // Phase 1: Scrape search pages
   console.log("Phase 1: Scraping search pages...");
-  const partialListings = await scrapeSearchPages(city.idealistaArea!, activeFilters);
+  const searchResult = await scrapeSearchPages(city.idealistaArea!, activeFilters);
+  let partialListings = searchResult.listings;
+  if (!searchResult.complete) {
+    console.log("\n  WARNING: at least one search page failed. Inactivation will be skipped.");
+  }
   console.log(`\n  Total listings from search: ${partialListings.length}\n`);
 
+  if (LIMIT && LIMIT > 0 && partialListings.length > LIMIT) {
+    partialListings = partialListings.slice(0, LIMIT);
+    console.log(`  --limit ${LIMIT}: only enriching the first ${LIMIT}.\n`);
+  }
+
   if (partialListings.length === 0) {
-    console.log("No listings found. The proxy may be blocked or filters too narrow.");
-    process.exit(0);
+    console.error("\nNo listings found. Provider blocked, or Idealista changed its markup.");
+    console.error("Exiting non-zero so the run is visibly red rather than silently empty.");
+    process.exit(1);
   }
 
   // Phase 2: Enrich with detail pages
   console.log("Phase 2: Fetching detail pages for coordinates and photos...");
-  console.log("  Waiting 10s for CAPTCHA solver to reset...");
-  await sleep(10_000);
+  console.log(`  Concurrency: ${PROXY_CONFIG.detailConcurrency} at a time\n`);
 
-  const listings: IdealistaListing[] = [];
+  const listings: IdealistaListing[] = new Array(partialListings.length);
+  let completed = 0;
+  let consecutiveFailures = 0;
+  let aborted = false;
 
-  // Batch pause state
-  const batchSizes = PROXY_CONFIG.detailBatchSizes;
-  const batchPauses = PROXY_CONFIG.detailBatchPausesMs;
-  let batchCount = 0;
-  let nextBatchBoundary = batchSizes[0];
+  /**
+   * Worker pool. Each worker pulls the next index off a shared counter until
+   * the list is exhausted, so slow pages never block fast ones.
+   */
+  let cursor = 0;
+  async function worker(): Promise<void> {
+    while (true) {
+      if (aborted) return;
+      const i = cursor++;
+      if (i >= partialListings.length) return;
 
-  // Circuit breaker state
-  const recentResults: boolean[] = [];
+      const partial = partialListings[i];
+      const enriched = await enrichWithDetailPage(partial);
+      listings[i] = enriched;
 
-  for (let i = 0; i < partialListings.length; i++) {
-    const partial = partialListings[i];
-    const shortTitle = (partial.title || "Unknown").slice(0, 55);
-    process.stdout.write(`  [${i + 1}/${partialListings.length}] ${shortTitle}...`);
+      const hasCoords = !!(enriched.latitude && enriched.longitude);
+      completed++;
 
-    const enriched = await enrichWithDetailPage(partial);
-    listings.push(enriched);
-
-    const photoCount = enriched.photos.length;
-    const hasCoords = enriched.latitude && enriched.longitude;
-    console.log(` ${hasCoords ? "OK" : "NO COORDS"} (${photoCount} photos)`);
-
-    // Circuit breaker: track recent success/failure
-    recentResults.push(!!hasCoords);
-    if (recentResults.length > 10) recentResults.shift();
-
-    if (recentResults.length >= 10) {
-      const failures = recentResults.filter((r) => !r).length;
-      if (failures >= PROXY_CONFIG.circuitBreakerThreshold) {
-        console.log(`\n  Circuit breaker: ${failures}/10 recent failures, pausing ${PROXY_CONFIG.circuitBreakerPauseMs / 1000}s for solver recovery...`);
-        await sleep(PROXY_CONFIG.circuitBreakerPauseMs);
-        recentResults.length = 0;
+      // Circuit breaker: a long unbroken run of failures means Bright Data or
+      // Idealista is down, not that these particular listings are bad.
+      if (hasCoords) {
+        consecutiveFailures = 0;
+      } else {
+        consecutiveFailures++;
+        if (consecutiveFailures >= PROXY_CONFIG.circuitBreakerThreshold) {
+          console.error(
+            `\n  CIRCUIT BREAKER: ${consecutiveFailures} failures in a row. ` +
+            `Stopping early to avoid burning credits.\n`
+          );
+          aborted = true;
+          return;
+        }
       }
-    }
 
-    // Batch pause
-    if (i + 1 === nextBatchBoundary && i < partialListings.length - 1) {
-      const pauseRange = batchPauses[batchCount % batchPauses.length];
-      const pauseDuration = randomBetween(pauseRange[0], pauseRange[1]);
-      console.log(`\n  Batch pause: waiting ${Math.round(pauseDuration / 1000)}s for solver cooldown... (batch ${batchCount + 1})`);
-      await sleep(pauseDuration);
-      batchCount++;
-      nextBatchBoundary += batchSizes[batchCount % batchSizes.length];
-    }
-
-    // Rate limiting with jitter
-    if (i < partialListings.length - 1) {
-      const delay = randomBetween(PROXY_CONFIG.delayBetweenDetailPagesMs, PROXY_CONFIG.delayBetweenDetailPagesMs + 500);
-      await sleep(delay);
+      const shortTitle = (partial.title || "Unknown").slice(0, 45);
+      console.log(
+        `  [${completed}/${partialListings.length}] ${shortTitle}... ` +
+        `${hasCoords ? "OK" : "NO COORDS"} (${enriched.photos.length} photos)`
+      );
     }
   }
 
+  const startedAt = Date.now();
+  await Promise.all(
+    Array.from({ length: PROXY_CONFIG.detailConcurrency }, () => worker())
+  );
+  const elapsedMin = ((Date.now() - startedAt) / 60_000).toFixed(1);
+  console.log(`\n  Detail pages done in ${elapsedMin} min.`);
+  console.log(
+    `  Billable requests this run: ${getRequestCount()} ` +
+    `(~$${(getRequestCount() * 0.0015).toFixed(2)})`
+  );
+
+  // Drop holes left by an aborted run so downstream code never sees undefined.
+  const scraped = listings.filter(Boolean);
+
   // Filter to listings with valid coordinates
-  const valid = listings.filter((l) => l.latitude && l.longitude);
-  const noCoords = listings.length - valid.length;
+  const valid = scraped.filter((l) => l.latitude && l.longitude);
+  const noCoords = scraped.length - valid.length;
   console.log(`\n  With coordinates: ${valid.length}`);
   if (noCoords > 0) console.log(`  Skipped (no coords): ${noCoords}`);
+
+  // A run that stopped early, or that was deliberately capped with --limit, has
+  // NOT seen the full catalogue. Inactivation compares "what I saw" against
+  // "what is in the database", so running it on a partial result would mark
+  // live listings as gone and delete them from the dashboard and the digest.
+  // markUnseenAsInactive's own 50% guard does not protect us here: an abort at
+  // 70% passes that guard and would still wrongly hide the other 30%.
+  // A high no-coordinate rate means the provider is degraded (e.g. returning
+  // 200s with an interstitial that parses as an empty page) rather than the
+  // listings genuinely lacking coordinates. Treat it like any other incomplete
+  // run. Baseline healthy rate is ~0%.
+  const noCoordRate = scraped.length > 0 ? noCoords / scraped.length : 0;
+  const degraded = noCoordRate > 0.2;
+  if (degraded) {
+    console.error(
+      `\n  WARNING: ${Math.round(noCoordRate * 100)}% of detail pages returned no ` +
+      `coordinates. Treating this run as incomplete.`
+    );
+  }
+
+  const incompleteRun =
+    aborted || degraded || !searchResult.complete || (LIMIT !== null && LIMIT > 0);
+
 
   // Deduplicate within batch by Idealista listing ID
   const deduped = new Map<string, IdealistaListing>();
@@ -690,14 +778,38 @@ async function main() {
   console.log(`  Total gallery photos: ${totalPhotos}`);
 
   // Phase 3: Publish to Supabase
+  if (DRY_RUN) {
+    console.log("\nDRY RUN: skipping Supabase writes.");
+    const withCoords = finalListings.length;
+    const withPhotos = finalListings.filter((l) => l.photos.length > 0).length;
+    const withTransfer = finalListings.filter((l) => l.transfer && l.transfer > 0).length;
+    const withBathrooms = finalListings.filter((l) => l.bathrooms !== null).length;
+    console.log(`  Ready to publish: ${withCoords}`);
+    console.log(`  With photos:      ${withPhotos}`);
+    console.log(`  With transfer:    ${withTransfer}`);
+    console.log(`  With bathrooms:   ${withBathrooms}`);
+    console.log("\nDone (dry run).");
+    return;
+  }
+
   console.log("\nPhase 3: Publishing to Supabase...");
 
   // Determine which environment(s) to write to
   const writeToDevFirst = !HEADLESS && config.dev;
   const writeToProd = HEADLESS;
 
-  // Build seenIds once (used for marking unseen listings as inactive)
-  const seenIds = new Set(Array.from(deduped.keys()));
+  // Build seenIds from the Phase 1 SEARCH results, not from the enriched set.
+  //
+  // Appearing on a search page is the proof that a listing still exists.
+  // Coordinates are a requirement for publishing it, not for it existing. If
+  // seenIds came from the enriched set (as it used to), scattered detail-page
+  // failures would look identical to "delisted" and would hide live listings
+  // from the dashboard and the digest.
+  const seenIds = new Set<string>();
+  for (const l of searchResult.listings) {
+    const sid = l.url ? generateSourceId(l.url) : null;
+    if (sid) seenIds.add(sid);
+  }
 
   const sourceName = MODE === "transfer" ? "Idealista Transfers" : "Idealista";
 
@@ -712,8 +824,12 @@ async function main() {
     console.log(`    Price changes: ${devResult.priceChanges}`);
     console.log(`    Errors:        ${devResult.errors}`);
 
-    const { inactivated: devInactivated } = await markUnseenAsInactive(devClient, selectedCityId, activeSource, seenIds, 0.5);
-    if (devInactivated > 0) console.log(`    Inactivated:   ${devInactivated}`);
+    if (incompleteRun) {
+      console.log(`    Skipping inactivation: run was incomplete.`);
+    } else {
+      const { inactivated: devInactivated } = await markUnseenAsInactive(devClient, selectedCityId, activeSource, seenIds, 0.5);
+      if (devInactivated > 0) console.log(`    Inactivated:   ${devInactivated}`);
+    }
 
     // Ask about PROD
     if (config.prod) {
@@ -731,8 +847,12 @@ async function main() {
         console.log(`    Price changes: ${prodResult.priceChanges}`);
         console.log(`    Errors:        ${prodResult.errors}`);
 
-        const { inactivated: prodInactivated } = await markUnseenAsInactive(prodClient, selectedCityId, activeSource, seenIds, 0.5);
-        if (prodInactivated > 0) console.log(`    Inactivated:   ${prodInactivated}`);
+        if (incompleteRun) {
+          console.log(`    Skipping inactivation: run was incomplete.`);
+        } else {
+          const { inactivated: prodInactivated } = await markUnseenAsInactive(prodClient, selectedCityId, activeSource, seenIds, 0.5);
+          if (prodInactivated > 0) console.log(`    Inactivated:   ${prodInactivated}`);
+        }
       }
     }
   }
@@ -749,8 +869,23 @@ async function main() {
     console.log(`    Errors:        ${result.errors}`);
     if (result.skippedValidation > 0) console.log(`    Skipped (val): ${result.skippedValidation}`);
 
-    const { inactivated, safetyGuardTripped } = await markUnseenAsInactive(prodClient, selectedCityId, activeSource, seenIds, 0.5);
-    if (inactivated > 0) console.log(`    Inactivated:   ${inactivated}`);
+    let inactivated = 0;
+    let safetyGuardTripped = false;
+    if (incompleteRun) {
+      const why = aborted
+        ? "circuit breaker"
+        : !searchResult.complete
+        ? "a search page failed"
+        : degraded
+        ? "too many detail pages returned no coordinates"
+        : "--limit";
+      console.log(`\n  Skipping inactivation: run was incomplete (${why}).`);
+      console.log(`  Existing listings are left untouched rather than wrongly hidden.`);
+      safetyGuardTripped = true;
+    } else {
+      ({ inactivated, safetyGuardTripped } = await markUnseenAsInactive(prodClient, selectedCityId, activeSource, seenIds, 0.5));
+      if (inactivated > 0) console.log(`    Inactivated:   ${inactivated}`);
+    }
 
     // Validation failure rate check
     const validationFailRate = finalListings.length > 0 ? result.skippedValidation / finalListings.length : 0;
@@ -795,6 +930,13 @@ async function main() {
     }
 
     if (validationFailRate > 0.2) {
+      process.exit(1);
+    }
+
+    // An aborted run still published what it managed to scrape, but the job
+    // must go red so the incomplete run is noticed rather than silently kept.
+    if (aborted) {
+      console.error("\n  Run aborted early by the circuit breaker. Failing the job.");
       process.exit(1);
     }
   }
