@@ -24,7 +24,15 @@ const MODE: "rental" | "transfer" = modeArgIndex !== -1 && args[modeArgIndex + 1
 // without touching production data.
 const DRY_RUN = args.includes("--dry-run");
 const limitArgIndex = args.indexOf("--limit");
-const LIMIT = limitArgIndex !== -1 ? parseInt(args[limitArgIndex + 1], 10) : null;
+const LIMIT = (() => {
+  if (limitArgIndex === -1) return null;
+  const parsed = parseInt(args[limitArgIndex + 1] ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    console.error("Error: --limit needs a positive number, e.g. --limit 20.");
+    process.exit(1);
+  }
+  return parsed;
+})();
 const statsFileArgIndex = args.indexOf("--stats-file");
 const STATS_FILE = statsFileArgIndex !== -1 ? args[statsFileArgIndex + 1] : null;
 
@@ -150,13 +158,18 @@ async function fetchWithRetry(
 
       // No User-Agent header on purpose: Web Unlocker manages the browser
       // fingerprint itself, and overriding it makes the disguise inconsistent.
-      const response = await fetch(url, {
-        signal: controller.signal,
-        // undici dispatcher for proxy routing
-        dispatcher: agent,
-      } as any);
-
-      clearTimeout(timer);
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          signal: controller.signal,
+          // undici dispatcher for proxy routing
+          dispatcher: agent,
+        } as any);
+      } finally {
+        // Must be in `finally`: on the throw path this timer would otherwise
+        // stay armed for the full 90s and keep the process alive after Done.
+        clearTimeout(timer);
+      }
 
       if (response.status === 404) return null;
 
@@ -334,6 +347,7 @@ async function scrapeSearchPages(
   const allListings: Partial<IdealistaListing>[] = [];
   let consecutiveSearchFailures = 0;
   let anyPageFailed = false;
+  let truncated = false;
 
   for (let page = 1; page <= PROXY_CONFIG.maxSearchPages; page++) {
     const url = buildSearchUrl(cityArea, page, filters);
@@ -383,12 +397,21 @@ async function scrapeSearchPages(
       break;
     }
 
-    if (page < PROXY_CONFIG.maxSearchPages) {
-      await sleep(PROXY_CONFIG.delayBetweenSearchPagesMs);
+    if (page === PROXY_CONFIG.maxSearchPages) {
+      // Ran out of allowed pages while Idealista still offers more. The sweep
+      // is truncated, so it must not be treated as a complete catalogue.
+      console.error(
+        `\n  Hit the ${PROXY_CONFIG.maxSearchPages}-page cap with more pages available. ` +
+        `Treating this run as incomplete; raise maxSearchPages.`
+      );
+      truncated = true;
+      break;
     }
+
+    await sleep(PROXY_CONFIG.delayBetweenSearchPagesMs);
   }
 
-  return { listings: allListings, complete: !anyPageFailed };
+  return { listings: allListings, complete: !anyPageFailed && !truncated };
 }
 
 // ---------------------------------------------------------------------------
@@ -442,7 +465,7 @@ function scrapeDetailHtml(html: string): {
 
 async function enrichWithDetailPage(
   listing: Partial<IdealistaListing>
-): Promise<IdealistaListing> {
+): Promise<{ listing: IdealistaListing; fetchFailed: boolean }> {
   const result: IdealistaListing = {
     title: listing.title || "",
     url: listing.url || "",
@@ -461,10 +484,10 @@ async function enrichWithDetailPage(
     photos: listing.photos || [],
   };
 
-  if (!listing.url) return result;
+  if (!listing.url) return { listing: result, fetchFailed: false };
 
   const html = await fetchWithRetry(listing.url, PROXY_CONFIG.detailTimeoutMs);
-  if (!html) return result;
+  if (!html) return { listing: result, fetchFailed: true };
 
   const detail = scrapeDetailHtml(html);
   result.latitude = detail.latitude;
@@ -478,7 +501,7 @@ async function enrichWithDetailPage(
     result.photos = detail.photos;
   }
 
-  return result;
+  return { listing: result, fetchFailed: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -690,21 +713,22 @@ async function main() {
       if (i >= partialListings.length) return;
 
       const partial = partialListings[i];
-      const enriched = await enrichWithDetailPage(partial);
+      const { listing: enriched, fetchFailed } = await enrichWithDetailPage(partial);
       listings[i] = enriched;
 
       const hasCoords = !!(enriched.latitude && enriched.longitude);
       completed++;
 
-      // Circuit breaker: a long unbroken run of failures means Bright Data or
-      // Idealista is down, not that these particular listings are bad.
-      if (hasCoords) {
+      // Circuit breaker counts FETCH failures, not missing coordinates. A
+      // listing can legitimately have no map pin; that is not a sign the
+      // provider is down, and conflating the two aborted healthy runs.
+      if (!fetchFailed) {
         consecutiveFailures = 0;
       } else {
         consecutiveFailures++;
         if (consecutiveFailures >= PROXY_CONFIG.circuitBreakerThreshold) {
           console.error(
-            `\n  CIRCUIT BREAKER: ${consecutiveFailures} failures in a row. ` +
+            `\n  CIRCUIT BREAKER: ${consecutiveFailures} fetch failures in a row. ` +
             `Stopping early to avoid burning credits.\n`
           );
           aborted = true;
@@ -871,14 +895,14 @@ async function main() {
 
     let inactivated = 0;
     let safetyGuardTripped = false;
-    if (incompleteRun) {
-      const why = aborted
+    const why = aborted
         ? "circuit breaker"
         : !searchResult.complete
         ? "a search page failed"
         : degraded
         ? "too many detail pages returned no coordinates"
         : "--limit";
+    if (incompleteRun) {
       console.log(`\n  Skipping inactivation: run was incomplete (${why}).`);
       console.log(`  Existing listings are left untouched rather than wrongly hidden.`);
       safetyGuardTripped = true;
@@ -933,10 +957,15 @@ async function main() {
       process.exit(1);
     }
 
-    // An aborted run still published what it managed to scrape, but the job
-    // must go red so the incomplete run is noticed rather than silently kept.
-    if (aborted) {
-      console.error("\n  Run aborted early by the circuit breaker. Failing the job.");
+    // An incomplete run still publishes what it scraped, but the job must go
+    // red so it is noticed rather than silently accepted as a good refresh.
+    // --limit is excluded: that one is a deliberate, human-chosen partial run.
+    const unintentionallyIncomplete = aborted || degraded || !searchResult.complete;
+    if (unintentionallyIncomplete) {
+      console.error(
+        `\n  Run was incomplete (${why}). Data was published but nothing was ` +
+        `inactivated. Failing the job so this is not mistaken for a clean run.`
+      );
       process.exit(1);
     }
   }

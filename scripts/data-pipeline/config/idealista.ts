@@ -142,9 +142,10 @@ export const PROXY_CONFIG = {
   // that dies late keeps the work it already did.
   publishChunkSize: 50,
 
-  // Kill switch if Bright Data itself goes down: trips on sustained failures.
+  // Kill switch if Bright Data itself goes down. Counts CONSECUTIVE fetch
+  // failures (not missing coordinates: a listing can legitimately have no map
+  // pin, and treating that as a provider outage aborted healthy runs).
   circuitBreakerThreshold: 8,
-  circuitBreakerWindow: 10,
 
   // Hard spend cap. Bright Data's own account limits are only checked every
   // ~15 minutes, so a runaway loop could overshoot them. This stops the run
