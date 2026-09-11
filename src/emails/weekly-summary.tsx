@@ -492,9 +492,14 @@ export function WeeklySummary({
         </>
       )}
 
-      <Link href={appUrl} style={buttonStyle}>
-        Open the dashboard
-      </Link>
+      {/* Centred, unlike the notification emails: this one is a full-width
+          report, and a button hard against the left edge of it reads as a
+          stray leftover rather than the end of the email. */}
+      <Section style={{ textAlign: "center", marginTop: "8px" }}>
+        <Link href={appUrl} style={buttonStyle}>
+          Open app
+        </Link>
+      </Section>
     </EmailShell>
   );
 }

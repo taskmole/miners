@@ -103,6 +103,43 @@ export function canApprove(access: Access, cityId: string): boolean {
   return hasCityLevel(access, cityId, 'approve');
 }
 
+/**
+ * "Madrid", "Madrid and Prague", "Madrid, Prague and Seville".
+ * Written out rather than comma-joined so a two-city line does not read as a
+ * truncated list.
+ */
+function joinNames(names: string[]): string {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/**
+ * What somebody can do, in one line: "Contribute in Madrid and Prague".
+ *
+ * Lives here rather than in the email that uses it because the user-change
+ * alerts have to describe the same thing, and two places writing their own
+ * version is how the app ended up with three disagreeing city lists.
+ *
+ * Takes a city-name lookup rather than importing one, so this module stays
+ * free of every other import. Ids are used as-is for anything not in it.
+ */
+export function accessSummary(
+  { isSuperAdmin, grants }: Access,
+  cityNames: Record<string, string> = {},
+): string {
+  if (isSuperAdmin) return 'Super admin, every city';
+
+  const level = strongestLevel(grants);
+  if (!level) return 'No cities yet';
+
+  const names = grants
+    .map((g) => cityNames[g.cityId] ?? g.cityId)
+    .sort();
+
+  return `${LEVEL_LABELS[level]} in ${joinNames(names)}`;
+}
+
 /** The strongest level anyone holds anywhere. Null when they hold nothing. */
 export function strongestLevel(grants: CityGrant[]): CityLevel | null {
   if (grants.length === 0) return null;
