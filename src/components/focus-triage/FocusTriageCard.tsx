@@ -1,34 +1,9 @@
 "use client";
 
-import React from "react";
-import {
-  // ChevronDown,  // only used by the revenue simulator toggle (switched off)
-  Snowflake,
-  Bath,
-  Store,
-  Sparkles,
-} from "lucide-react";
-// import { predictRevenue, getMarketDefaults } from "@/lib/revenue-model";
+import { Snowflake, Bath, Store, Sparkles } from "lucide-react";
 import { ImageCarousel } from "./ImageCarousel";
-// import { RevenueSimulator } from "./RevenueSimulator";
 import { formatPrice } from "@/types/inbox";
 import type { InboxProperty } from "@/types/inbox";
-
-/**
- * Money numbers are switched off on this card for everybody, super admins
- * included.
- *
- * The estimated payback and the revenue simulator both come out of a guessed
- * model, not from anything we measured, and a confident-looking number that
- * nobody stands behind is worse than no number. Same call as the financials
- * switch-off, for the same reason.
- *
- * Nothing is deleted. The payback stat, the simulator toggle and the maths
- * behind them are commented out in place, so turning them back on is a small
- * edit rather than a rebuild. RevenueSimulator.tsx is kept whole; it is just
- * not mounted (and not exported from the barrel, so it stays out of the
- * browser bundle).
- */
 
 interface FocusTriageCardProps {
   property: InboxProperty;
@@ -39,7 +14,21 @@ interface FocusTriageCardProps {
   onNext: () => void;
 }
 
-// Payback colouring and wording. Off with the payback stat below.
+// ---------------------------------------------------------------------------
+// Money numbers are switched off on this card for everybody, super admins
+// included. The estimated payback and the revenue simulator both come out of a
+// guessed model rather than anything measured, and a confident-looking number
+// nobody stands behind is worse than no number. Same call as the financials
+// switch-off, for the same reason.
+//
+// Nothing is deleted. Everything that fed those two numbers is parked in place
+// below, marked "off: see header", so switching them back on is a small edit.
+// RevenueSimulator.tsx is kept whole; it is just not mounted. Dropping this
+// file's imports of it and of the revenue model is what took 8.4 kB off every
+// visitor's download, measured. Put them back when the numbers come back.
+// ---------------------------------------------------------------------------
+
+// off: see header
 // function paybackColor(months: number | null | undefined) {
 //   if (months == null) return "#dc2626";
 //   if (months <= 24) return "#16a34a";
@@ -59,8 +48,9 @@ export function FocusTriageCard({
   onActions,
   onNext,
 }: FocusTriageCardProps) {
+  // off: see header
   // const [showRevenue, setShowRevenue] = useState(false);
-
+  //
   // const currency = property.source === "sreality" ? "CZK" : "EUR";
   // const defaults = getMarketDefaults(currency);
   // const result = predictRevenue(
@@ -102,7 +92,7 @@ export function FocusTriageCard({
 
       {/* Card content */}
       <div className="px-5 pt-8 pb-4 space-y-8">
-        {/* Stats row: Rent, Payback, link buttons */}
+        {/* Stats row: Rent, link buttons */}
         <div className="flex items-center">
           <div className="flex-1 min-w-0">
             <p className="text-[11px] text-zinc-400 uppercase tracking-wide">
@@ -120,9 +110,10 @@ export function FocusTriageCard({
                 : "N/A"}
             </p>
           </div>
-          {/* Est. payback, switched off. Rent keeps flex-1, so it sits on the
-              left and the link buttons stay on the right. */}
-          {/* <div className="flex-1 min-w-0">
+          {/* off: see header. Rent keeps flex-1, so it sits on the left and
+              the link buttons stay on the right. */}
+          {/*
+          <div className="flex-1 min-w-0">
             <p className="text-[11px] text-zinc-400 uppercase tracking-wide">
               Est. payback
             </p>
@@ -136,7 +127,8 @@ export function FocusTriageCard({
             >
               {paybackLabel(result?.paybackMonths)}
             </p>
-          </div> */}
+          </div>
+          */}
           <div className="flex gap-2 shrink-0">
             {property.url && (
               <a
@@ -224,8 +216,9 @@ export function FocusTriageCard({
           </div>
         )}
 
-        {/* Revenue simulation toggle, switched off. */}
-        {/* <div>
+        {/* Revenue simulation toggle. off: see header. */}
+        {/*
+        <div>
           <button
             onClick={() => setShowRevenue(!showRevenue)}
             className="flex items-center gap-1 text-[13px] text-zinc-400"
@@ -243,7 +236,8 @@ export function FocusTriageCard({
               <RevenueSimulator property={property} />
             </div>
           )}
-        </div> */}
+        </div>
+        */}
       </div>
 
       {/* Sticky action buttons */}

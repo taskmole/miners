@@ -175,11 +175,10 @@ export default function UserGuidePage() {
           />
         </GuideSection>
 
-        {/* ===== SECTION 4: Simulate Revenue (switched off) =====
-            The revenue simulator is hidden on the property card for
-            everybody, so this section documents a tool nobody can reach.
-            Kept here, commented out, for when it comes back.
-
+        {/* Section 4 was Simulate Revenue. The simulator is hidden on the
+            property card for everybody, so the section documented a tool
+            nobody can reach. Kept below, parked, for when it comes back. */}
+        {/*
         <GuideSection title="Simulate Revenue">
           <GuideAccordion
             items={[
@@ -489,21 +488,16 @@ export default function UserGuidePage() {
             />
           </GuideSection>
 
-          {/* Market Inputs, switched off. It describes an "Inputs" tab that
-              does not exist in the dashboard, and it describes it as driving
-              the revenue calculator, which is now hidden on the card.
-
           <GuideSection title="Market Inputs">
             <GuideAccordion
               items={[
                 {
                   q: "What is the Inputs tab for?",
-                  a: "It sets the starting numbers for the revenue calculator: footfall, conversion, average ticket, and building cost. Per city. Change them here and every property card uses your new numbers.",
+                  a: "It sets the starting numbers for each market: footfall, conversion, average ticket, and building cost. Change them here and new scouting trips start from your numbers.",
                 },
               ]}
             />
           </GuideSection>
-          */}
 
           <GuideSection title="Managing Users">
             <GuideAccordion
