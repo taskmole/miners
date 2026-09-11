@@ -41,14 +41,29 @@ export function propertyUrl(appUrl: string, placeId?: string | null): string {
 
 export function EmailShell({
   preview,
+  headStyles,
+  maxWidth,
   children,
 }: {
   preview: string;
+  /**
+   * Extra CSS for the document head, for templates that need mobile rules.
+   * The shell has none of its own: every email using it is stacked text,
+   * which reflows by itself. Templates that introduce tables (the weekly
+   * summary) do need them, and must not fork the chrome to get them.
+   */
+  headStyles?: string;
+  /** Wider body for report-style emails. Notifications keep the default 480. */
+  maxWidth?: number;
   children: React.ReactNode;
 }) {
   return (
     <Html>
       <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {headStyles && (
+          <style dangerouslySetInnerHTML={{ __html: headStyles }} />
+        )}
         <Font
           fontFamily="Outfit"
           fallbackFontFamily="Arial"
@@ -60,7 +75,9 @@ export function EmailShell({
       </Head>
       <Preview>{preview}</Preview>
       <Body style={bodyStyle}>
-        <Container style={containerStyle}>
+        <Container
+          style={maxWidth ? { ...containerStyle, maxWidth: `${maxWidth}px` } : containerStyle}
+        >
           <Section style={{ padding: "32px 24px" }}>
             <Section style={logoSectionStyle}>
               <Img
