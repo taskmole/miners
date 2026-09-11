@@ -147,8 +147,6 @@ function downloadPitchAsPdf(pitch: AdminPitch) {
           <div class="field"><div class="label">Deposit</div><div class="value">${pitch.deposit ? '€' + pitch.deposit.toLocaleString() : '—'}</div></div>
           <div class="field"><div class="label">Transfer Fee</div><div class="value">${pitch.transferFee ? '€' + pitch.transferFee.toLocaleString() : '—'}</div></div>
           <div class="field"><div class="label">Fitout Cost</div><div class="value">${pitch.fitoutCost ? '€' + pitch.fitoutCost.toLocaleString() : '—'}</div></div>
-          <div class="field"><div class="label">Expected Daily Revenue</div><div class="value">${pitch.expectedDailyRevenue ? '€' + pitch.expectedDailyRevenue.toLocaleString() : '—'}</div></div>
-          <div class="field"><div class="label">Payback</div><div class="value">${pitch.paybackMonths ? pitch.paybackMonths + ' months' : '—'}</div></div>
         </div>
       </div>
 
@@ -702,6 +700,13 @@ function AddUserForm({ onSave, onCancel, teams }: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  /**
+   * Set when the person was created but the invite email did not reach them:
+   * either the app is still in email test mode, or the send failed. The form
+   * then stays open so the warning can be read, and "Cancel" becomes "Done"
+   * so it does not read as an undo.
+   */
+  const [warning, setWarning] = useState<string | null>(null);
   const [showNewTeam, setShowNewTeam] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
   const [creatingTeam, setCreatingTeam] = useState(false);
@@ -730,6 +735,7 @@ function AddUserForm({ onSave, onCancel, teams }: {
     setSaving(true);
     setError(null);
     setSuccess(null);
+    setWarning(null);
     try {
       const created = await addUser({
         display_name: displayName.trim() || undefined,
@@ -739,15 +745,29 @@ function AddUserForm({ onSave, onCancel, teams }: {
       });
       // Also record real team membership (the source of truth the app reads),
       // not just the team_id column. Best effort: never fails the user creation.
-      if (created?.id && teamId) {
-        try { await addMember(teamId, created.id, 'member'); } catch { /* already a member */ }
+      if (created?.profile.id && teamId) {
+        try { await addMember(teamId, created.profile.id, 'member'); } catch { /* already a member */ }
       }
-      setSuccess(
-        isSuperAdmin && !cityId
-          ? `Profile created for ${email.trim()}. They have no cities and cannot sign in yet: open their profile to give them access and switch the account on.`
-          : `Profile created for ${email.trim()}. They can contribute in ${CITY_LABELS[cityId] ?? cityId} once they sign in with Google.`,
-      );
-      setTimeout(() => onSave(), 2000);
+
+      const address = email.trim();
+      const noCity = isSuperAdmin && !cityId;
+
+      if (noCity) {
+        // Nobody is emailed on this path, deliberately: they are switched off,
+        // so "you are in, go and sign in" would end at the Account Pending
+        // screen. Say so, rather than leaving the admin to assume otherwise.
+        setSuccess(`Profile created for ${address}. They have no cities and cannot sign in yet, and nobody has emailed them. Open their profile to give them a city and switch the account on.`);
+        setTimeout(() => onSave(), 2000);
+      } else if (created?.inviteRedirected) {
+        setSuccess(`Profile created for ${address}. They can contribute in ${CITY_LABELS[cityId] ?? cityId}.`);
+        setWarning('Email is still in test mode, so the invite went to the test inbox instead of them. Tell them directly that they can sign in with Google.');
+      } else if (created?.inviteSent) {
+        setSuccess(`Profile created for ${address}. Invite email sent.`);
+        setTimeout(() => onSave(), 2000);
+      } else {
+        setSuccess(`Profile created for ${address}. They can contribute in ${CITY_LABELS[cityId] ?? cityId}.`);
+        setWarning('The invite email could not be sent. Tell them directly that they can sign in with Google.');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create user');
     } finally {
@@ -761,6 +781,11 @@ function AddUserForm({ onSave, onCancel, teams }: {
 
       {error && <div className="text-xs text-red-600">{error}</div>}
       {success && <div className="text-xs text-green-600">{success}</div>}
+      {warning && (
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          {warning}
+        </div>
+      )}
 
       <div className="space-y-3">
         <div>
@@ -863,8 +888,8 @@ function AddUserForm({ onSave, onCancel, teams }: {
         >
           {saving ? 'Adding...' : 'Add User'}
         </Button>
-        <Button onClick={onCancel} variant="outline" className="h-10">
-          Cancel
+        <Button onClick={warning ? onSave : onCancel} variant="outline" className="h-10">
+          {warning ? 'Done' : 'Cancel'}
         </Button>
       </div>
     </div>

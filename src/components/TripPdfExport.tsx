@@ -193,7 +193,8 @@ export async function generateTripPdf(trip: ScoutingTrip): Promise<void> {
 
     if (trip.monthlyRent) addMetric("Monthly Rent", formatCurrency(trip.monthlyRent));
     if (trip.openingInvestment) addMetric("Investment", formatCurrency(trip.openingInvestment));
-    if (trip.paybackMonths) addMetric("Payback", `${trip.paybackMonths} months`);
+    // Payback is off: it came from a guessed model, not from anything measured.
+    // if (trip.paybackMonths) addMetric("Payback", `${trip.paybackMonths} months`);
     if (trip.areaSqm) addMetric("Area", `${trip.areaSqm} m²`);
 
     y += 20;
@@ -287,7 +288,7 @@ export async function generateTripPdf(trip: ScoutingTrip): Promise<void> {
 
   // ===== FINANCIAL SECTION =====
   const hasFinancialData = trip.monthlyRent || trip.serviceFees || trip.deposit ||
-    trip.fitoutCost || trip.openingInvestment || trip.paybackMonths;
+    trip.fitoutCost || trip.openingInvestment;
 
   if (hasFinancialData) {
     checkNewPage(45);
@@ -298,9 +299,10 @@ export async function generateTripPdf(trip: ScoutingTrip): Promise<void> {
     if (trip.transferFee) addRow("Transfer Fee", formatCurrency(trip.transferFee));
     if (trip.fitoutCost) addRow("Fit-out Cost", formatCurrency(trip.fitoutCost));
     if (trip.openingInvestment) addRow("Opening Investment", formatCurrency(trip.openingInvestment));
-    if (trip.expectedDailyRevenue) addRow("Expected Daily Revenue", formatCurrency(trip.expectedDailyRevenue));
-    if (trip.monthlyRevenueRange) addRow("Revenue Range", trip.monthlyRevenueRange);
-    if (trip.paybackMonths) addRow("Payback Period", `${trip.paybackMonths} months`);
+    // Estimated revenue and payback are off across the app.
+    // if (trip.expectedDailyRevenue) addRow("Expected Daily Revenue", formatCurrency(trip.expectedDailyRevenue));
+    // if (trip.monthlyRevenueRange) addRow("Revenue Range", trip.monthlyRevenueRange);
+    // if (trip.paybackMonths) addRow("Payback Period", `${trip.paybackMonths} months`);
     y += 2;
   }
 

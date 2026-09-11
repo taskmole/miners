@@ -1,0 +1,31 @@
+name: Send Weekly Summary
+
+# Friday, 4pm Prague time, to the super admins.
+#
+# GitHub timers only understand UTC, and Prague is one hour ahead of UTC in
+# winter and two in summer, so a single fixed timer would drift to 3pm for
+# half the year. This fires twice and the route itself checks the Prague
+# clock: exactly one of the two firings passes.
+#
+# "Run workflow" sends immediately, skipping the clock check.
+on:
+  schedule:
+    - cron: '0 14 * * 5'
+    - cron: '0 15 * * 5'
+  workflow_dispatch:
+
+jobs:
+  send-weekly-summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger weekly summary email
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          DIGEST_SECRET: ${{ secrets.DIGEST_SECRET }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          curl -X POST "$APP_URL/api/send-weekly-summary" \
+            -H "x-digest-secret: $DIGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"force\":$FORCE}" \
+            --fail --silent --show-error

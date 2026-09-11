@@ -166,7 +166,7 @@ export default function UserDetailPage() {
       JSON.stringify(
         [...list]
           .sort((a, b) => a.cityId.localeCompare(b.cityId))
-          .map((g) => [g.cityId, g.level, g.canSeeFinancials, g.receivesAlerts]),
+          .map((g) => [g.cityId, g.level, g.receivesAlerts]),
       );
     return key(formGrants) !== key(savedGrants);
   }, [formGrants, savedGrants]);
@@ -390,21 +390,58 @@ export default function UserDetailPage() {
             />
           </div>
 
-          {formSuperAdmin ? (
-            <SuperAdminBanner />
-          ) : (
-            <CityAccessEditor
-              cities={cityOptions}
-              grants={formGrants}
-              onChange={setFormGrants}
-              // An empty allow-list disables every row, which is what an
-              // Approver looking at somebody else's page should see: the
-              // levels are visible so the shape of the person is readable,
-              // and nothing is pressable.
-              allowedCityIds={canEditAccess ? undefined : []}
-              maxLevel={canEditAccess ? 'approve' : 'contribute'}
+          {/* Financials, one row per person, deliberately not switchable.
+              It used to be a tick per city, which read as a per-city choice
+              and never was one: is_finance_plus() returns true if ANY city had
+              the tick, and not one of the six finance tables has a city
+              column. Five of those tables are empty and the sixth holds a
+              single number, so rather than ship a control that cannot mean
+              what it says, the row states that the view is coming and stays
+              off for everybody.
+
+              A super admin reads On because that is the truth: the Super Admin
+              switch carries revenue with it whatever this column says. Turning
+              the row off for them would be the same lie in the other
+              direction. */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium text-zinc-400">Financials</div>
+                <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-400 bg-zinc-100 rounded px-1.5 py-0.5">
+                  Coming soon
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400">
+                Revenue figures on café records. Off for everyone for now.
+              </p>
+            </div>
+            <OnOffSegments
+              ariaLabel="Financials"
+              on={formSuperAdmin}
+              disabled
+              onChange={() => {}}
             />
-          )}
+          </div>
+
+          {/* The city list stays on screen for a Super Admin, greyed out,
+              with the banner above it saying why. Removing it instead made the
+              panel look like it had broken the first time somebody flipped the
+              switch, and it hid the fact that the grants underneath are still
+              there and come back when the switch goes off again. */}
+          {formSuperAdmin && <SuperAdminBanner />}
+
+          <CityAccessEditor
+            cities={cityOptions}
+            grants={formGrants}
+            onChange={setFormGrants}
+            // An empty allow-list disables every row, which is what an
+            // Approver looking at somebody else's page should see: the
+            // levels are visible so the shape of the person is readable,
+            // and nothing is pressable.
+            allowedCityIds={canEditAccess ? undefined : []}
+            maxLevel={canEditAccess ? 'approve' : 'contribute'}
+            dimmed={formSuperAdmin}
+          />
 
           {!canEditAccess && (
             <p className="text-xs text-zinc-500">
@@ -415,6 +452,9 @@ export default function UserDetailPage() {
 
           {saveError && <div className="text-xs text-red-600">{saveError}</div>}
 
+          {/* Full width at every size, like everything else in this panel.
+              The button says what it did; there is no separate status line to
+              read as well. */}
           <Button
             onClick={handleSave}
             disabled={saving || !isDirty}
@@ -422,10 +462,10 @@ export default function UserDetailPage() {
               'w-full h-10',
               isDirty
                 ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
-                : 'bg-zinc-200 text-zinc-500 cursor-not-allowed',
+                : 'bg-zinc-100 text-zinc-400 cursor-not-allowed hover:bg-zinc-100',
             )}
           >
-            {saving ? 'Saving...' : isDirty ? 'Save Changes' : 'No Changes'}
+            {saving ? 'Saving...' : isDirty ? 'Save changes' : 'Saved'}
           </Button>
         </section>
 

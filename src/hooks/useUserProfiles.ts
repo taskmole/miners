@@ -38,6 +38,23 @@ interface AddUserData {
   team_id?: string | null;
 }
 
+/** The two extra fields POST adds to say what the invite email did. */
+interface InviteOutcome {
+  invite_sent?: boolean;
+  invite_redirected?: boolean;
+}
+
+/**
+ * What the Add User form gets back: the new person, plus whether they were
+ * actually emailed. The form says different things for sent, redirected to
+ * the test inbox, and failed.
+ */
+interface AddUserResult {
+  profile: UserProfile;
+  inviteSent: boolean;
+  inviteRedirected: boolean;
+}
+
 interface UpdateUserData {
   display_name?: string | null;
   team_id?: string | null;
@@ -111,11 +128,23 @@ export function useUserProfiles() {
     try {
       const data = await apiFetch<{
         isSuperAdmin: boolean;
+        isActive: boolean;
+        canSeeFinancials: boolean;
         grants: CityGrantRow[];
       }>('/api/db/user-grants?mode=current');
 
       setAccess({
         isSuperAdmin: data?.isSuperAdmin === true,
+        // The endpoint has always returned this and this hook has always
+        // thrown it away, which was harmless while the database ignored
+        // is_active too. It does not any more: without this line an inactive
+        // Approver's browser still believes it may open /admin, and they land
+        // on a screen that loads nothing.
+        //
+        // Only an explicit false counts as off, matching the SQL's
+        // `IS DISTINCT FROM false`. A missing field must not lock anyone out.
+        isActive: data?.isActive !== false,
+        canSeeFinancials: data?.canSeeFinancials === true,
         grants: toGrants(data?.grants),
       });
     } catch (err) {
@@ -137,7 +166,6 @@ export function useUserProfiles() {
             grants: grants.map((g) => ({
               city_id: g.cityId,
               level: g.level,
-              can_see_financials: g.canSeeFinancials,
               receives_alerts: g.receivesAlerts,
             })),
           }),
@@ -176,6 +204,36 @@ export function useUserProfiles() {
     [userId, fetchAccess],
   );
 
+  /**
+   * Set the Financials switch on somebody's profile. Super admins only,
+   * enforced by the profiles route and again by a database trigger.
+   *
+   * Nothing calls this yet. The user screen shows Financials as coming soon
+   * and off for everybody, because not one of the six finance tables has a
+   * city column, so the control could not mean what a per-city tick implied.
+   * Kept here, wired and tested, so switching the feature on later is a
+   * screen change and not a round trip through the API and the trigger again.
+   */
+  const setCanSeeFinancials = useCallback(
+    async (targetUserId: string, canSee: boolean): Promise<boolean> => {
+      try {
+        await apiFetch('/api/db/user-profiles', {
+          method: 'PATCH',
+          body: JSON.stringify({ id: targetUserId, can_see_financials: canSee }),
+        });
+        setUsers((prev) =>
+          prev.map((u) => (u.id === targetUserId ? { ...u, can_see_financials: canSee } : u)),
+        );
+        if (targetUserId === userId) await fetchAccess();
+        return true;
+      } catch (err) {
+        console.error('Error updating financials flag:', err);
+        return false;
+      }
+    },
+    [userId, fetchAccess],
+  );
+
   const toggleActive = useCallback(async (targetUserId: string, isActive: boolean): Promise<boolean> => {
     try {
       await apiFetch('/api/db/user-profiles', {
@@ -198,16 +256,20 @@ export function useUserProfiles() {
    * Contribute and active. The server decides which of those applies, and
    * refuses anything else.
    */
-  const addUser = useCallback(async (data: AddUserData): Promise<UserProfile | null> => {
+  const addUser = useCallback(async (data: AddUserData): Promise<AddUserResult | null> => {
     try {
-      const result = await apiFetch<UserProfile>('/api/db/user-profiles', {
+      const result = await apiFetch<UserProfile & InviteOutcome>('/api/db/user-profiles', {
         method: 'POST',
         body: JSON.stringify(data),
       });
       if (result) {
-        setUsers(prev => [result, ...prev]);
+        // The two invite fields describe what the send did, not who the
+        // person is, so they are stripped before the row joins the list.
+        const { invite_sent, invite_redirected, ...profile } = result;
+        setUsers(prev => [profile as UserProfile, ...prev]);
+        return { profile: profile as UserProfile, inviteSent: invite_sent === true, inviteRedirected: invite_redirected === true };
       }
-      return result;
+      return null;
     } catch (err) {
       console.error('Error adding user:', err);
       throw err;
@@ -307,6 +369,7 @@ export function useUserProfiles() {
     error,
     updateGrants,
     setSuperAdmin,
+    setCanSeeFinancials,
     toggleActive,
     addUser,
     updateUser,
@@ -314,4 +377,4 @@ export function useUserProfiles() {
   };
 }
 
-export type { UserProfile, UserRole, CityGrant, CityLevel, Access };
+export type { UserProfile, UserRole, CityGrant, CityLevel, Access, AddUserResult };

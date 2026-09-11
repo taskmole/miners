@@ -4,6 +4,55 @@ import { parseWkbPoint } from "@/lib/wkb";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Write one place's revenue into cafe_financials.
+ *
+ * Its own table, its own policy: reading needs the financials switch AND the
+ * city, writing needs Approve in the city. Kept in one function because the
+ * create path and the edit path have to behave identically, and because the
+ * old code wrote money as just another column on the café record, which is
+ * exactly how it ended up readable by everyone signed in.
+ *
+ * `undefined` means the caller did not mention revenue, so nothing happens.
+ * `null` means the caller cleared it, so the row goes.
+ *
+ * Returns an error message when the write was refused, null when it was fine.
+ */
+async function saveRevenue(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  placeId: string,
+  monthlyRevenue: unknown,
+  userId: string,
+): Promise<string | null> {
+  if (monthlyRevenue === undefined) return null;
+
+  if (monthlyRevenue === null || monthlyRevenue === "") {
+    const { error } = await supabase.from("cafe_financials").delete().eq("place_id", placeId);
+    if (error) {
+      console.error("[api/db/cafe-profiles] financials delete error:", error);
+      return "Only somebody who approves in this city can change the revenue.";
+    }
+    return null;
+  }
+
+  const { error } = await supabase.from("cafe_financials").upsert(
+    {
+      place_id: placeId,
+      monthly_revenue: monthlyRevenue,
+      updated_by: userId,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "place_id" },
+  );
+
+  if (error) {
+    console.error("[api/db/cafe-profiles] financials write error:", error);
+    return "Only somebody who approves in this city can change the revenue.";
+  }
+  return null;
+}
+
 
 // GET: fetch all Miners places joined with their cafe_profiles
 export async function GET(request: NextRequest) {
@@ -21,10 +70,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Whether somebody may see money is the per-city financials tick now, not
-    // a role. Asked of the database so this route and the row policies cannot
-    // drift into disagreeing, and so a failed check means no revenue rather
-    // than all of it.
+    // Whether somebody may see money is the financials switch, not a role.
+    // Asked of the database so this route and the row policies cannot drift
+    // into disagreeing, and so a failed check means no revenue rather than all
+    // of it.
+    //
+    // Kept as defence in depth even though the money now lives in
+    // cafe_financials, whose own SELECT policy asks the same question. Two
+    // locks on the one door that was standing open.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: financeOk } = await (supabase.rpc as any)("is_finance_plus");
     const showRevenue = financeOk === true;
@@ -62,10 +115,30 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Revenue, from its own table and its own policy. Read only when the
+    // caller passed the finance check; a person without it gets no query at
+    // all, not an empty result they might mistake for "no data yet".
+    const revenueByPlace: Record<string, unknown> = {};
+    if (showRevenue && placeIds.length > 0) {
+      const { data: money, error: moneyError } = await supabase
+        .from("cafe_financials")
+        .select("place_id, monthly_revenue")
+        .in("place_id", placeIds);
+
+      if (moneyError) {
+        console.error("[api/db/cafe-profiles] financials query error:", moneyError);
+      } else {
+        for (const row of (money || []) as Record<string, unknown>[]) {
+          revenueByPlace[row.place_id as string] = row.monthly_revenue;
+        }
+      }
+    }
+
     // Combine places with their profiles
     const result = (places || []).map((place: Record<string, unknown>) => {
+      const placeId = place.id as string;
       const coords = parseWkbPoint(place.location as string);
-      const profile = profiles[place.id as string];
+      const profile = profiles[placeId];
 
       const meta = (place.metadata || {}) as Record<string, unknown>;
       const entry: Record<string, unknown> = {
@@ -94,10 +167,12 @@ export async function GET(request: NextRequest) {
         entry.hasKitchen = profile.has_kitchen;
         entry.notes = profile.notes;
         entry.updatedAt = profile.updated_at;
-        // Server-side revenue filtering
-        if (showRevenue) {
-          entry.monthlyRevenue = profile.monthly_revenue;
-        }
+      }
+
+      // Revenue does not depend on there being a café profile: the money is
+      // keyed on the place.
+      if (showRevenue && placeId in revenueByPlace) {
+        entry.monthlyRevenue = revenueByPlace[placeId];
       }
 
       return entry;
@@ -126,13 +201,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // No monthly_revenue. The money lives in cafe_financials now, behind its
+    // own policy, and is written below.
     const row = {
       place_id: body.placeId,
       category: body.category,
       interior_seats: body.interiorSeats ?? 0,
       exterior_seats: body.exteriorSeats ?? 0,
       area_sqm: body.areaSqm ?? null,
-      monthly_revenue: body.monthlyRevenue ?? null,
       has_kitchen: body.hasKitchen ?? false,
       notes: body.notes ?? null,
       updated_by: user.id,
@@ -147,6 +223,11 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("[api/db/cafe-profiles] upsert error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const moneyError = await saveRevenue(supabase, body.placeId, body.monthlyRevenue, user.id);
+    if (moneyError) {
+      return NextResponse.json({ error: moneyError }, { status: 403 });
     }
 
     return NextResponse.json(data);
@@ -177,12 +258,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // No monthly_revenue here either: it goes to cafe_financials, keyed on the
+    // place rather than on the café record.
     const updates: Record<string, unknown> = { updated_by: user.id };
     if (fields.category !== undefined) updates.category = fields.category;
     if (fields.interiorSeats !== undefined) updates.interior_seats = fields.interiorSeats;
     if (fields.exteriorSeats !== undefined) updates.exterior_seats = fields.exteriorSeats;
     if (fields.areaSqm !== undefined) updates.area_sqm = fields.areaSqm;
-    if (fields.monthlyRevenue !== undefined) updates.monthly_revenue = fields.monthlyRevenue;
     if (fields.hasKitchen !== undefined) updates.has_kitchen = fields.hasKitchen;
     if (fields.notes !== undefined) updates.notes = fields.notes;
 
@@ -196,6 +278,17 @@ export async function PATCH(request: NextRequest) {
     if (error) {
       console.error("[api/db/cafe-profiles] update error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // The money is keyed on the place, and the caller only sent a profile id.
+    const moneyError = await saveRevenue(
+      supabase,
+      (data as Record<string, unknown>).place_id as string,
+      fields.monthlyRevenue,
+      user.id,
+    );
+    if (moneyError) {
+      return NextResponse.json({ error: moneyError }, { status: 403 });
     }
 
     return NextResponse.json(data);
@@ -261,6 +354,16 @@ export async function DELETE(request: NextRequest) {
   try {
     const supabase = createServerSupabase(token);
 
+    // Which place this profile belongs to, read BEFORE the delete. The money
+    // lives in its own table keyed on the place, so without this a deleted
+    // café record leaves its revenue behind and a re-created one resurrects a
+    // stale figure.
+    const { data: existing } = await supabase
+      .from("cafe_profiles")
+      .select("place_id")
+      .eq("id", profileId)
+      .maybeSingle();
+
     const { error } = await supabase
       .from("cafe_profiles")
       .delete()
@@ -269,6 +372,20 @@ export async function DELETE(request: NextRequest) {
     if (error) {
       console.error("[api/db/cafe-profiles] delete error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const placeId = (existing as Record<string, unknown> | null)?.place_id as string | undefined;
+    if (placeId) {
+      const { error: moneyError } = await supabase
+        .from("cafe_financials")
+        .delete()
+        .eq("place_id", placeId);
+      // Logged, not fatal: the café record is already gone, and failing the
+      // request now would make the screen show an error for a delete that
+      // actually happened.
+      if (moneyError) {
+        console.error("[api/db/cafe-profiles] financials delete error:", moneyError);
+      }
     }
 
     return new NextResponse(null, { status: 204 });

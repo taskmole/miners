@@ -150,7 +150,8 @@ export async function generateTripDocx(trip: ScoutingTrip): Promise<void> {
     const metricsCells: (typeof TableCell.prototype)[] = [];
     if (trip.monthlyRent) metricsCells.push(createMetricCell("Monthly Rent", formatCurrency(trip.monthlyRent)));
     if (trip.openingInvestment) metricsCells.push(createMetricCell("Investment", formatCurrency(trip.openingInvestment)));
-    if (trip.paybackMonths) metricsCells.push(createMetricCell("Payback", `${trip.paybackMonths} months`));
+    // Payback is off: it came from a guessed model, not from anything measured.
+    // if (trip.paybackMonths) metricsCells.push(createMetricCell("Payback", `${trip.paybackMonths} months`));
     if (trip.areaSqm) metricsCells.push(createMetricCell("Area", `${trip.areaSqm} m²`));
 
     if (metricsCells.length > 0) {
@@ -260,7 +261,7 @@ export async function generateTripDocx(trip: ScoutingTrip): Promise<void> {
   }
 
   // Financial Section
-  const hasFinancialData = trip.monthlyRent || trip.serviceFees || trip.deposit || trip.fitoutCost || trip.openingInvestment || trip.paybackMonths;
+  const hasFinancialData = trip.monthlyRent || trip.serviceFees || trip.deposit || trip.fitoutCost || trip.openingInvestment;
   if (hasFinancialData) {
     children.push(createSectionHeading("Financial"));
     const financialRows: (typeof TableRow.prototype)[] = [];
@@ -270,9 +271,10 @@ export async function generateTripDocx(trip: ScoutingTrip): Promise<void> {
     if (trip.transferFee) financialRows.push(createKeyValueRow("Transfer Fee", formatCurrency(trip.transferFee)));
     if (trip.fitoutCost) financialRows.push(createKeyValueRow("Fit-out Cost", formatCurrency(trip.fitoutCost)));
     if (trip.openingInvestment) financialRows.push(createKeyValueRow("Opening Investment", formatCurrency(trip.openingInvestment)));
-    if (trip.expectedDailyRevenue) financialRows.push(createKeyValueRow("Expected Daily Revenue", formatCurrency(trip.expectedDailyRevenue)));
-    if (trip.monthlyRevenueRange) financialRows.push(createKeyValueRow("Revenue Range", trip.monthlyRevenueRange));
-    if (trip.paybackMonths) financialRows.push(createKeyValueRow("Payback Period", `${trip.paybackMonths} months`));
+    // Estimated revenue and payback are off across the app.
+    // if (trip.expectedDailyRevenue) financialRows.push(createKeyValueRow("Expected Daily Revenue", formatCurrency(trip.expectedDailyRevenue)));
+    // if (trip.monthlyRevenueRange) financialRows.push(createKeyValueRow("Revenue Range", trip.monthlyRevenueRange));
+    // if (trip.paybackMonths) financialRows.push(createKeyValueRow("Payback Period", `${trip.paybackMonths} months`));
 
     children.push(
       new Table({

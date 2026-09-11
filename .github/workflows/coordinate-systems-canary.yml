@@ -1,0 +1,45 @@
+name: Coordinate Systems Canary
+
+# Watches the two PostGIS coordinate system definitions the maps depend on.
+#
+# public.spatial_ref_sys is writable by the logged-out role and cannot be
+# locked down from a migration, because it belongs to an internal Supabase
+# account. Closing it is a support request. Until that lands, this is the
+# detection: a daily fingerprint of SRID 3857 and 4326.
+#
+# Deleting a row breaks conversions outright and somebody notices. Editing one
+# quietly shifts every position on the map by a wrong but plausible amount and
+# nothing complains. This catches both.
+#
+# A failure here means somebody has changed reference data that nothing in the
+# app ever writes to. Treat it as a break-in, not a bug: the rows are fixed
+# public data, identical in every PostGIS install, so they can be restored, but
+# find out how they were changed.
+
+on:
+  schedule:
+    # Every day at 05:00 UTC, an hour before the scraper pipeline runs.
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-coordinate-systems:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fingerprint SRID 3857 and 4326
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          DIGEST_SECRET: ${{ secrets.DIGEST_SECRET }}
+        run: |
+          body=$(curl -s -w '\n%{http_code}' \
+            -H "x-digest-secret: $DIGEST_SECRET" \
+            "$APP_URL/api/health/coordinate-systems")
+          status=$(echo "$body" | tail -n1)
+          payload=$(echo "$body" | sed '$d')
+
+          echo "$payload"
+
+          if [ "$status" != "200" ]; then
+            echo "::error::Coordinate system definitions changed or could not be read (HTTP $status). See the payload above."
+            exit 1
+          fi
