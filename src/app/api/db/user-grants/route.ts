@@ -217,11 +217,10 @@ export async function PUT(request: NextRequest) {
       p_grants: incoming.map((g) => ({
         city_id: g.city_id,
         level: g.level,
-        // The financials tick moved onto the person and the screen no longer
-        // sends it. Passed through only when it is actually present: the
-        // function keeps the column's existing value for any key the caller
-        // leaves out, so a save cannot quietly clear a flag the finance helper
-        // is still reading.
+        // Passed through only when it is actually present. The screen always
+        // sends it, but set_user_grants() keeps the column's existing value
+        // for any key a caller leaves out, so an older client cannot quietly
+        // clear a flag the finance helper is still reading.
         ...(g.can_see_financials === undefined
           ? {}
           : { can_see_financials: g.can_see_financials === true }),

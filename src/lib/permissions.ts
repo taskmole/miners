@@ -8,9 +8,11 @@
  *   isActive      is the account switched on at all. Off means no access, no
  *                 matter what the grants say. A super admin is exempt, so that
  *                 an accidental switch-off cannot lock the founders out.
- *   canSeeFinancials  the money switch, one per person rather than per city.
- *   grants        a level per city, plus an alerts tick. No grant means no
- *                 access.
+ *   canSeeFinancials  a person-level mirror of the per-city money ticks, kept
+ *                 in step by the user screen so the flag can be turned off
+ *                 again. Never set on its own.
+ *   grants        a level per city, plus a financials tick and an alerts
+ *                 tick. No grant means no access.
  *
  * The rule, in one sentence: being in a team means you share and edit
  * together; seeing everything in a city is what Approve means; seeing
@@ -70,9 +72,13 @@ export interface Access {
    */
   isActive: boolean;
   /**
-   * The financials switch, which lives on the person rather than on any one
-   * city. `grants[].canSeeFinancials` is the old home of the same idea and is
-   * still read until the grant column is dropped.
+   * A mirror of "is financials ticked in any city", stored on the person so
+   * that is_finance_plus() can answer without a join.
+   *
+   * The tick itself is chosen per city, on `grants[].canSeeFinancials`, and
+   * the user screen writes this column to match on every save. It is not a
+   * second switch: setting it on its own would grant revenue access that no
+   * city row explains.
    */
   canSeeFinancials: boolean;
   grants: CityGrant[];
@@ -123,8 +129,8 @@ export function canAccessDashboard(access: Access): boolean {
 }
 
 /**
- * Mirrors is_finance_plus(), which reads both homes of the flag: the one on
- * the person, and the old per-city ticks, until the grant column goes.
+ * Mirrors is_finance_plus(), which reads both places the flag is held: the
+ * per-city ticks, and the person-level mirror of them.
  */
 export function canSeeRevenue(access: Access): boolean {
   if (access.isSuperAdmin) return true;

@@ -163,13 +163,10 @@ export function useUserProfiles() {
           method: 'PUT',
           body: JSON.stringify({
             user_id: targetUserId,
-            // No can_see_financials. It is a property of the person now and
-            // is saved through the profile route. The database keeps the old
-            // per-city column's value for any key left out here, so this is a
-            // stop sending, not a clear.
             grants: grants.map((g) => ({
               city_id: g.cityId,
               level: g.level,
+              can_see_financials: g.canSeeFinancials,
               receives_alerts: g.receivesAlerts,
             })),
           }),
@@ -209,13 +206,14 @@ export function useUserProfiles() {
   );
 
   /**
-   * Turn the Financials switch on or off. Super admins only, enforced by the
+   * Set the person-level financials column. Super admins only, enforced by the
    * profiles route and again by a database trigger.
    *
-   * One switch per person, covering every city. That is what it already did:
-   * is_finance_plus() was an any-city OR and not one of the finance tables has
-   * a city column. The switch moved onto the person so the screen stops
-   * implying a per-city choice that never existed.
+   * Nothing on screen sets this directly. Financials is ticked per city on the
+   * user page, which then calls this with a mirror of those ticks, because
+   * is_finance_plus() reads this column OR any city tick. Left alone, a column
+   * switched on long ago would keep showing revenue after every city tick had
+   * been cleared.
    */
   const setCanSeeFinancials = useCallback(
     async (targetUserId: string, canSee: boolean): Promise<boolean> => {
