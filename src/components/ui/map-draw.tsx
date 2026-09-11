@@ -7,14 +7,29 @@ import { useMap } from './map';
 import { safeMapCleanup } from '@/lib/safe-map-cleanup';
 import { convertToMapboxDrawStyles } from '@/lib/draw-styles';
 import type { DrawMode } from '@/types/draw';
-import { getCurrentUserId, canEditShape } from '@/lib/browser-session';
+import { useAuth } from '@/contexts/AuthContext';
 import { logActivity } from '@/lib/supabaseHelpers';
 import { apiFetch } from '@/lib/api-client';
 import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
 import { useMobile } from '@/hooks/useMobile';
 
-// Ownership map: shape ID -> created_by user ID. Populated from Supabase on load.
+// Ownership map: shape ID -> owning user ID. Populated from the API on load.
+// Keyed on user_id, the column that actually decides who owns a shape, not on
+// created_by, which is only the author stamp.
 const shapeOwnership = new Map<string, string>();
+
+/**
+ * Whether this person may reshape a shape.
+ *
+ * verifiedUserId is the id the server confirmed, handed back with the shapes.
+ * It used to be read from local storage, where a value left over from a
+ * previous session would hide the edit button on a person's own shapes.
+ * A shape with no recorded owner is legacy and stays editable.
+ */
+function canEditShape(ownerId: string | undefined, verifiedUserId: string | null): boolean {
+  if (!ownerId) return true;
+  return Boolean(verifiedUserId) && ownerId === verifiedUserId;
+}
 
 // Context for drawing state
 type MapDrawContextValue = {
@@ -45,7 +60,13 @@ type MapDrawProps = {
 
 export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpdated }: MapDrawProps) {
   const { map, isLoaded } = useMap();
+  const { userId: sessionUserId, isReady: authReady } = useAuth();
   const [draw, setDraw] = useState<MapboxDraw | null>(null);
+
+  // The id the server confirmed, not the browser's copy. Held in a ref so the
+  // draw event handlers, which are registered once, always read the current
+  // value.
+  const verifiedUserIdRef = useRef<string | null>(null);
   const [mode, setMode] = useState<DrawMode>('simple_select');
   const [features, setFeatures] = useState<GeoJSON.FeatureCollection>({
     type: 'FeatureCollection',
@@ -72,11 +93,11 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
 
     // Sync geometry to API (async, non-blocking)
     // Only sends geometry fields. Metadata (name, color, tags) is owned by ShapeComments via RPC.
-    const userId = getCurrentUserId();
-
+    // The owner is no longer sent: the server stamps it from the verified
+    // session, so a stale id in local storage can neither address nor create
+    // somebody else's shapes.
     const rows = allFeatures.features.map(f => ({
       id: f.id as string,
-      user_id: userId,
       geojson: f as unknown as Record<string, unknown>,
       updated_at: new Date().toISOString(),
     }));
@@ -95,7 +116,7 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
         const currentIds = allFeatures.features.map(f => f.id as string);
         const keepIds = currentIds.join(',');
         await apiFetch(
-          `/api/db/drawn-features?user_id=${encodeURIComponent(userId)}${keepIds ? `&keep_ids=${encodeURIComponent(keepIds)}` : ''}`,
+          `/api/db/drawn-features${keepIds ? `?keep_ids=${encodeURIComponent(keepIds)}` : ''}`,
           { method: 'DELETE' }
         );
       } catch (error) {
@@ -134,16 +155,19 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
     // Load features from API
     const loadFeatures = async () => {
       try {
-        const userId = getCurrentUserId();
-        const data = await apiFetch<Array<{ id: string; geojson: unknown; created_by: string | null }>>(
-          `/api/db/drawn-features?user_id=${encodeURIComponent(userId)}`
-        );
+        const response = await apiFetch<{
+          userId: string;
+          features: Array<{ id: string; geojson: unknown; user_id: string | null }>;
+        }>('/api/db/drawn-features');
 
-        if (data && data.length > 0) {
+        const data = response?.features || [];
+        verifiedUserIdRef.current = response?.userId || null;
+
+        if (data.length > 0) {
           // Populate ownership map for edit permission checks
           for (const row of data) {
-            if (row.created_by) {
-              shapeOwnership.set(row.id, row.created_by);
+            if (row.user_id) {
+              shapeOwnership.set(row.id, row.user_id);
             }
           }
 
@@ -163,6 +187,11 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       }
     };
 
+    // Loaded again whenever the session changes. The map is mounted underneath
+    // the landing screen before sign-in has resolved, and this effect used to
+    // run exactly once, on mount. That first attempt is made without a token,
+    // is refused, and never retried, so without this the shapes would stay
+    // missing until the page was reloaded.
     loadFeatures();
 
     return () => {
@@ -171,7 +200,7 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       });
       setDraw(null);
     };
-  }, [map, isLoaded, setDrawnPoints]);
+  }, [map, isLoaded, setDrawnPoints, authReady, sessionUserId]);
 
   // Handle draw events
   useEffect(() => {
@@ -186,7 +215,12 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
 
       const newest = allFeatures.features[allFeatures.features.length - 1];
       if (newest?.id) {
-        shapeOwnership.set(newest.id as string, getCurrentUserId());
+        // Only if the server has confirmed who this is. Recording a guess here
+        // would let a stale local id decide the edit button on a brand new
+        // shape.
+        if (verifiedUserIdRef.current) {
+          shapeOwnership.set(newest.id as string, verifiedUserIdRef.current);
+        }
       }
       if (newest?.geometry) {
         const geom = newest.geometry;
@@ -217,8 +251,8 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
           const oldCoords = JSON.stringify(oldFeature.geometry.coordinates);
           const newCoords = JSON.stringify(feature.geometry.coordinates);
           if (oldCoords !== newCoords) {
-            const createdBy = shapeOwnership.get(feature.id as string);
-            if (!canEditShape(createdBy)) {
+            const ownerId = shapeOwnership.get(feature.id as string);
+            if (!canEditShape(ownerId, verifiedUserIdRef.current)) {
               unauthorizedEdit = true;
               break;
             }
