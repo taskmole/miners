@@ -142,13 +142,15 @@ export default function UserGuidePage() {
                   <>
                     It opens the newest properties we found for your city. Best properties
                     come first. A red dot means there is something new for you.
-                    <GuideImage src="/assets/guide/triage-card.png" alt="A property card. The score, payback time, and Action button are marked in red." />
+                    {/* Screenshot hidden: it circles the payback figure, which is
+                        no longer on the card. Put it back once a fresh one is taken. */}
+                    {/* <GuideImage src="/assets/guide/triage-card.png" alt="A property card. The score, payback time, and Action button are marked in red." /> */}
                   </>
                 ),
               },
               {
                 q: "What do I see on each property card?",
-                a: "Photos. The AI score (top-left). Rent. Payback time (green = fast, red = slow). A short AI note about the location. Links to the listing and Google Maps.",
+                a: "Photos. The AI score (top-left). Rent. A short AI note about the location. Links to the listing and Google Maps.",
               },
               {
                 q: "What do Skip and Skip all do?",
@@ -173,7 +175,11 @@ export default function UserGuidePage() {
           />
         </GuideSection>
 
-        {/* ===== SECTION 4: Simulate Revenue ===== */}
+        {/* ===== SECTION 4: Simulate Revenue (switched off) =====
+            The revenue simulator is hidden on the property card for
+            everybody, so this section documents a tool nobody can reach.
+            Kept here, commented out, for when it comes back.
+
         <GuideSection title="Simulate Revenue">
           <GuideAccordion
             items={[
@@ -203,6 +209,7 @@ export default function UserGuidePage() {
             ]}
           />
         </GuideSection>
+        */}
 
         {/* ===== SECTION 5: Requesting a Property ===== */}
         <GuideSection title="Requesting a Property">
@@ -482,6 +489,10 @@ export default function UserGuidePage() {
             />
           </GuideSection>
 
+          {/* Market Inputs, switched off. It describes an "Inputs" tab that
+              does not exist in the dashboard, and it describes it as driving
+              the revenue calculator, which is now hidden on the card.
+
           <GuideSection title="Market Inputs">
             <GuideAccordion
               items={[
@@ -492,6 +503,7 @@ export default function UserGuidePage() {
               ]}
             />
           </GuideSection>
+          */}
 
           <GuideSection title="Managing Users">
             <GuideAccordion

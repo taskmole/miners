@@ -1,18 +1,34 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
-  ChevronDown,
+  // ChevronDown,  // only used by the revenue simulator toggle (switched off)
   Snowflake,
   Bath,
   Store,
   Sparkles,
 } from "lucide-react";
-import { predictRevenue, getMarketDefaults } from "@/lib/revenue-model";
+// import { predictRevenue, getMarketDefaults } from "@/lib/revenue-model";
 import { ImageCarousel } from "./ImageCarousel";
-import { RevenueSimulator } from "./RevenueSimulator";
+// import { RevenueSimulator } from "./RevenueSimulator";
 import { formatPrice } from "@/types/inbox";
 import type { InboxProperty } from "@/types/inbox";
+
+/**
+ * Money numbers are switched off on this card for everybody, super admins
+ * included.
+ *
+ * The estimated payback and the revenue simulator both come out of a guessed
+ * model, not from anything we measured, and a confident-looking number that
+ * nobody stands behind is worse than no number. Same call as the financials
+ * switch-off, for the same reason.
+ *
+ * Nothing is deleted. The payback stat, the simulator toggle and the maths
+ * behind them are commented out in place, so turning them back on is a small
+ * edit rather than a rebuild. RevenueSimulator.tsx is kept whole; it is just
+ * not mounted (and not exported from the barrel, so it stays out of the
+ * browser bundle).
+ */
 
 interface FocusTriageCardProps {
   property: InboxProperty;
@@ -23,18 +39,19 @@ interface FocusTriageCardProps {
   onNext: () => void;
 }
 
-function paybackColor(months: number | null | undefined) {
-  if (months == null) return "#dc2626";
-  if (months <= 24) return "#16a34a";
-  if (months <= 36) return "#f59e0b";
-  return "#dc2626";
-}
-
-function paybackLabel(months: number | null | undefined) {
-  if (months == null) return ">99 months";
-  if (months > 99) return ">99 months";
-  return `${months} months`;
-}
+// Payback colouring and wording. Off with the payback stat below.
+// function paybackColor(months: number | null | undefined) {
+//   if (months == null) return "#dc2626";
+//   if (months <= 24) return "#16a34a";
+//   if (months <= 36) return "#f59e0b";
+//   return "#dc2626";
+// }
+//
+// function paybackLabel(months: number | null | undefined) {
+//   if (months == null) return ">99 months";
+//   if (months > 99) return ">99 months";
+//   return `${months} months`;
+// }
 
 export function FocusTriageCard({
   property,
@@ -42,18 +59,21 @@ export function FocusTriageCard({
   onActions,
   onNext,
 }: FocusTriageCardProps) {
-  const [showRevenue, setShowRevenue] = useState(false);
+  // const [showRevenue, setShowRevenue] = useState(false);
 
-  const currency = property.source === "sreality" ? "CZK" : "EUR";
-  const defaults = getMarketDefaults(currency);
-  const result = predictRevenue(
-    3000,
-    property.price || 30000,
-    property.size || 60,
-    defaults,
-  );
+  // const currency = property.source === "sreality" ? "CZK" : "EUR";
+  // const defaults = getMarketDefaults(currency);
+  // const result = predictRevenue(
+  //   3000,
+  //   property.price || 30000,
+  //   property.size || 60,
+  //   defaults,
+  // );
 
   const photos = property.photos || (property.image_url ? [property.image_url] : []);
+
+  const hasFeatures =
+    property.hasStorefront || property.hasAirConditioning || property.hasBathroom;
 
   return (
     <>
@@ -100,7 +120,9 @@ export function FocusTriageCard({
                 : "N/A"}
             </p>
           </div>
-          <div className="flex-1 min-w-0">
+          {/* Est. payback, switched off. Rent keeps flex-1, so it sits on the
+              left and the link buttons stay on the right. */}
+          {/* <div className="flex-1 min-w-0">
             <p className="text-[11px] text-zinc-400 uppercase tracking-wide">
               Est. payback
             </p>
@@ -114,7 +136,7 @@ export function FocusTriageCard({
             >
               {paybackLabel(result?.paybackMonths)}
             </p>
-          </div>
+          </div> */}
           <div className="flex gap-2 shrink-0">
             {property.url && (
               <a
@@ -176,30 +198,34 @@ export function FocusTriageCard({
           </div>
         )}
 
-        {/* Features */}
-        <div className="flex flex-wrap gap-2">
-          {property.hasStorefront && (
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50">
-              <Store className="w-3.5 h-3.5 text-zinc-400" />
-              <span className="text-xs text-zinc-500">Storefront</span>
-            </div>
-          )}
-          {property.hasAirConditioning && (
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50">
-              <Snowflake className="w-3.5 h-3.5 text-zinc-400" />
-              <span className="text-xs text-zinc-500">AC</span>
-            </div>
-          )}
-          {property.hasBathroom && (
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50">
-              <Bath className="w-3.5 h-3.5 text-zinc-400" />
-              <span className="text-xs text-zinc-500">Bathroom</span>
-            </div>
-          )}
-        </div>
+        {/* Features. Only rendered when there is at least one chip: an empty
+            row still takes its slot in the space-y-8 stack, which would leave
+            a gap of dead white space above the buttons. */}
+        {hasFeatures && (
+          <div className="flex flex-wrap gap-2">
+            {property.hasStorefront && (
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50">
+                <Store className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="text-xs text-zinc-500">Storefront</span>
+              </div>
+            )}
+            {property.hasAirConditioning && (
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50">
+                <Snowflake className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="text-xs text-zinc-500">AC</span>
+              </div>
+            )}
+            {property.hasBathroom && (
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50">
+                <Bath className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="text-xs text-zinc-500">Bathroom</span>
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Revenue simulation toggle */}
-        <div>
+        {/* Revenue simulation toggle, switched off. */}
+        {/* <div>
           <button
             onClick={() => setShowRevenue(!showRevenue)}
             className="flex items-center gap-1 text-[13px] text-zinc-400"
@@ -217,7 +243,7 @@ export function FocusTriageCard({
               <RevenueSimulator property={property} />
             </div>
           )}
-        </div>
+        </div> */}
       </div>
 
       {/* Sticky action buttons */}
