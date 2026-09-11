@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest, getUserTeamIds } from "@/lib/supabase-server";
+import {
+  authenticateRequest,
+  getUserTeamIds,
+  untypedDb as db,
+} from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
@@ -93,17 +97,27 @@ export async function GET(request: NextRequest) {
     for (const l of lists) if (l.created_by) userIds.add(l.created_by);
     for (const e of activityLog) if (e.user_id) userIds.add(e.user_id);
 
+    // Names come from people_directory() rather than a direct read of
+    // user_profiles, which no longer lets a non-admin see colleagues' rows.
+    // It returns inactive people too, which matters here: the feed drops any
+    // comment whose author it cannot name, so a directory that skipped them
+    // would erase everything a switched-off person ever wrote.
+    //
+    // email rides along as null. It was only ever a cosmetic stand-in for a
+    // missing display name, and this route has no business handing addresses
+    // to a browser.
     let userProfiles: Array<{ id: string; display_name: string | null; email: string | null }> = [];
     if (userIds.size > 0) {
-      const { data: profiles, error: profilesError } = await supabase
-        .from("user_profiles")
-        .select("id, display_name, email")
-        .in("id", Array.from(userIds));
+      const { data: directory, error: profilesError } = await db(supabase)
+        .rpc("people_directory");
 
       if (profilesError) {
         console.error("[api/db/activities] profiles error:", profilesError);
       } else {
-        userProfiles = profiles || [];
+        const wanted = userIds;
+        userProfiles = ((directory || []) as Array<{ id: string; display_name: string | null }>)
+          .filter(p => wanted.has(p.id))
+          .map(p => ({ id: p.id, display_name: p.display_name, email: null }));
       }
     }
 
