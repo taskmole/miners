@@ -171,12 +171,17 @@ export function CityAccessEditor({
                     {CITY_LEVELS.find((l) => l.id === grant.level)?.hint}
                   </p>
 
-                  {/* 3. The one extra that is genuinely per city. Financials
-                         used to sit here beside it and no longer does: the
-                         six finance tables have no city column, so the tick
-                         was global whatever the screen implied. It is one row
-                         per person at the top of the page now. */}
-                  <div className="mt-2.5">
+                  {/* 3. The two extras, one per line, financials first. Both
+                         hang off the level above rather than forming a
+                         settings section of their own, so they get no
+                         separator. */}
+                  <div className="mt-2.5 space-y-1.5">
+                    <ExtraToggle
+                      label="Can see financials"
+                      on={grant.canSeeFinancials}
+                      disabled={!editable}
+                      onChange={(v) => setExtra(city.id, { canSeeFinancials: v })}
+                    />
                     <ExtraToggle
                       label="Gets alerts for this city"
                       on={grant.receivesAlerts}
