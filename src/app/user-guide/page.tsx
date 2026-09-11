@@ -11,19 +11,31 @@ import {
 } from "@/components/ui/accordion";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
 
-// Role labels for the badge
-const ROLE_DISPLAY: Record<string, string> = {
-  super_admin: "Super Admin",
-  head_office_exec: "Head Office",
-  finance_reviewer: "Finance Reviewer",
-  area_coordinator: "Area Coordinator",
-  franchisee: "Franchisee",
-};
+import { cityNames } from "@/lib/cities";
+import { LEVEL_LABELS, strongestLevel } from "@/lib/permissions";
 
 export default function UserGuidePage() {
   const router = useRouter();
-  const { currentUserRole, canAccessDashboard, canReviewSubmissions, isAdmin, loading } =
-    useUserProfiles();
+  const {
+    access,
+    accessResolved,
+    canAccessDashboard,
+    canReviewSubmissions,
+    isSuperAdmin,
+    loading,
+  } = useUserProfiles();
+
+  // Roles are gone. What a person is now reads as a level and a list of
+  // cities, which is also exactly what the badge should say.
+  const level = strongestLevel(access.grants);
+  const accessBadge = isSuperAdmin
+    ? "Super Admin, every city"
+    : level === null
+      ? "No cities yet"
+      : `${LEVEL_LABELS[level]} in ${access.grants
+          .map((g) => cityNames[g.cityId] ?? g.cityId)
+          .sort()
+          .join(", ")}`;
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -48,11 +60,11 @@ export default function UserGuidePage() {
           <p className="text-sm text-zinc-600">
             How to use Location Scout.
           </p>
-          {!loading && currentUserRole && (
+          {!loading && accessResolved && (
             <p className="text-xs text-zinc-400 mt-1">
-              Your role:{" "}
+              Your access:{" "}
               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 text-xs font-medium">
-                {ROLE_DISPLAY[currentUserRole] || currentUserRole}
+                {accessBadge}
               </span>
             </p>
           )}
@@ -370,7 +382,7 @@ export default function UserGuidePage() {
           </GuideSection>
         )}
 
-        {/* ===== REVIEWER SECTIONS (Head Office + Super Admin) ===== */}
+        {/* ===== REVIEWER SECTIONS (anyone who approves in a city) ===== */}
         {canReviewSubmissions && (
           <>
           <GuideSection title="Triaging and Assigning Properties">
@@ -442,7 +454,7 @@ export default function UserGuidePage() {
         )}
 
         {/* ===== SUPER ADMIN SECTIONS ===== */}
-        {isAdmin && (
+        {isSuperAdmin && (
           <>
           <GuideSection title="Email Notifications for Users">
             <GuideAccordion
@@ -451,15 +463,16 @@ export default function UserGuidePage() {
                   q: "How do I turn on property alert emails for someone?",
                   a: (
                     <>
-                      Admin Dashboard, "Users" tab. Click the person. Turn on "Property
-                      Alert Emails". Tick their cities. Tap "Save Changes".
-                      <GuideImage src="/assets/guide/user-notifications.png" alt="User settings. The city choices and the Property Alert Emails switch are marked in red." />
+                      Admin Dashboard, "Users" tab. Click the person. Find the city
+                      you want them to hear about and turn on "Alerts" under it.
+                      Tap "Save Changes".
+                      <GuideImage src="/assets/guide/user-notifications.png" alt="User settings. The per-city access rows and their Alerts switches are marked in red." />
                     </>
                   ),
                 },
                 {
-                  q: "What do the city choices do?",
-                  a: "The person only gets emails for the cities you tick. No city ticked = all cities. Inactive users get no emails.",
+                  q: "Why is Alerts under each city?",
+                  a: "Because the emails were always per city. Alerts is switched on city by city, so someone can hear about Madrid and not Prague. They must have access to the city first: no access means no emails, never all of them.",
                 },
                 {
                   q: "When do these emails go out?",

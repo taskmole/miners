@@ -4,7 +4,6 @@ import { parseWkbPoint } from "@/lib/wkb";
 
 export const dynamic = "force-dynamic";
 
-const FINANCE_ROLES = ["super_admin", "head_office_exec", "finance_reviewer"];
 
 // GET: fetch all Miners places joined with their cafe_profiles
 export async function GET(request: NextRequest) {
@@ -22,14 +21,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    const userRole = ((profile as unknown) as Record<string, unknown>)?.role as string || "franchisee";
-    const showRevenue = FINANCE_ROLES.includes(userRole);
+    // Whether somebody may see money is the per-city financials tick now, not
+    // a role. Asked of the database so this route and the row policies cannot
+    // drift into disagreeing, and so a failed check means no revenue rather
+    // than all of it.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: financeOk } = await (supabase.rpc as any)("is_finance_plus");
+    const showRevenue = financeOk === true;
 
     // Fetch all Miners places with their cafe profiles
     const { data: places, error: placesError } = await supabase

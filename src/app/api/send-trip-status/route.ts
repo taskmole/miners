@@ -17,14 +17,12 @@ export async function POST(request: NextRequest) {
   // so an unfiltered .single() sees every row, throws, and this route 500s
   // before sending anything. That is why status emails never arrived.
   try {
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("role")
-      .eq("id", userId)
-      .single();
-
-    const reviewerRoles = ["super_admin", "head_office_exec"];
-    if (!profile || !reviewerRoles.includes(profile.role)) {
+    // Deciding on a trip is what Approve means, in any city, which is what
+    // is_admin() answers. Asked of the database rather than matched against a
+    // list of role names that are being deleted.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: isAdmin } = await (supabase.rpc as any)("is_admin");
+    if (isAdmin !== true) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   } catch {

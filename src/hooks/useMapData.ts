@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import useSWR from "swr";
 import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
 import { preloadGravity, getScoreAt } from "@/lib/gravity-lookup";
+import { getAuthToken } from "@/lib/api-client";
 
 export interface CafeData {
     type: "cafe";
@@ -88,14 +89,29 @@ const categoryMap: Record<string, OtherPoiData["type"]> = {
 
 const TIMEOUT_MS = 15_000;
 
-function fetchWithTimeout(url: string, timeoutMs = TIMEOUT_MS): Promise<Response> {
+/**
+ * Fetch one map dataset, with a timeout and the caller's session attached.
+ *
+ * The token is not optional any more. Both /api/db/places and /api/data used
+ * to be completely unauthenticated - places read the database with the
+ * anonymous key, and /api/data served 15 CSV files off disk to anyone with
+ * the URL. Now that map data is restricted to the cities a person has been
+ * granted, a request without a token is a request from nobody, and nobody has
+ * been granted anything.
+ */
+async function fetchWithTimeout(url: string, timeoutMs = TIMEOUT_MS): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const token = await getAuthToken();
     // cache: "no-store" skips the browser HTTP cache entirely. localhost:3000
     // is shared by every project ever run on this machine, and a cacheable
     // redirect left there by another app replays forever without ever hitting
     // the server (net::ERR_TOO_MANY_REDIRECTS). Freshness is SWR's job anyway.
-    return fetch(url, { signal: controller.signal, cache: "no-store" }).finally(() => clearTimeout(timer));
+    return fetch(url, {
+        signal: controller.signal,
+        cache: "no-store",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    }).finally(() => clearTimeout(timer));
 }
 
 /**

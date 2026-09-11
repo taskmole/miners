@@ -48,7 +48,7 @@ export function NewListingsModal({
     isAssignedToMe,
   } = usePropertyAssignmentContext();
   const { getPitchStatus } = usePitchStatusContext();
-  const { canAccessDashboard, roleResolved } = useUserProfiles();
+  const { canAccessDashboard, accessResolved } = useUserProfiles();
   const { hasPendingRequest, wasRejectedForMe, requestProperty } = usePropertyRequests();
   const { lists, toggleInList, createList } = useListsContext();
   const { createTrip, updateTrip } = useScoutingTrips();
@@ -93,7 +93,7 @@ export function NewListingsModal({
   // used to hardcode "Create trip", so a franchisee could start a trip on a
   // property nobody had given them. See src/lib/property-actions.ts.
   const actions = useMemo(() => {
-    if (!roleResolved) return pendingPropertyActions();
+    if (!accessResolved) return pendingPropertyActions();
 
     const placeId = currentProperty?.placeId ?? "";
     const assignment = placeId ? getAssignment(placeId) : null;
@@ -114,7 +114,7 @@ export function NewListingsModal({
       wasRejectedForMe: placeId ? wasRejectedForMe(placeId) : false,
     });
   }, [
-    roleResolved,
+    accessResolved,
     currentProperty,
     getAssignment,
     assignableUsers,

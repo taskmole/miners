@@ -213,7 +213,7 @@ interface ActivitiesResponse {
     display_name: string | null;
     email: string | null;
   }>;
-  callerRole?: string;
+  hasDashboard?: boolean;
   myTeamIds?: string[];
 }
 
@@ -257,7 +257,10 @@ export function useActivities() {
   const [error, setError] = useState<string | null>(null);
 
   const profilesRef = useRef<ProfileMap>(new Map());
-  const userRoleRef = useRef<string>('admin');
+  // Whether this session has a dashboard, cached for the Realtime handler.
+  // Defaults to false: "we do not know yet" must narrow the feed, not open
+  // it. This was a role string defaulting to 'admin', which failed open.
+  const hasDashboardRef = useRef<boolean>(false);
   const userTeamIdsRef = useRef<Set<string>>(new Set());
   const hasFetchedRef = useRef(false);
   const hasDisconnectedRef = useRef(false);
@@ -269,7 +272,7 @@ export function useActivities() {
     try {
       const data = await apiFetch<ActivitiesResponse>('/api/db/activities');
 
-      const { comments, lists, activityLog, userProfiles, callerRole, myTeamIds } = data;
+      const { comments, lists, activityLog, userProfiles, hasDashboard, myTeamIds } = data;
 
       const profiles: ProfileMap = new Map();
       userProfiles.forEach(profile => {
@@ -278,7 +281,7 @@ export function useActivities() {
 
       // Cache for Realtime handler
       profilesRef.current = profiles;
-      userRoleRef.current = callerRole || 'admin';
+      hasDashboardRef.current = hasDashboard === true;
       userTeamIdsRef.current = new Set(myTeamIds || []);
 
       const currentLastRead = getLastReadTimestamp();
@@ -366,7 +369,7 @@ export function useActivities() {
 
       // Franchisee filter: own actions, actions involving them, or their teams
       const currentUserId = getAuthUserId();
-      if (userRoleRef.current === 'franchisee' && currentUserId) {
+      if (!hasDashboardRef.current && currentUserId) {
         const summary = parseSummary(row.summary as string | null);
         const isOwn = row.user_id === currentUserId;
         const isInvolved = summary.assigned_to === currentUserId

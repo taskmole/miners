@@ -12,13 +12,17 @@ interface CityPickerProps {
   isVisible: boolean;
   user: User | null;
   onComplete: (city: City) => void;
+  /** The cities this person has been granted. Defaults to all of them. */
+  available?: City[];
 }
 
-export function CityPicker({ isVisible, user, onComplete }: CityPickerProps) {
+export function CityPicker({ isVisible, user, onComplete, available = cities }: CityPickerProps) {
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const { showToast } = useToast();
 
-  const activeCities = cities.filter(c => c.active);
+  // Offering a city somebody cannot open would make their first action in the
+  // product a blank map.
+  const activeCities = available.filter(c => c.active);
 
   const handlePick = async (city: City) => {
     if (submittingId) return;

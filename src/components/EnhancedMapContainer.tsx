@@ -53,6 +53,7 @@ import { DisambiguationPopup } from "@/components/DisambiguationPopup";
 import { useMobile } from "@/hooks/useMobile";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useSheetState } from "@/contexts/SheetContext";
+import { getAuthToken } from "@/lib/api-client";
 import {
     Coffee,
     Building2,
@@ -1299,7 +1300,7 @@ function freshTooltipText(dateStr: string): string {
 }
 
 function PropertyActionsFooter({
-    property, placeId, cityId, mapsUrl, canAccessDashboard, roleResolved, checkCanPitch, pitchStatus,
+    property, placeId, cityId, mapsUrl, canAccessDashboard, accessResolved, checkCanPitch, pitchStatus,
     assignableUsers, assignProperty, preRejectProperty, removeAssignment,
     assignment, createTrip, updateTrip, showToast, onClose,
 }: {
@@ -1309,7 +1310,7 @@ function PropertyActionsFooter({
     mapsUrl: string;
     canAccessDashboard: boolean;
     /** False until the server has confirmed this session's role. */
-    roleResolved: boolean;
+    accessResolved: boolean;
     checkCanPitch: (placeId: string) => { allowed: boolean; reason: string | null };
     pitchStatus: ScoutingTripStatus | null;
     assignableUsers: { id: string; display_name: string | null; email: string | null; role: string }[];
@@ -1353,7 +1354,7 @@ function PropertyActionsFooter({
 
     // One decision for the whole menu. See src/lib/property-actions.ts for why
     // this is a single function rather than a condition per button.
-    const actions = roleResolved ? evaluatePropertyActions({
+    const actions = accessResolved ? evaluatePropertyActions({
         isAdmin: canAccessDashboard,
         isPreRejected: preRejected,
         rejectionReason: assignment?.rejection_reason ?? null,
@@ -1711,7 +1712,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
     const placeId = generatePropertyPlaceId(property);
     const { getPitchStatus, getPitchDate, getPitchRejectionReason, getPitchReturnReason } = usePitchStatusContext();
     const { getAssignment, canPitch: checkCanPitch, users: assignableUsers, assignProperty, preRejectProperty, removeAssignment } = usePropertyAssignmentContext();
-    const { canAccessDashboard, roleResolved } = useUserProfiles();
+    const { canAccessDashboard, accessResolved } = useUserProfiles();
     const { createTrip, updateTrip } = useScoutingTrips();
     const { showToast } = useToast();
     const pitchStatus = getPitchStatus(placeId);
@@ -1933,7 +1934,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                 cityId={cityId}
                 mapsUrl={mapsUrl}
                 canAccessDashboard={canAccessDashboard}
-                roleResolved={roleResolved}
+                accessResolved={accessResolved}
                 checkCanPitch={checkCanPitch}
                 pitchStatus={pitchStatus}
                 assignableUsers={assignableUsers}
@@ -2484,7 +2485,13 @@ export function EnhancedMapContainer({
         setIsLoadingGravity(true);
         try {
             const cityId = selectedCity?.id || "madrid";
-            const response = await fetch(`/data/gravity_${cityId}.geojson`);
+            // Through the authenticated route: the direct /data/ URL is a 404
+            // now, so the city check cannot be skipped.
+            const token = await getAuthToken();
+            const response = await fetch(
+                `/api/data?type=gravity&city=${encodeURIComponent(cityId)}`,
+                { cache: "no-store", headers: token ? { Authorization: `Bearer ${token}` } : undefined },
+            );
             if (response.ok) {
                 const data = await response.json();
                 setGravityData(data);

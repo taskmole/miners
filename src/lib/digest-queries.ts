@@ -46,55 +46,85 @@ const CITY_SOURCE: Record<string, DigestSource> = {
   barcelona: "idealista",
 };
 
-const ALL_CITIES = Object.keys(CITY_SOURCE);
-
 /**
- * Everyone with the "receives scraper emails" checkbox ticked in the admin
- * panel. Recipients are managed there, not in code.
+ * Everyone who has asked for property alerts, city by city.
  *
- * A user with no cities set receives every city. Reading "no cities" as "no
- * mail" would silently unsubscribe everyone the moment this went live, since
- * nobody has cities assigned today.
+ * The rule, in three parts:
+ *
+ *   the Alerts switch on a grant is the consent
+ *   the grant itself is the scope
+ *   the level does not matter
+ *
+ * Alerts on plus any access to a city, View included, means that city's
+ * alerts. Kirill can watch Prague listings without being able to act on them.
+ * A level rule would mean somebody's emails stopped silently the day they were
+ * moved from Contribute to View, which is the sort of thing nobody notices for
+ * a month.
+ *
+ * ONE BEHAVIOUR DELIBERATELY FLIPPED. This used to read the global
+ * `receives_scraper_emails` flag and the `city_ids` array, where "no cities
+ * set" meant "send every city" - a reasonable choice back when nobody had
+ * cities assigned. Under the per-city model no grant means no access, so it
+ * now means NO emails. Otherwise a brand new person would start receiving
+ * alerts for every city before anyone had let them into one.
+ *
+ * This runs as the SERVICE ROLE, which bypasses RLS entirely, so the join to
+ * user_city_grants below is doing the filtering itself. Row security will not
+ * do it for you here, and getting that wrong fails silently: no error, no
+ * broken page, just the wrong people quietly getting somebody else's daily
+ * properties.
  */
 export async function getSubscribedUsers(): Promise<DigestRecipient[]> {
   const supabase = getSupabase();
 
   const { data, error } = await supabase
-    .from("user_profiles")
-    .select("email, city_ids, is_active, display_name")
-    .eq("receives_scraper_emails", true);
+    .from("user_city_grants")
+    .select("city_id, user_profiles!inner(email, is_active)")
+    .eq("receives_alerts", true);
 
   if (error) {
     console.error("[digest] could not load recipients:", error.message);
     return [];
   }
 
-  const recipients: DigestRecipient[] = [];
+  type GrantJoinRow = {
+    city_id: string;
+    user_profiles: { email: string | null; is_active: boolean | null } | null;
+  };
 
-  for (const user of data ?? []) {
+  // One row per person per city comes back; the digest wants one entry per
+  // person with their cities collected.
+  const byEmail = new Map<string, Set<string>>();
+
+  for (const row of (data ?? []) as unknown as GrantJoinRow[]) {
+    const profile = row.user_profiles;
     // is_active can be null on older rows; only an explicit false excludes.
-    if (!user.email || user.is_active === false) continue;
+    if (!profile?.email || profile.is_active === false) continue;
 
-    const assigned = Array.isArray(user.city_ids) ? (user.city_ids as string[]) : [];
-    const cities = assigned.length > 0
-      ? assigned.filter((c) => {
-          if (CITY_SOURCE[c]) return true;
-          console.warn(`[digest] ${user.email} is assigned unknown city "${c}", skipping it`);
-          return false;
-        })
-      : ALL_CITIES;
+    if (!CITY_SOURCE[row.city_id]) {
+      console.warn(
+        `[digest] ${profile.email} has alerts on for unknown city "${row.city_id}", skipping it`,
+      );
+      continue;
+    }
 
-    if (cities.length === 0) continue;
+    const cities = byEmail.get(profile.email) ?? new Set<string>();
+    cities.add(row.city_id);
+    byEmail.set(profile.email, cities);
+  }
 
+  const recipients: DigestRecipient[] = [];
+  for (const [email, citySet] of byEmail) {
+    const cities = [...citySet].sort();
     const sources = [...new Set(cities.map((c) => CITY_SOURCE[c]))];
-    recipients.push({ email: user.email, cities, sources });
+    recipients.push({ email, cities, sources });
   }
 
   if (recipients.length === 0) {
     console.error(
-      "[digest] NOBODY is set to receive scraper emails. Tick " +
-        '"receives scraper emails" for at least one active user in Admin > Users. ' +
-        "No digest was sent.",
+      "[digest] NOBODY is set to receive property alerts. Open Admin > Users, " +
+        "pick an active person, and turn on Alerts under at least one city " +
+        "they have access to. No digest was sent.",
     );
   }
 

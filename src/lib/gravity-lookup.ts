@@ -1,3 +1,4 @@
+import { getAuthToken } from "@/lib/api-client";
 // Gravity score lookup for rental properties.
 // Loads pre-computed gravity GeoJSON (100m cells with a 0-1 normalizedScore)
 // and exposes getScoreAt(lat, lon, city) returning the nearest cell's score
@@ -33,7 +34,14 @@ async function loadCity(city: string): Promise<CityCache | null> {
 
     const promise = (async () => {
         try {
-            const res = await fetch(`/data/gravity_${city}.geojson`);
+            // Through the authenticated route, not the static file. The
+            // file is still on disk under public/, but a rewrite makes the
+            // direct URL a 404 so the city check cannot be skipped.
+            const token = await getAuthToken();
+            const res = await fetch(`/api/data?type=gravity&city=${encodeURIComponent(city)}`, {
+                cache: "no-store",
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
             if (!res.ok) return null;
             const geojson = await res.json();
 
