@@ -6,11 +6,10 @@ import { ArrowLeft } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { useUserProfiles, type UserProfile } from '@/hooks/useUserProfiles';
 import { useTeams } from '@/hooks/useTeams';
-import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { cityOptions, cityNames } from '@/lib/cities';
-import { CityAccessEditor, SuperAdminBanner } from '@/components/admin/CityAccessEditor';
+import { CityAccessEditor, SuperAdminBanner, OnOffSegments } from '@/components/admin/CityAccessEditor';
 import { UserHistory, type HistoryEntry } from '@/components/admin/UserHistory';
 import { toGrants, type CityGrant, type CityGrantRow } from '@/lib/permissions';
 
@@ -295,33 +294,28 @@ export default function UserDetailPage() {
             formActive ? 'bg-white border-zinc-200' : 'bg-amber-50 border-amber-300',
           )}
         >
+          {/* No status dot any more. It sat 22px in front of the heading and
+              was the one thing on the page that pushed a label off the common
+              left edge, and it said nothing the amber card and the green On
+              segment do not already say. */}
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              <span
-                className={cn(
-                  'w-2.5 h-2.5 rounded-full mt-1.5 shrink-0',
-                  formActive ? 'bg-emerald-500' : 'bg-amber-500',
-                )}
-              />
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-zinc-900">
-                  {formActive ? 'Account is on' : 'Account is off'}
-                </div>
-                <p className={cn('text-sm', formActive ? 'text-zinc-600' : 'text-amber-800')}>
-                  {formActive
-                    ? 'They can sign in and use the app.'
-                    : 'They cannot sign in. Their work is kept.'}
-                </p>
-              </div>
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-zinc-900">Account</div>
+              <p className={cn('text-xs', formActive ? 'text-zinc-500' : 'text-amber-800')}>
+                {formActive
+                  ? 'They can sign in and use the app.'
+                  : 'They cannot sign in. Their work is kept.'}
+              </p>
             </div>
-            <Switch
-              checked={formActive}
+            <OnOffSegments
+              ariaLabel="Account"
+              on={formActive}
               disabled={!canToggleActive}
-              onCheckedChange={setFormActive}
+              onChange={setFormActive}
             />
           </div>
           {!canToggleActive && (
-            <p className="text-xs text-zinc-500 mt-2 pl-[22px]">
+            <p className="text-xs text-zinc-500 mt-2">
               {subjectIsSuperAdmin
                 ? 'Only a super admin can switch a super admin off.'
                 : 'You can only switch people on and off in your own cities.'}
@@ -381,17 +375,18 @@ export default function UserDetailPage() {
         <section className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
           <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide">Access</h2>
 
-          <div className="flex items-center justify-between gap-4 min-h-[44px]">
+          <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <div className="text-sm font-medium text-zinc-900">Super Admin</div>
               <p className="text-xs text-zinc-500">
                 Everything everywhere, plus users, settings, scoring and cities.
               </p>
             </div>
-            <Switch
-              checked={formSuperAdmin}
+            <OnOffSegments
+              ariaLabel="Super Admin"
+              on={formSuperAdmin}
               disabled={!isSuperAdmin}
-              onCheckedChange={handleSuperAdminToggle}
+              onChange={handleSuperAdminToggle}
             />
           </div>
 

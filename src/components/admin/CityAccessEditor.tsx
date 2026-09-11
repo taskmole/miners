@@ -18,7 +18,6 @@
  */
 
 import { Check } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 /** What a person may do in one city. Ordered weakest to strongest. */
@@ -99,20 +98,21 @@ export function CityAccessEditor({
   };
 
   return (
-    <div className="space-y-2">
+    /* Rows, not nested cards.
+       Each city used to be its own bordered box with its own padding, which
+       pushed every label 13px right of "Super Admin" above it and every
+       control 13px left of the Account control. Plain rows separated by a
+       hairline put the whole screen on one left edge and one right edge.
+       A city with no access is still obvious: its name greys out and the
+       white pill sits on "No access". */
+    <div className="divide-y divide-zinc-100 border-t border-zinc-100">
       {cities.map((city) => {
         const grant = grantFor(city.id);
         const editable = mayEdit(city.id);
         const current: Segment = grant?.level ?? "none";
 
         return (
-          <div
-            key={city.id}
-            className={cn(
-              "rounded-lg border px-3 py-2.5",
-              grant ? "border-zinc-200 bg-white" : "border-zinc-200/70 bg-zinc-50/60",
-            )}
-          >
+          <div key={city.id} className="py-2.5">
             {/* Two layouts, one breakpoint.
                 Below sm the city name gets its own line and the level control
                 sits underneath at full width, because four labels sharing a
@@ -120,7 +120,7 @@ export function CityAccessEditor({
                 does not fit: the segments overflowed their cells and collided
                 with "Approve".
                 From sm up there is room for the original single line. */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
               <div className="flex items-baseline gap-2 sm:block sm:w-24 sm:shrink-0 min-w-0">
                 <div
                   className={cn(
@@ -140,7 +140,12 @@ export function CityAccessEditor({
               <div
                 role="radiogroup"
                 aria-label={`Access level for ${city.name}`}
-                className="w-full sm:w-auto sm:flex-1 grid grid-cols-4 gap-0.5 p-0.5 rounded-md bg-zinc-100"
+                /* p-1 not p-0.5: at 2px the selected white pill sat almost on
+                   the grey edge and the control read as one solid slab. 4px
+                   is enough for the pill to look seated inside a track. The
+                   height it adds is taken back off the buttons below, so the
+                   whole control is shorter than before, not taller. */
+                className="w-full sm:w-[420px] sm:shrink-0 sm:ml-auto grid grid-cols-4 gap-0.5 p-1 rounded-lg bg-zinc-100"
               >
                 {SEGMENTS.map((segment) => {
                   const selected = current === segment.id;
@@ -167,13 +172,20 @@ export function CityAccessEditor({
                         // truncate keeps a long label inside it. Without the
                         // pair, "Contribute" spilled out of its cell and sat
                         // on top of "Approve" instead of being clipped.
-                        "min-w-0 truncate min-h-[38px] sm:min-h-[34px] rounded",
-                        "text-[11px] sm:text-xs font-medium transition-colors px-1 leading-none",
+                        //
+                        // No side padding below sm. At 375px each cell is
+                        // about 63px and "Contribute" needs 57px, so padding
+                        // is the difference between fitting and truncating.
+                        // The label is centred, so it costs nothing to drop.
+                        "min-w-0 truncate min-h-[30px] sm:min-h-[28px] rounded-md",
+                        "text-[11px] sm:text-xs font-medium transition-colors px-0 sm:px-2 leading-none",
                         selected
+                          // ring, not just shadow: on a zinc-100 track a plain
+                          // shadow-sm gives the white pill almost no edge.
                           ? segment.id === "none"
-                            ? "bg-white text-zinc-500 shadow-sm"
-                            : "bg-white text-zinc-900 shadow-sm"
-                          : "text-zinc-400 hover:text-zinc-700",
+                            ? "bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-900/5"
+                            : "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/5"
+                          : "text-zinc-500 hover:text-zinc-900",
                         disabled && !selected && "opacity-40 cursor-not-allowed hover:text-zinc-400",
                       )}
                     >
@@ -196,7 +208,7 @@ export function CityAccessEditor({
                 sit inline again, aligned to the control rather than to the
                 city name. */}
             {grant && (
-              <div className="mt-2 space-y-1 sm:space-y-0 sm:flex sm:items-center sm:gap-5 sm:pl-[104px]">
+              <div className="mt-1.5 space-y-0.5 sm:space-y-0 sm:flex sm:items-center sm:justify-end sm:gap-5">
                 <ExtraToggle
                   label="Financials"
                   on={grant.canSeeFinancials}
@@ -221,9 +233,15 @@ export function CityAccessEditor({
 /**
  * A small on/off extra attached to one city's access.
  *
- * The switch is the app's normal one at its normal size. An earlier version
- * shrank it with a transform, which is what made the row sit at an odd height
- * and refuse to line up with anything.
+ * Off / On as a two-segment control rather than a switch, matching the level
+ * control directly above it. Two reasons. The app's switch is 48x28 on mobile
+ * by design, which next to a 30px-tall level control made the extras read as
+ * the most important thing in the row. And a switch only ever shows one state,
+ * so "is this on?" depends on reading the thumb position; Off and On written
+ * out cannot be misread.
+ *
+ * Green for On is the one place colour is used here, because these two are the
+ * settings somebody scans a page for.
  */
 function ExtraToggle({
   label,
@@ -237,22 +255,82 @@ function ExtraToggle({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label
+    <div
       className={cn(
-        // Full width and spread apart on mobile, so the switch lands on the
-        // right edge like every other toggle on the page. Inline and snug
-        // from sm up, where the two fit beside each other.
-        "flex items-center justify-between gap-2 min-h-[32px]",
-        "sm:justify-start sm:min-h-0",
-        "cursor-pointer select-none",
-        disabled && "cursor-not-allowed opacity-50",
+        // Label left, control right on mobile, the same shape as the rest of
+        // the page. Inline and snug from sm up, where the two fit side by side.
+        "flex items-center justify-between gap-3",
+        "sm:justify-start sm:gap-2",
       )}
     >
-      <span className={cn("text-xs", on ? "text-zinc-900 font-medium" : "text-zinc-500")}>
+      <span
+        className={cn(
+          "text-xs",
+          on ? "text-zinc-900 font-medium" : "text-zinc-500",
+          disabled && "opacity-50",
+        )}
+      >
         {label}
       </span>
-      <Switch checked={on} disabled={disabled} onCheckedChange={onChange} />
-    </label>
+      <OnOffSegments ariaLabel={label} on={on} disabled={disabled} onChange={onChange} />
+    </div>
+  );
+}
+
+/**
+ * Off / On as two segments, the same shape and metrics as the level control.
+ *
+ * Exported because the Account status and Super Admin switches at the top of
+ * the user page use it too. One control for every yes/no on that screen means
+ * they all sit on the same right-hand edge at the same height, instead of the
+ * page mixing 48px switches with 30px segments.
+ */
+export function OnOffSegments({
+  on,
+  disabled,
+  onChange,
+  ariaLabel,
+}: {
+  on: boolean;
+  disabled?: boolean;
+  onChange: (value: boolean) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={ariaLabel}
+      className={cn(
+        "shrink-0 w-[104px] grid grid-cols-2 gap-0.5 p-1 rounded-lg bg-zinc-100",
+        disabled && "opacity-50",
+      )}
+    >
+      {[false, true].map((value) => {
+        const selected = on === value;
+        return (
+          <button
+            key={String(value)}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            disabled={disabled}
+            onClick={() => onChange(value)}
+            className={cn(
+              "min-w-0 truncate min-h-[30px] sm:min-h-[28px] rounded-md",
+              "text-[11px] sm:text-xs font-medium transition-colors leading-none",
+              selected
+                ? value
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-900/5"
+                : "text-zinc-500 hover:text-zinc-900",
+              disabled && "cursor-not-allowed",
+            )}
+          >
+            {value ? "On" : "Off"}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
