@@ -13,6 +13,76 @@ export const dynamic = "force-dynamic";
 // the raw database text in it. Same mapping the user-profiles route uses.
 const INSUFFICIENT_PRIVILEGE = "42501";
 
+const BUCKET = "attachments";
+
+/**
+ * Storage paths are built here, from the verified session, and never taken
+ * from the browser. Anything that lands in one has to survive this first:
+ * only letters, digits, dot, dash and underscore, so no slash and no ".."
+ * can slip in and walk the path somewhere else.
+ */
+function safeSegment(value: unknown, fallback: string): string {
+  const cleaned = String(value ?? "")
+    .replace(/[^A-Za-z0-9._-]/g, "_")
+    .replace(/^\.+/, "")
+    .slice(0, 120);
+  return cleaned || fallback;
+}
+
+function safeExtension(value: unknown): string {
+  const cleaned = String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 10);
+  return cleaned || "bin";
+}
+
+/**
+ * May this person be handed a link to this file?
+ *
+ * A signed link ignores every rule once it exists, so this is the only gate.
+ * Four ways in, in the order they are cheapest to answer:
+ *
+ * 1. The file sits in their own folder. This case is not optional: a scouting
+ *    trip photo is signed straight after upload, before the trip is saved, so
+ *    at that moment the path is recorded nowhere at all.
+ * 2. The path is recorded against an attachment record. Any signed-in person
+ *    may see those, which is how team review works today.
+ * 3. The path is recorded against a scouting pitch. Asked with the caller's
+ *    own session, never an elevated key, so the pitch rule ("mine, or in a
+ *    city I may view") applies the city restriction for free.
+ * 4. They are an admin.
+ *
+ * Files referenced by none of the above become admin-only. Today that is six
+ * of the thirteen: four in folders named after a random browser id from before
+ * sign-in existed, and two abandoned uploads from trips that were never saved.
+ * Nothing in the app displays any of them.
+ */
+async function mayReadPath(
+  supabase: Parameters<typeof db>[0],
+  userId: string,
+  path: string,
+): Promise<boolean> {
+  if (path.startsWith(`${userId}/`)) return true;
+
+  const { data: onAttachment } = await db(supabase)
+    .from("poi_attachments")
+    .select("id")
+    .eq("storage_path", path)
+    .limit(1);
+  if (onAttachment && onAttachment.length > 0) return true;
+
+  const { data: onPitch } = await db(supabase)
+    .from("pitches")
+    .select("id")
+    .contains("attachment_paths", [path])
+    .limit(1);
+  if (onPitch && onPitch.length > 0) return true;
+
+  const { data: isAdmin } = await db(supabase).rpc("is_admin");
+  return isAdmin === true;
+}
+
 function writeFailure(error: { code?: string; message: string }): NextResponse {
   console.error("[api/db/attachments] write error:", error);
   if (error.code === INSUFFICIENT_PRIVILEGE) {
@@ -164,28 +234,58 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "signed_upload_url") {
-      if (!data.path) {
-        return NextResponse.json({ error: "path is required" }, { status: 400 });
+      // The browser used to send the whole path and the server signed whatever
+      // it was given, so anyone could name a colleague's file and write over
+      // it. The path is built here instead, from the verified session. That
+      // removes the problem rather than trying to detect it.
+      let uploadPath: string;
+
+      if (data.context_id) {
+        uploadPath = [
+          userId,
+          safeSegment(data.context_id, "misc"),
+          `${safeSegment(data.attachment_id, "file")}.${safeExtension(data.ext)}`,
+        ].join("/");
+      } else if (typeof data.path === "string" && data.path.startsWith(`${userId}/`)) {
+        // A tab left open across the deploy still sends the old shape. Honour
+        // it only when it names the caller's own folder, which is exactly the
+        // case that was never dangerous, so nobody mid-upload has to reload.
+        uploadPath = data.path;
+      } else {
+        return NextResponse.json(
+          { error: "context_id is required" },
+          { status: 400 },
+        );
       }
 
       const { data: urlData, error } = await supabase.storage
-        .from("attachments")
-        .createSignedUploadUrl(data.path);
+        .from(BUCKET)
+        .createSignedUploadUrl(uploadPath);
 
       if (error) {
         console.error("[api/db/attachments] signed upload URL error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
-      return NextResponse.json(urlData);
+      // path is echoed back deliberately. The caller saves it against the
+      // record, so it has to be the path the server chose, not the one the
+      // browser guessed, or the record points at a file that does not exist.
+      return NextResponse.json({ ...urlData, path: uploadPath });
     }
 
     if (action === "signed_read_url") {
-      if (!data.path) {
+      if (!data.path || typeof data.path !== "string") {
         return NextResponse.json({ error: "path is required" }, { status: 400 });
       }
 
+      if (!(await mayReadPath(supabase, userId, data.path))) {
+        return NextResponse.json(
+          { error: "You are not allowed to open that file." },
+          { status: 403 },
+        );
+      }
+
       const { data: urlData, error } = await supabase.storage
-        .from("attachments")
+        .from(BUCKET)
         .createSignedUrl(data.path, 3600);
 
       if (error) {

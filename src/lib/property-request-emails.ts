@@ -18,6 +18,7 @@ import { TripStatusUpdate } from "@/emails/trip-status-update";
 import { sendAppEmail, sendAppEmails } from "@/lib/email";
 import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { cityForCoordinates } from "@/lib/notify-routing";
+import { createServiceSupabase } from "@/lib/supabase-server";
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "https://theminers.vercel.app";
@@ -76,9 +77,17 @@ export async function notifyReviewersOfRequest(
   supabase: SupabaseClient,
   ctx: RequestEmailContext,
 ): Promise<{ sent: number; skipped?: string }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cityId = requestCity(ctx);
-  const { data, error } = await (supabase.rpc as any)("request_reviewer_emails", {
+
+  // Through the service role, not the caller's session. request_reviewer_emails
+  // used to be open to every signed-in person, which meant anyone could ask it
+  // for the addresses of the two super admins and the eight approvers directly
+  // - a second door to exactly what hiding emails from the directory closes.
+  // The grant is gone now, so this lookup has to be elevated, and elevating it
+  // also means the notification can never fail for a permissions reason.
+  const lookupClient = createServiceSupabase() ?? supabase;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (lookupClient.rpc as any)("request_reviewer_emails", {
     p_city_id: cityId,
   });
   if (error) {

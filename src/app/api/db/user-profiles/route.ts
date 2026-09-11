@@ -17,7 +17,12 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get("mode") || "current";
 
-  // "all" mode only needs a valid token (RLS handles permission)
+  // "all" mode: admins get the real list, everyone else gets names only.
+  //
+  // This handler used to return every column of every row to every signed-in
+  // browser on every page load, which is how all 15 colleagues could read all
+  // 17 people's email addresses. Admins still need the full read for the Users
+  // screen, including email, which the search box searches on.
   if (mode === "all") {
     const token = getTokenFromRequest(request);
     if (!token) {
@@ -27,17 +32,66 @@ export async function GET(request: NextRequest) {
     try {
       const supabase = createServerSupabase(token);
 
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("[api/db/user-profiles] all query error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+      // Asked of the database rather than re-derived here, so this and the
+      // policies cannot drift apart.
+      const { data: isAdmin, error: adminError } = await db(supabase).rpc("is_admin");
+      if (adminError) {
+        console.error("[api/db/user-profiles] admin check failed:", adminError);
+        return NextResponse.json({ error: adminError.message }, { status: 500 });
       }
 
-      return NextResponse.json(data || []);
+      if (isAdmin === true) {
+        const { data, error } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("[api/db/user-profiles] all query error:", error);
+          return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+
+        return NextResponse.json(data || []);
+      }
+
+      const { data: directory, error: directoryError } = await db(supabase)
+        .rpc("people_directory");
+
+      if (directoryError) {
+        console.error("[api/db/user-profiles] directory error:", directoryError);
+        return NextResponse.json({ error: directoryError.message }, { status: 500 });
+      }
+
+      // Same shape as the admin answer, so no browser code has to know which
+      // one it got. email comes back as an empty string rather than missing:
+      // every screen already treats it as possibly-empty, including the admin
+      // search box, so empty is safe and absent is not. The privilege fields
+      // are filled with their "no privilege" values for the same reason -
+      // nothing outside the admin screens reads another person's privileges,
+      // and if anything ever starts, it should read them as off rather than
+      // as undefined.
+      const rows = (directory || []) as Array<{
+        id: string;
+        display_name: string | null;
+        role: string | null;
+        team_id: string | null;
+        is_active: boolean | null;
+      }>;
+
+      return NextResponse.json(
+        rows.map(r => ({
+          id: r.id,
+          display_name: r.display_name,
+          role: r.role,
+          team_id: r.team_id,
+          is_active: r.is_active,
+          email: "",
+          is_super_admin: false,
+          can_see_financials: false,
+          city_ids: [],
+          region_id: null,
+        })),
+      );
     } catch (err) {
       console.error("[api/db/user-profiles] unexpected error:", err);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });

@@ -28,6 +28,25 @@ export function createPublicServerSupabase(): SupabaseClient<Database> {
   });
 }
 
+/**
+ * Service-role client. It bypasses row security entirely, so it is only for
+ * server-side lookups that must not depend on what the caller may read.
+ *
+ * The case it exists for: notification emails. Looking a recipient's address
+ * up with the caller's own connection works only while every signed-in person
+ * can read every profile, which is the hole being closed. The day it closes,
+ * those emails would stop going out silently, with nothing reporting an error.
+ *
+ * Returns null when the key is not configured, so callers degrade rather than
+ * crash. Never hand this client a value that came from a browser.
+ */
+export function createServiceSupabase(): SupabaseClient | null {
+  const url = process.env.SUPABASE_PROD_URL || SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: SERVER_AUTH_OPTIONS });
+}
+
 export function getTokenFromRequest(req: Request): string | null {
   const header = req.headers.get("Authorization");
   if (!header?.startsWith("Bearer ")) return null;

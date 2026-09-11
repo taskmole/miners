@@ -13,6 +13,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createServiceSupabase } from "@/lib/supabase-server";
 import { sendAppEmail } from "./email";
 import React from "react";
 import { render } from "@react-email/render";
@@ -201,7 +202,15 @@ export async function sendAssigneeEmail(
   // Assigning a property to yourself should not email you about it.
   if (opts.userId === opts.excludeUserId) return { sent: 0, skipped: "self" };
 
-  const { data, error } = await supabase
+  // Through the service role, not the caller's session. Assigning is
+  // admin-only today and admins keep their full read, so this is not fixing a
+  // break. It is removing a way to fail quietly: with the loose profile policy
+  // gone, a lookup made on someone else's behalf would come back empty and the
+  // log would say "no recipient", which reads exactly like "this person has no
+  // address". A notification must never silently not send for a permissions
+  // reason.
+  const lookupClient = createServiceSupabase() ?? supabase;
+  const { data, error } = await lookupClient
     .from("user_profiles")
     .select("email, is_active")
     .eq("id", opts.userId)
