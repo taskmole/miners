@@ -259,7 +259,11 @@ function CityCard({ city }: { city: WeeklyCityStats }) {
     { label: "Requested", value: city.requested, color: COLOR.amber },
     { label: "Pitched", value: city.pitched, color: COLOR.ink },
   ];
-  const max = Math.max(...stages.map((s) => s.value));
+  // Empty stages are dropped rather than drawn as a bare track. A card with
+  // three zeros and a one in it argues against the point this email makes,
+  // and the city is only here at all because something happened in it.
+  const shownStages = stages.filter((s) => s.value > 0);
+  const max = Math.max(...shownStages.map((s) => s.value), 0);
 
   const requestsDecided = city.requestsApproved + city.requestsRejected;
   const pitchesDecided =
@@ -273,7 +277,7 @@ function CityCard({ city }: { city: WeeklyCityStats }) {
         {cityLabel(city.cityId)}
       </Text>
 
-      {stages.map((s) => (
+      {shownStages.map((s) => (
         <StatBar
           key={s.label}
           label={s.label}

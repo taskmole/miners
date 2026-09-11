@@ -4,13 +4,12 @@ import {
   notifyReviewersOfRequest,
   notifyRequesterOfDecision,
 } from "@/lib/property-request-emails";
+import { AUTO_REJECT_REASON } from "@/lib/property-requests";
 
 export const dynamic = "force-dynamic";
 
 /** Postgres unique-violation code. */
 const UNIQUE_VIOLATION = "23505";
-
-const AUTO_REJECT_REASON = "Another request for this property was approved.";
 
 interface PropertyRequestRow {
   id: string;
