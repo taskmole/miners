@@ -113,11 +113,15 @@ export function CityAccessEditor({
               grant ? "border-zinc-200 bg-white" : "border-zinc-200/70 bg-zinc-50/60",
             )}
           >
-            {/* City name and the level control share one line at every width.
-                Labels shrink rather than wrap: "Contribute" is the long one and
-                it clears 375px at 11px with the tight padding below. */}
-            <div className="flex items-center gap-2">
-              <div className="w-[68px] sm:w-24 shrink-0 min-w-0">
+            {/* Two layouts, one breakpoint.
+                Below sm the city name gets its own line and the level control
+                sits underneath at full width, because four labels sharing a
+                row with the city name leaves about 60px each and "Contribute"
+                does not fit: the segments overflowed their cells and collided
+                with "Approve".
+                From sm up there is room for the original single line. */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+              <div className="flex items-baseline gap-2 sm:block sm:w-24 sm:shrink-0 min-w-0">
                 <div
                   className={cn(
                     "text-sm font-medium truncate",
@@ -136,7 +140,7 @@ export function CityAccessEditor({
               <div
                 role="radiogroup"
                 aria-label={`Access level for ${city.name}`}
-                className="flex-1 grid grid-cols-4 gap-0.5 p-0.5 rounded-md bg-zinc-100"
+                className="w-full sm:w-auto sm:flex-1 grid grid-cols-4 gap-0.5 p-0.5 rounded-md bg-zinc-100"
               >
                 {SEGMENTS.map((segment) => {
                   const selected = current === segment.id;
@@ -159,7 +163,12 @@ export function CityAccessEditor({
                       }
                       onClick={() => setLevel(city.id, segment.id)}
                       className={cn(
-                        "min-h-[34px] rounded text-[11px] sm:text-xs font-medium transition-colors px-0.5 leading-none",
+                        // min-w-0 lets the grid cell actually shrink, and
+                        // truncate keeps a long label inside it. Without the
+                        // pair, "Contribute" spilled out of its cell and sat
+                        // on top of "Approve" instead of being clipped.
+                        "min-w-0 truncate min-h-[38px] sm:min-h-[34px] rounded",
+                        "text-[11px] sm:text-xs font-medium transition-colors px-1 leading-none",
                         selected
                           ? segment.id === "none"
                             ? "bg-white text-zinc-500 shadow-sm"
@@ -176,12 +185,18 @@ export function CityAccessEditor({
             </div>
 
             {/* Extras appear only once there is access to attach them to.
-                Chips rather than switches: they are two small on/off extras
-                hanging off the level above, not a separate settings section, so
-                they get no separator and sit directly under the control they
-                belong to. */}
+                They are two small on/off extras hanging off the level above,
+                not a separate settings section, so they get no separator and
+                sit directly under the control they belong to.
+
+                Below sm they stack, one per line, label left and switch right,
+                the same shape as every other switch row on this screen. Side
+                by side they left about 70px for a label and a 44px switch,
+                which is where the row started fighting itself. From sm up they
+                sit inline again, aligned to the control rather than to the
+                city name. */}
             {grant && (
-              <div className="flex items-center gap-5 mt-2 pl-[76px] sm:pl-[104px]">
+              <div className="mt-2 space-y-1 sm:space-y-0 sm:flex sm:items-center sm:gap-5 sm:pl-[104px]">
                 <ExtraToggle
                   label="Financials"
                   on={grant.canSeeFinancials}
@@ -224,7 +239,12 @@ function ExtraToggle({
   return (
     <label
       className={cn(
-        "flex items-center gap-2 cursor-pointer select-none",
+        // Full width and spread apart on mobile, so the switch lands on the
+        // right edge like every other toggle on the page. Inline and snug
+        // from sm up, where the two fit beside each other.
+        "flex items-center justify-between gap-2 min-h-[32px]",
+        "sm:justify-start sm:min-h-0",
+        "cursor-pointer select-none",
         disabled && "cursor-not-allowed opacity-50",
       )}
     >
