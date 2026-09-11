@@ -29,14 +29,26 @@ export const SCOUTING_DEFAULTS_FALLBACK: ScoutingDefaults = {
 };
 
 async function fetchDefaults(): Promise<ScoutingDefaults> {
-  const res = await fetch("/api/db/settings?key=scouting_defaults");
-  if (!res.ok) return SCOUTING_DEFAULTS_FALLBACK;
-  const data = await res.json();
-  if (!data || typeof data !== "object" || !data.EUR) return SCOUTING_DEFAULTS_FALLBACK;
+  // apiFetch, not a bare fetch. This used to send no sign-in at all, which
+  // worked only because the settings endpoint accepted requests without one.
+  // Now that it does not, a bare fetch would get a 401 and land in the silent
+  // fallback below, and every person would quietly start scouting with the
+  // built-in ticket prices, footfall and fit-out costs instead of the ones in
+  // the admin settings screen, with nothing on screen to say so.
+  let data: unknown;
+  try {
+    data = await apiFetch<unknown>("/api/db/settings?key=scouting_defaults");
+  } catch {
+    return SCOUTING_DEFAULTS_FALLBACK;
+  }
+  if (!data || typeof data !== "object" || !(data as ScoutingDefaults).EUR) {
+    return SCOUTING_DEFAULTS_FALLBACK;
+  }
+  const parsed = data as ScoutingDefaults;
   return {
-    EUR: { ...SCOUTING_DEFAULTS_FALLBACK.EUR, ...data.EUR },
-    CZK: { ...SCOUTING_DEFAULTS_FALLBACK.CZK, ...data.CZK },
-    PLN: { ...SCOUTING_DEFAULTS_FALLBACK.PLN, ...data.PLN },
+    EUR: { ...SCOUTING_DEFAULTS_FALLBACK.EUR, ...parsed.EUR },
+    CZK: { ...SCOUTING_DEFAULTS_FALLBACK.CZK, ...parsed.CZK },
+    PLN: { ...SCOUTING_DEFAULTS_FALLBACK.PLN, ...parsed.PLN },
   };
 }
 
