@@ -38,9 +38,6 @@ export interface AdminPitch {
   transferFee?: number;
   fitoutCost?: number;
   openingInvestment?: number;
-  expectedDailyRevenue?: number;
-  monthlyRevenueRange?: string;
-  paybackMonths?: number;
 
   // Operational fields
   ventilation?: string;
@@ -102,9 +99,6 @@ export function useAdminSubmissions() {
         transferFee: row.transfer_fee ? Number(row.transfer_fee) : undefined,
         fitoutCost: row.fitout_cost ? Number(row.fitout_cost) : undefined,
         openingInvestment: row.opening_investment ? Number(row.opening_investment) : undefined,
-        expectedDailyRevenue: row.expected_daily_revenue ? Number(row.expected_daily_revenue) : undefined,
-        monthlyRevenueRange: row.monthly_revenue_range as string | undefined,
-        paybackMonths: row.payback_months as number | undefined,
         ventilation: row.ventilation as string | undefined,
         waterWaste: row.water_waste as string | undefined,
         powerCapacity: row.power_capacity as string | undefined,

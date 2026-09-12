@@ -135,7 +135,7 @@ export async function generateTripDocx(trip: ScoutingTrip): Promise<void> {
   );
 
   // Key Metrics Summary
-  const hasKeyMetrics = trip.monthlyRent || trip.openingInvestment || trip.paybackMonths || trip.areaSqm;
+  const hasKeyMetrics = trip.monthlyRent || trip.openingInvestment || trip.areaSqm;
   if (hasKeyMetrics) {
     // Helper to create a metric cell
     const createMetricCell = (label: string, value: string) =>
