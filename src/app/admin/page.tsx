@@ -272,12 +272,6 @@ function SubmissionDetails({ pitch }: { pitch: AdminPitch }) {
               <span className="text-zinc-900">{formatCurrency(pitch.fitoutCost)}</span>
             </div>
           )}
-          {pitch.expectedDailyRevenue && (
-            <div>
-              <span className="text-zinc-500">Expected Rev:</span>{' '}
-              <span className="text-zinc-900">{formatCurrency(pitch.expectedDailyRevenue)}/day</span>
-            </div>
-          )}
         </div>
       )}
 

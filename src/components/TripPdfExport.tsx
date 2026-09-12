@@ -167,7 +167,7 @@ export async function generateTripPdf(trip: ScoutingTrip): Promise<void> {
   y += 10;
 
   // ===== KEY METRICS SUMMARY BOX =====
-  const hasKeyMetrics = trip.monthlyRent || trip.openingInvestment || trip.paybackMonths || trip.areaSqm;
+  const hasKeyMetrics = trip.monthlyRent || trip.openingInvestment || trip.areaSqm;
   if (hasKeyMetrics) {
     // Box background
     doc.setFillColor("#fafafa");
@@ -175,7 +175,7 @@ export async function generateTripPdf(trip: ScoutingTrip): Promise<void> {
     doc.roundedRect(margin, y - 2, contentWidth, 18, 2, 2, "FD");
 
     const metricsY = y + 4;
-    const colWidth = contentWidth / 4;
+    const colWidth = contentWidth / 3;
     let col = 0;
 
     doc.setFontSize(8);
