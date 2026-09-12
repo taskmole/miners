@@ -6,6 +6,7 @@ import { safeMapCleanup } from '@/lib/safe-map-cleanup';
 import { useMapDraw } from '@/hooks/useMapDraw';
 import { MessageCircle, Scan, Users, Banknote } from 'lucide-react';
 import type { Feature, Polygon } from 'geojson';
+import type { MapMouseEvent } from 'maplibre-gl';
 import { getCachedStats, formatArea, formatPopulation, formatIncome } from '@/lib/area-calculations';
 import { useGeoData } from '@/contexts/GeoDataContext';
 import { useShapeDataContext } from '@/contexts/ShapeDataContext';
@@ -62,7 +63,7 @@ export function ShapeHoverTooltip() {
   }, [features]);
 
   // Handle mouse move to detect hover on draw features
-  const handleMouseMove = useCallback((e: maplibregl.MapMouseEvent) => {
+  const handleMouseMove = useCallback((e: MapMouseEvent) => {
     if (!map) return;
 
     // Query features under cursor from MapboxDraw layers
@@ -141,7 +142,9 @@ export function ShapeHoverTooltip() {
     }
   }, [map, densityData, incomeData]);
 
-  // Handle mouse leave map
+  // Handle the cursor leaving the map canvas.
+  // Note: maplibre has no map-level 'mouseleave' event ('mouseleave' is layer-only),
+  // so this listens for 'mouseout' instead.
   const handleMouseLeave = useCallback(() => {
     setTooltip(null);
     hoveredFeatureId.current = null;
@@ -152,12 +155,12 @@ export function ShapeHoverTooltip() {
     if (!map || !isLoaded) return;
 
     map.on('mousemove', handleMouseMove);
-    map.on('mouseleave', handleMouseLeave);
+    map.on('mouseout', handleMouseLeave);
 
     return () => {
       safeMapCleanup(map, (m) => {
         m.off('mousemove', handleMouseMove);
-        m.off('mouseleave', handleMouseLeave);
+        m.off('mouseout', handleMouseLeave);
       });
     };
   }, [map, isLoaded, handleMouseMove, handleMouseLeave]);

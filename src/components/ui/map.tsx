@@ -1,7 +1,17 @@
 "use client";
 
-import MapLibreGL, { type PopupOptions, type MarkerOptions } from "maplibre-gl";
+// maplibre-gl 6 dropped its default export, so import the namespace instead.
+import * as MapLibreGL from "maplibre-gl";
+import type { PopupOptions, MarkerOptions } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+
+// maplibre-gl 6 loads its background worker from two files that must sit side by
+// side. scripts/copy-maplibre-worker.mjs copies both into public/ on every dev
+// start and build; this points MapLibre at the copy so the worker's relative
+// import of its sibling resolves. Module scope guarantees this runs before the
+// `new MapLibreGL.Map(...)` below, and it only sets a variable, so it is safe
+// during server rendering.
+MapLibreGL.setWorkerUrl("/maplibre-gl-worker.mjs");
 // import { useTheme } from "next-themes"; // Disabled - forcing light mode
 import {
   createContext,
