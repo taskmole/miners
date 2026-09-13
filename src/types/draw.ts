@@ -43,24 +43,22 @@ export interface ShapeComment {
   createdAt: string;
 }
 
-// Events MapboxDraw fires through the map it is attached to.
-export interface DrawEventType {
-  'draw.create': { features: DrawnFeature[] };
-  'draw.update': { features: DrawnFeature[]; action: string };
-  'draw.delete': { features: DrawnFeature[] };
-  'draw.selectionchange': { features: DrawnFeature[]; points?: DrawnFeature[] };
-  'draw.modechange': { mode: string };
-}
-
 // Type augmentation for MapLibre GL to support MapboxDraw control
 declare module 'maplibre-gl' {
   interface Map {
     addControl(control: MapboxDraw, position?: string): this;
     removeControl(control: MapboxDraw): this;
     // maplibre-gl 6 types `on`/`off` strictly against its own event list, which
-    // does not know about MapboxDraw's events. Declare them here so the draw
-    // listeners in map-draw.tsx type-check.
-    on<T extends keyof DrawEventType>(type: T, listener: (e: DrawEventType[T]) => void): Subscription;
-    off<T extends keyof DrawEventType>(type: T, listener: (e: DrawEventType[T]) => void): this;
+    // does not know about MapboxDraw's events. MapboxDraw's own types already
+    // map each event name to its payload, so reuse those rather than restating
+    // them here.
+    on<T extends keyof MapboxDraw.DrawEvents>(
+      type: T,
+      listener: (e: MapboxDraw.DrawEvents[T]) => void,
+    ): Subscription;
+    off<T extends keyof MapboxDraw.DrawEvents>(
+      type: T,
+      listener: (e: MapboxDraw.DrawEvents[T]) => void,
+    ): this;
   }
 }
