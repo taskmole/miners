@@ -1,5 +1,5 @@
 import type MapboxDraw from '@mapbox/mapbox-gl-draw';
-import type { Map } from 'maplibre-gl';
+import type { Map, Subscription } from 'maplibre-gl';
 import type { Attachment } from './attachments';
 
 // Drawing modes
@@ -48,5 +48,17 @@ declare module 'maplibre-gl' {
   interface Map {
     addControl(control: MapboxDraw, position?: string): this;
     removeControl(control: MapboxDraw): this;
+    // maplibre-gl 6 types `on`/`off` strictly against its own event list, which
+    // does not know about MapboxDraw's events. MapboxDraw's own types already
+    // map each event name to its payload, so reuse those rather than restating
+    // them here.
+    on<T extends keyof MapboxDraw.DrawEvents>(
+      type: T,
+      listener: (e: MapboxDraw.DrawEvents[T]) => void,
+    ): Subscription;
+    off<T extends keyof MapboxDraw.DrawEvents>(
+      type: T,
+      listener: (e: MapboxDraw.DrawEvents[T]) => void,
+    ): this;
   }
 }

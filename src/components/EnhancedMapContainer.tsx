@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
-import MapLibreGL from "maplibre-gl";
+// maplibre-gl 6 dropped its default export, so import the namespace instead.
+import * as MapLibreGL from "maplibre-gl";
 import {
     Map,
     MapMarker,
