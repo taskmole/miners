@@ -31,7 +31,7 @@ import { PopupActionBar } from "@/components/PopupActionBar";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
 import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
-import { usePropertyRequests } from "@/hooks/usePropertyRequests";
+import { usePropertyRequests, type RequestSnapshot } from "@/hooks/usePropertyRequests";
 import type { PropertyAssignment } from "@/hooks/usePropertyAssignments";
 import { useTeamsContext } from "@/contexts/TeamsContext";
 import { useListsContext } from "@/contexts/ListsContext";
@@ -1310,6 +1310,7 @@ function PropertyActionsFooter({
     property, placeId, cityId, mapsUrl, canAccessDashboard, accessResolved, checkCanPitch, pitchStatus,
     assignableUsers, assignProperty, preRejectProperty, removeAssignment,
     assignment, createTrip, updateTrip, showToast, onClose,
+    hasPendingRequest, wasRejectedForMe, requestProperty,
 }: {
     property: PropertyData;
     placeId: string;
@@ -1329,17 +1330,24 @@ function PropertyActionsFooter({
     updateTrip: (tripId: string, updates: any) => void;
     showToast: (msg: string, type?: string) => void;
     onClose?: () => void;
+    /**
+     * Request state comes from the popup above rather than a second
+     * usePropertyRequests instance, so opening a popup costs one fetch.
+     */
+    hasPendingRequest: (placeId: string) => boolean;
+    wasRejectedForMe: (placeId: string) => boolean;
+    requestProperty: (placeId: string, snapshot?: RequestSnapshot) => Promise<unknown>;
 }) {
     const [menuOpen, setMenuOpen] = React.useState(false);
     const [subMenu, setSubMenu] = React.useState<"assign" | "reject" | "addToList" | null>(null);
     const [rejectReason, setRejectReason] = React.useState("");
     const [newListName, setNewListName] = React.useState("");
     const menuRef = React.useRef<HTMLDivElement>(null);
-    const { lists, toggleInList, isPlaceInList, createList } = useListsContext();
+    // writableLists, not lists: this menu offers save targets, and somebody
+    // else's read-only list must never be one.
+    const { writableLists: lists, toggleInList, isPlaceInList, createList } = useListsContext();
     const { teams } = useTeamsContext();
     const { isAssignedToMe } = usePropertyAssignmentContext();
-    // Admins assign directly and never request, so skip the fetch for them.
-    const { hasPendingRequest, wasRejectedForMe, requestProperty } = usePropertyRequests(!canAccessDashboard);
 
     React.useEffect(() => {
         if (!menuOpen) return;
@@ -1722,6 +1730,14 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
     const { canAccessDashboard, accessResolved } = useUserProfiles();
     const { createTrip, updateTrip } = useScoutingTrips();
     const { showToast } = useToast();
+    // Admins assign directly and never request, so skip the fetch for them.
+    // The footer below reuses this one instance instead of opening its own.
+    // Wait for accessResolved: canAccessDashboard is false until the profile
+    // lands, so without it every admin popup still fired one request fetch
+    // before the flag flipped.
+    const { hasPendingRequest, wasRejectedForMe, requestProperty, approvalNoteFor } =
+        usePropertyRequests(accessResolved && !canAccessDashboard);
+    const approvalNote = approvalNoteFor(placeId);
     const pitchStatus = getPitchStatus(placeId);
     const pitchDate = getPitchDate(placeId);
     const pitchRejectionReason = getPitchRejectionReason(placeId);
@@ -1934,6 +1950,14 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                 );
             })()}
 
+            {/* The reviewer's optional note when this person's request was
+                approved. Only the requester ever sees it. */}
+            {approvalNote && (
+                <div className="popup-assignment-line text-xs" style={{ color: "#34d399" }}>
+                    Approval note: {approvalNote}
+                </div>
+            )}
+
             {/* Footer with Actions */}
             <PropertyActionsFooter
                 property={property}
@@ -1948,6 +1972,9 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                 assignProperty={assignProperty}
                 preRejectProperty={preRejectProperty}
                 removeAssignment={removeAssignment}
+                hasPendingRequest={hasPendingRequest}
+                wasRejectedForMe={wasRejectedForMe}
+                requestProperty={requestProperty}
                 assignment={assignment}
                 createTrip={createTrip}
                 updateTrip={updateTrip}

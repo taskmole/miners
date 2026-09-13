@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import type { Database } from "./supabase";
+import { toGrants, type Access, type CityGrantRow } from "./permissions";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -96,4 +97,45 @@ export async function getUserTeamIds(supabase: SupabaseClient<Database>, userId:
     .select("team_id")
     .eq("user_id", userId);
   return (data || []).map((r: any) => r.team_id);
+}
+
+/**
+ * Read one person's access: the Super Admin switch, the active switch, the
+ * money switch and their per-city grants.
+ *
+ * Lives here rather than inside a single route because more than one route now
+ * has to answer "what may this other person do?": the user-history screen and
+ * the lists route both need a full Access for somebody who is not the caller.
+ *
+ * Returns null when either read fails or the profile is missing. A null is a
+ * failed lookup, not a refusal: callers must report an error rather than
+ * quietly showing an empty screen.
+ */
+export async function accessFor(
+  supabase: unknown,
+  userId: string,
+): Promise<Access | null> {
+  const [{ data: profile, error: profileError }, { data: grants, error: grantsError }] =
+    await Promise.all([
+      untypedDb(supabase)
+        .from("user_profiles")
+        .select("is_super_admin, is_active, can_see_financials")
+        .eq("id", userId)
+        .maybeSingle(),
+      untypedDb(supabase)
+        .from("user_city_grants")
+        .select("city_id, level, receives_alerts")
+        .eq("user_id", userId),
+    ]);
+
+  if (profileError || grantsError || !profile) return null;
+
+  return {
+    isSuperAdmin: profile.is_super_admin === true,
+    // Only an explicit false counts as off, matching the SQL's
+    // `IS DISTINCT FROM false`.
+    isActive: profile.is_active !== false,
+    canSeeFinancials: profile.can_see_financials === true,
+    grants: toGrants(grants as CityGrantRow[]),
+  };
 }

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import useSWR from "swr";
 import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
 import { preloadGravity, getScoreAt } from "@/lib/gravity-lookup";
-import { getAuthToken } from "@/lib/api-client";
+import { getAuthToken, getRefreshedAuthToken } from "@/lib/api-client";
 
 export interface CafeData {
     type: "cafe";
@@ -100,18 +100,34 @@ const TIMEOUT_MS = 15_000;
  * been granted anything.
  */
 async function fetchWithTimeout(url: string, timeoutMs = TIMEOUT_MS): Promise<Response> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    async function send(token: string | null): Promise<Response> {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        // cache: "no-store" skips the browser HTTP cache entirely. localhost:3000
+        // is shared by every project ever run on this machine, and a cacheable
+        // redirect left there by another app replays forever without ever hitting
+        // the server (net::ERR_TOO_MANY_REDIRECTS). Freshness is SWR's job anyway.
+        return fetch(url, {
+            signal: controller.signal,
+            cache: "no-store",
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        }).finally(() => clearTimeout(timer));
+    }
+
     const token = await getAuthToken();
-    // cache: "no-store" skips the browser HTTP cache entirely. localhost:3000
-    // is shared by every project ever run on this machine, and a cacheable
-    // redirect left there by another app replays forever without ever hitting
-    // the server (net::ERR_TOO_MANY_REDIRECTS). Freshness is SWR's job anyway.
-    return fetch(url, {
-        signal: controller.signal,
-        cache: "no-store",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    }).finally(() => clearTimeout(timer));
+    const res = await send(token);
+
+    // A 401 here is the whole map turning into "Error loading data: Places API
+    // 401" with no way back but a reload. It happens when the token expires
+    // mid-session, so ask once more and retry; apiFetch has done this for its
+    // own callers all along. Only retried when a different token comes back,
+    // so a genuinely signed-out visitor still gets one request and one answer.
+    if (res.status === 401) {
+        const retryToken = await getRefreshedAuthToken();
+        if (retryToken && retryToken !== token) return send(retryToken);
+    }
+
+    return res;
 }
 
 /**

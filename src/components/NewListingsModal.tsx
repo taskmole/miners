@@ -50,7 +50,9 @@ export function NewListingsModal({
   const { getPitchStatus } = usePitchStatusContext();
   const { canAccessDashboard, accessResolved } = useUserProfiles();
   const { hasPendingRequest, wasRejectedForMe, requestProperty } = usePropertyRequests();
-  const { lists, toggleInList, createList } = useListsContext();
+  // writableLists, not lists: "add to list" here writes to lists[0], so a
+  // read-only list sorting first would drop the property in someone else's.
+  const { writableLists: lists, toggleInList, createList } = useListsContext();
   const { createTrip, updateTrip } = useScoutingTrips();
 
   // Data state
@@ -394,6 +396,29 @@ export function NewListingsModal({
     setTimeout(() => handleAdvance(true), 200);
   }, [currentProperty, requestProperty, showToast, handleAdvance]);
 
+  // Backing out of a sheet must not throw you out of the whole screen. Each
+  // sheet's own backdrop only covers the card, so a click on the margin around
+  // the card on desktop lands here instead: close the sheet if one is open,
+  // otherwise close the modal.
+  const handleDismiss = useCallback(() => {
+    if (activeSheet) {
+      setActiveSheet(null);
+      return;
+    }
+    onClose();
+  }, [activeSheet, onClose]);
+
+  // Escape follows the same rule. This modal is a hand-rolled overlay rather
+  // than a BottomSheet, so it has no Escape handling of its own.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleDismiss();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, handleDismiss]);
+
   // Card animation styles
   const cardTransform =
     cardAnim === "exiting"
@@ -408,7 +433,7 @@ export function NewListingsModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={handleDismiss}
       />
 
       <div

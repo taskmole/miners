@@ -90,7 +90,7 @@ function HomeContent() {
    * colleagues. Exempting it would offer cities whose data the database then
    * refuses to hand over, which is a blank map rather than a demo.
    */
-  const { visibleCities, accessResolved } = useUserProfiles();
+  const { visibleCities, accessResolved, canApproveIn } = useUserProfiles();
   const grantedCities = React.useMemo(() => {
     if (!user || !accessResolved) return cities;
     return cities.filter(c => visibleCities.includes(c.id));
@@ -537,6 +537,9 @@ function HomeContent() {
           />
           <ScoutingPanel
             cityId={selectedCity.id}
+            /* Gated on accessResolved too, so the switch appears once rather
+               than flickering in after the permission lookup lands. */
+            canSeeAll={accessResolved && canApproveIn(selectedCity.id)}
             onCreateNew={() => setIsScoutingFormOpen(true)}
             onUpload={() => setIsScoutingUploadOpen(true)}
             onSelectTrip={(trip) => {

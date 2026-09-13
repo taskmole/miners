@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest, untypedDb as db } from "@/lib/supabase-server";
+import { accessFor, authenticateRequest, untypedDb as db } from "@/lib/supabase-server";
 import { cities } from "@/lib/cities";
-import {
-  canReadHistoryOf,
-  historyCityScope,
-  toGrants,
-  type Access,
-  type CityGrantRow,
-} from "@/lib/permissions";
+import { canReadHistoryOf, historyCityScope } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -41,37 +35,6 @@ type HistoryEntry = {
   status: string;
   date: string;
 };
-
-/** Read one person's access: the Super Admin switch plus their grants. */
-async function accessFor(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  userId: string,
-): Promise<Access | null> {
-  const [{ data: profile, error: profileError }, { data: grants, error: grantsError }] =
-    await Promise.all([
-      db(supabase)
-        .from("user_profiles")
-        .select("is_super_admin, is_active, can_see_financials")
-        .eq("id", userId)
-        .maybeSingle(),
-      db(supabase)
-        .from("user_city_grants")
-        .select("city_id, level, receives_alerts")
-        .eq("user_id", userId),
-    ]);
-
-  if (profileError || grantsError || !profile) return null;
-
-  return {
-    isSuperAdmin: profile.is_super_admin === true,
-    // Only an explicit false counts as off, matching the SQL's
-    // `IS DISTINCT FROM false`.
-    isActive: profile.is_active !== false,
-    canSeeFinancials: profile.can_see_financials === true,
-    grants: toGrants(grants as CityGrantRow[]),
-  };
-}
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);

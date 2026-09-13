@@ -40,7 +40,9 @@ interface AddToListButtonProps {
  * Supports both POIs (place prop) and drawn shapes (shape prop)
  */
 export function AddToListButton({ place, shape }: AddToListButtonProps) {
-  const { lists, toggleInList, isPlaceInList, createList, addToList, addDrawnArea, removeDrawnArea } = useListsContext();
+  // writableLists, not lists: this menu offers save targets and counts "In N
+  // lists", and neither should include somebody else's read-only list.
+  const { writableLists: lists, toggleInList, isPlaceInList, createList, addToList, addDrawnArea, removeDrawnArea } = useListsContext();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);

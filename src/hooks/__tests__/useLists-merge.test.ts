@@ -5,9 +5,14 @@ vi.mock('@/lib/list-sync', () => ({
   enqueue: vi.fn(),
   hasPendingCreate: vi.fn(),
   hasPendingItemUpsert: vi.fn(),
+  hasPendingDeletion: vi.fn(() => false),
+  hasPendingItemDeletion: vi.fn(() => false),
+  hasPendingListDeletion: vi.fn(() => false),
   hasPendingForList: vi.fn(),
   getQueueSize: vi.fn(() => 0),
   initSyncQueue: vi.fn(),
+  setReadOnlyLists: vi.fn(),
+  startDraining: vi.fn(),
 }));
 
 vi.mock('@/lib/api-client', () => ({
@@ -24,6 +29,7 @@ vi.mock('@/lib/supabaseHelpers', () => ({
 }));
 
 import { hasPendingCreate, hasPendingItemUpsert } from '@/lib/list-sync';
+import { listsForLocalStorage } from '@/hooks/useLists';
 import type { LocationList } from '@/types/lists';
 
 const mockHasPendingCreate = vi.mocked(hasPendingCreate);
@@ -187,5 +193,60 @@ describe('mergeLists', () => {
     const result = mergeLists(serverLists, localLists);
     expect(result[0].drawnAreas).toHaveLength(1);
     expect(result[0].drawnAreas![0].name).toBe('Zone A');
+  });
+});
+
+/**
+ * A read-only list is somebody else's, visible because the viewer approves in
+ * a city they work in. mergeLists needs no code change to handle one: every
+ * pending-queue lookup it makes returns false for a list the user never
+ * touched, and drawnAreas falls back to []. That is exactly why it needs a
+ * test, nothing in the file would tell the next reader it was thought about.
+ */
+describe('read-only lists', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockHasPendingCreate.mockReturnValue(false);
+    mockHasPendingItemUpsert.mockReturnValue(false);
+  });
+
+  const foreignList: LocationList = {
+    id: 'their-list',
+    name: "Kirill's shortlist",
+    createdAt: '2026-01-01',
+    createdBy: 'other-user',
+    access: 'readonly',
+    items: [
+      { id: 'their-item', placeId: 'cafe-9', placeType: 'cafe', placeName: 'Their Cafe', placeAddress: '', lat: 40, lon: -3, addedAt: '2026-01-01' },
+    ],
+    drawnAreas: [],
+  };
+
+  it('survives a merge unchanged', () => {
+    const result = mergeLists([foreignList], []);
+    expect(result).toHaveLength(1);
+    expect(result[0].access).toBe('readonly');
+    expect(result[0].name).toBe("Kirill's shortlist");
+    expect(result[0].items).toHaveLength(1);
+    expect(result[0].drawnAreas).toEqual([]);
+  });
+
+  it('is never written to localStorage', () => {
+    const own: LocationList = {
+      id: 'my-list', name: 'Mine', createdAt: '2026-01-01', access: 'own', items: [], drawnAreas: [],
+    };
+    const team: LocationList = {
+      id: 'team-list', name: 'Ours', createdAt: '2026-01-01', access: 'team', teamId: 'team-1', items: [], drawnAreas: [],
+    };
+
+    const stored = listsForLocalStorage([own, team, foreignList]);
+    expect(stored.map(l => l.id)).toEqual(['my-list']);
+  });
+
+  it('keeps an untagged list, because localStorage only ever holds your own', () => {
+    const legacy: LocationList = {
+      id: 'legacy', name: 'From before the tag', createdAt: '2026-01-01', items: [], drawnAreas: [],
+    };
+    expect(listsForLocalStorage([legacy])).toHaveLength(1);
   });
 });

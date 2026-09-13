@@ -1,7 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest, createServerSupabase, getTokenFromRequest, getUserTeamIds } from "@/lib/supabase-server";
+import {
+  accessFor,
+  authenticateRequest,
+  createServerSupabase,
+  getTokenFromRequest,
+  getUserTeamIds,
+  untypedDb as db,
+} from "@/lib/supabase-server";
+import { cities } from "@/lib/cities";
+import { canAccessDashboard, canReadCityScouting } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
+
+const ALL_CITY_IDS = cities.map((c) => c.id);
+
+/**
+ * One row of the "All in city" list. Deliberately thin: no financials, no
+ * checklist, no review notes. Thinness is what makes it safe to hand a
+ * reviewer somebody else's trip.
+ */
+export type CityScoutedTrip = {
+  id: string;
+  status: string;
+  cityId: string;
+  createdBy: string;
+  authorName: string;
+  submittedAt: string | null;
+  placeId: string | null;
+  placeName: string | null;
+  /** Where to fly the map. Null when the trip has no linked place. */
+  lat: number | null;
+  lon: number | null;
+};
+
+/**
+ * The columns the "All in city" query selects. `property` is a JSONB column
+ * holding the linked place, the same shape status-map reads below.
+ */
+type CityPitchRow = {
+  id: string;
+  status: string | null;
+  city_id: string | null;
+  created_by: string | null;
+  author_name: string | null;
+  submitted_at: string | null;
+  property: {
+    type?: string;
+    id?: string;
+    name?: string;
+    data?: { latitude?: number; longitude?: number };
+  } | null;
+};
 
 export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get("mode") || "user";
@@ -51,15 +100,92 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Admin mode only needs a valid token (RLS handles permission)
-  if (mode === "admin") {
-    const token = getTokenFromRequest(request);
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Every pitch in one city, for somebody who approves there. Used by the
+  // Scouting panel's "All in city" switch. Refuses out loud rather than
+  // returning an empty list, so "nothing here" and "not for you" stay
+  // distinguishable on screen.
+  if (mode === "city") {
+    const cityId = request.nextUrl.searchParams.get("city_id");
+    if (!cityId) {
+      return NextResponse.json({ error: "city_id is required" }, { status: 400 });
     }
 
+    const auth = await authenticateRequest(request);
+    if (auth.error) return auth.error;
+    const { supabase, userId } = auth;
+
     try {
-      const supabase = createServerSupabase(token);
+      const access = await accessFor(supabase, userId);
+      // A failed lookup is not a refusal, so it reports an error rather than
+      // quietly looking like a permission problem.
+      if (!access) {
+        return NextResponse.json(
+          { error: "Could not check permissions, please try again." },
+          { status: 500 },
+        );
+      }
+
+      if (!canReadCityScouting(access, cityId, ALL_CITY_IDS)) {
+        return NextResponse.json({ canSee: false, trips: [] });
+      }
+
+      const { data, error } = await db(supabase)
+        .from("pitches")
+        .select("id, status, city_id, created_by, author_name, submitted_at, property")
+        .eq("city_id", cityId)
+        .order("submitted_at", { ascending: false, nullsFirst: false });
+
+      if (error) {
+        console.error("[api/db/pitches] city query error:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      const trips: CityScoutedTrip[] = (data || []).map((row: CityPitchRow) => {
+        const prop = row.property;
+        const isPlace = prop?.type === "place";
+        return {
+          id: row.id,
+          status: row.status || "draft",
+          cityId: row.city_id || cityId,
+          createdBy: row.created_by || "",
+          authorName: row.author_name || "Scout",
+          submittedAt: row.submitted_at ?? null,
+          placeId: isPlace ? prop?.id ?? null : null,
+          placeName: prop?.name ?? null,
+          // Coordinates only, so the map can fly there. Nothing else from the
+          // linked property comes across.
+          lat: isPlace ? prop?.data?.latitude ?? null : null,
+          lon: isPlace ? prop?.data?.longitude ?? null : null,
+        };
+      });
+
+      return NextResponse.json({ canSee: true, trips });
+    } catch (err) {
+      console.error("[api/db/pitches] city unexpected error:", err);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+  }
+
+  // Admin mode: the dashboard's own pitch list. RLS alone is not enough here,
+  // because the pitches SELECT policy also passes anyone holding View on a
+  // city, so the dashboard check has to be made explicitly.
+  if (mode === "admin") {
+    const auth = await authenticateRequest(request);
+    if (auth.error) return auth.error;
+    const { supabase, userId: callerId } = auth;
+
+    try {
+      const access = await accessFor(supabase, callerId);
+      if (!access) {
+        return NextResponse.json(
+          { error: "Could not check permissions, please try again." },
+          { status: 500 },
+        );
+      }
+      if (!canAccessDashboard(access)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
       const userId = request.nextUrl.searchParams.get("user_id");
 
       let query = supabase

@@ -6,7 +6,13 @@ import type { LocationList, PlaceInfo, VisitLog } from '@/types/lists';
 
 // Define the context value type based on what useLists returns
 interface ListsContextValue {
+  /** Everything the caller may see, including read-only lists. ListsPanel only. */
   lists: LocationList[];
+  /**
+   * Everything the caller may change. Every other consumer uses this, so an
+   * "add to list" menu can never offer somebody else's list as a save target.
+   */
+  writableLists: LocationList[];
   isLoaded: boolean;
   createList: (name: string) => LocationList;
   addToList: (listId: string, place: PlaceInfo) => void;

@@ -3,7 +3,9 @@ import {
   canAccessDashboard,
   canApprove,
   canContribute,
+  canReadCityScouting,
   canReadHistoryOf,
+  canReadListsOf,
   canSeeRevenue,
   hasCityLevel,
   historyCityScope,
@@ -233,5 +235,90 @@ describe("the financials switch", () => {
   it("is false from neither", () => {
     expect(canSeeRevenue(person([grant("madrid", "approve")]))).toBe(false);
     expect(canSeeRevenue(nobody)).toBe(false);
+  });
+});
+
+/**
+ * Who may see whose saved lists. Lists have no city column, so the scope is by
+ * person: the user-history rule, narrowed to people who hold a grant in a city
+ * the viewer approves in.
+ */
+describe("reading somebody else's lists", () => {
+  it("lets a super admin see everyone", () => {
+    expect(canReadListsOf(superAdmin, franchisee, ALL)).toBe(true);
+    expect(canReadListsOf(superAdmin, kirill, ALL)).toBe(true);
+    expect(canReadListsOf(superAdmin, viewer, ALL)).toBe(true);
+  });
+
+  it("lets an approver see a contributor in a city they approve in", () => {
+    const madridFranchisee = person([grant("madrid", "contribute")]);
+    expect(canReadListsOf(kirill, madridFranchisee, ALL)).toBe(true);
+  });
+
+  it("refuses a contributor whose only city the approver does not approve in", () => {
+    // Kirill approves in Madrid and only views Prague, so a Prague-only
+    // franchisee is out of scope.
+    expect(canReadListsOf(kirill, franchisee, ALL)).toBe(false);
+  });
+
+  it("never lets an approver read another approver or a super admin", () => {
+    const otherApprover = person([grant("madrid", "approve")]);
+    expect(canReadListsOf(kirill, otherApprover, ALL)).toBe(false);
+    expect(canReadListsOf(kirill, superAdmin, ALL)).toBe(false);
+  });
+
+  it("gives a franchisee nobody at all", () => {
+    expect(canReadListsOf(franchisee, viewer, ALL)).toBe(false);
+    expect(canReadListsOf(viewer, franchisee, ALL)).toBe(false);
+    expect(canReadListsOf(nobody, franchisee, ALL)).toBe(false);
+  });
+
+  it("refuses a switched-off approver", () => {
+    const suspended = person([grant("madrid", "approve")], false, { isActive: false });
+    const madridFranchisee = person([grant("madrid", "contribute")]);
+    expect(canReadListsOf(suspended, madridFranchisee, ALL)).toBe(false);
+  });
+});
+
+/**
+ * Who may see every scouting trip in one city. Approving there is the whole
+ * rule: View and Contribute are not enough, however wide the RLS policy is.
+ */
+describe("reading a city's scouted trips", () => {
+  it("lets an approver see the city they approve in", () => {
+    expect(canReadCityScouting(kirill, "madrid", ALL)).toBe(true);
+  });
+
+  it("refuses the city they only view", () => {
+    expect(canReadCityScouting(kirill, "prague", ALL)).toBe(false);
+  });
+
+  it("refuses a contributor and a viewer outright", () => {
+    expect(canReadCityScouting(franchisee, "prague", ALL)).toBe(false);
+    expect(canReadCityScouting(viewer, "madrid", ALL)).toBe(false);
+    expect(canReadCityScouting(nobody, "madrid", ALL)).toBe(false);
+  });
+
+  it("gives a super admin every city", () => {
+    for (const city of ALL) {
+      expect(canReadCityScouting(superAdmin, city, ALL)).toBe(true);
+    }
+  });
+
+  /**
+   * This one shipped broken. canReadCityScouting delegated straight to
+   * approvesIn(), which reads grants and nothing else, so a reviewer whose
+   * account had been switched off still got every scouting trip in their city.
+   * Every other door in this file checks isActive; this was the one that did
+   * not, and it is the only gate on GET /api/db/pitches?mode=city.
+   */
+  it("refuses a switched-off approver, like every other door", () => {
+    const suspended = person([grant("madrid", "approve")], false, { isActive: false });
+    expect(canReadCityScouting(suspended, "madrid", ALL)).toBe(false);
+  });
+
+  it("still lets a switched-off super admin through, matching the exemption", () => {
+    const offSuper = person([], true, { isActive: false });
+    expect(canReadCityScouting(offSuper, "madrid", ALL)).toBe(true);
   });
 });

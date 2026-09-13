@@ -9,7 +9,7 @@ vi.mock('@/lib/browser-session', () => ({
   getAuthUserId: vi.fn(),
 }));
 
-import { enqueue, hasPendingCreate, hasPendingItemUpsert, getQueueSize, initSyncQueue, startDraining, _resetForTest } from '../list-sync';
+import { enqueue, hasPendingCreate, hasPendingItemUpsert, getQueueSize, initSyncQueue, isReadOnlyList, setReadOnlyLists, startDraining, _resetForTest } from '../list-sync';
 import { getAuthUserId } from '@/lib/browser-session';
 import { apiFetch } from '@/lib/api-client';
 
@@ -227,5 +227,95 @@ describe('list-sync retry queue', () => {
       expect(callCount).toBe(4);
       expect(getQueueSize()).toBe(0);
     });
+  });
+});
+
+/**
+ * A read-only list is somebody else's. The panel hides every control that
+ * would write to one, so nothing should reach the queue. This is the backstop
+ * that makes that a guarantee, and it has to run twice: once at enqueue, and
+ * again at drain, because a queued write survives a reload and the list may
+ * have changed hands in between.
+ */
+describe('read-only lists', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    _resetForTest();
+    localStorageMock.clear();
+    mockGetAuthUserId.mockReturnValue('user-123');
+    mockApiFetch.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  it('refuses every write to a read-only list id', () => {
+    setReadOnlyLists(['their-list']);
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    enqueue({ type: 'rename_list', listId: 'their-list', payload: { id: 'their-list', name: 'Nope', created_by: 'user-123' } });
+    enqueue({ type: 'delete_list', listId: 'their-list', payload: { listId: 'their-list' } });
+    enqueue({
+      type: 'add_item',
+      listId: 'their-list',
+      payload: { id: 'i-1', list_id: 'their-list', place_id: 'cafe-1', place_type: 'cafe', place_name: 'C', place_address: '', lat: 0, lon: 0, added_at: '2026-01-01' },
+    });
+    enqueue({ type: 'remove_item', listId: 'their-list', payload: { itemId: 'i-1' } });
+
+    expect(getQueueSize()).toBe(0);
+    quiet.mockRestore();
+  });
+
+  it('still queues writes to the caller\'s own lists', () => {
+    setReadOnlyLists(['their-list']);
+
+    enqueue({ type: 'rename_list', listId: 'my-list', payload: { id: 'my-list', name: 'Fine', created_by: 'user-123' } });
+
+    expect(getQueueSize()).toBe(1);
+  });
+
+  it('forgets the old set when the server sends a new one', () => {
+    setReadOnlyLists(['list-a']);
+    expect(isReadOnlyList('list-a')).toBe(true);
+
+    setReadOnlyLists(['list-b']);
+    expect(isReadOnlyList('list-a')).toBe(false);
+    expect(isReadOnlyList('list-b')).toBe(true);
+  });
+
+  /**
+   * The enqueue guard cannot catch this one. The write was legitimate when it
+   * was made, sat in the queue through a reload, and by the time it flushes the
+   * list has changed hands or the person has left the team. Without a check at
+   * drain time the entry goes out anyway.
+   */
+  it('drops a queued write to a list that turned read-only meanwhile', async () => {
+    const quiet = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // Queued while the list was still the caller's to write to.
+    enqueue({ type: 'rename_list', listId: 'was-mine', payload: { id: 'was-mine', name: 'Later', created_by: 'user-123' } });
+    expect(getQueueSize()).toBe(1);
+
+    // The next poll says it is somebody else's now, before the queue flushes.
+    setReadOnlyLists(['was-mine']);
+    startDraining();
+    await vi.advanceTimersByTimeAsync(200);
+
+    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(getQueueSize()).toBe(0);
+    quiet.mockRestore();
+  });
+
+  it('still sends a queued write to a list that stayed writable', async () => {
+    enqueue({ type: 'rename_list', listId: 'still-mine', payload: { id: 'still-mine', name: 'Later', created_by: 'user-123' } });
+
+    setReadOnlyLists(['someone-elses']);
+    startDraining();
+    await vi.advanceTimersByTimeAsync(200);
+
+    expect(mockApiFetch).toHaveBeenCalledTimes(1);
+    expect(getQueueSize()).toBe(0);
   });
 });

@@ -44,6 +44,20 @@ export interface DrawnAreaItem {
   addedAt: string;         // ISO timestamp
 }
 
+/**
+ * Whose list this is, from the server's point of view.
+ *
+ *   own       the caller created it
+ *   team      shared with a team the caller is in
+ *   readonly  somebody else's, visible because the caller approves in a city
+ *             that person holds a grant in
+ *
+ * Optional, and a missing value means writable. That is safe: localStorage
+ * only ever holds the caller's own lists, so anything without a tag came from
+ * there.
+ */
+export type ListAccess = 'own' | 'team' | 'readonly';
+
 // A user's list containing saved places and areas
 export interface LocationList {
   id: string;              // UUID
@@ -51,6 +65,7 @@ export interface LocationList {
   createdAt: string;       // ISO timestamp
   createdBy?: string;      // User ID of creator (from server)
   teamId?: string;         // Team ID if shared with a team
+  access?: ListAccess;     // Whose list this is (server-set; absent = writable)
   items: ListItem[];
   drawnAreas: DrawnAreaItem[];
   visitPlan?: VisitLog;    // Visit planning at list level
