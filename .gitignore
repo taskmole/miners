@@ -97,3 +97,7 @@ supabase/.temp/
 next-env.d.ts
 .gstack/
 TODOS.md
+
+# maplibre worker files, copied into public/ by scripts/copy-maplibre-worker.mjs
+public/maplibre-gl-worker.mjs
+public/maplibre-gl-shared.mjs

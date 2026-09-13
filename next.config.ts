@@ -1,5 +1,19 @@
 import type { NextConfig } from "next";
 
+import { copyMaplibreWorker } from "./scripts/copy-maplibre-worker.mjs";
+
+/**
+ * Put MapLibre's worker files in public/ before anything is served.
+ *
+ * maplibre-gl 6 loads its worker from two files that must sit side by side,
+ * and src/components/ui/map.tsx points setWorkerUrl at the copy. If they are
+ * missing the worker 404s and the map renders nothing, with a clean build and
+ * an empty console. Doing this here rather than in an npm prebuild script
+ * means it also runs for `next build` and `next dev` invoked directly, so no
+ * build command can skip it.
+ */
+copyMaplibreWorker();
+
 const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,

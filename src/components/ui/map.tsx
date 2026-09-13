@@ -1,7 +1,15 @@
 "use client";
 
-import MapLibreGL, { type PopupOptions, type MarkerOptions } from "maplibre-gl";
+// maplibre-gl 6 dropped its default export, so import the namespace instead.
+import * as MapLibreGL from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+
+// maplibre-gl 6 loads its background worker from two files that must sit side by
+// side. next.config.ts copies both into public/ on every Next.js start; this
+// points MapLibre at the copy so the worker's relative import of its sibling
+// resolves. Module scope guarantees this runs before the `new MapLibreGL.Map(...)`
+// below, and it only sets a variable, so it is safe during server rendering.
+MapLibreGL.setWorkerUrl("/maplibre-gl-worker.mjs");
 // import { useTheme } from "next-themes"; // Disabled - forcing light mode
 import {
   createContext,
@@ -153,6 +161,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   const [mapInstance, setMapInstance] = useState<MapLibreGL.Map | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   // Force light mode - dark mode not ready yet
   const resolvedTheme = "light";
   const currentStyleRef = useRef<MapStyleOption | null>(null);
@@ -174,15 +183,31 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       resolvedTheme === "dark" ? mapStyles.dark : mapStyles.light;
     currentStyleRef.current = initialStyle;
 
-    const map = new MapLibreGL.Map({
-      container: containerRef.current,
-      style: initialStyle,
-      renderWorldCopies: false,
-      attributionControl: {
-        compact: true,
-      },
-      ...props,
-    });
+    // maplibre-gl 6 requires WebGL2 and throws from the constructor when the
+    // browser cannot give it a context (6 dropped the WebGL1 fallback that 5
+    // had). Without this catch the throw reaches the nearest error boundary and
+    // takes the whole page down, so a very old device would lose the app rather
+    // than just the map.
+    let map: MapLibreGL.Map;
+    try {
+      map = new MapLibreGL.Map({
+        container: containerRef.current,
+        style: initialStyle,
+        renderWorldCopies: false,
+        attributionControl: {
+          compact: true,
+        },
+        ...props,
+      });
+    } catch (error) {
+      console.error("Map could not start:", error);
+      setInitError(
+        error instanceof Error && /webgl/i.test(error.message)
+          ? "This browser cannot display the map. Try updating it, or switch to a different browser."
+          : "The map could not be loaded.",
+      );
+      return;
+    }
 
     const styleDataHandler = () => setIsStyleLoaded(true);
     const loadHandler = () => setIsLoaded(true);
@@ -235,9 +260,17 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   return (
     <MapContext.Provider value={contextValue}>
       <div ref={containerRef} className={cn("relative w-full h-full", className)}>
-        {isLoading && <DefaultLoader />}
-        {/* SSR-safe: children render only when map is loaded on client */}
-        {mapInstance && children}
+        {initError ? (
+          <div className="absolute inset-0 flex items-center justify-center p-6">
+            <p className="max-w-xs text-center text-sm text-muted-foreground">{initError}</p>
+          </div>
+        ) : (
+          <>
+            {isLoading && <DefaultLoader />}
+            {/* SSR-safe: children render only when map is loaded on client */}
+            {mapInstance && children}
+          </>
+        )}
       </div>
     </MapContext.Provider>
   );
@@ -277,7 +310,7 @@ type MapMarkerProps = {
   onDrag?: (lngLat: { lng: number; lat: number }) => void;
   /** Callback when marker drag ends (requires draggable: true) */
   onDragEnd?: (lngLat: { lng: number; lat: number }) => void;
-} & Omit<MarkerOptions, "element">;
+} & Omit<MapLibreGL.MarkerOptions, "element">;
 
 function MapMarker({
   longitude,
@@ -449,7 +482,7 @@ type MarkerPopupProps = {
   closeButton?: boolean;
   /** Callback when popup is closed */
   onClose?: () => void;
-} & Omit<PopupOptions, "className" | "closeButton">;
+} & Omit<MapLibreGL.PopupOptions, "className" | "closeButton">;
 
 function MarkerPopup({
   children,
@@ -553,7 +586,7 @@ type MarkerTooltipProps = {
   children: ReactNode;
   /** Additional CSS classes for the tooltip container */
   className?: string;
-} & Omit<PopupOptions, "className" | "closeButton" | "closeOnClick">;
+} & Omit<MapLibreGL.PopupOptions, "className" | "closeButton" | "closeOnClick">;
 
 function MarkerTooltip({
   children,
@@ -883,7 +916,7 @@ type MapPopupProps = {
   className?: string;
   /** Show a close button in the popup (default: false) */
   closeButton?: boolean;
-} & Omit<PopupOptions, "className" | "closeButton">;
+} & Omit<MapLibreGL.PopupOptions, "className" | "closeButton">;
 
 function MapPopup({
   longitude,
