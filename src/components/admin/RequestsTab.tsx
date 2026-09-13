@@ -44,10 +44,32 @@ export function RequestsTab({
   loading,
   onDecide,
 }: RequestsTabProps) {
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
+  // One panel at a time: which request is being decided, which way, and the
+  // note being typed. Approve takes an optional note, reject still requires a
+  // reason.
+  const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [decisionKind, setDecisionKind] = useState<"approved" | "rejected" | null>(null);
+  const [decisionText, setDecisionText] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const openPanel = (id: string, kind: "approved" | "rejected") => {
+    setError(null);
+    setDecidingId(id);
+    setDecisionKind(kind);
+    setDecisionText("");
+  };
+
+  const closePanel = () => {
+    setDecidingId(null);
+    setDecisionKind(null);
+    setDecisionText("");
+  };
+
+  // The open panel's wording, colour and required-note rule all follow which
+  // way the decision is going.
+  const isRejecting = decisionKind === "rejected";
+  const confirmLabel = isRejecting ? "Confirm Reject" : "Confirm Approve";
 
   const nameFor = (userId: string | null) => {
     if (!userId) return "Unknown";
@@ -67,8 +89,7 @@ export function RequestsTab({
     setBusyId(id);
     try {
       await onDecide(id, decision, reason);
-      setRejectingId(null);
-      setRejectReason("");
+      closePanel();
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to ${decision === "approved" ? "approve" : "reject"}`);
     } finally {
@@ -127,27 +148,42 @@ export function RequestsTab({
                   )}
                 </div>
 
-                {canReview && rejectingId === request.id ? (
+                {canReview && decidingId === request.id && decisionKind ? (
                   <div className="space-y-2">
                     <textarea
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                      placeholder="Reason for rejection..."
+                      value={decisionText}
+                      onChange={(e) => setDecisionText(e.target.value)}
+                      placeholder={
+                        isRejecting
+                          ? "Reason for rejection..."
+                          : "Note for the requester (optional)"
+                      }
                       className="w-full h-20 px-3 py-2 text-sm border border-zinc-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-zinc-400"
                     />
                     <div className="flex gap-2">
                       <Button
-                        onClick={() => decide(request.id, "rejected", rejectReason.trim())}
-                        disabled={!rejectReason.trim() || busyId === request.id}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                        onClick={() =>
+                          decide(
+                            request.id,
+                            decisionKind,
+                            decisionText.trim() || undefined,
+                          )
+                        }
+                        disabled={
+                          (isRejecting && !decisionText.trim()) ||
+                          busyId === request.id
+                        }
+                        className={
+                          isRejecting
+                            ? "flex-1 bg-red-600 hover:bg-red-700 text-white"
+                            : "flex-1 bg-zinc-900 hover:bg-zinc-800 text-white"
+                        }
                       >
-                        Confirm Reject
+                        {busyId === request.id ? "Working..." : confirmLabel}
                       </Button>
                       <Button
-                        onClick={() => {
-                          setRejectingId(null);
-                          setRejectReason("");
-                        }}
+                        onClick={closePanel}
+                        disabled={busyId === request.id}
                         variant="outline"
                         className="flex-1"
                       >
@@ -158,16 +194,21 @@ export function RequestsTab({
                 ) : (
                   canReview && (
                     <div className="flex flex-col sm:flex-row gap-2">
+                      {/* Disabled while ANY row is deciding, not just this one.
+                          decide() closes the panel when it resolves, so opening
+                          a second one mid-flight meant the first request landing
+                          wiped the panel you were typing into. */}
                       <Button
-                        onClick={() => decide(request.id, "approved")}
-                        disabled={busyId === request.id}
+                        onClick={() => openPanel(request.id, "approved")}
+                        disabled={busyId !== null}
                         className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-white h-12"
                       >
                         <Check className="w-4 h-4 mr-2" />
-                        {busyId === request.id ? "Working..." : "Approve"}
+                        Approve
                       </Button>
                       <Button
-                        onClick={() => setRejectingId(request.id)}
+                        onClick={() => openPanel(request.id, "rejected")}
+                        disabled={busyId !== null}
                         variant="outline"
                         className="flex-1 border-red-300 text-red-600 hover:bg-red-50 h-12"
                       >

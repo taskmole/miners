@@ -124,6 +124,32 @@ export function usePropertyRequests(enabled = true) {
     [myRejectedPlaceIds],
   );
 
+  /**
+   * The reviewer's optional note on this user's own approved request for a
+   * place. Approving is not required to carry a note, so this is usually null.
+   * Keyed by place id, newest decision wins.
+   */
+  const myApprovalNotes = useMemo(() => {
+    const byPlace = new Map<string, { note: string; at: string }>();
+    if (!userId) return byPlace;
+    for (const request of requests) {
+      if (request.status !== "approved" || request.requested_by !== userId) continue;
+      const note = request.decision_reason?.trim();
+      if (!note) continue;
+      const at = request.decided_at ?? request.created_at;
+      const existing = byPlace.get(request.property_place_id);
+      if (!existing || at > existing.at) {
+        byPlace.set(request.property_place_id, { note, at });
+      }
+    }
+    return byPlace;
+  }, [requests, userId]);
+
+  const approvalNoteFor = useCallback(
+    (placeId: string) => myApprovalNotes.get(placeId)?.note ?? null,
+    [myApprovalNotes],
+  );
+
   const pending = useMemo(
     () => requests.filter((r) => r.status === "pending"),
     [requests],
@@ -183,6 +209,7 @@ export function usePropertyRequests(enabled = true) {
     processed,
     hasPendingRequest,
     wasRejectedForMe,
+    approvalNoteFor,
     requestProperty,
     decideRequest,
     refresh,

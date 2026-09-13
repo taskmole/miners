@@ -37,6 +37,17 @@ let queue: QueueEntry[] = [];
 let processing = false;
 let drainTimer: ReturnType<typeof setTimeout> | null = null;
 
+/**
+ * Lists the caller may look at but not change: somebody else's, visible
+ * because they approve in a city that person works in.
+ *
+ * The UI hides every control that would write to one, so nothing should ever
+ * reach here. This is the backstop that makes that a guarantee rather than a
+ * hope: a queued write survives a reload and a network outage, so one that
+ * slipped through would keep retrying against a list the server will refuse.
+ */
+let readOnlyListIds = new Set<string>();
+
 // --- Persistence ---
 
 function persist(): void {
@@ -81,9 +92,23 @@ function getBackoffMs(retryCount: number): number {
 
 // --- Public API ---
 
+/** Tell the queue which list ids are read-only. Called by useLists. */
+export function setReadOnlyLists(ids: Iterable<string>): void {
+  readOnlyListIds = new Set(ids);
+}
+
+export function isReadOnlyList(listId: string): boolean {
+  return readOnlyListIds.has(listId);
+}
+
 export function enqueue(action: SyncAction): void {
   const userId = getAuthUserId();
   if (!userId) return; // Demo mode: no server sync
+
+  if (readOnlyListIds.has(action.listId)) {
+    console.error('[list-sync] refused a write to a read-only list:', action.type, action.listId);
+    return;
+  }
 
   const entry: QueueEntry = {
     id: crypto.randomUUID(),
@@ -154,6 +179,17 @@ async function drain(): Promise<void> {
     const ready = queue.filter(e => e.nextRetryAt <= now);
 
     for (const entry of ready) {
+      // A list can turn read-only while a write to it is still sitting in the
+      // queue: the person loses a team, or the list changes hands. The enqueue
+      // guard cannot catch that one, because the entry was legitimate when it
+      // was made and has since been restored from localStorage. Drop it rather
+      // than send a write the server will refuse.
+      if (readOnlyListIds.has(entry.action.listId)) {
+        console.warn('[list-sync] List is read-only now, dropping:', entry.action.type);
+        queue = queue.filter(e => e.id !== entry.id);
+        continue;
+      }
+
       // Check dependency: if this is an item operation, list must be created first
       if (entry.action.type !== 'create_list' && entry.action.type !== 'delete_list') {
         const hasPendingListCreate = queue.some(
@@ -264,6 +300,7 @@ export function startDraining(): void {
 export function _resetForTest(): void {
   queue = [];
   processing = false;
+  readOnlyListIds = new Set();
   if (drainTimer) {
     clearTimeout(drainTimer);
     drainTimer = null;

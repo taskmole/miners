@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Route,
   Plus,
@@ -14,11 +14,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useScoutingTrips } from "@/hooks/useScoutingTrips";
+import { useCityScoutedTrips } from "@/hooks/useCityScoutedTrips";
 import { useSheetState } from "@/contexts/SheetContext";
 import { MobilePanel } from "@/components/ui/mobile-panel";
+import { SegmentedFilterRow } from "@/components/ui/segmented-filter";
 import { useMobile } from "@/hooks/useMobile";
 import { Button } from "@/components/ui/button";
-import type { ScoutingTrip } from "@/types/scouting";
+import { navigateAndOpenPopup } from "@/components/ListsPanel";
+import type { ScoutingTrip, ScoutingTripStatus } from "@/types/scouting";
 import { statusLabels, statusColors } from "@/types/scouting";
 
 // Props for the panel
@@ -27,6 +30,36 @@ interface ScoutingPanelProps {
   onCreateNew?: () => void;
   onUpload?: () => void;
   onSelectTrip?: (trip: ScoutingTrip) => void;
+  /**
+   * True only for someone who approves in the selected city. Passed down
+   * rather than looked up here, because every useUserProfiles() instance
+   * fires two uncached requests and there are already plenty.
+   */
+  canSeeAll?: boolean;
+}
+
+type ScopeTab = "mine" | "all";
+
+/**
+ * What a row needs to draw itself, whichever list it came from.
+ *
+ * Foreign trips arrive as a thin server row with no checklist, no financials
+ * and no property object. They are deliberately NOT reshaped into a
+ * ScoutingTrip: the rest of the app would then be free to trust fields that
+ * were never fetched.
+ */
+interface TripRow {
+  id: string;
+  title: string;
+  subtitle: string;
+  status: ScoutingTripStatus;
+  /** Pre-formatted, because the two sources carry different date fields. */
+  date: string | null;
+  authorName: string | null;
+  isUpload: boolean;
+  reasonText?: string;
+  /** False for a foreign trip with no linked place: nothing to jump to. */
+  canOpen: boolean;
 }
 
 // Format date for display
@@ -44,27 +77,39 @@ function formatDate(dateString: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+// The reviewer's note on a trip that came back, if it came back at all.
+function reasonFor(trip: ScoutingTrip): string | undefined {
+  switch (trip.status) {
+    case 'rejected':
+      return trip.rejectionNotes;
+    case 'returned':
+      return trip.returnNotes;
+    default:
+      return undefined;
+  }
+}
+
 // Trip card component
 function TripCard({
-  trip,
+  row,
   onClick,
 }: {
-  trip: ScoutingTrip;
+  row: TripRow;
   onClick: () => void;
 }) {
-  const reasonText = trip.status === 'rejected' ? trip.rejectionNotes
-                   : trip.status === 'returned' ? trip.returnNotes
-                   : undefined;
-
   return (
     <button
       onClick={onClick}
-      className="w-full text-left px-4 py-3 hover:bg-white/30 transition-colors border-b border-white/10 last:border-0"
+      disabled={!row.canOpen}
+      className={cn(
+        "w-full text-left px-4 py-3 transition-colors border-b border-white/10 last:border-0",
+        row.canOpen ? "hover:bg-white/30" : "cursor-default"
+      )}
     >
       <div className="flex items-start gap-3">
         {/* Icon */}
         <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-          {trip.tripType === 'upload' ? (
+          {row.isUpload ? (
             <FileText className="w-4 h-4 text-zinc-500" />
           ) : (
             <MapPin className="w-4 h-4 text-zinc-500" />
@@ -75,36 +120,48 @@ function TripCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm text-zinc-900 truncate">
-              {trip.name || 'Untitled Trip'}
+              {row.title}
             </span>
             <span
               className={cn(
                 "text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0",
-                statusColors[trip.status]
+                statusColors[row.status]
               )}
             >
-              {statusLabels[trip.status]}
+              {statusLabels[row.status]}
             </span>
           </div>
-          {reasonText && (
+          {row.reasonText && (
             <p className={cn(
               "text-[11px] mt-1 leading-snug",
-              trip.status === 'rejected' ? 'text-red-600' : 'text-amber-600'
+              row.status === 'rejected' ? 'text-red-600' : 'text-amber-600'
             )}>
-              {reasonText}
+              {row.reasonText}
             </p>
           )}
 
           {/* Address or property name */}
-          <div className="text-xs text-zinc-500 truncate mt-0.5">
-            {trip.address || trip.property?.name || 'No location'}
-          </div>
+          {row.subtitle && (
+            <div className="text-xs text-zinc-500 truncate mt-0.5">
+              {row.subtitle}
+            </div>
+          )}
 
           {/* Meta info */}
           <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-400">
-            <Clock className="w-3 h-3" />
-            <span>{formatDate(trip.updatedAt)}</span>
-            {trip.tripType === 'upload' && (
+            {row.date && (
+              <>
+                <Clock className="w-3 h-3" />
+                <span>{row.date}</span>
+              </>
+            )}
+            {row.authorName && (
+              <>
+                {row.date && <span className="text-zinc-300">•</span>}
+                <span className="truncate">{row.authorName}</span>
+              </>
+            )}
+            {row.isUpload && (
               <>
                 <span className="text-zinc-300">•</span>
                 <span>Uploaded</span>
@@ -113,25 +170,112 @@ function TripCard({
           </div>
         </div>
 
-        {/* Arrow */}
-        <ChevronRight className="w-4 h-4 text-zinc-300 flex-shrink-0 mt-2" />
+        {/* Arrow. Absent when there is nowhere to go, so a dead row never
+            looks tappable. */}
+        {row.canOpen && (
+          <ChevronRight className="w-4 h-4 text-zinc-300 flex-shrink-0 mt-2" />
+        )}
       </div>
     </button>
   );
 }
+
+const SCOPE_OPTIONS: { value: ScopeTab; label: string }[] = [
+  { value: "mine", label: "Mine & team" },
+  { value: "all", label: "All in city" },
+];
 
 export function ScoutingPanel({
   cityId = 'madrid',
   onCreateNew,
   onUpload,
   onSelectTrip,
+  canSeeAll = false,
 }: ScoutingPanelProps) {
   const { getTrips, getTripCounts, isLoaded } = useScoutingTrips();
   const { isOpen: isExpanded, open, close } = useSheetState("scouting");
   const isMobile = useMobile();
+  const [scope, setScope] = useState<ScopeTab>("mine");
+
+  // Losing the permission (a city switch, a role change) must not strand the
+  // panel on a tab whose switch is no longer on screen.
+  const activeScope: ScopeTab = canSeeAll ? scope : "mine";
+  const showingAll = activeScope === "all";
 
   const trips = getTrips(cityId);
   const counts = getTripCounts(cityId);
+
+  // Only fetched while the panel is open AND the "All in city" tab is showing,
+  // so nobody pays for it by default. isExpanded matters: this component is
+  // mounted for the whole session and only its sheet closes, so without it one
+  // tap on "All in city" left a 60s poll running for the rest of the session.
+  const {
+    trips: cityTrips,
+    isLoaded: cityLoaded,
+    canSee: canSeeCity,
+  } = useCityScoutedTrips(cityId, isExpanded && showingAll);
+
+  const ownRows: TripRow[] = useMemo(
+    () =>
+      trips.map((trip) => ({
+        id: trip.id,
+        title: trip.name || 'Untitled Trip',
+        subtitle: trip.address || trip.property?.name || 'No location',
+        status: trip.status,
+        date: formatDate(trip.updatedAt),
+        authorName: null,
+        isUpload: trip.tripType === 'upload',
+        canOpen: true,
+        reasonText: reasonFor(trip),
+      })),
+    [trips],
+  );
+
+  const allRows: TripRow[] = useMemo(
+    () =>
+      cityTrips.map((trip) => ({
+        id: trip.id,
+        title: trip.placeName || 'Untitled Trip',
+        subtitle: trip.placeName ? '' : 'No location',
+        status: (trip.status as ScoutingTripStatus) || 'draft',
+        date: trip.submittedAt ? formatDate(trip.submittedAt) : null,
+        authorName: trip.authorName,
+        isUpload: false,
+        // A foreign trip is read-only and opens the map, so it needs a place
+        // and its coordinates to go anywhere.
+        canOpen: !!trip.placeId && trip.lat != null && trip.lon != null,
+      })),
+    [cityTrips],
+  );
+
+  const rows = showingAll ? allRows : ownRows;
+  const listLoaded = showingAll ? cityLoaded : isLoaded;
+
+  // "You may not see this" and "nothing here" must not read as the same thing,
+  // even though the switch is hidden from anyone who cannot look. The create
+  // hint only makes sense in the two cases where there really is nothing yet.
+  let emptyMessage: string;
+  if (!showingAll) {
+    emptyMessage = "No scouting trips yet";
+  } else if (canSeeCity) {
+    emptyMessage = "No scouting trips in this city";
+  } else {
+    emptyMessage = "You can't see other people's trips in this city";
+  }
+  const showCreateHint = !showingAll || canSeeCity;
+
+  // The counts strip follows whichever set is on screen.
+  const shownCounts = useMemo(() => {
+    if (!showingAll) return counts;
+    const tally: Record<ScoutingTripStatus, number> = {
+      draft: 0, submitted: 0, approved: 0, rejected: 0, returned: 0,
+    };
+    for (const row of allRows) {
+      if (tally[row.status] === undefined) continue;
+      tally[row.status] += 1;
+    }
+    return { total: allRows.length, ...tally };
+  }, [showingAll, counts, allRows]);
 
   // Handle create new click
   const handleCreateNew = () => {
@@ -155,6 +299,27 @@ export function ScoutingPanel({
       onSelectTrip(trip);
       close();
     }
+  };
+
+  /**
+   * Somebody else's trip is read-only: it is not in ScoutingTripsContext, so
+   * the trip editor has nothing to open. Jump the map to the property instead.
+   * The reviewer who wants the full pitch still has the admin Pitches tab.
+   */
+  const handleSelectForeignTrip = (tripId: string) => {
+    const trip = cityTrips.find((t) => t.id === tripId);
+    if (!trip || !trip.placeId || trip.lat == null || trip.lon == null) return;
+    close();
+    navigateAndOpenPopup(trip.lat, trip.lon, trip.placeId, "property");
+  };
+
+  const handleRowClick = (rowId: string) => {
+    if (showingAll) {
+      handleSelectForeignTrip(rowId);
+      return;
+    }
+    const trip = trips.find((t) => t.id === rowId);
+    if (trip) handleSelectTrip(trip);
   };
 
   // Collapsed button
@@ -236,55 +401,71 @@ export function ScoutingPanel({
         </div>
       )}
 
+      {/* Scope switch. Hidden, not greyed out, for anyone who does not approve
+          in this city, so their panel looks exactly as it does today. */}
+      {canSeeAll && (
+        <div className="px-4 pb-3">
+          <SegmentedFilterRow<ScopeTab>
+            label="Showing"
+            options={SCOPE_OPTIONS}
+            value={activeScope}
+            onChange={setScope}
+          />
+        </div>
+      )}
+
       {/* Status summary */}
-      {counts.total > 0 && (
+      {shownCounts.total > 0 && (
         <div className="px-4 py-2 bg-zinc-50/50 border-b border-white/10 flex gap-3 text-[10px]">
-          {counts.draft > 0 && (
+          {shownCounts.draft > 0 && (
             <span className="text-zinc-500">
-              <span className="font-medium text-zinc-700">{counts.draft}</span> draft
+              <span className="font-medium text-zinc-700">{shownCounts.draft}</span> draft
             </span>
           )}
-          {counts.submitted > 0 && (
+          {shownCounts.submitted > 0 && (
             <span className="text-blue-500">
-              <span className="font-medium">{counts.submitted}</span> submitted
+              <span className="font-medium">{shownCounts.submitted}</span> submitted
             </span>
           )}
-          {counts.approved > 0 && (
+          {shownCounts.approved > 0 && (
             <span className="text-green-500">
-              <span className="font-medium">{counts.approved}</span> approved
+              <span className="font-medium">{shownCounts.approved}</span> approved
             </span>
           )}
-          {counts.rejected > 0 && (
+          {shownCounts.rejected > 0 && (
             <span className="text-red-500">
-              <span className="font-medium">{counts.rejected}</span> rejected
+              <span className="font-medium">{shownCounts.rejected}</span> rejected
             </span>
           )}
-          {counts.returned > 0 && (
+          {shownCounts.returned > 0 && (
             <span className="text-amber-500">
-              <span className="font-medium">{counts.returned}</span> returned
+              <span className="font-medium">{shownCounts.returned}</span> returned
             </span>
           )}
         </div>
       )}
 
-      {/* Trips list */}
-      <div className="max-h-[350px] overflow-y-auto">
-        {!isLoaded ? (
+      {/* Trips list. "All in city" makes this much longer, so on mobile it
+          grows with the sheet instead of floating in a 350px box. */}
+      <div className={cn("overflow-y-auto", isMobile ? "flex-1" : "max-h-[350px]")}>
+        {!listLoaded ? (
           <div className="p-4 text-center text-zinc-500 text-sm">Loading...</div>
-        ) : trips.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="p-6 text-center">
             <Route className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-            <p className="text-sm text-zinc-500">No scouting trips yet</p>
-            <p className="text-xs text-zinc-400 mt-1">
-              Create a new trip or upload a document
-            </p>
+            <p className="text-sm text-zinc-500">{emptyMessage}</p>
+            {showCreateHint && (
+              <p className="text-xs text-zinc-400 mt-1">
+                Create a new trip or upload a document
+              </p>
+            )}
           </div>
         ) : (
-          trips.map(trip => (
+          rows.map(row => (
             <TripCard
-              key={trip.id}
-              trip={trip}
-              onClick={() => handleSelectTrip(trip)}
+              key={row.id}
+              row={row}
+              onClick={() => handleRowClick(row.id)}
             />
           ))
         )}

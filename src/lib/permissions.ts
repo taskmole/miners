@@ -220,6 +220,48 @@ export function canReadHistoryOf(viewer: Access, subject: Access): boolean {
 }
 
 /**
+ * Who may see whose saved lists.
+ *
+ * Lists have no city column and may hold places from several cities, so the
+ * scope cannot be "lists in my cities". It is scoped by person instead: the
+ * same rule that governs the user-history screen, narrowed to people who hold
+ * a grant in a city the viewer approves in.
+ *
+ *   Super Admin  everyone
+ *   Approver     people whose highest level is Contribute or View, and only
+ *                those with a grant in a city the Approver approves in
+ *   anyone else  nobody
+ */
+export function canReadListsOf(
+  viewer: Access,
+  subject: Access,
+  allCityIds: string[],
+): boolean {
+  if (!canReadHistoryOf(viewer, subject)) return false;
+  if (viewer.isSuperAdmin) return true;
+  const viewerCities = new Set(approvesIn(viewer, allCityIds));
+  return subject.grants.some((g) => viewerCities.has(g.cityId));
+}
+
+/**
+ * Who may see every scouting trip in one city. Approving there is the whole
+ * rule: a Contribute or View grant is not enough, and a Super Admin approves
+ * everywhere.
+ */
+export function canReadCityScouting(
+  viewer: Access,
+  cityId: string,
+  allCityIds: string[],
+): boolean {
+  // A switched-off account keeps its grants but loses every door, which is how
+  // canAccessDashboard already treats it. approvesIn() reads grants alone and
+  // would happily hand a suspended reviewer the whole city, so the check has to
+  // happen here. canReadListsOf gets this for free via canReadHistoryOf.
+  if (!canAccessDashboard(viewer)) return false;
+  return approvesIn(viewer, allCityIds).includes(cityId);
+}
+
+/**
  * Which cities of a person's history an Approver may read. Super Admins get
  * everything; an Approver is narrowed to where they approve, and the screen
  * says so out loud so a short list is never mistaken for a quiet colleague.

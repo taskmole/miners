@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import type { LocationList, ListItem, ListsState, PlaceInfo, VisitLog, DrawnAreaItem } from '@/types/lists';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { ListAccess, LocationList, ListItem, ListsState, PlaceInfo, VisitLog, DrawnAreaItem } from '@/types/lists';
 import { apiFetch } from '@/lib/api-client';
 import { logActivity } from '@/lib/supabaseHelpers';
 import { getAuthUserId, getCurrentUserId } from '@/lib/browser-session';
-import { enqueue, hasPendingCreate, hasPendingItemUpsert, hasPendingDeletion, hasPendingItemDeletion, hasPendingListDeletion, initSyncQueue, startDraining } from '@/lib/list-sync';
+import { enqueue, hasPendingCreate, hasPendingItemUpsert, hasPendingDeletion, hasPendingItemDeletion, hasPendingListDeletion, initSyncQueue, setReadOnlyLists, startDraining } from '@/lib/list-sync';
 
 const STORAGE_KEY = 'miners-location-lists';
 const CURRENT_VERSION = 1;
@@ -69,6 +69,9 @@ async function fetchListsFromServer(): Promise<{ ok: boolean; lists: LocationLis
       createdAt: row.created_at,
       createdBy: row.created_by,
       teamId: row.team_id || undefined,
+      // Server-set: 'own', 'team' or 'readonly'. Older responses have no tag,
+      // which the rest of the hook treats as writable.
+      access: (row.access as ListAccess) || undefined,
       items: itemsByList[row.id] || [],
       drawnAreas: [],
     }));
@@ -143,6 +146,31 @@ export function useLists() {
   const listsRef = useRef(lists);
   listsRef.current = lists;
 
+  /**
+   * Somebody else's list. Every mutation below refuses one, so a read-only
+   * list can never reach the sync queue even if a control slips through.
+   */
+  const isReadOnly = useCallback((listId: string): boolean => {
+    return listsRef.current.find(l => l.id === listId)?.access === 'readonly';
+  }, []);
+
+  /**
+   * The lists this user may change. Every consumer except ListsPanel uses
+   * this, so "add to list" menus and the New listings card can only ever
+   * offer a list the person actually owns.
+   */
+  const writableLists = useMemo(
+    () => lists.filter(l => l.access !== 'readonly'),
+    [lists],
+  );
+
+  // Keep the sync queue's backstop in step with what the server last said.
+  useEffect(() => {
+    setReadOnlyLists(
+      lists.filter(l => l.access === 'readonly').map(l => l.id),
+    );
+  }, [lists]);
+
   // Initial load: localStorage first (instant UI), then server fetch + merge
   useEffect(() => {
     if (initialLoadDone.current) return;
@@ -176,6 +204,14 @@ export function useLists() {
       const merged = mergeLists(result.lists, localLists);
       setLists(merged);
       persistToLocalStorage(merged);
+
+      // Fill the backstop here rather than leaving it to the effect below. That
+      // effect runs after this render commits, which is after startDraining(),
+      // so on the one flush where a stale queued write is most likely the set
+      // would still be empty.
+      setReadOnlyLists(
+        merged.filter(l => l.access === 'readonly').map(l => l.id),
+      );
 
       // Start processing queued operations AFTER merge is complete
       startDraining();
@@ -233,6 +269,7 @@ export function useLists() {
   }, []);
 
   const addToList = useCallback((listId: string, place: PlaceInfo): void => {
+    if (isReadOnly(listId)) return;
     const current = listsRef.current;
     const list = current.find(l => l.id === listId);
     if (!list) return;
@@ -279,9 +316,10 @@ export function useLists() {
       lat: place.lat,
       lon: place.lon,
     });
-  }, []);
+  }, [isReadOnly]);
 
   const removeFromList = useCallback((listId: string, placeId: string): void => {
+    if (isReadOnly(listId)) return;
     const current = listsRef.current;
     const list = current.find(l => l.id === listId);
     const removedItem = list?.items.find(i => i.placeId === placeId);
@@ -307,9 +345,10 @@ export function useLists() {
       listId,
       payload: { listId, placeId },
     });
-  }, []);
+  }, [isReadOnly]);
 
   const toggleInList = useCallback((listId: string, place: PlaceInfo): boolean => {
+    if (isReadOnly(listId)) return false;
     const current = listsRef.current;
     const list = current.find(l => l.id === listId);
     if (!list) return false;
@@ -379,7 +418,7 @@ export function useLists() {
       });
       return true;
     }
-  }, []);
+  }, [isReadOnly]);
 
   const isPlaceInList = useCallback((placeId: string, listId: string): boolean => {
     const list = lists.find(l => l.id === listId);
@@ -394,6 +433,7 @@ export function useLists() {
   }, [lists]);
 
   const updateVisitPlan = useCallback((listId: string, visitPlan: VisitLog): void => {
+    if (isReadOnly(listId)) return;
     setLists(prev => prev.map(list => {
       if (list.id !== listId) return list;
       return {
@@ -404,9 +444,10 @@ export function useLists() {
         },
       };
     }));
-  }, []);
+  }, [isReadOnly]);
 
   const reorderItems = useCallback((listId: string, fromIndex: number, toIndex: number): void => {
+    if (isReadOnly(listId)) return;
     setLists(prev => prev.map(list => {
       if (list.id !== listId) return list;
 
@@ -419,9 +460,10 @@ export function useLists() {
         items: newItems,
       };
     }));
-  }, []);
+  }, [isReadOnly]);
 
   const deleteList = useCallback((listId: string): boolean => {
+    if (isReadOnly(listId)) return false;
     const current = listsRef.current;
     const deletedList = current.find(l => l.id === listId);
 
@@ -438,9 +480,10 @@ export function useLists() {
     });
 
     return true;
-  }, []);
+  }, [isReadOnly]);
 
   const renameList = useCallback((listId: string, newName: string): void => {
+    if (isReadOnly(listId)) return;
     const userId = getCurrentUserId();
 
     setLists(prev => prev.map(list => {
@@ -453,9 +496,10 @@ export function useLists() {
       listId,
       payload: { id: listId, name: newName, created_by: userId },
     });
-  }, []);
+  }, [isReadOnly]);
 
   const addDrawnArea = useCallback((listId: string, areaId: string, areaType: 'polygon' | 'line', name: string): void => {
+    if (isReadOnly(listId)) return;
     setLists(prev => prev.map(list => {
       if (list.id !== listId) return list;
 
@@ -475,9 +519,10 @@ export function useLists() {
         drawnAreas: [...areas, newArea],
       };
     }));
-  }, []);
+  }, [isReadOnly]);
 
   const removeDrawnArea = useCallback((listId: string, areaId: string): void => {
+    if (isReadOnly(listId)) return;
     setLists(prev => prev.map(list => {
       if (list.id !== listId) return list;
       const areas = list.drawnAreas || [];
@@ -486,9 +531,10 @@ export function useLists() {
         drawnAreas: areas.filter(area => area.areaId !== areaId),
       };
     }));
-  }, []);
+  }, [isReadOnly]);
 
   const removeItem = useCallback((listId: string, itemId: string): boolean => {
+    if (isReadOnly(listId)) return false;
     const current = listsRef.current;
     const list = current.find(l => l.id === listId);
     const removedItem = list?.items.find(i => i.id === itemId);
@@ -516,9 +562,10 @@ export function useLists() {
     });
 
     return true;
-  }, []);
+  }, [isReadOnly]);
 
   const shareWithTeam = useCallback(async (listId: string, teamId: string | null) => {
+    if (isReadOnly(listId)) return;
     const list = listsRef.current.find(l => l.id === listId);
     if (!list) return;
 
@@ -540,10 +587,11 @@ export function useLists() {
     } catch (err) {
       console.error('[useLists] shareWithTeam error:', err);
     }
-  }, []);
+  }, [isReadOnly]);
 
   return {
     lists,
+    writableLists,
     isLoaded,
     createList,
     addToList,
@@ -564,10 +612,22 @@ export function useLists() {
 
 // --- Helpers ---
 
+/**
+ * What may be written to localStorage.
+ *
+ * Team lists are server-only. Somebody else's read-only lists are skipped for
+ * the same reason and a stronger one: their data must not end up cached in
+ * this browser.
+ *
+ * Exported so the rule can be tested directly rather than through a copy.
+ */
+export function listsForLocalStorage(lists: LocationList[]): LocationList[] {
+  return lists.filter(l => !l.teamId && l.access !== 'readonly');
+}
+
 function persistToLocalStorage(lists: LocationList[]): void {
   try {
-    // Team lists are server-only; skip them in localStorage
-    const personalLists = lists.filter(l => !l.teamId);
+    const personalLists = listsForLocalStorage(lists);
     const state: ListsState = { version: CURRENT_VERSION, lists: personalLists };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (error) {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
     FolderOpen,
     MoreVertical,
@@ -25,6 +25,7 @@ import { useSheetState } from "@/contexts/SheetContext";
 import { useToast } from "@/contexts/ToastContext";
 import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
 import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
+import { useTeamsContext } from "@/contexts/TeamsContext";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { evaluatePropertyActions } from "@/lib/property-actions";
 import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
@@ -209,6 +210,13 @@ interface ListsPanelProps {
     onCreateTripFromList?: (trip: ScoutingTrip) => void;
 }
 
+/**
+ * Your own lists first, then your team's, then anyone else's. Without this the
+ * server order interleaves them and the panel becomes exactly the confusing
+ * mess that showing other people's lists is meant to avoid.
+ */
+const ACCESS_ORDER: Record<string, number> = { own: 0, team: 1, readonly: 2 };
+
 export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
     const {
         lists,
@@ -229,7 +237,8 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
     } = useScoutingTripsContext();
 
     const { showToast } = useToast();
-    const { canApproveIn } = useUserProfiles();
+    const { canApproveIn, users } = useUserProfiles();
+    const { teams } = useTeamsContext();
     const { getAssignment, isAssignedToMe } = usePropertyAssignmentContext();
     const { getPitchStatus } = usePitchStatusContext();
 
@@ -295,6 +304,27 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
             }
             return next;
         });
+    };
+
+    const sortedLists = useMemo(
+        // Stable sort, so the server's order survives inside each group.
+        () => [...lists].sort(
+            (a, b) => (ACCESS_ORDER[a.access ?? 'own'] ?? 0) - (ACCESS_ORDER[b.access ?? 'own'] ?? 0)
+        ),
+        [lists],
+    );
+
+    /** Whose list this is, using the app-wide name convention. */
+    const ownerLabel = (list: LocationList): string | null => {
+        if (list.access !== 'readonly' || !list.createdBy) return null;
+        const owner = users.find(u => u.id === list.createdBy);
+        return owner?.display_name || owner?.email || list.createdBy.slice(0, 8);
+    };
+
+    /** The team's own name, rather than the word "Team". */
+    const teamLabel = (list: LocationList): string | null => {
+        if (!list.teamId) return null;
+        return teams.find(t => t.id === list.teamId)?.name ?? null;
     };
 
     // Toggle visit plan expansion for a list
@@ -510,17 +540,20 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
             <div className={cn("overflow-y-auto", isMobile ? "flex-1" : "max-h-[400px]")}>
                 {!isLoaded ? (
                     <div className="p-4 text-center text-zinc-500 text-sm">Loading...</div>
-                ) : lists.length === 0 ? (
+                ) : sortedLists.length === 0 ? (
                     <div className="p-6 text-center">
                         <FolderOpen className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
                         <p className="text-sm text-zinc-500">No lists yet</p>
                         <p className="text-xs text-zinc-400 mt-1">Create one to start saving places</p>
                     </div>
                 ) : (
-                    lists.map(list => (
+                    sortedLists.map(list => (
                         <ListSection
                             key={list.id}
                             list={list}
+                            isReadOnly={list.access === 'readonly'}
+                            ownerLabel={ownerLabel(list)}
+                            teamLabel={teamLabel(list)}
                             isExpanded={expandedLists.has(list.id)}
                             isVisitPlanExpanded={expandedVisitPlans.has(list.id)}
                             onToggleExpanded={() => toggleListExpanded(list.id)}
@@ -686,6 +719,12 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
 // Sub-component for a single list section
 interface ListSectionProps {
     list: LocationList;
+    /** Somebody else's list: visible and exportable, but not editable. */
+    isReadOnly: boolean;
+    /** Whose list it is. Null for own and team lists. */
+    ownerLabel: string | null;
+    /** The team's name. Null when the list is not shared with a team. */
+    teamLabel: string | null;
     isExpanded: boolean;
     isVisitPlanExpanded: boolean;
     onToggleExpanded: () => void;
@@ -708,6 +747,9 @@ interface ListSectionProps {
 
 function ListSection({
     list,
+    isReadOnly,
+    ownerLabel,
+    teamLabel,
     isExpanded,
     isVisitPlanExpanded,
     onToggleExpanded,
@@ -752,10 +794,19 @@ function ListSection({
 
                     <span className="text-sm font-semibold text-zinc-900 truncate flex-1">{list.name}</span>
 
-                    {list.teamId && (
+                    {/* Your own list gets no chip. A team list keeps the blue
+                        badge, now naming the team. Somebody else's gets a zinc
+                        chip with their name, always shown and never collapsed
+                        to an icon, because the name is the entire point of it. */}
+                    {isReadOnly && ownerLabel && (
+                        <span className="shrink-0 max-w-[45%] truncate px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 text-zinc-600 border border-zinc-200">
+                            {ownerLabel}
+                        </span>
+                    )}
+                    {!isReadOnly && list.teamId && (
                         <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
                             <Users className="w-3 h-3" />
-                            <span className="hidden sm:inline">Team</span>
+                            <span className="hidden sm:inline max-w-[90px] truncate">{teamLabel || "Team"}</span>
                         </span>
                     )}
 
@@ -772,15 +823,23 @@ function ListSection({
                         </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={onCreateTrip}>
-                            <Route className="w-4 h-4 mr-2" />
-                            Create trip
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setTimeout(onRename, 0)}>
-                            <Pencil className="w-4 h-4 mr-2" />
-                            Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
+                        {/* Read-only keeps the two exports and nothing else.
+                            Create trip goes too, even though it would work: a
+                            trip started from somebody else's saved place is a
+                            surprise, and one fewer state to reason about. */}
+                        {!isReadOnly && (
+                            <>
+                                <DropdownMenuItem onSelect={onCreateTrip}>
+                                    <Route className="w-4 h-4 mr-2" />
+                                    Create trip
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setTimeout(onRename, 0)}>
+                                    <Pencil className="w-4 h-4 mr-2" />
+                                    Rename
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                            </>
+                        )}
                         <DropdownMenuItem onSelect={() => setTimeout(onExportCSV, 0)}>
                             <FileSpreadsheet className="w-4 h-4 mr-2" />
                             Export CSV
@@ -789,17 +848,22 @@ function ListSection({
                             <FileDown className="w-4 h-4 mr-2" />
                             Export PDF
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={() => setTimeout(onDelete, 0)} className="text-red-600">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete list
-                        </DropdownMenuItem>
+                        {!isReadOnly && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onSelect={() => setTimeout(onDelete, 0)} className="text-red-600">
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete list
+                                </DropdownMenuItem>
+                            </>
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
 
-            {/* Visit Plan form (list level) */}
-            {isVisitPlanExpanded && (
+            {/* Visit Plan form (list level). Every field writes, so a
+                read-only list never opens it. */}
+            {isVisitPlanExpanded && !isReadOnly && (
                 <div className="px-3 py-3 bg-emerald-50/50 border-b border-white/10 space-y-2">
                     <p className="text-[10px] font-semibold text-emerald-700 uppercase">Visit Plan</p>
                     <div className="flex gap-2">
@@ -875,19 +939,27 @@ function ListSection({
                     {items.map((item, index) => (
                         <div
                             key={item.id}
-                            draggable
-                            onDragStart={() => onDragStart(index)}
-                            onDragOver={(e) => onDragOver(e, index)}
-                            onDrop={() => onDrop(index)}
-                            onDragEnd={onDragEnd}
+                            draggable={!isReadOnly}
+                            onDragStart={isReadOnly ? undefined : () => onDragStart(index)}
+                            onDragOver={isReadOnly ? undefined : (e) => onDragOver(e, index)}
+                            onDrop={isReadOnly ? undefined : () => onDrop(index)}
+                            onDragEnd={isReadOnly ? undefined : onDragEnd}
                             className={cn(
                                 "px-3 py-2 flex items-center gap-2 hover:bg-white/20 cursor-pointer group border-b border-white/5 last:border-b-0",
                                 isDragging && draggedIndex === index && "opacity-50 bg-blue-50"
                             )}
                             onClick={() => onItemClick(item)}
                         >
-                            {/* Drag handle */}
-                            <GripVertical className="w-3 h-3 text-zinc-300 cursor-grab active:cursor-grabbing shrink-0" />
+                            {/* Drag handle. Reordering is a write, so a
+                                read-only list keeps the spacer without it. */}
+                            <GripVertical
+                                className={cn(
+                                    "w-3 h-3 shrink-0",
+                                    isReadOnly
+                                        ? "text-zinc-200"
+                                        : "text-zinc-300 cursor-grab active:cursor-grabbing"
+                                )}
+                            />
 
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs font-medium text-zinc-800 truncate group-hover:text-blue-600">
@@ -897,15 +969,17 @@ function ListSection({
                             </div>
 
                             {/* Remove button */}
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRemoveItem(item.id);
-                                }}
-                                className="w-5 h-5 rounded hover:bg-red-100 flex items-center justify-center shrink-0 opacity-50 hover:opacity-100"
-                            >
-                                <X className="w-3 h-3 text-red-500" />
-                            </button>
+                            {!isReadOnly && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRemoveItem(item.id);
+                                    }}
+                                    className="w-5 h-5 rounded hover:bg-red-100 flex items-center justify-center shrink-0 opacity-50 hover:opacity-100"
+                                >
+                                    <X className="w-3 h-3 text-red-500" />
+                                </button>
+                            )}
                         </div>
                     ))}
 
