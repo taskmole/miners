@@ -16,7 +16,12 @@ export interface Listing {
   sizeSqm: number;
   monthlyRent: number;
   score?: number;
-  photoUrl: string;
+  /**
+   * Optional because the data really is. It comes from `photos[0]` below,
+   * and nothing guarantees that first element exists or is a usable URL.
+   * The template renders a grey placeholder when it is missing.
+   */
+  photoUrl?: string;
   reason?: string;
   qualitativeScore?: number;
   listingUrl?: string;
@@ -206,6 +211,15 @@ export async function getNewListingsForCityAndSource(
   return listings.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 }
 
+/**
+ * Preview data for `npm run email:dev`.
+ *
+ * Deliberately NOT square. These used to be `w=600&h=600&fit=crop` Unsplash
+ * URLs, so the preview showed three tidy squares while the real digest showed
+ * whatever shape the estate agent uploaded. The template looked perfect
+ * locally and ragged in the inbox. Landscape, portrait and one missing photo
+ * mirror what actually arrives from the scrapers.
+ */
 export const SAMPLE_LISTINGS: Listing[] = [
   {
     address: "Calle de la Palma 42",
@@ -214,7 +228,7 @@ export const SAMPLE_LISTINGS: Listing[] = [
     monthlyRent: 4300,
     score: 87,
     photoUrl:
-      "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=600&h=600&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=749&h=562&fit=crop&q=80",
     reason: "High foot traffic near major metro hub.",
     listedDaysAgo: 2,
   },
@@ -225,7 +239,7 @@ export const SAMPLE_LISTINGS: Listing[] = [
     monthlyRent: 3200,
     score: 84,
     photoUrl:
-      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&h=600&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&h=900&fit=crop&q=80",
     reason: "Tourist-heavy, two competitors closed.",
     listedDaysAgo: 5,
   },
@@ -236,8 +250,17 @@ export const SAMPLE_LISTINGS: Listing[] = [
     monthlyRent: 3300,
     score: 81,
     photoUrl:
-      "https://images.unsplash.com/photo-1567521464027-f127ff144326?w=600&h=600&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1567521464027-f127ff144326?w=1200&h=500&fit=crop&q=80",
     reason: "High-spending locals, low competition.",
     listedDaysAgo: 1,
+  },
+  {
+    address: "Calle de Andrés Borrego 2",
+    district: "Malasaña-Universidad",
+    sizeSqm: 80,
+    monthlyRent: 1050,
+    score: 78,
+    reason: "Street-level space, reasonable rent for the neighbourhood.",
+    listedDaysAgo: 0,
   },
 ];
