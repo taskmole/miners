@@ -49,6 +49,60 @@ function formatPrice(rent: number, city: string): string {
   return `€${rent.toLocaleString("en-US")}/mo`;
 }
 
+/** Rendered size of a listing thumbnail on desktop. */
+const PHOTO_SIZE = 88;
+
+/**
+ * Square-crop a listing photo before it ever reaches the inbox.
+ *
+ * Scraped photos are whatever shape the estate agent uploaded: Sreality
+ * serves ~4:3 landscape (SREALITY_IMG_TRANSFORM in fetch-sreality.ts),
+ * Idealista serves anything at all. The template used to crop them with
+ * `object-fit: cover`, which Gmail strips, so every thumbnail came out a
+ * different shape and the list looked ragged.
+ *
+ * weserv returns genuinely square bytes, so no client-side CSS is needed and
+ * it works even in Outlook. It also fetches server-side, which rescues photos
+ * whose host refuses to serve them to an email client directly.
+ *
+ * 400px, not 176px: on phones the row stacks and the photo goes full width,
+ * up to 384px inside the 480px mobile breakpoint. A smaller source would be
+ * visibly soft there.
+ *
+ * encodeURIComponent is not optional - Sreality URLs carry `?`, `|` and `,`
+ * in their own query string, which would otherwise be parsed as extra weserv
+ * parameters.
+ *
+ * The trade: weserv is now a single point of failure for every photo at once,
+ * where before a dead photo only cost you that one thumbnail. Accepted
+ * knowingly. Gmail re-hosts every image on its own servers at delivery, so an
+ * outage can only affect digests sent during it, and a digest with grey boxes
+ * still reads fine. Listing photos are public estate agent images, so there
+ * is nothing private in what weserv sees.
+ */
+function squareThumbnail(url: string): string {
+  if (!/^https?:\/\//i.test(url)) return url;
+  return `https://images.weserv.nl/?url=${encodeURIComponent(url)}&w=400&h=400&fit=cover&a=attention&output=jpg&q=82`;
+}
+
+function ListingPhoto({ listing }: { listing: Listing }) {
+  // A missing photo used to render an empty <img>, which collapsed to zero
+  // width and dragged that row's text left of every other row.
+  if (!listing.photoUrl) {
+    return <div className="listing-photo-fallback" style={photoFallback} />;
+  }
+
+  return (
+    <Img
+      className="listing-photo"
+      src={squareThumbnail(listing.photoUrl)}
+      alt={listing.address}
+      width={PHOTO_SIZE}
+      height={PHOTO_SIZE}
+      style={photoImage}
+    />
+  );
+}
 
 function ListingRow({ listing, city }: { listing: Listing; city: string }) {
   const hasScore = listing.score != null;
@@ -56,20 +110,12 @@ function ListingRow({ listing, city }: { listing: Listing; city: string }) {
 
   return (
     <Row className="listing-row" style={{ paddingTop: "30px", paddingBottom: "12px" }}>
-      <Column className="listing-photo-col" style={{ width: "96px", verticalAlign: "top" }}>
-        <Img
-          className="listing-photo"
-          src={listing.photoUrl}
-          alt={listing.address}
-          width={88}
-          height={88}
-          style={{
-            borderRadius: "8px",
-            objectFit: "cover",
-            display: "block",
-            maxWidth: "100%",
-          }}
-        />
+      <Column
+        className="listing-photo-col"
+        width={96}
+        style={{ width: "96px", verticalAlign: "top" }}
+      >
+        <ListingPhoto listing={listing} />
       </Column>
       <Column className="listing-text-col" style={{ verticalAlign: "top", paddingLeft: "12px" }}>
         {/* Title and score share one row so the badge's right edge lines up
@@ -173,6 +219,13 @@ export default function MinersDigest({
               height: auto !important;
               max-width: 100% !important;
             }
+            /* The fallback is an empty box, so "height: auto" would make it
+               zero pixels tall. It needs a height of its own. */
+            .listing-photo-fallback {
+              width: 100% !important;
+              height: 200px !important;
+              max-width: 100% !important;
+            }
             .listing-text-col {
               display: block !important;
               width: 100% !important;
@@ -258,24 +311,41 @@ export default function MinersDigest({
           </Section>
 
           <Section style={ctaSection}>
-            <Link href={`${appUrl}?listings=open`} style={ctaButton}>
-              <table cellPadding={0} cellSpacing={0} border={0} style={{ display: "inline-table", borderCollapse: "collapse" }}>
-                <tbody>
-                  <tr>
-                    <td valign="middle" style={ctaTextCell}>View all</td>
-                    <td valign="middle" style={ctaArrowCell}>
+            {/* The background, radius and padding sit on the cell, with the
+                link filling it. The previous version put them on the link and
+                nested a table inside, which sat on the link's text baseline
+                and left a few pixels of dead space under the label - that is
+                what made "View all" look like it was riding high in the pill.
+                A cell with one line of text centres it by definition. */}
+            <table
+              align="center"
+              cellPadding={0}
+              cellSpacing={0}
+              border={0}
+              role="presentation"
+              style={{ margin: "0 auto", borderCollapse: "separate" }}
+            >
+              <tbody>
+                <tr>
+                  <td align="center" valign="middle" style={ctaButtonCell}>
+                    <Link href={`${appUrl}?listings=open`} style={ctaButton}>
+                      View all
                       <Img
                         src={ARROW_URL}
                         alt="→"
                         width={12}
                         height={12}
-                        style={{ display: "inline-block", verticalAlign: "middle" }}
+                        style={{
+                          display: "inline-block",
+                          verticalAlign: "middle",
+                          marginLeft: "7px",
+                        }}
                       />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </Link>
+                    </Link>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </Section>
 
           <Section style={footer}>
@@ -339,6 +409,26 @@ const sectionLabel: React.CSSProperties = {
   margin: "36px 0 0",
 };
 
+// The size lives in the inline style, not just the width/height attributes.
+// Attributes are the weakest instruction a client can be given, so a photo
+// that failed to load collapsed to nothing and knocked the row out of line.
+// An explicit CSS box holds its shape whether the photo arrives or not.
+const photoImage: React.CSSProperties = {
+  width: `${PHOTO_SIZE}px`,
+  height: `${PHOTO_SIZE}px`,
+  borderRadius: "8px",
+  objectFit: "cover",
+  display: "block",
+  backgroundColor: "#f4f4f5",
+};
+
+const photoFallback: React.CSSProperties = {
+  width: `${PHOTO_SIZE}px`,
+  height: `${PHOTO_SIZE}px`,
+  borderRadius: "8px",
+  backgroundColor: "#f4f4f5",
+};
+
 const listingTitle: React.CSSProperties = {
   fontSize: "14px",
   fontWeight: 600,
@@ -388,33 +478,30 @@ const ctaSection: React.CSSProperties = {
   textAlign: "center",
 };
 
-// Matches the button in trip-status-update.tsx and property-assigned.tsx.
-// It was 16px/64px at 15px text with a 10px radius, which made the digest's
-// CTA noticeably chunkier than the same button everywhere else.
-const ctaButton: React.CSSProperties = {
+// Matches the button in trip-status-update.tsx and property-assigned.tsx
+// (buttonStyle in _shell.tsx). It was 16px/64px at 15px text with a 10px
+// radius, which made the digest's CTA noticeably chunkier than the same
+// button everywhere else. The values are split across the cell and the link
+// now, but they add up to the same button.
+const ctaButtonCell: React.CSSProperties = {
   backgroundColor: "#18181b",
+  borderRadius: "8px",
+  padding: 0,
+};
+
+// The padding stays on the link, not on the cell, so the whole pill is
+// clickable rather than just the words. The cell only carries the colour and
+// the rounded corners.
+const ctaButton: React.CSSProperties = {
+  display: "block",
   color: "#ffffff",
   textDecoration: "none",
   textAlign: "center",
   padding: "10px 20px",
-  borderRadius: "8px",
   fontSize: "13px",
   lineHeight: "18px",
   fontWeight: 600,
-  display: "inline-block",
-};
-
-const ctaTextCell: React.CSSProperties = {
-  color: "#ffffff",
-  fontSize: "13px",
-  fontWeight: 600,
-  lineHeight: "18px",
-  paddingRight: "7px",
-};
-
-const ctaArrowCell: React.CSSProperties = {
-  lineHeight: "18px",
-  fontSize: 0,
+  whiteSpace: "nowrap",
 };
 
 const footer: React.CSSProperties = {
