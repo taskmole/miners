@@ -194,6 +194,7 @@ export default function MinersDigest({
 }: MinersDigestProps) {
   const MAX_SHOWN = 5;
   const displayListings = listings.slice(0, MAX_SHOWN);
+  const hasAnyScore = displayListings.some((l) => l.score != null);
   const topCount = listings.length;
   const cityName = toCityLabel(city);
 
@@ -304,6 +305,13 @@ export default function MinersDigest({
 
           <Section style={contentSection}>
             <Text style={sectionLabel}>TOP PICKS</Text>
+            {/* Marked once here rather than on every row: the score pill
+                repeats for each listing, and so would the marker. Worded
+                "Score" because digest-queries falls back to the AI score for
+                cities with no location data, so it is not always the location
+                score. Hidden when no listing has a score, or the note would
+                describe pills that are not there. */}
+            {hasAnyScore && <Text style={sectionNote}>Score 0-100 · BETA</Text>}
 
             {displayListings.map((listing, i) => (
               <ListingRow key={i} listing={listing} city={city} />
@@ -407,6 +415,13 @@ const sectionLabel: React.CSSProperties = {
   letterSpacing: "0.12em",
   color: "#a1a1aa",
   margin: "36px 0 0",
+};
+
+const sectionNote: React.CSSProperties = {
+  fontSize: "11px",
+  fontWeight: 500,
+  color: "#a1a1aa",
+  margin: "4px 0 0",
 };
 
 // The size lives in the inline style, not just the width/height attributes.
