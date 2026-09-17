@@ -1723,6 +1723,39 @@ const PITCH_STATUS_STYLES: Record<string, {
     },
 };
 
+/**
+ * The score badge on a property popup: tier dot, tier word, BETA marker and
+ * the score tooltip.
+ *
+ * Two surfaces render it and they differ only by class name, the dark glass
+ * chip over a photo and the light chip above the title when there is none.
+ * Keeping it in one place means the tooltip wording and the BETA marker have
+ * a single edit site, which matters most on the day the score leaves beta.
+ */
+function PropertyScoreBadge({
+    score,
+    className,
+    tooltipVisible,
+    onToggle,
+}: {
+    score: number;
+    className: string;
+    tooltipVisible: boolean;
+    onToggle: (e: React.MouseEvent) => void;
+}) {
+    const tier = scoreTier(score);
+    return (
+        <span className={`${className} tier-badge`} onClick={onToggle}>
+            <span className="dot" style={{ background: SCORE_TIER_COLORS[tier] }} />
+            {SCORE_TIER_LABELS[tier]}
+            <span className="beta-mark">BETA</span>
+            <span className={`badge-tooltip ${tooltipVisible ? "visible" : ""}`}>
+                Location score: {score}/100 · BETA
+            </span>
+        </span>
+    );
+}
+
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address, true);
     const placeId = generatePropertyPlaceId(property);
@@ -1813,11 +1846,12 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                     )}
                     <div className="image-badges">
                         {typeof property.score === "number" && (
-                            <span className="score-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "score" ? null : "score"); }}>
-                                <span className="dot" style={{ background: SCORE_TIER_COLORS[scoreTier(property.score)] }} />
-                                {SCORE_TIER_LABELS[scoreTier(property.score)]}
-                                <span className={`badge-tooltip ${activeTooltip === "score" ? "visible" : ""}`}>Location score: {property.score}/100</span>
-                            </span>
+                            <PropertyScoreBadge
+                                score={property.score}
+                                className="score-badge"
+                                tooltipVisible={activeTooltip === "score"}
+                                onToggle={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "score" ? null : "score"); }}
+                            />
                         )}
                         {property.updatedAt && (
                             <span className="freshness-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "freshness" ? null : "freshness"); }}>
@@ -1857,11 +1891,12 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
             {!property.image_url && (
                 <div className="header-badges">
                     {typeof property.score === "number" ? (
-                        <span className="header-score-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "score" ? null : "score"); }}>
-                            <span className="dot" style={{ background: SCORE_TIER_COLORS[scoreTier(property.score)] }} />
-                            {SCORE_TIER_LABELS[scoreTier(property.score)]}
-                            <span className={`badge-tooltip ${activeTooltip === "score" ? "visible" : ""}`}>Location score: {property.score}/100</span>
-                        </span>
+                        <PropertyScoreBadge
+                            score={property.score}
+                            className="header-score-badge"
+                            tooltipVisible={activeTooltip === "score"}
+                            onToggle={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "score" ? null : "score"); }}
+                        />
                     ) : (
                         <span className="header-score-badge" style={{ opacity: 0.5 }}>
                             <span className="dot" style={{ background: '#d4d4d4' }} />

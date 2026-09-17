@@ -688,7 +688,15 @@
   position: absolute;
   top: 10px;
   left: 12px;
+  /* Never reach under the action buttons in the opposite corner: they are
+     84px wide (2 x 38px + 8px gap) sitting 10px in, so reserve 94px, leave a
+     10px gutter, and add back this box's own 12px left offset. This is a cap,
+     not a stretch: the box still hugs its badges, so it never covers the
+     photo. It only tells the flex row where to break when a listing carries
+     all three badges. */
+  max-width: calc(100% - 116px);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   z-index: 2;
@@ -711,6 +719,40 @@
 }
 
 .score-badge:hover { background: rgba(0, 0, 0, 0.75); }
+
+/* The score is still being tuned, so the badges that show one say so.
+   Amber is the app-wide beta colour; this base is the dark-surface version,
+   shared by the map popup badge and the triage deck's glass chip. */
+.beta-mark {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: #fcd34d;
+}
+
+/* Inside a tier badge the marker needs a hairline divider, or "Moderate BETA"
+   reads as a single phrase. */
+.score-badge .beta-mark,
+.header-score-badge .beta-mark {
+  padding-left: 6px;
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+/* The no-photo badge is light chrome, so the marker darkens to match. */
+.header-score-badge .beta-mark {
+  color: #b45309;
+  border-left-color: #e5e5e5;
+}
+
+/* Anchor the score tooltip to the badge rather than to the badge row. The row
+   can now wrap to two lines, and a tooltip positioned against the row would
+   open below both of them instead of under the badge that was tapped. Only
+   the tier badge opts in: the pitch badge shares `.score-badge` and its
+   tooltip is wide enough to run off a desktop popup if it anchors to itself. */
+.tier-badge {
+  position: relative;
+}
 .freshness-badge { position: relative; }
 
 /* Tooltip for badges (score + freshness) */
@@ -805,6 +847,7 @@
 /* No-photo fallback: badges above title */
 .header-badges {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   padding: 14px 24px 0;
