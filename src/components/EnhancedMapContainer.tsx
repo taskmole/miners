@@ -1731,6 +1731,10 @@ const PITCH_STATUS_STYLES: Record<string, {
  * chip over a photo and the light chip above the title when there is none.
  * Keeping it in one place means the tooltip wording and the BETA marker have
  * a single edit site, which matters most on the day the score leaves beta.
+ *
+ * The tooltip deliberately does not repeat BETA. The marker is already on the
+ * badge you just tapped to open the tooltip, so saying it twice in one small
+ * popup reads as shouting.
  */
 function PropertyScoreBadge({
     score,
@@ -1750,7 +1754,7 @@ function PropertyScoreBadge({
             {SCORE_TIER_LABELS[tier]}
             <span className="beta-mark">BETA</span>
             <span className={`badge-tooltip ${tooltipVisible ? "visible" : ""}`}>
-                Location score: {score}/100 · BETA
+                Location score: {score}/100
             </span>
         </span>
     );
