@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildWeeklySummary,
   formatRangeLabel,
-  isPragueHour,
+  dueSummaryFriday,
   type RawWeeklyRows,
 } from "../weekly-summary-queries";
 import { AUTO_REJECT_REASON } from "../property-requests";
@@ -205,19 +205,30 @@ describe("the date range", () => {
   });
 });
 
-describe("the Prague clock check", () => {
-  it("passes at 4pm Prague in summer, when Prague is UTC+2", () => {
-    expect(isPragueHour(new Date("2026-07-10T14:00:00Z"), 16)).toBe(true);
-    expect(isPragueHour(new Date("2026-07-10T13:00:00Z"), 16)).toBe(false);
+describe("the send window", () => {
+  // 2026-09-25 is a Friday. Prague is UTC+2 in September, UTC+1 in January.
+  it("is due from 4pm Prague on Friday, summer and winter", () => {
+    expect(dueSummaryFriday(new Date("2026-09-25T14:07:00Z"))).toBe("2026-09-25");
+    expect(dueSummaryFriday(new Date("2026-01-09T15:07:00Z"))).toBe("2026-01-09");
   });
 
-  it("passes at 4pm Prague in winter, when Prague is UTC+1", () => {
-    expect(isPragueHour(new Date("2026-01-09T15:00:00Z"), 16)).toBe(true);
-    expect(isPragueHour(new Date("2026-01-09T14:00:00Z"), 16)).toBe(false);
+  it("is not due before 4pm Friday, or on a Thursday", () => {
+    expect(dueSummaryFriday(new Date("2026-09-25T13:59:00Z"))).toBeNull();
+    expect(dueSummaryFriday(new Date("2026-01-09T14:59:00Z"))).toBeNull();
+    expect(dueSummaryFriday(new Date("2026-09-24T15:00:00Z"))).toBeNull();
   });
 
-  it("still passes when the timer starts late, but not an hour late", () => {
-    expect(isPragueHour(new Date("2026-07-10T14:20:00Z"), 16)).toBe(true);
-    expect(isPragueHour(new Date("2026-07-10T14:50:00Z"), 16)).toBe(false);
+  it("still sends when the timer starts hours late", () => {
+    expect(dueSummaryFriday(new Date("2026-09-25T19:30:00Z"))).toBe("2026-09-25");
+  });
+
+  it("counts Saturday morning as the Friday before, and stops at noon", () => {
+    expect(dueSummaryFriday(new Date("2026-09-25T22:30:00Z"))).toBe("2026-09-25");
+    expect(dueSummaryFriday(new Date("2026-09-26T09:00:00Z"))).toBe("2026-09-25");
+    expect(dueSummaryFriday(new Date("2026-09-26T11:00:00Z"))).toBeNull();
+  });
+
+  it("gives the Friday across a month end", () => {
+    expect(dueSummaryFriday(new Date("2026-10-31T08:00:00Z"))).toBe("2026-10-30");
   });
 });

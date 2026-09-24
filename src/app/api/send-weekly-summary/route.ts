@@ -6,13 +6,12 @@ import { sendAppEmails } from "@/lib/email";
 import {
   getWeeklySummary,
   getSuperAdminEmails,
-  isPragueHour,
+  dueSummaryFriday,
+  getLastSentFriday,
+  markSummarySent,
 } from "@/lib/weekly-summary-queries";
 
 export const dynamic = "force-dynamic";
-
-/** 4pm Prague, the hour the summary is meant to land. */
-const SEND_HOUR = 16;
 
 /**
  * The Friday activity summary.
@@ -21,11 +20,12 @@ const SEND_HOUR = 16;
  * digest route already uses. Reusing that secret rather than inventing a new
  * one means nothing has to be set up by hand in GitHub.
  *
- * The timer fires twice, at 14:00 and 15:00 UTC, because GitHub only
- * understands UTC and Prague is one hour ahead in winter and two in summer.
- * Exactly one of the two firings is 4pm in Prague, and this route decides
- * which. `force` skips the check, which is what the manual "Run workflow"
- * button uses.
+ * The timer fires several times on Friday afternoon because GitHub often
+ * starts it hours late. The first run inside the send window (Friday 4pm to
+ * Saturday noon, Prague) sends; the rest see the "last sent" marker and skip.
+ *
+ * `force` is the manual "Run workflow" button. It skips the window and never
+ * touches the marker, so a test run cannot block the real Friday send.
  */
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-digest-secret");
@@ -42,15 +42,24 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date();
-  if (!force && !isPragueHour(now, SEND_HOUR)) {
-    return NextResponse.json({
-      sent: 0,
-      skipped: "not-4pm-in-prague",
-      checkedAt: now.toISOString(),
-    });
-  }
 
   try {
+    // Stays null for a forced run: no window, no marker.
+    let friday: string | null = null;
+    if (!force) {
+      friday = dueSummaryFriday(now);
+      if (!friday) {
+        return NextResponse.json({
+          sent: 0,
+          skipped: "outside-send-window",
+          checkedAt: now.toISOString(),
+        });
+      }
+      if ((await getLastSentFriday()) === friday) {
+        return NextResponse.json({ sent: 0, skipped: "already-sent", friday });
+      }
+    }
+
     const [data, recipients] = await Promise.all([
       getWeeklySummary(now),
       getSuperAdminEmails(),
@@ -70,6 +79,11 @@ export async function POST(request: NextRequest) {
     });
 
     const sent = results.filter((r) => !r.error).length;
+
+    // Only once everyone has it. After a partial failure the next timer run
+    // retries: one person may get it twice, but nobody misses it.
+    if (friday && sent === results.length) await markSummarySent(friday);
+
     return NextResponse.json({
       sent,
       failed: results.length - sent,

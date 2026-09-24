@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { authenticateRequest, untypedDb as db } from "@/lib/supabase-server";
 import {
   notifyReviewersOfRequest,
@@ -174,20 +174,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Best effort: the request is already saved, so a mail failure must not
-    // turn this into an error the client retries.
-    const requester = await getPerson(supabase, userId);
-    notifyReviewersOfRequest(supabase, {
-      propertyName: data.property_name,
-      propertyAddress: data.property_address,
-      requesterName: requester.name,
-      requesterEmail: requester.email,
-      // The city decides who is told: everyone who approves there, plus
-      // super admins. A database trigger fills city_id in from the place id
-      // on insert, so it is almost always present; propertyPlaceId is the
-      // fallback, carrying the coordinates the city is derived from.
-      cityId: data.city_id,
-      propertyPlaceId: data.property_place_id,
-    }).catch(err => console.warn("[api/db/property-requests] reviewer email failed:", err));
+    // turn this into an error the client retries. after() keeps the function
+    // alive until the email is out; a bare promise can be cut off by Vercel
+    // once the response is sent.
+    after(async () => {
+      try {
+        const requester = await getPerson(supabase, userId);
+        await notifyReviewersOfRequest(supabase, {
+          propertyName: data.property_name,
+          propertyAddress: data.property_address,
+          requesterName: requester.name,
+          requesterEmail: requester.email,
+          // The city decides who is told: everyone who approves there, plus
+          // super admins. A database trigger fills city_id in from the place id
+          // on insert, so it is almost always present; propertyPlaceId is the
+          // fallback, carrying the coordinates the city is derived from.
+          cityId: data.city_id,
+          propertyPlaceId: data.property_place_id,
+        });
+      } catch (err) {
+        console.warn("[api/db/property-requests] reviewer email failed:", err);
+      }
+    });
 
     return NextResponse.json(data);
   } catch (err) {
@@ -325,7 +333,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Emails are best effort and never block the decision.
-    void sendDecisionEmail(supabase, updated, userId, decision, reason);
+    after(() => sendDecisionEmail(supabase, updated, userId, decision, reason));
 
     return NextResponse.json(updated);
   } catch (err) {
@@ -419,7 +427,7 @@ async function autoRejectOthers(
   }
 
   for (const loser of (losers || []) as PropertyRequestRow[]) {
-    void sendDecisionEmail(supabase, loser, reviewerId, "rejected", AUTO_REJECT_REASON);
+    after(() => sendDecisionEmail(supabase, loser, reviewerId, "rejected", AUTO_REJECT_REASON));
   }
 }
 
