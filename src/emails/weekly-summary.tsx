@@ -1,12 +1,25 @@
 import React from "react";
-import { Link, Section, Text } from "@react-email/components";
+import { Img, Link, Section, Text } from "@react-email/components";
 import { EmailShell, headingStyle, textStyle, buttonStyle } from "./_shell";
 import {
   SAMPLE_WEEKLY_SUMMARY,
   type WeeklyCityStats,
   type WeeklySummaryData,
 } from "@/lib/weekly-summary-queries";
-import { cityNames } from "@/lib/cities";
+import { cityById, cityNames } from "@/lib/cities";
+
+/**
+ * Flags as PNGs, served like the logo in _shell.tsx. Not the app's SVG flags
+ * and not emoji: Gmail and Outlook drop SVG, and Windows shows flag emoji as
+ * two letters. A country without a PNG here simply gets no flag.
+ */
+const FLAG_BASE = "https://raw.githubusercontent.com/taskmole/miners/main/public/assets/flags";
+const FLAG_COUNTRIES = new Set(["ES", "CZ"]);
+
+function flagUrl(cityId: string): string | null {
+  const code = cityById(cityId)?.countryCode;
+  return code && FLAG_COUNTRIES.has(code) ? `${FLAG_BASE}/${code.toLowerCase()}.png` : null;
+}
 
 /**
  * "This week in Miners Scout." Friday, to super admins only.
@@ -270,10 +283,20 @@ function CityCard({ city }: { city: WeeklyCityStats }) {
     city.pitchesApproved + city.pitchesRejected + city.pitchesReturned;
 
   const hasDecisions = requestsDecided > 0 || pitchesDecided > 0;
+  const flag = flagUrl(city.cityId);
 
   return (
     <Section style={cardStyle}>
       <Text className="wk-card-title" style={cardTitleStyle}>
+        {flag && (
+          <Img
+            src={flag}
+            alt=""
+            width={18}
+            height={12}
+            style={{ display: "inline-block", verticalAlign: "middle", margin: "0 8px 2px 0", borderRadius: "2px" }}
+          />
+        )}
         {cityLabel(city.cityId)}
       </Text>
 
@@ -371,8 +394,8 @@ export function WeeklySummary({
 
   return (
     <EmailShell preview={`${heading}: ${rangeLabel}`} headStyles={MOBILE_CSS} maxWidth={600}>
-      <Text style={{ ...headingStyle, marginBottom: "2px" }}>{heading}</Text>
-      <Text style={rangeStyle}>{rangeLabel}</Text>
+      <Text style={{ ...headingStyle, marginBottom: "2px", textAlign: "center" }}>{heading}</Text>
+      <Text style={{ ...rangeStyle, textAlign: "center" }}>{rangeLabel}</Text>
 
       {/* A silent week and a broken report must not look the same. */}
       {quiet ? (
@@ -422,12 +445,7 @@ export function WeeklySummary({
           {/* People */}
           <Section style={{ marginTop: "24px" }}>
             <Text className="wk-section-label" style={sectionLabelStyle}>
-              THE PEOPLE
-            </Text>
-            <Text className="wk-text" style={textStyle}>
-              {people.activeCount} of {people.withAccessCount} people with access
-              did something this week. Active means real work, not opening the
-              page: a logged action, a trip, a request, or inbox triage.
+              ACTIONS BY PEOPLE
             </Text>
 
             {named.map((p) => (
@@ -458,12 +476,7 @@ export function WeeklySummary({
           {cities.length > 0 && (
             <Section style={{ marginTop: "28px" }}>
               <Text className="wk-section-label" style={sectionLabelStyle}>
-                PIPELINE BY CITY
-              </Text>
-              <Text className="wk-text" style={{ ...textStyle, color: COLOR.faint, fontSize: "12px" }}>
-                These bars count what was done in the week, not one batch of
-                properties followed through. Only the decision percentages are
-                rates.
+                PIPELINE CITY
               </Text>
               {cities.map((c) => (
                 <CityCard key={c.cityId} city={c} />

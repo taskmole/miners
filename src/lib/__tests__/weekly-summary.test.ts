@@ -106,7 +106,7 @@ describe("what counts as pipeline", () => {
     const summary = build();
     expect(summary.cities).toEqual([]);
     expect(summary.headline.totalActions).toBe(0);
-    expect(summary.rangeLabel).toBe("4 to 11 September");
+    expect(summary.rangeLabel).toBe("Sep 4 - 11");
   });
 });
 
@@ -196,12 +196,12 @@ describe("research and admin counts", () => {
 describe("the date range", () => {
   it("says the month once when both ends share it", () => {
     expect(formatRangeLabel(new Date("2026-09-05T00:00:00Z"), new Date("2026-09-12T00:00:00Z")))
-      .toBe("5 to 12 September");
+      .toBe("Sep 5 - 12");
   });
 
   it("names both months across a month end", () => {
     expect(formatRangeLabel(new Date("2026-08-29T00:00:00Z"), new Date("2026-09-05T00:00:00Z")))
-      .toBe("29 August to 5 September");
+      .toBe("Aug 29 - Sep 5");
   });
 });
 
