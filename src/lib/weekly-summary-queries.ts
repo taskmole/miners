@@ -42,7 +42,7 @@ export interface WeeklyPerson {
 }
 
 export interface WeeklySummaryData {
-  /** "5 to 12 September". Built once, so the email never formats dates itself. */
+  /** "Sep 5 - 12". Built once, so the email never formats dates itself. */
   rangeLabel: string;
   headline: {
     activePeople: number;
@@ -87,7 +87,7 @@ export interface WeeklySummaryData {
  * last 7 days are roughly a third of this.
  */
 export const SAMPLE_WEEKLY_SUMMARY: WeeklySummaryData = {
-  rangeLabel: "5 to 12 September",
+  rangeLabel: "Sep 5 - 12",
   headline: { activePeople: 6, propertiesReviewed: 41, totalActions: 88 },
   people: {
     activeCount: 6,
@@ -222,14 +222,15 @@ function inWindow(at: string | null | undefined, start: Date, end: Date): boolea
   return t >= start.getTime() && t <= end.getTime();
 }
 
-/** "5 to 12 September", or "29 August to 5 September" across a month end. */
+/** "Sep 5 - 12", or "Aug 29 - Sep 5" across a month end. */
 export function formatRangeLabel(start: Date, end: Date): string {
   const day = (d: Date) => d.getUTCDate();
+  // en-US, not en-GB: en-GB abbreviates September to "Sept".
   const month = (d: Date) =>
-    d.toLocaleString("en-GB", { month: "long", timeZone: "UTC" });
+    d.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
   return month(start) === month(end)
-    ? `${day(start)} to ${day(end)} ${month(end)}`
-    : `${day(start)} ${month(start)} to ${day(end)} ${month(end)}`;
+    ? `${month(start)} ${day(start)} - ${day(end)}`
+    : `${month(start)} ${day(start)} - ${month(end)} ${day(end)}`;
 }
 
 /**
