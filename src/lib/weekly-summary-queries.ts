@@ -289,12 +289,16 @@ export async function getLastSentFriday(): Promise<string | null> {
   return typeof friday === "string" ? friday : null;
 }
 
-/** Record that this Friday's summary has gone out, so later runs skip it. */
+/**
+ * Record that this Friday's summary has gone out, so later runs skip it.
+ * Throws on failure: the route then fails the GitHub run, so a missing marker
+ * (and the resend it causes on the next firing) shows up red, not silently.
+ */
 export async function markSummarySent(friday: string): Promise<void> {
   const { error } = await serviceClient()
     .from("app_settings")
     .upsert({ key: LAST_SENT_KEY, value: { friday }, updated_at: new Date().toISOString() });
-  if (error) console.warn("[weekly-summary] could not record last-sent:", error.message);
+  if (error) throw new Error(`summary sent, but last-sent was not recorded: ${error.message}`);
 }
 
 /** Service-role client: the summary reads across every user and city. */
