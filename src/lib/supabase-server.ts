@@ -40,6 +40,10 @@ export function createPublicServerSupabase(): SupabaseClient<Database> {
  *
  * Returns null when the key is not configured, so callers degrade rather than
  * crash. Never hand this client a value that came from a browser.
+ *
+ * A SECURITY DEFINER function called through this client sees no user, so an
+ * "auth.uid() IS NOT NULL" guard returns nothing (see migration
+ * 20260924000001). Such guards must also accept the service role.
  */
 export function createServiceSupabase(): SupabaseClient | null {
   const url = process.env.SUPABASE_PROD_URL || SUPABASE_URL;

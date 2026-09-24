@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createServiceSupabase } from "@/lib/supabase-server";
 import { AUTO_REJECT_REASON } from "@/lib/property-requests";
 
 /**
@@ -233,28 +233,79 @@ export function formatRangeLabel(start: Date, end: Date): string {
 }
 
 /**
- * Is it a given hour in Prague right now?
+ * Which Friday's summary is due right now, as a Prague date ("2026-09-25"),
+ * or null when no summary is due.
  *
- * GitHub timers only understand UTC, and Prague is one hour ahead in winter
- * and two in summer, so a single fixed timer would drift to 3pm for half the
- * year. The workflow fires twice and this decides which firing is the real
- * one. Timers are also best effort and can start several minutes late, hence
- * the tolerance: a late start still sends rather than skipping the week.
+ * Due from Friday 4pm to Saturday noon, Prague time. It used to be a strict
+ * 4pm-to-4:45pm check, but GitHub timers routinely start three or more hours
+ * late, so every run was skipped and the summary never went out once. The
+ * wide window lets a late run still send; the "last sent" marker in
+ * app_settings stops the extra runs from sending it again.
+ *
+ * A run after midnight is Saturday in Prague but still belongs to Friday,
+ * hence the date is always the Friday's, never the day it happens to run.
  */
-export function isPragueHour(now: Date, hour: number, toleranceMinutes = 45): boolean {
+export function dueSummaryFriday(now: Date): string | null {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Prague",
+    weekday: "short",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
+    hourCycle: "h23",
   }).formatToParts(now);
 
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? NaN);
-  const h = get("hour");
-  const m = get("minute");
-  if (Number.isNaN(h) || Number.isNaN(m)) return false;
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const hour = Number(get("hour"));
+  const weekday = get("weekday");
 
-  return h === hour && m <= toleranceMinutes;
+  // Days back from today to that Friday: 0 on Friday afternoon, 1 on Saturday morning.
+  let daysBack: number;
+  if (weekday === "Fri" && hour >= 16) daysBack = 0;
+  else if (weekday === "Sat" && hour < 12) daysBack = 1;
+  else return null;
+
+  const friday = new Date(
+    Date.UTC(Number(get("year")), Number(get("month")) - 1, Number(get("day")) - daysBack),
+  );
+  return friday.toISOString().slice(0, 10);
+}
+
+/** app_settings key recording the last Friday whose summary went out. */
+const LAST_SENT_KEY = "weekly_summary_last_sent";
+
+/** The Friday (Prague date) of the last summary that reached everyone, if any. */
+export async function getLastSentFriday(): Promise<string | null> {
+  const { data, error } = await serviceClient()
+    .from("app_settings")
+    .select("value")
+    .eq("key", LAST_SENT_KEY)
+    .maybeSingle();
+
+  // Fail loudly: guessing "not sent" here would risk a double send.
+  if (error) throw new Error(`last-sent lookup failed: ${error.message}`);
+  const friday = (data?.value as { friday?: unknown } | null)?.friday;
+  return typeof friday === "string" ? friday : null;
+}
+
+/**
+ * Record that this Friday's summary has gone out, so later runs skip it.
+ * Throws on failure: the route then fails the GitHub run, so a missing marker
+ * (and the resend it causes on the next firing) shows up red, not silently.
+ */
+export async function markSummarySent(friday: string): Promise<void> {
+  const { error } = await serviceClient()
+    .from("app_settings")
+    .upsert({ key: LAST_SENT_KEY, value: { friday }, updated_at: new Date().toISOString() });
+  if (error) throw new Error(`summary sent, but last-sent was not recorded: ${error.message}`);
+}
+
+/** Service-role client: the summary reads across every user and city. */
+function serviceClient() {
+  const client = createServiceSupabase();
+  if (!client) throw new Error("Supabase service role is not configured");
+  return client;
 }
 
 /** Turns raw rows into the email's data. Pure: no database, no clock. */
@@ -454,11 +505,7 @@ export async function getWeeklySummary(
   now: Date = new Date(),
   appUrl = "https://theminers.vercel.app",
 ): Promise<WeeklySummaryData> {
-  const supabase = createClient(
-    process.env.SUPABASE_PROD_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
+  const supabase = serviceClient();
 
   const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const since = start.toISOString();
@@ -525,11 +572,7 @@ export async function getWeeklySummary(
 
 /** Active super admins, the only recipients. Two people today. */
 export async function getSuperAdminEmails(): Promise<string[]> {
-  const supabase = createClient(
-    process.env.SUPABASE_PROD_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
+  const supabase = serviceClient();
 
   const { data, error } = await supabase
     .from("user_profiles")

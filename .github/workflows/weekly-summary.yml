@@ -2,16 +2,18 @@ name: Send Weekly Summary
 
 # Friday, 4pm Prague time, to the super admins.
 #
-# GitHub timers only understand UTC, and Prague is one hour ahead of UTC in
-# winter and two in summer, so a single fixed timer would drift to 3pm for
-# half the year. This fires twice and the route itself checks the Prague
-# clock: exactly one of the two firings passes.
+# GitHub timers only understand UTC and often start hours late (the first
+# four Fridays all started around 17:30 UTC), and runs on the hour are the
+# most delayed. So this fires three times, just past the hour, and the route
+# decides: the first run between Friday 4pm and Saturday noon Prague sends,
+# the rest see it was already sent and skip.
 #
-# "Run workflow" sends immediately, skipping the clock check.
+# "Run workflow" sends immediately, skipping both checks.
 on:
   schedule:
-    - cron: '0 14 * * 5'
-    - cron: '0 15 * * 5'
+    - cron: '7 14 * * 5'
+    - cron: '7 15 * * 5'
+    - cron: '7 17 * * 5'
   workflow_dispatch:
 
 jobs:
