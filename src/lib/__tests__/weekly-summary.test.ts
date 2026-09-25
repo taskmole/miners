@@ -246,7 +246,7 @@ describe("research and admin counts", () => {
     expect(summary.admin.assignmentsMade).toBe(1);
   });
 
-  it("counts comments from the comments table, which the log never sees", () => {
+  it("counts a shape comment once, though it is in both the table and the log", () => {
     const summary = build({
       comments: [
         { created_at: INSIDE, created_by: "u1" },
@@ -254,7 +254,8 @@ describe("research and admin counts", () => {
       ],
       activity: [{ user_id: "u1", action_type: "commented_on_shape", created_at: INSIDE }],
     });
-    expect(summary.research.comments).toBe(2);
+    expect(summary.research.comments).toBe(1);
+    expect(summary.people.all[0].actions).toBe(1);
   });
 });
 

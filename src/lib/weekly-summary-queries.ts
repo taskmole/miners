@@ -236,7 +236,6 @@ const ACTION = {
   customPoints: "created_point",
   areasDrawn: "created_area",
   filesUploaded: "added_attachment",
-  shapeComments: "commented_on_shape",
   assignmentsMade: "assigned_property",
   assignmentsRemoved: "removed_assignment",
   joinedTeams: "added_to_team",
@@ -245,9 +244,13 @@ const ACTION = {
 
 /**
  * Log entries whose real record lives in a table the summary reads anyway.
- * Counting both would count one request or trip twice.
+ * Counting both would count one request, trip or shape comment twice.
  */
-const COUNTED_FROM_TABLES = new Set(["requested_property", "submitted_scouting_trip"]);
+const COUNTED_FROM_TABLES = new Set([
+  "requested_property",
+  "submitted_scouting_trip",
+  "commented_on_shape",
+]);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -370,7 +373,7 @@ export function buildWeeklySummary(
   // Requests and trip submissions are counted from their own tables, which
   // hold every one, and their log copies are skipped. Inbox requests were
   // never logged before Sep 2026, so the log alone undercounts them.
-  // Lists and comments are never logged at all.
+  // Lists and place comments are never logged at all.
   const actionsByUser = new Map<string, number>();
   const bump = (id: string | null | undefined) => {
     const key = id || "unknown";
@@ -490,14 +493,14 @@ export function buildWeeklySummary(
 
 
   // Every request still undecided, however old: the point is what is stuck.
-  const waiting = rows.pendingRequests
+  const waiting = [...rows.pendingRequests]
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
     .map((r) => ({
       cityId: r.city_id,
       name: r.property_name || "Unnamed property",
       requestedBy: nameOf.get(r.requested_by ?? "") || "Unknown",
       days: Math.max(0, Math.floor((end.getTime() - new Date(r.created_at).getTime()) / DAY_MS)),
-    }))
-    .sort((a, b) => b.days - a.days);
+    }));
 
   return {
     rangeLabel: formatRangeLabel(start, end),
@@ -527,7 +530,8 @@ export function buildWeeklySummary(
       customPoints: countAction(ACTION.customPoints),
       areasDrawn: countAction(ACTION.areasDrawn),
       filesUploaded: countAction(ACTION.filesUploaded),
-      comments: comments.length + countAction(ACTION.shapeComments),
+      // Place, trip and shape comments all live in the comments table.
+      comments: comments.length,
     },
     admin: {
       // NOT counted from property_assignments: reassigning the same property
