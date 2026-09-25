@@ -16,31 +16,35 @@ export const dynamic = "force-dynamic";
 /**
  * The Friday activity summary.
  *
- * Called by a GitHub Actions timer, guarded by the same shared secret the
- * digest route already uses. Reusing that secret rather than inventing a new
- * one means nothing has to be set up by hand in GitHub.
+ * GET is the Vercel timer (see vercel.json). It fires at 14:00 and 15:00 UTC
+ * on Fridays, which is 4pm Prague in summer and in winter respectively. They
+ * are two jobs, not one "14,15" job, because the free Vercel plan refuses a
+ * job that runs twice a day. The run inside the send window (Friday 4pm to
+ * Saturday noon, Prague) sends; the other is outside it or already sent.
  *
- * The timer fires several times on Friday afternoon because GitHub often
- * starts it hours late. The first run inside the send window (Friday 4pm to
- * Saturday noon, Prague) sends; the rest see the "last sent" marker and skip.
- *
- * `force` is the manual "Run workflow" button. It skips the window and never
- * touches the marker, so a test run cannot block the real Friday send.
+ * POST is GitHub's manual "Run workflow" button, guarded by the digest
+ * secret. It always forces: skips the window and never touches the marker,
+ * so a test run cannot block the real Friday send.
  */
-export async function POST(request: NextRequest) {
-  const secret = request.headers.get("x-digest-secret");
-  if (secret !== process.env.DIGEST_SECRET) {
+export async function GET(request: NextRequest) {
+  // Vercel sends `Bearer <CRON_SECRET>`. With the variable unset, refuse
+  // outright rather than accept "Bearer undefined".
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  return sendSummary(false);
+}
 
-  let force = false;
-  try {
-    const body = (await request.json()) as { force?: unknown };
-    force = body?.force === true || body?.force === "true";
-  } catch {
-    // An empty body is a normal timer call, not an error.
+export async function POST(request: NextRequest) {
+  const secret = request.headers.get("x-digest-secret");
+  if (!process.env.DIGEST_SECRET || secret !== process.env.DIGEST_SECRET) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  return sendSummary(true);
+}
 
+async function sendSummary(force: boolean) {
   const now = new Date();
 
   try {
@@ -80,8 +84,9 @@ export async function POST(request: NextRequest) {
 
     const sent = results.filter((r) => !r.error).length;
 
-    // Only once everyone has it. After a partial failure the next timer run
-    // retries: one person may get it twice, but nobody misses it.
+    // Only once everyone has it. After a partial failure a later timer run
+    // inside the window retries: one person may get it twice, but nobody
+    // misses it.
     if (friday && sent === results.length) await markSummarySent(friday);
 
     return NextResponse.json({

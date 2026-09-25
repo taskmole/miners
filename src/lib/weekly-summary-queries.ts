@@ -41,12 +41,23 @@ export interface WeeklyPerson {
   actions: number;
 }
 
+/** A property request nobody has approved or rejected yet. */
+export interface WeeklyWaitingRequest {
+  cityId: string | null;
+  name: string;
+  requestedBy: string;
+  /** Whole days since it was made. 0 means today. */
+  days: number;
+}
+
 export interface WeeklySummaryData {
   /** "Sep 5 - 12". Built once, so the email never formats dates itself. */
   rangeLabel: string;
   headline: {
     activePeople: number;
     propertiesReviewed: number;
+    requestsMade: number;
+    /** Not shown in the email; printed in the run log. */
     totalActions: number;
   };
   people: {
@@ -55,7 +66,11 @@ export interface WeeklySummaryData {
     /** Sorted most active first. The template caps how many it prints. */
     all: WeeklyPerson[];
     addedThisWeek: string[];
+    /** Everyone with access who did nothing this week, alphabetical. */
+    quiet: string[];
   };
+  /** Every pending request, oldest first. The template caps how many it prints. */
+  waiting: WeeklyWaitingRequest[];
   cities: WeeklyCityStats[];
   /**
    * Company-wide, not per city: the activity log has never recorded which
@@ -88,7 +103,7 @@ export interface WeeklySummaryData {
  */
 export const SAMPLE_WEEKLY_SUMMARY: WeeklySummaryData = {
   rangeLabel: "Sep 5 - 12",
-  headline: { activePeople: 6, propertiesReviewed: 41, totalActions: 88 },
+  headline: { activePeople: 6, propertiesReviewed: 41, requestsMade: 7, totalActions: 88 },
   people: {
     activeCount: 6,
     withAccessCount: 11,
@@ -101,7 +116,13 @@ export const SAMPLE_WEEKLY_SUMMARY: WeeklySummaryData = {
       { name: "Unknown", actions: 4 },
     ],
     addedThisWeek: ["Lucia Ruiz", "Petr Novak"],
+    quiet: ["Marta Lopez", "Tomas Dvorak"],
   },
+  waiting: [
+    { cityId: "prague", name: "Pronájem restaurace 273 m²", requestedBy: "Petr Novak", days: 11 },
+    { cityId: "madrid", name: "Local en alquiler, Calle de Toledo", requestedBy: "Ana Gomez", days: 3 },
+    { cityId: "madrid", name: "Local comercial, Lavapiés", requestedBy: "Lucia Ruiz", days: 0 },
+  ],
   cities: [
     {
       cityId: "madrid",
@@ -180,6 +201,13 @@ export interface RawWeeklyRows {
   }[];
   activity: { user_id: string | null; action_type: string; created_at: string }[];
   comments: { created_at: string; created_by: string | null }[];
+  /** Every request still pending, whatever its age. Not windowed. */
+  pendingRequests: {
+    city_id: string | null;
+    property_name: string | null;
+    requested_by: string | null;
+    created_at: string;
+  }[];
   lists: { created_at: string; created_by: string | null }[];
   profiles: {
     id: string;
@@ -208,12 +236,23 @@ const ACTION = {
   customPoints: "created_point",
   areasDrawn: "created_area",
   filesUploaded: "added_attachment",
-  shapeComments: "commented_on_shape",
   assignmentsMade: "assigned_property",
   assignmentsRemoved: "removed_assignment",
   joinedTeams: "added_to_team",
   leftTeams: "removed_from_team",
 } as const;
+
+/**
+ * Log entries whose real record lives in a table the summary reads anyway.
+ * Counting both would count one request, trip or shape comment twice.
+ */
+const COUNTED_FROM_TABLES = new Set([
+  "requested_property",
+  "submitted_scouting_trip",
+  "commented_on_shape",
+]);
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Inside the window, treating a missing timestamp as outside it. */
 function inWindow(at: string | null | undefined, start: Date, end: Date): boolean {
@@ -237,11 +276,11 @@ export function formatRangeLabel(start: Date, end: Date): string {
  * Which Friday's summary is due right now, as a Prague date ("2026-09-25"),
  * or null when no summary is due.
  *
- * Due from Friday 4pm to Saturday noon, Prague time. It used to be a strict
- * 4pm-to-4:45pm check, but GitHub timers routinely start three or more hours
- * late, so every run was skipped and the summary never went out once. The
- * wide window lets a late run still send; the "last sent" marker in
- * app_settings stops the extra runs from sending it again.
+ * Due from Friday 4pm to Saturday noon, Prague time. The window is wide
+ * because timers can start late (GitHub's routinely ran three or more hours
+ * late; Vercel's free plan can be up to an hour late), and a late run must
+ * still send. The "last sent" marker in app_settings stops the other runs
+ * from sending it again.
  *
  * A run after midnight is Saturday in Prague but still belongs to Friday,
  * hence the date is always the Friday's, never the day it happens to run.
@@ -292,8 +331,9 @@ export async function getLastSentFriday(): Promise<string | null> {
 
 /**
  * Record that this Friday's summary has gone out, so later runs skip it.
- * Throws on failure: the route then fails the GitHub run, so a missing marker
- * (and the resend it causes on the next firing) shows up red, not silently.
+ * Throws on failure: the route then returns a 500, so a missing marker (and
+ * the resend it causes on the next firing) shows up as a failed run in the
+ * Vercel logs, not silently.
  */
 export async function markSummarySent(friday: string): Promise<void> {
   const { error } = await serviceClient()
@@ -318,6 +358,8 @@ export function buildWeeklySummary(
 ): WeeklySummaryData {
   const activity = rows.activity.filter((a) => inWindow(a.created_at, start, end));
   const inboxReads = rows.inboxReads.filter((r) => inWindow(r.created_at, start, end));
+  const lists = rows.lists.filter((l) => inWindow(l.created_at, start, end));
+  const comments = rows.comments.filter((c) => inWindow(c.created_at, start, end));
 
   // ---- people -------------------------------------------------------------
 
@@ -325,28 +367,27 @@ export function buildWeeklySummary(
     rows.profiles.map((p) => [p.id, p.display_name?.trim() || p.email || "Unknown"]),
   );
 
-  // Per person: logged actions plus inbox triage, which is never logged.
-  // Requests and pitch submissions already appear in the log, so counting
-  // them again here would double them.
+  // One tally per person, and it is the only one: the chart and "active"
+  // both read it, so nobody can be in the chart and "quiet" at once.
+  //
+  // Requests and trip submissions are counted from their own tables, which
+  // hold every one, and their log copies are skipped. Inbox requests were
+  // never logged before Sep 2026, so the log alone undercounts them.
+  // Lists and place comments are never logged at all.
   const actionsByUser = new Map<string, number>();
   const bump = (id: string | null | undefined) => {
     const key = id || "unknown";
     actionsByUser.set(key, (actionsByUser.get(key) || 0) + 1);
   };
-  activity.forEach((a) => bump(a.user_id));
+  activity.filter((a) => !COUNTED_FROM_TABLES.has(a.action_type)).forEach((a) => bump(a.user_id));
   inboxReads.forEach((r) => bump(r.user_id));
+  rows.requests.forEach((r) => inWindow(r.created_at, start, end) && bump(r.requested_by));
+  rows.pitches.forEach((p) => inWindow(p.submitted_at, start, end) && bump(p.created_by));
+  lists.forEach((l) => bump(l.created_by));
+  comments.forEach((c) => bump(c.created_by));
 
-  // "Active" is anyone who did real work, by any of four routes. The same
-  // person doing all four counts once.
-  const activeIds = new Set<string>();
-  activity.forEach((a) => a.user_id && activeIds.add(a.user_id));
-  inboxReads.forEach((r) => r.user_id && activeIds.add(r.user_id));
-  rows.requests.forEach((r) => {
-    if (inWindow(r.created_at, start, end) && r.requested_by) activeIds.add(r.requested_by);
-  });
-  rows.pitches.forEach((p) => {
-    if (inWindow(p.submitted_at, start, end) && p.created_by) activeIds.add(p.created_by);
-  });
+  const activeIds = new Set([...actionsByUser.keys()].filter((id) => id !== "unknown"));
+  const totalActions = [...actionsByUser.values()].reduce((sum, n) => sum + n, 0);
 
   const people: WeeklyPerson[] = [...actionsByUser.entries()]
     .map(([id, actions]) => ({ name: nameOf.get(id) || "Unknown", actions }))
@@ -355,6 +396,11 @@ export function buildWeeklySummary(
   const withAccess = rows.profiles.filter(
     (p) => p.is_active && (p.is_super_admin || rows.grantUserIds.includes(p.id)),
   );
+
+  const quiet = withAccess
+    .filter((p) => !activeIds.has(p.id))
+    .map((p) => nameOf.get(p.id) || "Unknown")
+    .sort((a, b) => a.localeCompare(b));
 
   const addedThisWeek = rows.profiles
     .filter((p) => inWindow(p.created_at, start, end))
@@ -445,17 +491,23 @@ export function buildWeeklySummary(
   const countAction = (type: string) =>
     activity.filter((a) => a.action_type === type).length;
 
-  const comments =
-    rows.comments.filter((c) => inWindow(c.created_at, start, end)).length +
-    countAction(ACTION.shapeComments);
 
-  const totalActions = activity.length + inboxReads.length;
+  // Every request still undecided, however old: the point is what is stuck.
+  const waiting = [...rows.pendingRequests]
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((r) => ({
+      cityId: r.city_id,
+      name: r.property_name || "Unnamed property",
+      requestedBy: nameOf.get(r.requested_by ?? "") || "Unknown",
+      days: Math.max(0, Math.floor((end.getTime() - new Date(r.created_at).getTime()) / DAY_MS)),
+    }));
 
   return {
     rangeLabel: formatRangeLabel(start, end),
     headline: {
       activePeople: activeIds.size,
       propertiesReviewed: inboxReads.length,
+      requestsMade: activeCities.reduce((sum, c) => sum + c.requested, 0),
       totalActions,
     },
     people: {
@@ -463,20 +515,23 @@ export function buildWeeklySummary(
       withAccessCount: withAccess.length,
       all: people,
       addedThisWeek,
+      quiet,
     },
+    waiting,
     cities: activeCities,
     research: {
       savedToLists: countAction(ACTION.savedToLists),
-      // Counted from the lists table: creating a list is one of the few
-      // things that never reaches the activity log.
-      listsCreated: rows.lists.filter((l) => inWindow(l.created_at, start, end)).length,
+      // Counted from the lists table: creating a list never reaches the
+      // activity log.
+      listsCreated: lists.length,
       // NOT counted from drawn_features: that table is wiped and rewritten
       // every time somebody edits their map, so it holds current state, not
       // history.
       customPoints: countAction(ACTION.customPoints),
       areasDrawn: countAction(ACTION.areasDrawn),
       filesUploaded: countAction(ACTION.filesUploaded),
-      comments,
+      // Place, trip and shape comments all live in the comments table.
+      comments: comments.length,
     },
     admin: {
       // NOT counted from property_assignments: reassigning the same property
@@ -508,11 +563,11 @@ export async function getWeeklySummary(
 ): Promise<WeeklySummaryData> {
   const supabase = serviceClient();
 
-  const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const start = new Date(now.getTime() - 7 * DAY_MS);
   const since = start.toISOString();
 
   // All at once. A week of rows is small; running them in series would just
-  // be nine round trips of waiting.
+  // be ten round trips of waiting.
   const [
     places,
     inboxReads,
@@ -521,6 +576,7 @@ export async function getWeeklySummary(
     activity,
     comments,
     lists,
+    pendingRequests,
     profiles,
     grants,
   ] = await Promise.all([
@@ -540,13 +596,17 @@ export async function getWeeklySummary(
     supabase.from("activity_log").select("user_id, action_type, created_at").gte("created_at", since),
     supabase.from("comments").select("created_at, created_by").gte("created_at", since),
     supabase.from("lists").select("created_at, created_by").gte("created_at", since),
+    supabase
+      .from("property_requests")
+      .select("city_id, property_name, requested_by, created_at")
+      .eq("status", "pending"),
     // Profiles are not windowed: the names of everyone who did something are
     // needed, whenever they were created.
     supabase.from("user_profiles").select("id, display_name, email, created_at, is_active, is_super_admin"),
     supabase.from("user_city_grants").select("user_id"),
   ]);
 
-  const failed = [places, inboxReads, requests, pitches, activity, comments, lists, profiles, grants]
+  const failed = [places, inboxReads, requests, pitches, activity, comments, lists, pendingRequests, profiles, grants]
     .map((r) => r.error?.message)
     .filter(Boolean);
   if (failed.length > 0) {
@@ -562,6 +622,7 @@ export async function getWeeklySummary(
       activity: activity.data || [],
       comments: comments.data || [],
       lists: lists.data || [],
+      pendingRequests: pendingRequests.data || [],
       profiles: profiles.data || [],
       grantUserIds: ((grants.data as { user_id: string }[]) || []).map((g) => g.user_id),
     } as RawWeeklyRows,
