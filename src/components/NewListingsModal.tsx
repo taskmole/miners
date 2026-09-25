@@ -31,6 +31,17 @@ interface NewListingsModalProps {
   cityId: string;
 }
 
+/** The property details every inbox activity-log entry carries. */
+function propertyMetaOf(p: InboxProperty) {
+  return {
+    placeName: p.name || p.address,
+    placeAddress: p.address,
+    placeId: p.placeId,
+    lat: p.latitude,
+    lon: p.longitude,
+  };
+}
+
 export function NewListingsModal({
   isOpen,
   onClose,
@@ -232,13 +243,7 @@ export function NewListingsModal({
     async (targetId: string, targetName: string, type: "team" | "user") => {
       if (!currentProperty) return;
 
-      const propertyMeta = {
-        placeName: currentProperty.name || currentProperty.address,
-        placeAddress: currentProperty.address,
-        placeId: currentProperty.placeId,
-        lat: currentProperty.latitude,
-        lon: currentProperty.longitude,
-      };
+      const propertyMeta = propertyMetaOf(currentProperty);
 
       setActiveSheet(null);
 
@@ -359,11 +364,7 @@ export function NewListingsModal({
       try {
         await preRejectProperty(currentProperty.placeId, reason);
         logActivity("pre_rejected_property", {
-          placeName: currentProperty.name || currentProperty.address,
-          placeAddress: currentProperty.address,
-          placeId: currentProperty.placeId,
-          lat: currentProperty.latitude,
-          lon: currentProperty.longitude,
+          ...propertyMetaOf(currentProperty),
           rejectionReason: reason,
         });
         showToast("Pre-rejected");
@@ -391,6 +392,10 @@ export function NewListingsModal({
       showToast(message, "error");
       return;
     }
+
+    // Same entry the map's Request button writes, so the activity feed shows
+    // inbox requests too.
+    logActivity("requested_property", propertyMetaOf(currentProperty));
 
     showToast("Request sent");
     setTimeout(() => handleAdvance(true), 200);

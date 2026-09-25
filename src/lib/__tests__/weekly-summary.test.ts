@@ -29,6 +29,7 @@ function rows(partial: Partial<RawWeeklyRows> = {}): RawWeeklyRows {
     activity: [],
     comments: [],
     lists: [],
+    pendingRequests: [],
     profiles: [],
     grantUserIds: [],
     ...partial,
@@ -163,6 +164,70 @@ describe("the people", () => {
       grantUserIds: ["u1"],
     });
     expect(summary.people.withAccessCount).toBe(2);
+  });
+});
+
+describe("one tally per person", () => {
+  const ana = { id: "u1", display_name: "Ana", email: null, created_at: JUST_BEFORE, is_active: true, is_super_admin: false };
+  const bo = { id: "u2", display_name: "Bo", email: null, created_at: JUST_BEFORE, is_active: true, is_super_admin: false };
+
+  it("counts a request once, even when it is also in the log", () => {
+    const summary = build({
+      activity: [{ user_id: "u1", action_type: "requested_property", created_at: INSIDE }],
+      requests: [
+        { city_id: "prague", created_at: INSIDE, status: "pending", decided_at: null, decision_reason: null, requested_by: "u1" },
+      ],
+      profiles: [ana],
+    });
+    expect(summary.people.all).toEqual([{ name: "Ana", actions: 1 }]);
+    expect(summary.headline.requestsMade).toBe(1);
+  });
+
+  it("counts an inbox request that never reached the log", () => {
+    const summary = build({
+      requests: [
+        { city_id: "prague", created_at: INSIDE, status: "pending", decided_at: null, decision_reason: null, requested_by: "u1" },
+      ],
+      profiles: [ana],
+    });
+    expect(summary.people.all).toEqual([{ name: "Ana", actions: 1 }]);
+  });
+
+  it("counts lists and comments as work", () => {
+    const summary = build({
+      lists: [{ created_at: INSIDE, created_by: "u1" }],
+      comments: [{ created_at: INSIDE, created_by: "u1" }],
+      profiles: [ana],
+      grantUserIds: ["u1"],
+    });
+    expect(summary.people.all).toEqual([{ name: "Ana", actions: 2 }]);
+    expect(summary.people.quiet).toEqual([]);
+  });
+
+  it("lists as quiet only people with access who did nothing", () => {
+    const summary = build({
+      inboxReads: [{ user_id: "u1", city_id: "prague", created_at: INSIDE }],
+      profiles: [bo, ana],
+      grantUserIds: ["u1", "u2"],
+    });
+    expect(summary.people.quiet).toEqual(["Bo"]);
+    expect(summary.headline.activePeople).toBe(1);
+  });
+});
+
+describe("waiting for an answer", () => {
+  it("lists every pending request, oldest first, in whole days", () => {
+    const summary = build({
+      pendingRequests: [
+        { city_id: "prague", property_name: "New", requested_by: "u1", created_at: "2026-09-11T08:00:00Z" },
+        { city_id: "prague", property_name: "Old", requested_by: "u1", created_at: "2026-08-31T12:00:00Z" },
+      ],
+      profiles: [{ id: "u1", display_name: "Ana", email: null, created_at: JUST_BEFORE, is_active: true, is_super_admin: false }],
+    });
+    expect(summary.waiting).toEqual([
+      { cityId: "prague", name: "Old", requestedBy: "Ana", days: 11 },
+      { cityId: "prague", name: "New", requestedBy: "Ana", days: 0 },
+    ]);
   });
 });
 

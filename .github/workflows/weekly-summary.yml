@@ -1,19 +1,11 @@
 name: Send Weekly Summary
 
-# Friday, 4pm Prague time, to the super admins.
+# Manual test send only. The real Friday send is a Vercel cron (vercel.json),
+# because GitHub's timers ran hours late and the summary arrived at 8:30pm.
 #
-# GitHub timers only understand UTC and often start hours late (the first
-# four Fridays all started around 17:30 UTC), and runs on the hour are the
-# most delayed. So this fires three times, just past the hour, and the route
-# decides: the first run between Friday 4pm and Saturday noon Prague sends,
-# the rest see it was already sent and skip.
-#
-# "Run workflow" sends immediately, skipping both checks.
+# "Run workflow" sends immediately to the super admins, skipping the Friday
+# window and the "already sent" check.
 on:
-  schedule:
-    - cron: '7 14 * * 5'
-    - cron: '7 15 * * 5'
-    - cron: '7 17 * * 5'
   workflow_dispatch:
 
 jobs:
@@ -24,10 +16,7 @@ jobs:
         env:
           APP_URL: ${{ secrets.APP_URL }}
           DIGEST_SECRET: ${{ secrets.DIGEST_SECRET }}
-          FORCE: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           curl -X POST "$APP_URL/api/send-weekly-summary" \
             -H "x-digest-secret: $DIGEST_SECRET" \
-            -H "Content-Type: application/json" \
-            -d "{\"force\":$FORCE}" \
             --fail --silent --show-error

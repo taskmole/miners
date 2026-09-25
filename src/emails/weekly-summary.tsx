@@ -5,6 +5,7 @@ import {
   SAMPLE_WEEKLY_SUMMARY,
   type WeeklyCityStats,
   type WeeklySummaryData,
+  type WeeklyWaitingRequest,
 } from "@/lib/weekly-summary-queries";
 import { cityById, cityNames } from "@/lib/cities";
 
@@ -16,9 +17,18 @@ import { cityById, cityNames } from "@/lib/cities";
 const FLAG_BASE = "https://raw.githubusercontent.com/taskmole/miners/main/public/assets/flags";
 const FLAG_COUNTRIES = new Set(["ES", "CZ"]);
 
-function flagUrl(cityId: string): string | null {
-  const code = cityById(cityId)?.countryCode;
-  return code && FLAG_COUNTRIES.has(code) ? `${FLAG_BASE}/${code.toLowerCase()}.png` : null;
+function Flag({ cityId }: { cityId: string | null }) {
+  const code = cityId ? cityById(cityId)?.countryCode : undefined;
+  if (!code || !FLAG_COUNTRIES.has(code)) return null;
+  return (
+    <Img
+      src={`${FLAG_BASE}/${code.toLowerCase()}.png`}
+      alt=""
+      width={18}
+      height={12}
+      style={{ display: "inline-block", verticalAlign: "middle", margin: "0 8px 2px 0", borderRadius: "2px" }}
+    />
+  );
 }
 
 /**
@@ -52,8 +62,21 @@ const COLOR = {
   red: "#dc2626",
 };
 
+/** Text and background for each tinted pill. */
+const TONE = {
+  green: { color: "#15803d", background: "#dcfce7" },
+  red: { color: "#b91c1c", background: "#fee2e2" },
+  amber: { color: "#b45309", background: "#fef3c7" },
+};
+
 /** Named per-person lines printed in full. The rest collapse into one line. */
 const MAX_PEOPLE = 10;
+
+/** Waiting requests printed in full, for the same Gmail-size reason. */
+const MAX_WAITING = 10;
+
+/** A request this old is overdue and turns red. */
+const OVERDUE_DAYS = 7;
 
 const MOBILE_CSS = `
   @media only screen and (max-width: 480px) {
@@ -183,32 +206,17 @@ function Pill({
   label,
   value,
   share,
-  color,
-  background,
+  tone,
 }: {
-  label: string;
-  value: number;
+  label?: string;
+  value: number | string;
   share?: string | null;
-  color: string;
-  background: string;
+  tone: keyof typeof TONE;
 }) {
   return (
-    <span
-      className="wk-pill"
-      style={{
-        display: "inline-block",
-        backgroundColor: background,
-        color,
-        fontSize: "12px",
-        fontWeight: 600,
-        lineHeight: "18px",
-        padding: "3px 10px",
-        borderRadius: "20px",
-        marginRight: "6px",
-        marginTop: "6px",
-      }}
-    >
-      {value} {label}
+    <span className="wk-pill" style={{ ...pillStyle, backgroundColor: TONE[tone].background, color: TONE[tone].color }}>
+      {value}
+      {label ? ` ${label}` : ""}
       {share ? ` (${share})` : ""}
     </span>
   );
@@ -268,7 +276,7 @@ function CountBlock({
 function CityCard({ city }: { city: WeeklyCityStats }) {
   const stages = [
     { label: "Properties added", value: city.propertiesAdded, color: COLOR.blue },
-    { label: "Triaged in the inbox", value: city.triaged, color: COLOR.green },
+    { label: "Reviewed in the inbox", value: city.triaged, color: COLOR.green },
     { label: "Requested", value: city.requested, color: COLOR.amber },
     { label: "Pitched", value: city.pitched, color: COLOR.ink },
   ];
@@ -283,20 +291,11 @@ function CityCard({ city }: { city: WeeklyCityStats }) {
     city.pitchesApproved + city.pitchesRejected + city.pitchesReturned;
 
   const hasDecisions = requestsDecided > 0 || pitchesDecided > 0;
-  const flag = flagUrl(city.cityId);
 
   return (
     <Section style={cardStyle}>
       <Text className="wk-card-title" style={cardTitleStyle}>
-        {flag && (
-          <Img
-            src={flag}
-            alt=""
-            width={18}
-            height={12}
-            style={{ display: "inline-block", verticalAlign: "middle", margin: "0 8px 2px 0", borderRadius: "2px" }}
-          />
-        )}
+        <Flag cityId={city.cityId} />
         {cityLabel(city.cityId)}
       </Text>
 
@@ -319,8 +318,7 @@ function CityCard({ city }: { city: WeeklyCityStats }) {
                 label={plural(city.requestsApproved, "request approved", "requests approved")}
                 value={city.requestsApproved}
                 share={pct(city.requestsApproved, requestsDecided)}
-                color="#15803d"
-                background="#dcfce7"
+                tone="green"
               />
             )}
             {city.requestsRejected > 0 && (
@@ -328,8 +326,7 @@ function CityCard({ city }: { city: WeeklyCityStats }) {
                 label={plural(city.requestsRejected, "request rejected", "requests rejected")}
                 value={city.requestsRejected}
                 share={pct(city.requestsRejected, requestsDecided)}
-                color="#b91c1c"
-                background="#fee2e2"
+                tone="red"
               />
             )}
             {city.pitchesApproved > 0 && (
@@ -337,8 +334,7 @@ function CityCard({ city }: { city: WeeklyCityStats }) {
                 label={plural(city.pitchesApproved, "pitch approved", "pitches approved")}
                 value={city.pitchesApproved}
                 share={pct(city.pitchesApproved, pitchesDecided)}
-                color="#15803d"
-                background="#dcfce7"
+                tone="green"
               />
             )}
             {city.pitchesRejected > 0 && (
@@ -346,8 +342,7 @@ function CityCard({ city }: { city: WeeklyCityStats }) {
                 label={plural(city.pitchesRejected, "pitch rejected", "pitches rejected")}
                 value={city.pitchesRejected}
                 share={pct(city.pitchesRejected, pitchesDecided)}
-                color="#b91c1c"
-                background="#fee2e2"
+                tone="red"
               />
             )}
             {city.pitchesReturned > 0 && (
@@ -355,8 +350,7 @@ function CityCard({ city }: { city: WeeklyCityStats }) {
                 label={plural(city.pitchesReturned, "pitch returned", "pitches returned")}
                 value={city.pitchesReturned}
                 share={pct(city.pitchesReturned, pitchesDecided)}
-                color="#b45309"
-                background="#fef3c7"
+                tone="amber"
               />
             )}
           </Text>
@@ -375,17 +369,58 @@ function CityCard({ city }: { city: WeeklyCityStats }) {
   );
 }
 
+/** One undecided request: what, who asked, and how long it has waited. */
+function WaitingRow({ request }: { request: WeeklyWaitingRequest }) {
+  const overdue = request.days >= OVERDUE_DAYS;
+  const age =
+    request.days === 0 ? "today" : `${request.days} ${plural(request.days, "day", "days")}`;
+
+  return (
+    <table
+      cellPadding={0}
+      cellSpacing={0}
+      border={0}
+      width="100%"
+      style={{
+        width: "100%",
+        borderCollapse: "collapse",
+        tableLayout: "fixed",
+        borderBottom: `1px solid ${COLOR.line}`,
+      }}
+    >
+      <tbody>
+        <tr>
+          <td style={{ width: "74%", padding: "8px 0", verticalAlign: "middle" }}>
+            <div className="wk-row-label" style={{ ...rowLabelStyle, color: COLOR.ink, padding: 0 }}>
+              <Flag cityId={request.cityId} />
+              {request.name}
+            </div>
+            <div style={{ fontSize: "12px", color: COLOR.muted, lineHeight: "16px" }}>
+              requested by {request.requestedBy}
+            </div>
+          </td>
+          <td style={{ width: "26%", textAlign: "right", verticalAlign: "middle" }}>
+            <Pill value={age} tone={overdue ? "red" : "amber"} />
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
 export function WeeklySummary({
   rangeLabel = SAMPLE_WEEKLY_SUMMARY.rangeLabel,
   headline = SAMPLE_WEEKLY_SUMMARY.headline,
   people = SAMPLE_WEEKLY_SUMMARY.people,
+  waiting = SAMPLE_WEEKLY_SUMMARY.waiting,
   cities = SAMPLE_WEEKLY_SUMMARY.cities,
   research = SAMPLE_WEEKLY_SUMMARY.research,
   admin = SAMPLE_WEEKLY_SUMMARY.admin,
   appUrl = SAMPLE_WEEKLY_SUMMARY.appUrl,
 }: Partial<WeeklySummaryData>) {
   const heading = "This week in Miners Scout";
-  const quiet = headline.totalActions === 0 && cities.length === 0;
+  const quiet =
+    headline.totalActions === 0 && cities.length === 0 && waiting.length === 0;
 
   const named = people.all.slice(0, MAX_PEOPLE);
   const others = people.all.slice(MAX_PEOPLE);
@@ -424,7 +459,7 @@ export function WeeklySummary({
                 {[
                   { value: headline.activePeople, label: "People active" },
                   { value: headline.propertiesReviewed, label: "Properties reviewed" },
-                  { value: headline.totalActions, label: "Actions taken" },
+                  { value: headline.requestsMade, label: "Requests made" },
                 ].map((stat) => (
                   <td
                     key={stat.label}
@@ -441,6 +476,21 @@ export function WeeklySummary({
               </tr>
             </tbody>
           </table>
+
+          {/* What needs a decision comes before who did what. */}
+          {waiting.length > 0 && (
+            <Section style={{ ...cardStyle, backgroundColor: "#fef2f2", border: `1px solid ${TONE.red.background}`, marginTop: "20px" }}>
+              <Text className="wk-section-label" style={{ ...sectionLabelStyle, color: TONE.red.color }}>
+                {waiting.length} WAITING FOR AN ANSWER
+              </Text>
+              {waiting.slice(0, MAX_WAITING).map((r, i) => (
+                <WaitingRow key={i} request={r} />
+              ))}
+              {waiting.length > MAX_WAITING && (
+                <Text style={footnoteStyle}>and {waiting.length - MAX_WAITING} more</Text>
+              )}
+            </Section>
+          )}
 
           {/* People */}
           <Section style={{ marginTop: "24px" }}>
@@ -465,6 +515,12 @@ export function WeeklySummary({
               </Text>
             )}
 
+            {people.quiet.length > 0 && (
+              <Text style={{ ...footnoteStyle, color: COLOR.body }}>
+                <strong>Quiet this week:</strong> {people.quiet.join(", ")}
+              </Text>
+            )}
+
             {people.addedThisWeek.length > 0 && (
               <Text style={{ ...footnoteStyle, color: COLOR.body }}>
                 New this week: {people.addedThisWeek.join(", ")}
@@ -476,7 +532,7 @@ export function WeeklySummary({
           {cities.length > 0 && (
             <Section style={{ marginTop: "28px" }}>
               <Text className="wk-section-label" style={sectionLabelStyle}>
-                PIPELINE CITY
+                PIPELINE BY CITY
               </Text>
               {cities.map((c) => (
                 <CityCard key={c.cityId} city={c} />
@@ -588,6 +644,17 @@ const pillLabelStyle: React.CSSProperties = {
   fontWeight: 600,
   color: COLOR.muted,
   margin: "0 0 2px",
+};
+
+const pillStyle: React.CSSProperties = {
+  display: "inline-block",
+  fontSize: "12px",
+  fontWeight: 600,
+  lineHeight: "18px",
+  padding: "3px 10px",
+  borderRadius: "20px",
+  marginRight: "6px",
+  marginTop: "6px",
 };
 
 const footnoteStyle: React.CSSProperties = {

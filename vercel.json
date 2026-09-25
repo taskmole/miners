@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/send-weekly-summary", "schedule": "0 14 * * 5" },
+    { "path": "/api/send-weekly-summary", "schedule": "0 15 * * 5" }
+  ]
+}
