@@ -11,7 +11,7 @@
  *   npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/score-listings.ts
  *   npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/score-listings.ts --city madrid
  *   npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/score-listings.ts --city prague --limit 20
- *   npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/score-listings.ts --all   # backfill, ignores the 24h window
+ *   npx ts-node --project scripts/data-pipeline/tsconfig.json scripts/data-pipeline/score-listings.ts --all   # backfill, ignores the recency window
  */
 
 // Parse CLI arguments before imports (same pattern as other pipeline scripts)
@@ -20,7 +20,7 @@ const cityArgIndex = args.indexOf("--city");
 const CITY_ARG = cityArgIndex !== -1 ? args[cityArgIndex + 1]?.toLowerCase() : null;
 const limitArgIndex = args.indexOf("--limit");
 const LIMIT = limitArgIndex !== -1 ? parseInt(args[limitArgIndex + 1], 10) : null;
-// --all drops the 24h recency filter so a backfill can reach older listings.
+// --all drops the recency window so a backfill can reach older listings.
 const SCORE_ALL = args.includes("--all");
 
 import * as dotenv from "dotenv";
@@ -34,7 +34,10 @@ import { getCategoryId } from "./lib/scraper-utils";
 import { CATEGORIES } from "./lib/categories";
 import type { Place } from "./lib/supabase";
 
-const anthropic = new Anthropic(); // reads ANTHROPIC_API_KEY from env
+// Reads ANTHROPIC_API_KEY from env. Extra retries (default is 2) ride out
+// short network drops on the GitHub runner; the timeout stops a hung
+// connection from stalling the run (default is 10 minutes per attempt).
+const anthropic = new Anthropic({ maxRetries: 5, timeout: 60_000 });
 
 const MODEL = "claude-sonnet-5";
 
@@ -49,6 +52,7 @@ Low scores (0-39): poor location for cafe (industrial area, upper floor, very ex
 Respond with JSON only: {"reason": "one sentence", "qualitative_score": N}`;
 
 const BATCH_SIZE = 10;
+const WINDOW_DAYS = 7;
 const BATCH_DELAY_MS = 200;
 
 // A run is treated as broken (exit 1) if more than this share of the listings
@@ -176,9 +180,9 @@ async function scoreListing(
 /**
  * Fetch unscored property listings for a given city.
  *
- * Default window is the last 24 hours (not 12h) because the Idealista scrape
- * jobs can run up to 12h combined before this script runs; scrapes are 3+ days
- * apart so a wider window never pulls in a previous batch. `--all` drops the
+ * Only listings from the last WINDOW_DAYS are considered. Scored rows are
+ * already excluded by `image_analysis is null`, so the window just lets
+ * listings that failed on an earlier run get another try. `--all` drops the
  * window entirely for backfills.
  *
  * Only rows in the Property category are scored — POI scrapes (transit, gyms,
@@ -200,7 +204,7 @@ async function getUnscoredListings(
     .order("created_at", { ascending: false });
 
   if (!SCORE_ALL) {
-    const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const windowStart = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
     query = query.gte("created_at", windowStart);
   }
 
@@ -241,7 +245,7 @@ async function main() {
   // Determine which cities to process
   const cities = CITY_ARG ? [CITY_ARG] : getCityIds();
   console.log(`Cities: ${cities.join(", ")}`);
-  console.log(`Window: ${SCORE_ALL ? "all unscored listings" : "last 24 hours"}`);
+  console.log(`Window: ${SCORE_ALL ? "all unscored listings" : `last ${WINDOW_DAYS} days`}`);
   if (LIMIT) console.log(`Limit: ${LIMIT} listings per city`);
   console.log();
 
