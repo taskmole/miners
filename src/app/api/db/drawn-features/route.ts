@@ -115,17 +115,21 @@ export async function DELETE(request: NextRequest) {
   if (auth.error) return auth.error;
   const { supabase, userId } = auth;
 
+  // Deletes only the shapes named in ?ids=. This used to take the shapes to
+  // KEEP and delete everything else, so a tab that had not loaded, or was out
+  // of date, wiped the person's other shapes the next time they drew. With
+  // nothing named, nothing is deleted.
+  const ids = request.nextUrl.searchParams.get("ids")?.split(",").filter(id => /^[\w-]+$/.test(id)) ?? [];
+  if (ids.length === 0) {
+    return NextResponse.json({ error: "ids is required" }, { status: 400 });
+  }
+
   try {
-    const keepIdsParam = request.nextUrl.searchParams.get("keep_ids");
-    const keepIds = keepIdsParam?.split(",").filter(Boolean).filter(id => /^[\w-]+$/.test(id)) ?? [];
-
-    let query = supabase.from("drawn_features").delete().eq("user_id", userId);
-
-    if (keepIds.length > 0) {
-      query = query.not("id", "in", `(${keepIds.join(",")})`);
-    }
-
-    const { error } = await query;
+    const { error } = await supabase
+      .from("drawn_features")
+      .delete()
+      .eq("user_id", userId)
+      .in("id", ids);
 
     if (error) {
       console.error("[api/db/drawn-features] delete error:", error);

@@ -10,6 +10,7 @@ import type { DrawMode } from '@/types/draw';
 import { useAuth } from '@/contexts/AuthContext';
 import { logActivity } from '@/lib/supabaseHelpers';
 import { apiFetch } from '@/lib/api-client';
+import { saveShapes, removeShapes } from '@/lib/shape-writes';
 import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
 import { useMobile } from '@/hooks/useMobile';
 
@@ -29,6 +30,16 @@ const shapeOwnership = new Map<string, string>();
 function canEditShape(ownerId: string | undefined, verifiedUserId: string | null): boolean {
   if (!ownerId) return true;
   return Boolean(verifiedUserId) && ownerId === verifiedUserId;
+}
+
+// The drawn points, for the walking-radius circles.
+function toPoints(fc: GeoJSON.FeatureCollection) {
+  return fc.features
+    .filter(f => f.geometry.type === 'Point')
+    .map(f => ({
+      id: f.id as string,
+      center: (f.geometry as GeoJSON.Point).coordinates as [number, number]
+    }));
 }
 
 // Context for drawing state
@@ -81,48 +92,10 @@ export function MapDraw({ children, onShapeCreated, onShapeUpdated }: MapDrawPro
   const hoveredPointIdRef = useRef(hoveredPointId);
   hoveredPointIdRef.current = hoveredPointId;
 
-  const syncAndPersist = useCallback((allFeatures: GeoJSON.FeatureCollection) => {
-    const points = allFeatures.features
-      .filter(f => f.geometry.type === 'Point')
-      .map(f => ({
-        id: f.id as string,
-        center: (f.geometry as GeoJSON.Point).coordinates as [number, number]
-      }));
-    setDrawnPoints(points);
-
-    // Sync geometry to API (async, non-blocking)
-    // Only sends geometry fields. Metadata (name, color, tags) is owned by ShapeComments via RPC.
-    // The owner is no longer sent: the server stamps it from the verified
-    // session, so a stale id in local storage can neither address nor create
-    // somebody else's shapes.
-    const rows = allFeatures.features.map(f => ({
-      id: f.id as string,
-      geojson: f as unknown as Record<string, unknown>,
-      updated_at: new Date().toISOString(),
-    }));
-
-    // Upsert first, then clean up deleted features (sequential to avoid race)
-    (async () => {
-      try {
-        if (rows.length > 0) {
-          await apiFetch('/api/db/drawn-features', {
-            method: 'POST',
-            body: JSON.stringify({ action: 'upsert_geometry', rows }),
-          });
-        }
-
-        // Only after upsert succeeds, remove features the user deleted
-        const currentIds = allFeatures.features.map(f => f.id as string);
-        const keepIds = currentIds.join(',');
-        await apiFetch(
-          `/api/db/drawn-features${keepIds ? `?keep_ids=${encodeURIComponent(keepIds)}` : ''}`,
-          { method: 'DELETE' }
-        );
-      } catch (error) {
-        console.error('Error in drawn-features sync:', error);
-      }
-    })();
-  }, [setDrawnPoints]);
+  // Keep the walking-radius points in step with whatever is on the map.
+  useEffect(() => {
+    setDrawnPoints(toPoints(features));
+  }, [features, setDrawnPoints]);
 
   // Initialize MapboxDraw control
   useEffect(() => {
@@ -141,14 +114,6 @@ export function MapDraw({ children, onShapeCreated, onShapeUpdated }: MapDrawPro
     const applyFeatures = (fc: GeoJSON.FeatureCollection) => {
       drawInstance.set(fc);
       setFeatures(fc);
-      // Sync points to context for mobile (don't re-persist, just sync)
-      const points = fc.features
-        .filter((f: GeoJSON.Feature) => f.geometry.type === 'Point')
-        .map((f: GeoJSON.Feature) => ({
-          id: f.id as string,
-          center: (f.geometry as GeoJSON.Point).coordinates as [number, number]
-        }));
-      setDrawnPoints(points);
     };
 
     // Load features from API
@@ -199,19 +164,18 @@ export function MapDraw({ children, onShapeCreated, onShapeUpdated }: MapDrawPro
       });
       setDraw(null);
     };
-  }, [map, isLoaded, setDrawnPoints, authReady, sessionUserId]);
+  }, [map, isLoaded, authReady, sessionUserId]);
 
   // Handle draw events
   useEffect(() => {
     if (!map || !draw) return;
 
-    const handleCreate = () => {
-      const allFeatures = draw.getAll();
-      setFeatures(allFeatures);
+    const handleCreate = (e: { features: GeoJSON.Feature[] }) => {
+      setFeatures(draw.getAll());
       onShapeCreated?.();
-      syncAndPersist(allFeatures);
+      saveShapes(e.features);
 
-      const newest = allFeatures.features[allFeatures.features.length - 1];
+      const newest = e.features[0];
       if (newest?.id) {
         // Only if the server has confirmed who this is. Recording a guess here
         // would let a stale local id decide the edit button on a brand new
@@ -237,26 +201,13 @@ export function MapDraw({ children, onShapeCreated, onShapeUpdated }: MapDrawPro
       }
     };
 
-    const handleUpdate = () => {
+    const handleUpdate = (e: { features: GeoJSON.Feature[] }) => {
       const allFeatures = draw.getAll();
 
-      const oldFeatureMap = new Map(features.features.map(f => [f.id, f]));
-
-      let unauthorizedEdit = false;
-      for (const feature of allFeatures.features) {
-        const oldFeature = oldFeatureMap.get(feature.id);
-        if (oldFeature) {
-          const oldCoords = JSON.stringify(oldFeature.geometry.coordinates);
-          const newCoords = JSON.stringify(feature.geometry.coordinates);
-          if (oldCoords !== newCoords) {
-            const ownerId = shapeOwnership.get(feature.id as string);
-            if (!canEditShape(ownerId, verifiedUserIdRef.current)) {
-              unauthorizedEdit = true;
-              break;
-            }
-          }
-        }
-      }
+      // The event carries only the shapes that were moved or reshaped.
+      const unauthorizedEdit = e.features.some(
+        f => !canEditShape(shapeOwnership.get(f.id as string), verifiedUserIdRef.current)
+      );
 
       if (unauthorizedEdit) {
         // Revert from React state (the last-known-good geometry)
@@ -268,18 +219,17 @@ export function MapDraw({ children, onShapeCreated, onShapeUpdated }: MapDrawPro
 
       setFeatures(allFeatures);
       onShapeUpdated?.();
-      syncAndPersist(allFeatures);
+      saveShapes(e.features);
     };
 
     const handleDelete = (e: { features: GeoJSON.Feature[] }) => {
-      const allFeatures = draw.getAll();
-      setFeatures(allFeatures);
+      setFeatures(draw.getAll());
       setSelectedFeatureIds([]);
       // Clear walk circle if the deleted features include the currently-hovered point
       if (hoveredPointIdRef.current && e.features.some(f => f.id === hoveredPointIdRef.current)) {
         clearHoveredPoint();
       }
-      syncAndPersist(allFeatures);
+      removeShapes(e.features.map(f => f.id as string));
     };
 
     const handleSelectionChange = (e: { features: GeoJSON.Feature[] }) => {
@@ -318,7 +268,7 @@ export function MapDraw({ children, onShapeCreated, onShapeUpdated }: MapDrawPro
         m.off('draw.modechange', handleModeChange);
       });
     };
-  }, [map, draw, features, onShapeCreated, onShapeUpdated, syncAndPersist, clearHoveredPoint, setHoveredPoint]);
+  }, [map, draw, features, onShapeCreated, onShapeUpdated, clearHoveredPoint, setHoveredPoint]);
 
   // Desktop hover listeners for walking radius circle
   useEffect(() => {
@@ -389,18 +339,17 @@ export function MapDraw({ children, onShapeCreated, onShapeUpdated }: MapDrawPro
     if (!draw || !featureId) return;
     try {
       draw.delete(featureId);
-      const allFeatures = draw.getAll();
-      setFeatures(allFeatures);
+      setFeatures(draw.getAll());
       setSelectedFeatureIds([]);
       // Clear walk circle if the deleted feature is the currently-hovered point
       if (hoveredPointIdRef.current === featureId) {
         clearHoveredPoint();
       }
-      syncAndPersist(allFeatures);
+      removeShapes([featureId]);
     } catch (error) {
       console.error('Error deleting feature:', error);
     }
-  }, [draw, syncAndPersist, clearHoveredPoint]);
+  }, [draw, clearHoveredPoint]);
 
   // Clear selection (allows hover tooltip to show again)
   const clearSelection = useCallback(() => {

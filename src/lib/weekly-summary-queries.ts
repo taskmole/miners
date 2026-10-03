@@ -524,9 +524,8 @@ export function buildWeeklySummary(
       // Counted from the lists table: creating a list never reaches the
       // activity log.
       listsCreated: lists.length,
-      // NOT counted from drawn_features: that table is wiped and rewritten
-      // every time somebody edits their map, so it holds current state, not
-      // history.
+      // NOT counted from drawn_features: that table holds the shapes that
+      // exist now, not history, so a deleted shape would drop out of it.
       customPoints: countAction(ACTION.customPoints),
       areasDrawn: countAction(ACTION.areasDrawn),
       filesUploaded: countAction(ACTION.filesUploaded),
