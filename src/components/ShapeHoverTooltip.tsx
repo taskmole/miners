@@ -30,7 +30,7 @@ export function ShapeHoverTooltip() {
   const { map, isLoaded } = useMap();
   const { features, selectedFeatureIds } = useMapDraw();
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
-  const { densityData, incomeData } = useGeoData();
+  const { densityData, incomeData, requestGeoData } = useGeoData();
   const { allMetadata, allComments } = useShapeDataContext();
   const { getCategoryById } = usePointCategoriesContext();
   const hoveredFeatureId = useRef<string | null>(null);
@@ -111,7 +111,11 @@ export function ShapeHoverTooltip() {
           ? getCategoryByIdRef.current(metadata.categoryId)?.name
           : undefined;
 
-        // Calculate stats using cache (only for polygons)
+        // Calculate stats using cache (only for polygons). The population and
+        // income files load on first need, so the first hover starts them and
+        // shows "…" until they arrive.
+        if (isPolygon) requestGeoData();
+        const geoReady = !!densityData && !!incomeData;
         const stats = isPolygon
           ? getCachedStats(featureId, fullFeature as Feature<Polygon>, densityData, incomeData)
           : { area: 0, population: 0, income: 0 };
@@ -123,8 +127,8 @@ export function ShapeHoverTooltip() {
           name: metadata.name || (isPolygon ? 'Untitled Area' : 'Untitled Point'),
           categoryName,
           area: isPolygon ? formatArea(stats.area) : '',
-          population: isPolygon ? formatPopulation(stats.population) : '',
-          income: isPolygon ? formatIncome(stats.income) : '',
+          population: isPolygon ? (geoReady ? formatPopulation(stats.population) : '…') : '',
+          income: isPolygon ? (geoReady ? formatIncome(stats.income) : '…') : '',
           tags: metadata.tags || [],
           commentCount,
           isPoint,
@@ -140,7 +144,13 @@ export function ShapeHoverTooltip() {
       hoveredFeatureId.current = null;
       map.getCanvas().style.cursor = '';
     }
-  }, [map, densityData, incomeData]);
+  }, [map, densityData, incomeData, requestGeoData]);
+
+  // When the data arrives, forget the hovered shape so the next mouse move
+  // recomputes its stats instead of keeping the "…" placeholders.
+  useEffect(() => {
+    hoveredFeatureId.current = null;
+  }, [densityData, incomeData]);
 
   // Handle the cursor leaving the map canvas.
   // Note: maplibre has no map-level 'mouseleave' event ('mouseleave' is layer-only),

@@ -277,11 +277,6 @@ function HomeContent() {
   // Location Score toggle state
   const [gravityEnabled, setGravityEnabled] = useState(false);
 
-  const [drawnFeatures, setDrawnFeatures] = useState<GeoJSON.FeatureCollection>({
-    type: 'FeatureCollection',
-    features: []
-  });
-
   // Scouting trip modal states
   const [isScoutingFormOpen, setIsScoutingFormOpen] = useState(false);
   const [isScoutingUploadOpen, setIsScoutingUploadOpen] = useState(false);
@@ -295,10 +290,6 @@ function HomeContent() {
 
   const handleFilterChange = (filters: Set<string>) => {
     setActiveFilters(filters);
-  };
-
-  const handleDrawnFeaturesChange = (features: GeoJSON.FeatureCollection) => {
-    setDrawnFeatures(features);
   };
 
   // Handle starting linking mode from form or upload
@@ -449,7 +440,6 @@ function HomeContent() {
           incomeEnabled={incomeEnabled}
           incomeWealthyFilter={incomeWealthyFilter}
           trafficHour={trafficHour}
-          onDrawnFeaturesChange={handleDrawnFeaturesChange}
           selectedCity={selectedCity}
           isLinkingMode={isLinking}
           showHiddenPois={showHiddenPois}

@@ -357,7 +357,8 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
 
   // Shared geo data from context (loaded once at app level)
-  const { densityData, incomeData } = useGeoData();
+  const { densityData, incomeData, requestGeoData } = useGeoData();
+  const geoReady = !!densityData && !!incomeData;
 
   // Point categories context
   const {
@@ -724,10 +725,20 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
   // Handle delete shape
   const handleDeleteShape = useCallback(() => {
     if (!selectedId) return;
+    // The trash button sits right next to close, and a deleted shape takes its
+    // comments and attachments with it, so ask first.
+    const name = allMetadata[selectedId]?.name;
+    if (!window.confirm(`Delete ${name ? `"${name}"` : 'this shape'}? Its comments and attachments will be removed too.`)) return;
     deleteFeatureById(selectedId);
     setActiveShapeId(null);
     showToast('Deleted');
-  }, [selectedId, deleteFeatureById, showToast]);
+  }, [selectedId, allMetadata, deleteFeatureById, showToast]);
+
+  // A selected shape or point shows population and income, so start loading
+  // that data (once per session) the first time anything is selected.
+  useEffect(() => {
+    if (selectedId) requestGeoData();
+  }, [selectedId, requestGeoData]);
 
   // Calculate area, population, and income for polygons (must be before early returns - React hooks rule)
   // Uses cached stats to avoid recalculating on every render
@@ -1192,7 +1203,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                   <div className="flex items-center gap-1.5">
                     <Users className="w-3.5 h-3.5 text-zinc-400" />
                     <span className="text-sm text-zinc-600">
-                      {formatPopulation(radiusStats.population)}
+                      {geoReady ? formatPopulation(radiusStats.population) : '…'}
                     </span>
                   </div>
                   {radiusStats.avgIncome > 0 && (
@@ -1234,7 +1245,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                 <div className="relative group flex items-center gap-1.5 cursor-default">
                   <Users className="w-3.5 h-3.5 text-zinc-400" />
                   <span className="text-sm text-zinc-600">
-                    {formatPopulation(areaStats.population)}
+                    {geoReady ? formatPopulation(areaStats.population) : '…'}
                   </span>
                   {/* Black tooltip */}
                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2.5 py-1.5 bg-zinc-900 text-white text-xs font-medium rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">

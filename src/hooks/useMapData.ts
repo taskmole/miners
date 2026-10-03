@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import useSWR from "swr";
 import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
-import { preloadGravity, getScoreAt } from "@/lib/gravity-lookup";
 import { getAuthToken, getRefreshedAuthToken } from "@/lib/api-client";
 
 export interface CafeData {
@@ -299,8 +298,6 @@ async function loadPragueCafes(): Promise<CafeData[]> {
 }
 
 async function loadProperties(cityId: string): Promise<PropertyData[]> {
-    await preloadGravity(cityId);
-
     const res = await fetchWithTimeout(`/api/db/places?city_id=${encodeURIComponent(cityId)}`);
     if (!res.ok) throw new Error(`Places API ${res.status}: ${res.statusText}`);
     const rows: any[] = await res.json();
@@ -321,7 +318,8 @@ async function loadProperties(cityId: string): Promise<PropertyData[]> {
         transfer: p.transfer,
         hasBathroom: p.hasBathroom,
         hasStorefront: p.hasStorefront,
-        score: getScoreAt(p.latitude, p.longitude, cityId),
+        // Scored on the server, which holds the gravity grid (see gravity-server.ts).
+        score: typeof p.score === "number" ? p.score : undefined,
         image_url: p.image_url,
         priceHistory: p.priceHistory,
         createdAt: p.createdAt,

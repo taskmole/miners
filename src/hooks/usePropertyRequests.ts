@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { apiFetch } from "@/lib/api-client";
+import { keepIfSame } from "@/lib/keep-if-same";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface PropertyRequest {
@@ -46,6 +47,9 @@ function readableError(err: unknown): Error {
   return new Error(raw);
 }
 
+/** Requests on their way to the server, by property, shared by every caller. */
+const pendingRequests = new Map<string, Promise<PropertyRequest>>();
+
 async function fetchRequests(): Promise<PropertyRequest[]> {
   try {
     const data = await apiFetch<PropertyRequest[]>("/api/db/property-requests");
@@ -84,7 +88,8 @@ export function usePropertyRequests(enabled = true) {
   useEffect(() => {
     if (!enabled || !isLoaded) return;
     const interval = setInterval(async () => {
-      setRequests(await fetchRequests());
+      const data = await fetchRequests();
+      setRequests(prev => keepIfSame(prev, data));
     }, 60_000);
     return () => clearInterval(interval);
   }, [enabled, isLoaded]);
@@ -164,16 +169,24 @@ export function usePropertyRequests(enabled = true) {
   const requestProperty = useCallback(
     async (placeId: string, snapshot: RequestSnapshot = {}) => {
       setError(null);
-      let result: PropertyRequest;
-      try {
-        result = await apiFetch<PropertyRequest>("/api/db/property-requests", {
+      // A second tap while the first request is still on its way joins it.
+      // Sending it again only earned an "already requested" error toast
+      // straight after the "Request sent" one.
+      let pending = pendingRequests.get(placeId);
+      if (!pending) {
+        pending = apiFetch<PropertyRequest>("/api/db/property-requests", {
           method: "POST",
           body: JSON.stringify({ property_place_id: placeId, ...snapshot }),
-        });
+        }).finally(() => pendingRequests.delete(placeId));
+        pendingRequests.set(placeId, pending);
+      }
+      let result: PropertyRequest;
+      try {
+        result = await pending;
       } catch (err) {
         throw readableError(err);
       }
-      setRequests((prev) => [result, ...prev]);
+      setRequests((prev) => (prev.some((r) => r.id === result.id) ? prev : [result, ...prev]));
       return result;
     },
     [],
