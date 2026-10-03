@@ -53,12 +53,11 @@ export function useMapDraw() {
 
 type MapDrawProps = {
   children?: ReactNode;
-  onFeaturesChange?: (features: GeoJSON.FeatureCollection) => void;
   onShapeCreated?: () => void;
   onShapeUpdated?: () => void;
 };
 
-export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpdated }: MapDrawProps) {
+export function MapDraw({ children, onShapeCreated, onShapeUpdated }: MapDrawProps) {
   const { map, isLoaded } = useMap();
   const { userId: sessionUserId, isReady: authReady } = useAuth();
   const [draw, setDraw] = useState<MapboxDraw | null>(null);
@@ -209,7 +208,6 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
     const handleCreate = () => {
       const allFeatures = draw.getAll();
       setFeatures(allFeatures);
-      onFeaturesChange?.(allFeatures);
       onShapeCreated?.();
       syncAndPersist(allFeatures);
 
@@ -269,7 +267,6 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
       }
 
       setFeatures(allFeatures);
-      onFeaturesChange?.(allFeatures);
       onShapeUpdated?.();
       syncAndPersist(allFeatures);
     };
@@ -321,7 +318,7 @@ export function MapDraw({ children, onFeaturesChange, onShapeCreated, onShapeUpd
         m.off('draw.modechange', handleModeChange);
       });
     };
-  }, [map, draw, features, onFeaturesChange, onShapeCreated, onShapeUpdated, syncAndPersist, clearHoveredPoint, setHoveredPoint]);
+  }, [map, draw, features, onShapeCreated, onShapeUpdated, syncAndPersist, clearHoveredPoint, setHoveredPoint]);
 
   // Desktop hover listeners for walking radius circle
   useEffect(() => {

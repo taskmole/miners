@@ -63,12 +63,16 @@ export function NewListingsModal({
   const { hasPendingRequest, wasRejectedForMe, requestProperty } = usePropertyRequests();
   // writableLists, not lists: "add to list" here writes to lists[0], so a
   // read-only list sorting first would drop the property in someone else's.
-  const { writableLists: lists, toggleInList, createList } = useListsContext();
+  const { writableLists: lists, addToList, isPlaceInList, createList } = useListsContext();
   const { createTrip, updateTrip } = useScoutingTrips();
 
   // Data state
   const [properties, setProperties] = useState<InboxProperty[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed load used to fall through to "All caught up", so a network
+  // error looked exactly like an empty inbox. Bumping reloadKey retries.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Triage state
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -145,6 +149,7 @@ export function NewListingsModal({
 
     async function load() {
       setLoading(true);
+      setLoadFailed(false);
       try {
         const data = await apiFetch<InboxProperty[]>(
           `/api/db/inbox?city_id=${cityId}`,
@@ -155,7 +160,10 @@ export function NewListingsModal({
         }
       } catch (err) {
         console.error("Failed to load listings:", err);
-        if (!cancelled) setProperties([]);
+        if (!cancelled) {
+          setProperties([]);
+          setLoadFailed(true);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -163,7 +171,7 @@ export function NewListingsModal({
 
     load();
     return () => { cancelled = true; };
-  }, [isOpen, cityId]);
+  }, [isOpen, cityId, reloadKey]);
 
   // Mark single listing as read (optimistic)
   const handleMarkRead = useCallback(
@@ -321,15 +329,22 @@ export function NewListingsModal({
       lat: currentProperty.latitude,
       lon: currentProperty.longitude,
     };
+    // Add, never toggle: pressing this on a listing that is already saved
+    // used to remove it while the toast still said "Added".
     if (lists.length > 0) {
-      toggleInList(lists[0].id, placeInfo);
-      showToast(`Added to ${lists[0].name}`);
+      const list = lists[0];
+      if (isPlaceInList(placeInfo.placeId, list.id)) {
+        showToast(`Already in ${list.name}`);
+        return;
+      }
+      addToList(list.id, placeInfo);
+      showToast(`Added to ${list.name}`);
     } else {
       const list = createList("Saved properties");
-      toggleInList(list.id, placeInfo);
+      addToList(list.id, placeInfo);
       showToast("Added to Saved properties");
     }
-  }, [currentProperty, lists, toggleInList, createList, showToast]);
+  }, [currentProperty, lists, addToList, isPlaceInList, createList, showToast]);
 
   // Undo pre-reject. Pre-rejected properties are filtered out of a
   // franchisee's deck entirely, so only a reviewer ever reaches this.
@@ -522,6 +537,18 @@ export function NewListingsModal({
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
+          </div>
+        ) : loadFailed ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-20">
+            <p className="text-sm font-medium text-zinc-900">Couldn&apos;t load new listings</p>
+            <p className="text-xs text-zinc-400 mt-1">Check your connection and try again.</p>
+            <button
+              type="button"
+              onClick={() => setReloadKey(k => k + 1)}
+              className="mt-4 px-5 py-2.5 rounded-full bg-zinc-900 text-sm font-medium text-white"
+            >
+              Retry
+            </button>
           </div>
         ) : deck.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20">

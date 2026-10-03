@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { keepIfSame } from '@/lib/keep-if-same';
 import { useAuth } from '@/contexts/AuthContext';
 
 export interface PropertyAssignment {
@@ -70,7 +71,7 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
     if (!isLoaded) return;
     const interval = setInterval(async () => {
       const data = await fetchAssignments();
-      setAssignments(data);
+      setAssignments(prev => keepIfSame(prev, data));
     }, 60_000);
     return () => clearInterval(interval);
   }, [isLoaded]);
@@ -83,7 +84,8 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
     if (!isLoaded) return;
     const refresh = async () => {
       if (document.visibilityState === "hidden") return;
-      setAssignments(await fetchAssignments());
+      const data = await fetchAssignments();
+      setAssignments(prev => keepIfSame(prev, data));
     };
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);

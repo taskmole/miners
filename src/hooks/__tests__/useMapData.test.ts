@@ -1,10 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("@/lib/gravity-lookup", () => ({
-    preloadGravity: vi.fn(),
-    getScoreAt: vi.fn(() => 72),
-}));
-
 vi.mock("@/lib/dateUtils", () => ({
     isRecentlyAdded: vi.fn(() => false),
     isNewPoi: vi.fn(() => false),
@@ -104,14 +99,20 @@ describe("loadProperties", () => {
         await expect(__test.loadProperties("prague")).rejects.toThrow("network timeout");
     });
 
-    it("calls gravity scoring for each property", async () => {
-        const { getScoreAt } = await import("@/lib/gravity-lookup");
-        mockFetchResponse([buildApiRow(), buildApiRow({ latitude: 41.0, longitude: -2.0 })]);
+    it("keeps the score the server attached, and leaves it unset when absent", async () => {
+        mockFetchResponse([buildApiRow({ score: 72 }), buildApiRow({ score: undefined })]);
         const { __test } = await import("@/hooks/useMapData");
-        const result = await __test.loadProperties("prague");
+        const result = await __test.loadProperties("madrid");
         expect(result.length).toBe(2);
-        expect(getScoreAt).toHaveBeenCalledTimes(2);
         expect(result[0].score).toBe(72);
+        expect(result[1].score).toBeUndefined();
+    });
+
+    it("makes exactly one request (no score grid download)", async () => {
+        mockFetchResponse([buildApiRow()]);
+        const { __test } = await import("@/hooks/useMapData");
+        await __test.loadProperties("madrid");
+        expect(global.fetch).toHaveBeenCalledTimes(1);
     });
 
     it("passes city_id as query parameter", async () => {

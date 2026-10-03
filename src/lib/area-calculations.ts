@@ -7,7 +7,7 @@ import turfArea from '@turf/area';
 import turfIntersect from '@turf/intersect';
 import turfCircle from '@turf/circle';
 import { polygon as turfPolygon, featureCollection } from '@turf/helpers';
-import type { Feature, Polygon, FeatureCollection } from 'geojson';
+import type { Feature, Polygon, FeatureCollection, Geometry } from 'geojson';
 
 /**
  * Calculate area of a polygon in km²
@@ -71,6 +71,53 @@ export function generateWalkingCircle(
 }
 
 /**
+ * Bounding box [minLon, minLat, maxLon, maxLat] of a polygon geometry.
+ *
+ * Used to skip the expensive turf intersection for census sections nowhere
+ * near the drawn shape: Madrid's income file has ~4,500 of them, and a
+ * typical shape touches a few dozen.
+ */
+type BBox = [number, number, number, number];
+
+function geometryBBox(geometry: Geometry | null): BBox | null {
+  if (geometry?.type !== 'Polygon' && geometry?.type !== 'MultiPolygon') return null;
+  const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
+  let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+  for (const polygon of polygons) {
+    for (const ring of polygon) {
+      for (const [lon, lat] of ring) {
+        if (lon < minLon) minLon = lon;
+        if (lon > maxLon) maxLon = lon;
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+      }
+    }
+  }
+  return minLon === Infinity ? null : [minLon, minLat, maxLon, maxLat];
+}
+
+// The data features never change once loaded, so their boxes are computed once.
+const bboxCache = new WeakMap<Feature, BBox | null>();
+
+function featureBBox(feature: Feature): BBox | null {
+  if (!bboxCache.has(feature)) bboxCache.set(feature, geometryBBox(feature.geometry));
+  return bboxCache.get(feature) ?? null;
+}
+
+function bboxesOverlap(a: BBox, b: BBox): boolean {
+  return a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1];
+}
+
+/** The (Multi)Polygon features whose bounding box touches the drawn shape's. */
+function nearbyPolygons(drawnPolygon: Feature<Polygon>, data: FeatureCollection): Feature<Polygon>[] {
+  const drawnBBox = geometryBBox(drawnPolygon.geometry);
+  return data.features.filter((feature): feature is Feature<Polygon> => {
+    const box = featureBBox(feature);
+    return !!box && (!drawnBBox || bboxesOverlap(drawnBBox, box));
+  });
+}
+
+/**
  * Estimate population within a drawn polygon
  * Intersects with neighborhood density polygons and sums proportionally
  *
@@ -85,16 +132,11 @@ export function calculatePopulation(
 
   let totalPopulation = 0;
 
-  for (const neighborhood of densityData.features) {
+  for (const neighborhood of nearbyPolygons(drawnPolygon, densityData)) {
     try {
-      // Skip if not a polygon
-      if (neighborhood.geometry.type !== 'Polygon' && neighborhood.geometry.type !== 'MultiPolygon') {
-        continue;
-      }
-
       // Calculate intersection between drawn area and neighborhood
       const intersection = turfIntersect(
-        featureCollection([drawnPolygon, neighborhood as Feature<Polygon>])
+        featureCollection([drawnPolygon, neighborhood])
       );
 
       if (intersection) {
@@ -132,16 +174,11 @@ export function calculateAverageIncome(
   let totalWeightedIncome = 0;
   let totalIntersectionArea = 0;
 
-  for (const section of incomeData.features) {
+  for (const section of nearbyPolygons(drawnPolygon, incomeData)) {
     try {
-      // Skip if not a polygon
-      if (section.geometry.type !== 'Polygon' && section.geometry.type !== 'MultiPolygon') {
-        continue;
-      }
-
       // Calculate intersection between drawn area and census section
       const intersection = turfIntersect(
-        featureCollection([drawnPolygon, section as Feature<Polygon>])
+        featureCollection([drawnPolygon, section])
       );
 
       if (intersection) {
@@ -252,7 +289,9 @@ export function getCachedStats(
     income: incomeData ? calculateAverageIncome(feature, incomeData) : 0,
   };
 
-  statsCache.set(featureId, stats);
+  // Only cache complete answers. Stats asked for before the population and
+  // income files have loaded would otherwise stay at zero for the session.
+  if (densityData && incomeData) statsCache.set(featureId, stats);
   return stats;
 }
 

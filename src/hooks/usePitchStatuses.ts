@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { keepIfSame } from '@/lib/keep-if-same';
 import type { ScoutingTripStatus } from '@/types/scouting';
 
 interface PitchStatusEntry {
@@ -44,7 +45,7 @@ export function usePitchStatuses() {
     if (!isLoaded) return;
     const interval = setInterval(async () => {
       const map = await fetchPitchStatusMap();
-      setStatusMap(map);
+      setStatusMap(prev => keepIfSame(prev, map));
     }, 60_000);
     return () => clearInterval(interval);
   }, [isLoaded]);

@@ -1343,6 +1343,21 @@ function PropertyActionsFooter({
     const [subMenu, setSubMenu] = React.useState<"assign" | "reject" | "addToList" | null>(null);
     const [rejectReason, setRejectReason] = React.useState("");
     const [newListName, setNewListName] = React.useState("");
+    // One server action at a time. Without this a double-click on Request sent
+    // two requests: "Request sent", then an error toast for the duplicate.
+    const [busy, setBusy] = React.useState(false);
+    const busyRef = React.useRef(false);
+    const runExclusive = async (action: () => Promise<void>) => {
+        if (busyRef.current) return;
+        busyRef.current = true;
+        setBusy(true);
+        try {
+            await action();
+        } finally {
+            busyRef.current = false;
+            setBusy(false);
+        }
+    };
     const menuRef = React.useRef<HTMLDivElement>(null);
     // writableLists, not lists: this menu offers save targets, and somebody
     // else's read-only list must never be one.
@@ -1382,7 +1397,7 @@ function PropertyActionsFooter({
         wasRejectedForMe: wasRejectedForMe(placeId),
     }) : pendingPropertyActions();
 
-    const handleRequest = async () => {
+    const handleRequest = () => runExclusive(async () => {
         try {
             await requestProperty(placeId, {
                 property_name: property.title,
@@ -1395,7 +1410,7 @@ function PropertyActionsFooter({
             showToast(err instanceof Error ? err.message : "Could not send request", 'error');
         }
         setMenuOpen(false);
-    };
+    });
 
     // Shared metadata for all property activity log entries
     const propertyMeta = {
@@ -1419,7 +1434,7 @@ function PropertyActionsFooter({
         setMenuOpen(false);
     };
 
-    const handleAssign = async (userId: string) => {
+    const handleAssign = (userId: string) => runExclusive(async () => {
         try {
             await assignProperty(placeId, userId);
             const user = assignableUsers.find(u => u.id === userId);
@@ -1443,9 +1458,9 @@ function PropertyActionsFooter({
         }
         setSubMenu(null);
         setMenuOpen(false);
-    };
+    });
 
-    const handleAssignToTeam = async (teamId: string) => {
+    const handleAssignToTeam = (teamId: string) => runExclusive(async () => {
         try {
             await assignProperty(placeId, null, { teamId });
             const team = teams.find(t => t.id === teamId);
@@ -1470,9 +1485,9 @@ function PropertyActionsFooter({
         }
         setSubMenu(null);
         setMenuOpen(false);
-    };
+    });
 
-    const handlePreReject = async () => {
+    const handlePreReject = () => runExclusive(async () => {
         if (!rejectReason.trim()) {
             showToast("Enter a reason", 'error');
             return;
@@ -1490,9 +1505,9 @@ function PropertyActionsFooter({
         setRejectReason("");
         setSubMenu(null);
         setMenuOpen(false);
-    };
+    });
 
-    const handleRemoveAssignment = async () => {
+    const handleRemoveAssignment = () => runExclusive(async () => {
         try {
             await removeAssignment(placeId);
             showToast("Assignment removed");
@@ -1501,7 +1516,7 @@ function PropertyActionsFooter({
             showToast("Failed to remove", 'error');
         }
         setMenuOpen(false);
-    };
+    });
 
     const franchisees = assignableUsers.filter(u => u.role === "franchisee");
 
@@ -1545,7 +1560,7 @@ function PropertyActionsFooter({
                             <button
                                 className="actions-item"
                                 onClick={handleRequest}
-                                disabled={alreadyRequested}
+                                disabled={alreadyRequested || busy}
                                 title={alreadyRequested ? "Waiting for a reviewer" : "Ask an admin for this property"}
                             >
                                 {alreadyRequested ? <Check size={14} /> : <Hand size={14} />}
@@ -1576,13 +1591,13 @@ function PropertyActionsFooter({
                             </button>
                         )}
                         {actions.showRemoveAssignment && (
-                            <button className="actions-item actions-danger" onClick={handleRemoveAssignment}>
+                            <button className="actions-item actions-danger" onClick={handleRemoveAssignment} disabled={busy}>
                                 <Trash2 size={14} />
                                 <span>Remove assignment</span>
                             </button>
                         )}
                         {actions.showUndoPreReject && (
-                            <button className="actions-item actions-danger" onClick={handleRemoveAssignment}>
+                            <button className="actions-item actions-danger" onClick={handleRemoveAssignment} disabled={busy}>
                                 <Trash2 size={14} />
                                 <span>Undo pre-reject</span>
                             </button>
@@ -1599,7 +1614,7 @@ function PropertyActionsFooter({
                             <>
                                 <div className="actions-section-label" style={{ padding: "4px 12px", fontSize: "11px", fontWeight: 600, color: "#71717a", textTransform: "uppercase" }}>Teams</div>
                                 {teams.map(t => (
-                                    <button key={t.id} className="actions-item" onClick={() => handleAssignToTeam(t.id)}>
+                                    <button key={t.id} className="actions-item" onClick={() => handleAssignToTeam(t.id)} disabled={busy}>
                                         <span>{t.name}</span>
                                         <span style={{ fontSize: "11px", color: "#a1a1aa", marginLeft: "auto" }}>{t.team_members.length} members</span>
                                     </button>
@@ -1611,7 +1626,7 @@ function PropertyActionsFooter({
                             <div className="actions-empty">No franchisees or teams found</div>
                         )}
                         {franchisees.map(u => (
-                            <button key={u.id} className="actions-item" onClick={() => handleAssign(u.id)}>
+                            <button key={u.id} className="actions-item" onClick={() => handleAssign(u.id)} disabled={busy}>
                                 <span>{u.display_name || u.email || u.id.slice(0, 8)}</span>
                             </button>
                         ))}
@@ -1636,7 +1651,7 @@ function PropertyActionsFooter({
                             <button
                                 className="actions-submit"
                                 onClick={handlePreReject}
-                                disabled={!rejectReason.trim()}
+                                disabled={!rejectReason.trim() || busy}
                             >
                                 Confirm
                             </button>
@@ -2496,7 +2511,6 @@ interface EnhancedMapContainerProps {
     incomeEnabled?: boolean;
     incomeWealthyFilter?: number;
     trafficHour?: number;
-    onDrawnFeaturesChange?: (features: GeoJSON.FeatureCollection) => void;
     selectedCity?: City;
     isLinkingMode?: boolean;
     showHiddenPois?: boolean;
@@ -2520,7 +2534,6 @@ export function EnhancedMapContainer({
     incomeEnabled,
     incomeWealthyFilter = 0,
     trafficHour,
-    onDrawnFeaturesChange,
     selectedCity,
     isLinkingMode = false,
     showHiddenPois = false,
@@ -2541,12 +2554,9 @@ export function EnhancedMapContainer({
         populationData,
         incomeData,
         isLoadingTraffic,
-        isLoadingPopulation,
-        isLoadingIncome,
         loadTrafficData,
         loadTrafficGroupedData,
-        loadPopulationData,
-        loadIncomeData,
+        loadGeoData,
     } = useOverlayData();
 
     // Gravity/Location Score data state
@@ -3052,19 +3062,12 @@ export function EnhancedMapContainer({
         }
     }, [trafficEnabled, trafficValuesEnabled, loadTrafficGroupedData]);
 
-    // Load population data when enabled
+    // Population and income load together, the first time either is turned on
     useEffect(() => {
-        if (populationEnabled) {
-            loadPopulationData();
+        if (populationEnabled || incomeEnabled) {
+            loadGeoData();
         }
-    }, [populationEnabled, loadPopulationData]);
-
-    // Load income data when enabled
-    useEffect(() => {
-        if (incomeEnabled) {
-            loadIncomeData();
-        }
-    }, [incomeEnabled, loadIncomeData]);
+    }, [populationEnabled, incomeEnabled, loadGeoData]);
 
     // Load gravity data when enabled
     useEffect(() => {
@@ -3129,7 +3132,6 @@ export function EnhancedMapContainer({
 
                 {/* Drawing functionality - DrawToolbar uses portal to escape z-0 stacking context */}
                 <MapDraw
-                    onFeaturesChange={onDrawnFeaturesChange}
                     onShapeCreated={shapeCreatedCallback ?? undefined}
                     onShapeUpdated={shapeCreatedCallback ?? undefined}
                 >

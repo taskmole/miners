@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, X } from 'lucide-react';
 
@@ -40,8 +40,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, 2000);
   }, []);
 
+  // Stable value: a fresh object here re-rendered every useToast() caller,
+  // including the whole map, each time a toast appeared and again when it left.
+  const value = useMemo(() => ({ showToast }), [showToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={value}>
       {children}
       {/* Render toasts via portal - only after mount to avoid hydration mismatch */}
       {mounted && createPortal(

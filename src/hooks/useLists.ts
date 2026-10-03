@@ -257,6 +257,11 @@ export function useLists() {
       drawnAreas: [],
     };
 
+    // Make the new list visible to the mutations right away. Every "create a
+    // list and add this to it" flow calls addToList/toggleInList in the same
+    // click, and those read listsRef, which otherwise only catches up on the
+    // next render: the add silently did nothing while the toast said "Added".
+    listsRef.current = [...listsRef.current, newList];
     setLists(prev => [...prev, newList]);
 
     enqueue({

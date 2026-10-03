@@ -52,7 +52,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head />
+      <head>
+        {/* Open connections to the map style/tile servers and the database
+            while the page's JavaScript is still loading, so the first map
+            tiles and the session check don't each pay for a fresh handshake. */}
+        <link rel="preconnect" href="https://basemaps.cartocdn.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://tiles.basemaps.cartocdn.com" crossOrigin="anonymous" />
+        {process.env.NEXT_PUBLIC_SUPABASE_URL && (
+          <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="anonymous" />
+        )}
+      </head>
       <body className={`${inter.variable} ${outfit.variable} font-sans antialiased`}>
         <ServiceWorkerRegistration />
         <ThemeProvider

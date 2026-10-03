@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/supabase-server";
 import { parseWkbPoint } from "@/lib/wkb";
+import { getGravityIndex } from "@/lib/gravity-server";
+import { scoreAt } from "@/lib/gravity-grid";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +30,17 @@ export async function GET(request: NextRequest) {
 
     try {
         const { supabase } = auth;
-        const { data, error } = await supabase
-            .from("places")
-            .select("name, address, location, source, metadata, photos, updated_at, created_at")
-            .eq("city_id", cityId)
-            .in("source", ["idealista", "idealista_transfer", "sreality"])
-            .eq("status", "active");
+        // The score grid loads alongside the query, not after it. It is read
+        // once per server instance and cached; null for cities without one.
+        const [{ data, error }, gravity] = await Promise.all([
+            supabase
+                .from("places")
+                .select("name, address, location, source, metadata, photos, updated_at, created_at")
+                .eq("city_id", cityId)
+                .in("source", ["idealista", "idealista_transfer", "sreality"])
+                .eq("status", "active"),
+            getGravityIndex(cityId),
+        ]);
 
         if (error) {
             console.error("[api/db/places] query error:", error);
@@ -65,6 +72,7 @@ export async function GET(request: NextRequest) {
                     createdAt: p.created_at || undefined,
                     updatedAt: p.updated_at || undefined,
                     photos: p.photos?.length ? p.photos : undefined,
+                    score: gravity ? scoreAt(gravity, coords.lat, coords.lon) : undefined,
                 };
             })
             .filter(Boolean);

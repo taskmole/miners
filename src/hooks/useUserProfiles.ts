@@ -66,6 +66,32 @@ type GrantRowWithUser = CityGrantRow & { user_id: string };
 
 const ALL_CITY_IDS = cities.map((c) => c.id);
 
+/**
+ * One network request per URL while it is in flight, shared by every caller.
+ *
+ * About five components on the main page use this hook, and each one used to
+ * fire the same three requests on mount: fifteen requests for three answers,
+ * and one more trio every time a property popup opened. Callers that arrive
+ * while a request is pending now join it. Nothing is kept once it settles, so
+ * permissions are still read fresh from the server on every mount.
+ *
+ * Keyed by user as well as URL, so a request started for one account can
+ * never answer for another. `shareAs` is that user id, or false for a request
+ * that must go out on its own (an explicit refetch after an edit).
+ */
+const inFlight = new Map<string, Promise<unknown>>();
+
+function getJson<T>(url: string, shareAs: string | null | false): Promise<T> {
+  if (shareAs === false) return apiFetch<T>(url);
+  const key = `${shareAs ?? ''}|${url}`;
+  let pending = inFlight.get(key) as Promise<T> | undefined;
+  if (!pending) {
+    pending = apiFetch<T>(url).finally(() => inFlight.delete(key));
+    inFlight.set(key, pending);
+  }
+  return pending;
+}
+
 export function useUserProfiles() {
   const { userId, isReady } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -89,11 +115,14 @@ export function useUserProfiles() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUsers = useCallback(async () => {
+  // Shared on mount only. An explicit refetch (after an admin edits someone)
+  // must start its own request rather than join one that began before the edit.
+  const fetchUsers = useCallback(async (shareInFlight: boolean = false) => {
+    const shareAs = shareInFlight && userId;
     try {
       const [profiles, grantRows] = await Promise.all([
-        apiFetch<UserProfile[]>('/api/db/user-profiles?mode=all'),
-        apiFetch<GrantRowWithUser[]>('/api/db/user-grants?mode=all'),
+        getJson<UserProfile[]>('/api/db/user-profiles?mode=all', shareAs),
+        getJson<GrantRowWithUser[]>('/api/db/user-grants?mode=all', shareAs),
       ]);
 
       setUsers(profiles || []);
@@ -108,7 +137,7 @@ export function useUserProfiles() {
       console.error('Error fetching users:', err);
       setError('Failed to load users');
     }
-  }, []);
+  }, [userId]);
 
   /**
    * Resolve this session's access from the server, every time.
@@ -124,14 +153,14 @@ export function useUserProfiles() {
    * On failure access is cleared rather than left alone. The old catch only
    * logged, so a 401 during a token refresh left the previous role in place.
    */
-  const fetchAccess = useCallback(async () => {
+  const fetchAccess = useCallback(async (shareInFlight: boolean = false) => {
     try {
-      const data = await apiFetch<{
+      const data = await getJson<{
         isSuperAdmin: boolean;
         isActive: boolean;
         canSeeFinancials: boolean;
         grants: CityGrantRow[];
-      }>('/api/db/user-grants?mode=current');
+      }>('/api/db/user-grants?mode=current', shareInFlight && userId);
 
       setAccess({
         isSuperAdmin: data?.isSuperAdmin === true,
@@ -153,7 +182,7 @@ export function useUserProfiles() {
     } finally {
       setAccessResolved(true);
     }
-  }, []);
+  }, [userId]);
 
   /** Replace one person's city grants wholesale. Super admins only. */
   const updateGrants = useCallback(
@@ -348,8 +377,10 @@ export function useUserProfiles() {
     }
 
     setLoading(true);
-    Promise.all([fetchAccess(), fetchUsers()]).finally(() => setLoading(false));
+    Promise.all([fetchAccess(true), fetchUsers(true)]).finally(() => setLoading(false));
   }, [userId, isReady, fetchAccess, fetchUsers]);
+
+  const refetch = useCallback(() => fetchUsers(), [fetchUsers]);
 
   return {
     users,
@@ -373,7 +404,7 @@ export function useUserProfiles() {
     toggleActive,
     addUser,
     updateUser,
-    refetch: fetchUsers,
+    refetch,
   };
 }
 
