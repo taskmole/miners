@@ -9,7 +9,10 @@ import type { Attachment } from '@/types/attachments';
 async function loadMetadataFromApi(): Promise<Record<string, ShapeMetadata> | null> {
   try {
     const userId = getCurrentUserId();
-    const data = await apiFetch<Array<{
+    // The route answers { userId, features }, not a bare array (map-draw.tsx
+    // reads it the same way). Iterating the object threw on every page load,
+    // so saved names, tags, links and categories never came back.
+    const response = await apiFetch<{ features: Array<{
       id: string;
       name: string | null;
       color: string | null;
@@ -20,8 +23,9 @@ async function loadMetadataFromApi(): Promise<Record<string, ShapeMetadata> | nu
       address_coords: [number, number] | null;
       created_by: string | null;
       attachments: Attachment[] | null;
-    }>>(`/api/db/drawn-features?user_id=${encodeURIComponent(userId)}`);
+    }> }>(`/api/db/drawn-features?user_id=${encodeURIComponent(userId)}`);
 
+    const data = response?.features;
     if (!data) return null;
 
     const result: Record<string, ShapeMetadata> = {};
