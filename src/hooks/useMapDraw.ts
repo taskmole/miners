@@ -18,27 +18,10 @@ export function useMapDraw() {
     }
   };
 
-  const deleteSelected = () => {
-    if (!draw || selectedFeatureIds.length === 0) return;
-    try {
-      draw.delete(selectedFeatureIds);
-    } catch (error) {
-      console.error('Error deleting features:', error);
-    }
-  };
-
-  // Delete a specific feature by ID (uses context function to ensure localStorage is updated)
+  // Delete a specific feature by ID. Goes through the context so the delete is
+  // saved: deleting straight on the draw instance fires no event and would not be.
   const deleteFeatureById = (featureId: string) => {
     deleteFeature(featureId);
-  };
-
-  const clearAll = () => {
-    if (!draw) return;
-    try {
-      draw.deleteAll();
-    } catch (error) {
-      console.error('Error clearing all features:', error);
-    }
   };
 
   const getAll = () => {
@@ -66,47 +49,15 @@ export function useMapDraw() {
     linkElement.click();
   };
 
-  /**
-   * Update properties on a specific feature
-   * Used to set custom colors and other metadata
-   * Note: MapboxDraw stores user properties with 'user_' prefix
-   */
-  const updateFeatureProperties = (featureId: string, properties: Record<string, any>) => {
-    if (!draw) return;
-    try {
-      const feature = draw.get(featureId);
-      if (feature) {
-        // MapboxDraw requires delete + add to update properties
-        // Add user_ prefix to properties for MapboxDraw styling to work
-        const userPrefixedProps: Record<string, any> = {};
-        for (const [key, value] of Object.entries(properties)) {
-          userPrefixedProps[`user_${key}`] = value;
-        }
-
-        const updatedFeature = {
-          ...feature,
-          properties: { ...feature.properties, ...userPrefixedProps }
-        };
-        draw.delete(featureId);
-        draw.add(updatedFeature);
-      }
-    } catch (error) {
-      console.error('Error updating feature properties:', error);
-    }
-  };
-
   return {
     draw,
     mode,
     features,
     selectedFeatureIds,
     changeMode,
-    deleteSelected,
     deleteFeatureById,
-    clearAll,
     getAll,
     exportGeoJSON,
-    updateFeatureProperties,
     clearSelection,
   };
 }
