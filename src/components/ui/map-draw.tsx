@@ -10,6 +10,7 @@ import type { DrawMode } from '@/types/draw';
 import { useAuth } from '@/contexts/AuthContext';
 import { logActivity } from '@/lib/supabaseHelpers';
 import { apiFetch } from '@/lib/api-client';
+import { saveShapes, removeShapes } from '@/lib/shape-writes';
 import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
 import { useMobile } from '@/hooks/useMobile';
 
@@ -39,43 +40,6 @@ function toPoints(fc: GeoJSON.FeatureCollection) {
       id: f.id as string,
       center: (f.geometry as GeoJSON.Point).coordinates as [number, number]
     }));
-}
-
-/*
- * Saving shapes. Each draw event saves only the shapes it touched. This used
- * to save every shape on screen and then delete every saved shape that was
- * not on screen, so a tab that had not loaded, or was out of date, wiped the
- * person's other shapes the next time they drew.
- *
- * Writes go out one at a time, in order, so a quick draw-then-delete cannot
- * land the delete before the save and bring the shape back on reload.
- */
-let shapeWrites: Promise<unknown> = Promise.resolve();
-
-function queueShapeWrite(url: string, init: RequestInit) {
-  shapeWrites = shapeWrites
-    .then(() => apiFetch(url, init))
-    .catch((error) => console.error('Error saving shapes:', error));
-}
-
-// Only geometry is sent. Metadata (name, color, tags) is owned by
-// ShapeComments via RPC, and the server stamps the owner from the session.
-function saveShapes(shapes: GeoJSON.Feature[]) {
-  if (shapes.length === 0) return;
-  const rows = shapes.map(f => ({
-    id: f.id as string,
-    geojson: f as unknown as Record<string, unknown>,
-    updated_at: new Date().toISOString(),
-  }));
-  queueShapeWrite('/api/db/drawn-features', {
-    method: 'POST',
-    body: JSON.stringify({ action: 'upsert_geometry', rows }),
-  });
-}
-
-function removeShapes(ids: string[]) {
-  if (ids.length === 0) return;
-  queueShapeWrite(`/api/db/drawn-features?ids=${encodeURIComponent(ids.join(','))}`, { method: 'DELETE' });
 }
 
 // Context for drawing state
