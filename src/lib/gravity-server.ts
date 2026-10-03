@@ -22,7 +22,9 @@ const GRID_FILES: Record<string, string> = {
 const indexes = new Map<string, Promise<GravityIndex | null>>();
 
 export function getGravityIndex(city: string): Promise<GravityIndex | null> {
-    const file = GRID_FILES[city];
+    // hasOwn, not a plain lookup: the city comes from the query string, and
+    // "constructor" or "__proto__" would otherwise resolve to something.
+    const file = Object.hasOwn(GRID_FILES, city) ? GRID_FILES[city] : undefined;
     if (!file) return Promise.resolve(null);
 
     let pending = indexes.get(city);

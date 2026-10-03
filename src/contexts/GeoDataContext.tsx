@@ -16,6 +16,8 @@ const GeoDataContext = createContext<GeoDataContextType>({
   requestGeoData: () => {},
 });
 
+const RETRY_COOLDOWN_MS = 30_000;
+
 /**
  * Income and population polygons, shared by the shape stats, the hover
  * tooltip and the income/population map overlays.
@@ -30,13 +32,19 @@ export function GeoDataProvider({ children }: { children: ReactNode }) {
   const [incomeData, setIncomeData] = useState<FeatureCollection | null>(null);
   const [densityData, setDensityData] = useState<FeatureCollection | null>(null);
   const started = useRef(false);
+  const retryAfter = useRef(0);
 
   const requestGeoData = useCallback(() => {
-    if (started.current) return;
+    if (started.current || Date.now() < retryAfter.current) return;
     started.current = true;
-    const getJson = (url: string) => fetch(url).then(r => {
+    // The routes answer an empty collection rather than an error when they
+    // fail, so empty counts as failed too. Otherwise shape stats would show
+    // (and cache) zero people for the rest of the session.
+    const getJson = (url: string) => fetch(url).then(async r => {
       if (!r.ok) throw new Error(`${url} ${r.status}`);
-      return r.json();
+      const data = await r.json() as FeatureCollection;
+      if (!data?.features?.length) throw new Error(`${url} returned no data`);
+      return data;
     });
     Promise.all([getJson('/api/income'), getJson('/api/population')])
       .then(([income, density]) => {
@@ -45,8 +53,10 @@ export function GeoDataProvider({ children }: { children: ReactNode }) {
       })
       .catch((err) => {
         console.error(err);
-        // Let the next caller try again rather than staying empty forever.
+        // Let a later caller try again rather than staying empty forever, but
+        // not straight away: every hover would re-download ~5 MB on a bad line.
         started.current = false;
+        retryAfter.current = Date.now() + RETRY_COOLDOWN_MS;
       });
   }, []);
 
