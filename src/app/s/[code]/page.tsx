@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { getShare } from "./get-share";
 import { ShareRedirect } from "./ShareRedirect";
 
@@ -18,32 +17,21 @@ export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ code: string }> };
 
-/**
- * The origin this request was served from, so the preview image URL is
- * absolute and points at the same deployment (production, preview or local)
- * rather than at a hard-coded domain.
- */
-async function requestOrigin(): Promise<URL> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "theminers.vercel.app";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return new URL(`${proto}://${host}`);
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { code } = await params;
   const share = await getShare(code);
-  const metadataBase = await requestOrigin();
+  // No metadataBase: on Vercel, Next falls back to the production, branch or
+  // deployment URL by itself, so the preview image URL is always absolute and
+  // on the deployment that served the page.
   // Shared places are for the people they were sent to, never for Google.
   const robots = { index: false, follow: false };
 
   if (!share) {
-    return { metadataBase, title: "The Miners", robots };
+    return { title: "The Miners", robots };
   }
 
   const description = share.address ?? undefined;
   return {
-    metadataBase,
     title: { absolute: share.title },
     description,
     robots,
@@ -52,7 +40,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       siteName: "The Miners",
       type: "website",
-      url: `/s/${code}`,
     },
     twitter: { card: "summary_large_image", title: share.title, description },
   };

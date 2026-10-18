@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { focusPath } from "@/lib/place-id";
 
 /**
  * Forward a person from the share page into the app, on the shared place.
@@ -10,7 +11,7 @@ import { useEffect } from "react";
  * stays as a fallback for the moment before scripts run, or if they don't.
  */
 export function ShareRedirect({ placeId }: { placeId: string }) {
-  const target = `/?focus=${encodeURIComponent(placeId)}`;
+  const target = focusPath(placeId);
 
   useEffect(() => {
     window.location.replace(target);

@@ -1785,6 +1785,7 @@ function PropertyScoreBadge({
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address, true);
     const placeId = generatePropertyPlaceId(property);
+    const title = capitalizeFirst(property.title);
     const { getPitchStatus, getPitchDate, getPitchRejectionReason, getPitchReturnReason } = usePitchStatusContext();
     const { getAssignment, canPitch: checkCanPitch, users: assignableUsers, assignProperty, preRejectProperty, removeAssignment } = usePropertyAssignmentContext();
     const { canAccessDashboard, accessResolved } = useUserProfiles();
@@ -1942,21 +1943,18 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                 </div>
             )}
 
-            {/* Header - Title. With a photo, hide/close sit on the photo, so the
-                right-hand space they reserve here is released. */}
+            {/* Header - Title. With a photo, hide/close sit on the photo instead. */}
             <div className={cn("popup-header", property.image_url && "no-header-buttons")}>
-                {/* Before the title in the DOM (it is positioned absolutely, so
-                    nothing moves): MapLibre focuses a popup's first button on
-                    open, and that should stay Hide, not the quiet Copy link. */}
+                {/* First in the DOM so MapLibre's focus-on-open lands on Hide */}
                 {!property.image_url && (
                     <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
                 )}
                 <div className="popup-title-row">
-                    <span className="popup-name">{capitalizeFirst(property.title)}</span>
+                    <span className="popup-name">{title}</span>
                     <ShareButton
                         placeId={placeId}
                         placeType="property"
-                        title={capitalizeFirst(property.title)}
+                        title={title}
                         address={capitalizeFirst(property.address)}
                         photoUrl={property.image_url}
                     />
@@ -2523,7 +2521,7 @@ const IconMarker = React.memo(function IconMarker({
     );
 });
 
-/** What a shared link resolved to: enough for navigate-and-open-popup. */
+/** What a shared link resolved to: the navigate-and-open-popup detail. */
 interface FocusTarget {
     lat: number;
     lon: number;
@@ -2532,17 +2530,16 @@ interface FocusTarget {
     data: unknown;
 }
 
-/** How long a shared link may wait for its city's data before giving up. */
-const PENDING_FOCUS_TIMEOUT_MS = 20_000;
-
 /**
  * Open the card a shared link points at, once the map can show it.
  *
  * page.tsx has already checked access and switched to the right city. This
- * waits for the map, then for that city's data (`ready`), finds the place
- * and fires the same navigate-and-open-popup event the lists panel uses, so
- * zooming, switching the layer on and opening the card all reuse that path.
- * Its zoom also cancels CityNavigator's fly-over, so the two never fight.
+ * waits for the map, then for that city's data (`ready`; useMapData's own
+ * timeouts make a failed load "ready" too), finds the place and fires the
+ * same navigate-and-open-popup event the lists panel uses, so zooming,
+ * switching the layer on and opening the card all reuse that path. Its zoom
+ * also cancels CityNavigator's fly-over, so the two never fight. Rendered
+ * after NavigationEventListener, whose listener is therefore already attached.
  */
 function PendingFocusOpener({
     placeId,
@@ -2557,28 +2554,13 @@ function PendingFocusOpener({
 }) {
     const { map, isLoaded } = useMap();
 
-    // Never wait forever: a city whose data errors or hangs still ends here.
-    useEffect(() => {
-        const timer = setTimeout(() => onDone(false), PENDING_FOCUS_TIMEOUT_MS);
-        return () => clearTimeout(timer);
-    }, [placeId, onDone]);
-
     useEffect(() => {
         if (!map || !isLoaded || !ready) return;
         const target = find(placeId);
-        if (!target) {
-            onDone(false);
-            return;
+        if (target) {
+            window.dispatchEvent(new CustomEvent("navigate-and-open-popup", { detail: { ...target, placeId } }));
         }
-        // A beat later, so the navigate listener (attached by a sibling effect
-        // on the same isLoaded flip) is certainly in place.
-        const timer = setTimeout(() => {
-            window.dispatchEvent(new CustomEvent("navigate-and-open-popup", {
-                detail: { lat: target.lat, lon: target.lon, placeId, placeType: target.placeType, data: target.data },
-            }));
-            onDone(true);
-        }, 50);
-        return () => clearTimeout(timer);
+        onDone(!!target);
     }, [map, isLoaded, ready, placeId, find, onDone]);
 
     return null;
@@ -3152,12 +3134,11 @@ export function EnhancedMapContainer({
             // Coordinates alone only for old ids with no URL hash: with one,
             // a near miss would be a different listing in the same building.
             const hasHash = /-[0-9a-f]{8}$/.test(placeId);
-            const p = properties.find(p => generatePropertyPlaceId(p) === placeId)
-                ?? (hasHash ? undefined : properties.find(p => at(p.latitude, p.longitude)));
+            const p = properties.find(p => at(p.latitude, p.longitude) && (!hasHash || generatePropertyPlaceId(p) === placeId));
             return p ? { lat: p.latitude, lon: p.longitude, placeType: "property", data: p } : null;
         }
         if (type === "cafe" || type === "eu_coffee_trip" || type === "regular_cafe") {
-            const c = [...minersCafes, ...cafes].find(c => at(c.lat, c.lon));
+            const c = minersCafes.find(c => at(c.lat, c.lon)) ?? cafes.find(c => at(c.lat, c.lon));
             if (!c) return null;
             const placeType = c.link?.includes("europeancoffeetrip") ? "eu_coffee_trip" : "regular_cafe";
             return { lat: c.lat, lon: c.lon, placeType, data: c };

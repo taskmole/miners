@@ -50,22 +50,17 @@ export function isAllowedPhotoUrl(raw: string): boolean {
   }
   if (url.protocol !== "https:") return false;
   const host = url.hostname;
-  return (
-    /^img\d*\.idealista\.com$/.test(host) ||
-    host === "sdn.cz" ||
-    host.endsWith(".sdn.cz") ||
-    host === "europeancoffeetrip.com" ||
-    host.endsWith(".europeancoffeetrip.com")
-  );
+  const onDomain = (domain: string) => host === domain || host.endsWith(`.${domain}`);
+  return /^img\d*\.idealista\.com$/.test(host) || onDomain("sdn.cz") || onDomain("europeancoffeetrip.com");
 }
 
-export const MAX_TITLE = 160;
-export const MAX_ADDRESS = 200;
+const MAX_TITLE = 160;
+const MAX_ADDRESS = 200;
 
 /** Place types a share may carry: the prefixes used by place ids on the map. */
 const PLACE_TYPE_RE = /^[a-z_]{2,30}$/;
 
-export interface ShareInput {
+interface ShareInput {
   code: string;
   placeId: string;
   placeType: string;
@@ -117,23 +112,24 @@ export function cleanShareInput(input: Partial<ShareInput> | null | undefined): 
   return { code, placeId, placeType, title, address, photoUrl, lat: coords.lat, lon: coords.lon };
 }
 
+const PLACE_TYPE_LABELS: Record<string, string> = {
+  property: "Property",
+  cafe: "Cafe",
+  eu_coffee_trip: "Cafe",
+  regular_cafe: "Cafe",
+  gym: "Gym",
+  office: "Office",
+  shopping: "Shopping",
+  high_street: "High street",
+  dorm: "Student housing",
+  university: "University",
+  transit: "Transit",
+  metro: "Metro",
+};
+
 /** Human label for a place type, for the no-photo preview card. */
 export function placeTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    property: "Property",
-    cafe: "Cafe",
-    eu_coffee_trip: "Cafe",
-    regular_cafe: "Cafe",
-    gym: "Gym",
-    office: "Office",
-    shopping: "Shopping",
-    high_street: "High street",
-    dorm: "Student housing",
-    university: "University",
-    transit: "Transit",
-    metro: "Metro",
-  };
-  return labels[type] ?? "Place";
+  return PLACE_TYPE_LABELS[type] ?? "Place";
 }
 
 // ---------------------------------------------------------------------------

@@ -17,15 +17,13 @@ vi.mock("@/lib/supabase-server", () => ({
     state.authed
       ? {
           userId: "user-1",
-          supabase: {
-            rpc: async (...args: unknown[]) => {
-              state.rpcArgs.push(args);
-              return { data: state.mayView, error: state.rpcError };
-            },
-          },
+          supabase: {},
         }
       : { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) },
-  untypedDb: (s: unknown) => s,
+  mayViewCity: async (_supabase: unknown, cityId: string) => {
+    state.rpcArgs.push(cityId);
+    return state.rpcError ? null : state.mayView;
+  },
   createServiceSupabase: () => ({
     from: () => ({
       insert: async (row: unknown) => {
@@ -59,7 +57,7 @@ describe("POST /api/share", () => {
   it("saves a share with the city worked out from the place id", async () => {
     const res = await post(body({ cityId: "madrid" })); // a city from the browser is ignored
     expect(res.status).toBe(201);
-    expect(state.rpcArgs).toEqual([["has_city_level", { p_city_id: "prague", p_min_level: "view" }]]);
+    expect(state.rpcArgs).toEqual(["prague"]);
     expect(state.inserted).toEqual([
       expect.objectContaining({ code: "Abc123XYZ9", city_id: "prague", created_by: "user-1", place_type: "property" }),
     ]);

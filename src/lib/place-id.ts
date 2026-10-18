@@ -23,6 +23,11 @@ export function generatePlaceId(
   return `${type}-${lat.toFixed(5)}-${lon.toFixed(5)}`;
 }
 
+/** The in-app deep link that opens a place's card: emails and share links. */
+export function focusPath(placeId: string): string {
+  return `/?focus=${encodeURIComponent(placeId)}`;
+}
+
 export function parseCoordinatesFromPlaceId(
   placeId: string,
 ): { lat: number; lon: number } | null {

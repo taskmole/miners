@@ -15,7 +15,6 @@ interface ShareButtonProps {
   photoUrl?: string | null;
 }
 
-
 /**
  * The quiet "Copy" link next to a place card's title.
  *
@@ -23,11 +22,10 @@ interface ShareButtonProps {
  * On touch screens it opens the phone's share sheet instead (WhatsApp is one
  * tap from there), falling back to copying where there is no share sheet.
  *
- * The code is made here, synchronously, so the copy or share happens inside
- * the click: Safari and iOS refuse both once the click has waited on the
- * network. Saving the link runs alongside, with keepalive so closing the card
- * cannot cancel it. If the save fails the copied link would not resolve, so
- * "Copied" is taken back and a toast says to try again.
+ * The code is made here, synchronously (see makeShareCode for why). Saving
+ * the link runs alongside, with keepalive so closing the card cannot cancel
+ * it. If the save fails the copied link would not resolve, so "Copied" is
+ * taken back and a toast says to try again.
  */
 export function ShareButton({ placeId, placeType, title, address, photoUrl }: ShareButtonProps) {
   const { showToast } = useToast();
@@ -36,18 +34,20 @@ export function ShareButton({ placeId, placeType, title, address, photoUrl }: Sh
   const [useShareSheet, setUseShareSheet] = useState(false);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const stopReset = () => {
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+  };
+
   useEffect(() => {
     setUseShareSheet(
       typeof navigator.share === "function" && window.matchMedia("(pointer: coarse)").matches,
     );
-    return () => {
-      if (resetTimer.current) clearTimeout(resetTimer.current);
-    };
+    return stopReset;
   }, []);
 
   const flashCopied = () => {
     setCopied(true);
-    if (resetTimer.current) clearTimeout(resetTimer.current);
+    stopReset();
     resetTimer.current = setTimeout(() => setCopied(false), 2000);
   };
 
@@ -64,22 +64,29 @@ export function ShareButton({ placeId, placeType, title, address, photoUrl }: Sh
       body: JSON.stringify({ code, placeId, placeType, title, address, photoUrl }),
     }).catch((err) => {
       console.error("[share] saving the link failed:", err);
-      if (resetTimer.current) clearTimeout(resetTimer.current);
+      stopReset();
       setCopied(false);
       showToast("The link couldn't be saved. Please try again.", "error");
     });
 
+    /** Resolves true once the link is on the clipboard. */
     const copy = () =>
       navigator.clipboard.writeText(url).then(
-        flashCopied,
-        () => showToast("Couldn't copy the link", "error"),
+        () => {
+          flashCopied();
+          return true;
+        },
+        () => {
+          showToast("Couldn't copy the link", "error");
+          return false;
+        },
       );
 
     if (useShareSheet) {
-      navigator.share({ title, url }).catch((err: unknown) => {
+      navigator.share({ title, url }).catch(async (err: unknown) => {
         // Closing the sheet without picking an app is not an error.
         if (err instanceof DOMException && err.name === "AbortError") return;
-        copy().then(() => showToast("Link copied"));
+        if (await copy()) showToast("Link copied");
       });
       return;
     }
@@ -87,6 +94,7 @@ export function ShareButton({ placeId, placeType, title, address, photoUrl }: Sh
   };
 
   const verb = useShareSheet ? "Share" : "Copy";
+  const label = useShareSheet ? "Share this place" : "Copy link to this place";
 
   return (
     <button
@@ -94,12 +102,11 @@ export function ShareButton({ placeId, placeType, title, address, photoUrl }: Sh
       onClick={handleClick}
       className="share-btn"
       data-copied={copied || undefined}
-      aria-label={useShareSheet ? "Share this place" : "Copy link to this place"}
-      title={useShareSheet ? "Share this place" : "Copy link to this place"}
+      aria-label={label}
+      title={label}
     >
       {copied ? <Check aria-hidden /> : <Link2 aria-hidden />}
-      {/* Both words sit in the same grid cell, so the button is always as
-          wide as "Copied" and the title never shifts on click. */}
+      {/* Both words share one grid cell; see .share-btn-label */}
       <span className="share-btn-label" aria-hidden>
         <span data-active={!copied || undefined}>{verb}</span>
         <span data-active={copied || undefined}>Copied</span>

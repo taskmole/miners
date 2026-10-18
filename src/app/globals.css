@@ -541,7 +541,7 @@
   height: 14px;
 }
 
-.share-btn:hover {
+.share-btn:not([data-copied]):hover {
   background: #f3f3f2;
   color: #404040;
 }
@@ -553,7 +553,6 @@
 
 .share-btn[data-copied] {
   color: #16a34a;
-  background: transparent;
 }
 
 /* Every label in one grid cell: the button is as wide as its longest word,

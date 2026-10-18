@@ -22,6 +22,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/jpeg";
 
 const PHOTO_HEIGHT = 430;
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
 // Read once per server instance. Both files ship with this route via
 // outputFileTracingIncludes in next.config.ts.
@@ -31,7 +32,7 @@ const assets = (async () => {
     readFile(join(process.cwd(), "src/assets/fonts/Outfit-SemiBold.ttf")),
     readFile(join(process.cwd(), "public/assets/miners-logo-cropped.png")),
   ]);
-  return { regular, semibold, logo: `data:image/png;base64,${logo.toString("base64")}` };
+  return { regular, semibold, logoPng: logo, logo: `data:image/png;base64,${logo.toString("base64")}` };
 })();
 
 /**
@@ -45,10 +46,18 @@ const assets = (async () => {
 async function loadPhoto(url: string | null): Promise<string | null> {
   if (!url || !isAllowedPhotoUrl(url)) return null;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    // No redirects: an allowed host must not be able to bounce this server
+    // request somewhere else (an internal address, say).
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(3000),
+      redirect: "error",
+      // European Coffee Trip answers 403 to a bare server fetch.
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; TheMinersPreview/1.0)", Accept: "image/*" },
+    });
     if (!res.ok || !res.headers.get("content-type")?.startsWith("image/")) return null;
+    if (Number(res.headers.get("content-length") ?? 0) > MAX_PHOTO_BYTES) return null;
     const raw = Buffer.from(await res.arrayBuffer());
-    if (raw.length > 8 * 1024 * 1024) return null;
+    if (raw.length > MAX_PHOTO_BYTES) return null;
     const jpeg = await sharp(raw)
       .resize(size.width, PHOTO_HEIGHT, { fit: "cover" })
       .jpeg({ quality: 85 })
@@ -66,11 +75,21 @@ function truncate(text: string, max: number): string {
 
 export default async function Image({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  const [share, { regular, semibold, logo }] = await Promise.all([getShare(code), assets]);
-  const photo = await loadPhoto(share?.photoUrl ?? null);
+  const [share, { regular, semibold, logo, logoPng }] = await Promise.all([getShare(code), assets]);
 
-  const title = truncate(share?.title ?? "The Miners", photo ? 44 : 60);
-  const address = share?.address ? truncate(share.address, 60) : null;
+  // Unknown code: just the logo, uncached. Cheap for anyone probing random
+  // codes, and never cached because the row may simply not be saved yet when
+  // a chat app fetches the preview a second after the link was copied.
+  if (!share) {
+    return new Response(new Uint8Array(logoPng), {
+      headers: { "Content-Type": "image/png", "Cache-Control": "no-store" },
+    });
+  }
+
+  const photo = await loadPhoto(share.photoUrl);
+
+  const title = truncate(share.title, photo ? 44 : 60);
+  const address = share.address ? truncate(share.address, 60) : null;
 
   const body = photo ? (
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#fff", fontFamily: "Outfit" }}>
@@ -101,24 +120,22 @@ export default async function Image({ params }: { params: Promise<{ code: string
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={logo} width={227} height={100} alt="" />
       <div style={{ display: "flex", flexDirection: "column" }}>
-        {share && (
-          <div style={{ display: "flex" }}>
-            <div
-              style={{
-                fontSize: 26,
-                fontWeight: 600,
-                color: "#555",
-                background: "#ececea",
-                borderRadius: 10,
-                padding: "6px 16px",
-                textTransform: "uppercase",
-                letterSpacing: 2,
-              }}
-            >
-              {placeTypeLabel(share.placeType)}
-            </div>
+        <div style={{ display: "flex" }}>
+          <div
+            style={{
+              fontSize: 26,
+              fontWeight: 600,
+              color: "#555",
+              background: "#ececea",
+              borderRadius: 10,
+              padding: "6px 16px",
+              textTransform: "uppercase",
+              letterSpacing: 2,
+            }}
+          >
+            {placeTypeLabel(share.placeType)}
           </div>
-        )}
+        </div>
         <div style={{ fontSize: 68, fontWeight: 600, color: "#1a1a1a", lineHeight: 1.1, marginTop: 22 }}>{title}</div>
         {address && <div style={{ fontSize: 36, color: "#777", marginTop: 14 }}>{address}</div>}
       </div>
@@ -137,10 +154,10 @@ export default async function Image({ params }: { params: Promise<{ code: string
   return new Response(new Uint8Array(jpeg), {
     headers: {
       "Content-Type": "image/jpeg",
-      // A share's snapshot never changes, so a found one caches for good. An
-      // unknown code must not: the row may simply not be saved yet when a
-      // chat app fetches the preview a second after the link was copied.
-      "Cache-Control": share ? "public, max-age=31536000, immutable" : "no-store",
+      // A share's snapshot never changes, so the finished picture caches for
+      // good. If its photo failed to load (slow or briefly down host), the
+      // stand-in card is kept for a minute only, so the photo gets another go.
+      "Cache-Control": photo || !share.photoUrl ? "public, max-age=31536000, immutable" : "public, max-age=60",
     },
   });
 }

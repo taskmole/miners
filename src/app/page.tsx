@@ -40,6 +40,8 @@ import { SheetProvider } from "@/contexts/SheetContext";
 import { WalkingRadiusProvider } from "@/contexts/WalkingRadiusContext";
 import { ToastProvider, useToast } from "@/contexts/ToastContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { cityById } from "@/lib/cities";
 import { ShapeDataProvider } from "@/contexts/ShapeDataContext";
 import { PitchStatusProvider } from "@/contexts/PitchStatusContext";
 import { PropertyAssignmentProvider } from "@/contexts/PropertyAssignmentContext";
@@ -167,16 +169,11 @@ function HomeContent() {
   // Onboarding city picker - shown to new users after Google sign-in
   const [showCityPicker, setShowCityPicker] = useState(false);
 
-  /**
-   * Shared links (/s/<code> forwards to /?focus=<placeId>).
-   *
-   * savedCityApplied: the person's saved default city has been applied, so a
-   * shared link's city can safely go on top of it without being overwritten.
-   * pendingFocus: the place the map should open once its city has loaded.
-   * noAccessCity: the city a shared link pointed at that they cannot view.
-   */
+  // Shared links (/s/<code> forwards to /?focus=<placeId>).
   const savedCityAppliedFor = useRef<string | null>(null);
   const [savedCityApplied, setSavedCityApplied] = useState(false);
+  // Parked until we know who this is; then handed to the map as pendingFocus.
+  const [parkedFocus, setParkedFocus] = useState<string | null>(null);
   const [pendingFocus, setPendingFocus] = useState<{ placeId: string; cityId: string } | null>(null);
   const [noAccessCity, setNoAccessCity] = useState<City | null>(null);
   const { showToast } = useToast();
@@ -187,12 +184,14 @@ function HomeContent() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const focusId = params.get("focus");
-    if (!focusId) return;
-    savePendingFocus(focusId);
-    params.delete("focus");
-    params.delete("city"); // older email links carried it; the place id decides now
-    const rest = params.toString();
-    window.history.replaceState({}, "", rest ? `?${rest}` : window.location.pathname);
+    if (focusId) {
+      savePendingFocus(focusId);
+      params.delete("focus");
+      params.delete("city"); // older email links carried it; the place id decides now
+      const rest = params.toString();
+      window.history.replaceState({}, "", rest ? `?${rest}` : window.location.pathname);
+    }
+    setParkedFocus(readPendingFocus());
   }, []);
 
   /**
@@ -424,20 +423,25 @@ function HomeContent() {
    * they have no access to that city, or switches to it and hands the place
    * to the map, which opens the card once that city's data has loaded.
    */
+  const handlePendingFocusDone = useCallback((found: boolean) => {
+    setPendingFocus(null);
+    if (!found) showToast("This place is no longer on the map", "error");
+  }, [showToast]);
+
   useEffect(() => {
+    if (!parkedFocus) return;
     if (!user || isActive !== true || !accessResolved || !savedCityApplied || showCityPicker) return;
-    const placeId = readPendingFocus();
-    if (!placeId) return;
+    const placeId = parkedFocus;
+    setParkedFocus(null);
     clearPendingFocus();
 
     // "No cities at all" already has its own full-screen explanation.
     if (grantedCities.length === 0) return;
 
     const coords = parseCoordinatesFromPlaceId(placeId);
-    const cityId = coords ? cityForCoordinates(coords.lat, coords.lon) : null;
-    const city = cities.find(c => c.id === cityId);
+    const city = cityById(coords && cityForCoordinates(coords.lat, coords.lon));
     if (!city) {
-      showToast("This place is no longer on the map", "error");
+      handlePendingFocusDone(false);
       return;
     }
     if (!grantedCities.some(c => c.id === city.id)) {
@@ -446,12 +450,7 @@ function HomeContent() {
     }
     if (city.id !== selectedCity.id) switchCity(city, { saveAsDefault: false });
     setPendingFocus({ placeId, cityId: city.id });
-  }, [user, isActive, accessResolved, savedCityApplied, showCityPicker, grantedCities, selectedCity.id, switchCity, showToast]);
-
-  const handlePendingFocusDone = useCallback((found: boolean) => {
-    setPendingFocus(null);
-    if (!found) showToast("This place is no longer on the map", "error");
-  }, [showToast]);
+  }, [parkedFocus, user, isActive, accessResolved, savedCityApplied, showCityPicker, grantedCities, selectedCity.id, switchCity, handlePendingFocusDone]);
 
   // Deep-link: open new listings modal from email CTA (?listings=open)
   useEffect(() => {
@@ -740,13 +739,7 @@ function HomeContent() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <button
-              type="button"
-              onClick={() => setNoAccessCity(null)}
-              className="h-10 rounded-lg bg-zinc-900 px-5 text-sm font-medium text-white hover:bg-zinc-800"
-            >
-              OK
-            </button>
+            <Button onClick={() => setNoAccessCity(null)}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
