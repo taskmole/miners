@@ -44,6 +44,7 @@
     "@turf/circle": "^7.3.4",
     "@turf/helpers": "^7.3.2",
     "@turf/intersect": "^7.3.2",
+    "border-beam": "1.4.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "country-flag-icons": "^1.6.4",
