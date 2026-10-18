@@ -86,6 +86,7 @@ export function describeGrants(
         cityId: g.city_id,
         level: g.level,
         receivesAlerts: false,
+        canTrainAi: false,
       })),
     },
     cityNames,

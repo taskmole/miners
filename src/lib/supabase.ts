@@ -379,6 +379,11 @@ export interface Database {
           can_see_financials: boolean;
           /** Property alert emails for this city. */
           receives_alerts: boolean;
+          /**
+           * May their reviews in this city train the AI scout. A CHECK keeps
+           * it false unless level is 'approve'.
+           */
+          can_train_ai: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -388,6 +393,7 @@ export interface Database {
           level: 'view' | 'contribute' | 'approve';
           can_see_financials?: boolean;
           receives_alerts?: boolean;
+          can_train_ai?: boolean;
         };
         Update: Partial<Database['public']['Tables']['user_city_grants']['Insert']>;
       };

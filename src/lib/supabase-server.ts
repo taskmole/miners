@@ -128,7 +128,7 @@ export async function accessFor(
         .maybeSingle(),
       untypedDb(supabase)
         .from("user_city_grants")
-        .select("city_id, level, receives_alerts")
+        .select("city_id, level, receives_alerts, can_train_ai")
         .eq("user_id", userId),
     ]);
 

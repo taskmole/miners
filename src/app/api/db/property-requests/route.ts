@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { authenticateRequest, untypedDb as db } from "@/lib/supabase-server";
+import { recordAiSignal } from "@/lib/ai-signal";
 import {
   notifyReviewersOfRequest,
   notifyRequesterOfDecision,
@@ -107,6 +108,8 @@ export async function POST(request: NextRequest) {
     property_address?: string | null;
     property_url?: string | null;
     note?: string | null;
+    /** The listing's places.id, for the AI scout's learning signal. Optional. */
+    place_uuid?: string;
   };
 
   try {
@@ -195,6 +198,14 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         console.warn("[api/db/property-requests] reviewer email failed:", err);
       }
+    });
+
+    // Saved. Teach the AI scout, best effort (see recordAiSignal).
+    recordAiSignal(supabase, userId, {
+      placeUuid: body.place_uuid,
+      propertyPlaceId: data.property_place_id,
+      kind: "request",
+      note: data.note ?? null,
     });
 
     return NextResponse.json(data);

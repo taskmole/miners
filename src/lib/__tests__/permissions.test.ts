@@ -7,10 +7,12 @@ import {
   canReadHistoryOf,
   canReadListsOf,
   canSeeRevenue,
+  canTrainAiIn,
   hasCityLevel,
   historyCityScope,
   strongestLevel,
   toGrants,
+  trainsAiAnywhere,
   visibleCityIds,
   approvesIn,
   type Access,
@@ -27,6 +29,7 @@ const grant = (
   cityId,
   level,
   receivesAlerts: false,
+  canTrainAi: false,
   ...extras,
 });
 
@@ -163,11 +166,47 @@ describe("summaries and parsing", () => {
     expect(
       toGrants([
         { city_id: "madrid", level: "approve", receives_alerts: false },
+        { city_id: "prague", level: "approve", receives_alerts: false, can_train_ai: true },
       ]),
     ).toEqual([
-      { cityId: "madrid", level: "approve", receivesAlerts: false },
+      { cityId: "madrid", level: "approve", receivesAlerts: false, canTrainAi: false },
+      { cityId: "prague", level: "approve", receivesAlerts: false, canTrainAi: true },
     ]);
     expect(toGrants(null)).toEqual([]);
+  });
+});
+
+/** Mirrors can_train_ai(city_id). */
+describe("training the AI scout", () => {
+  const trainer = person([
+    grant("madrid", "approve", { canTrainAi: true }),
+    grant("prague", "approve"),
+  ]);
+
+  it("needs Approve and the tick in that city", () => {
+    expect(canTrainAiIn(trainer, "madrid")).toBe(true);
+    expect(canTrainAiIn(trainer, "prague")).toBe(false);
+    expect(canTrainAiIn(trainer, "seville")).toBe(false);
+    expect(canTrainAiIn(kirill, "madrid")).toBe(false);
+  });
+
+  it("ignores a stale tick below Approve", () => {
+    const stale = person([grant("madrid", "contribute", { canTrainAi: true })]);
+    expect(canTrainAiIn(stale, "madrid")).toBe(false);
+    expect(trainsAiAnywhere(stale)).toBe(false);
+  });
+
+  it("is off for a switched-off account, but never for a super admin", () => {
+    expect(canTrainAiIn({ ...trainer, isActive: false }, "madrid")).toBe(false);
+    expect(trainsAiAnywhere({ ...trainer, isActive: false })).toBe(false);
+    expect(canTrainAiIn({ ...superAdmin, isActive: false }, "madrid")).toBe(true);
+  });
+
+  it("knows whether somebody trains anywhere", () => {
+    expect(trainsAiAnywhere(trainer)).toBe(true);
+    expect(trainsAiAnywhere(superAdmin)).toBe(true);
+    expect(trainsAiAnywhere(kirill)).toBe(false);
+    expect(trainsAiAnywhere(nobody)).toBe(false);
   });
 });
 

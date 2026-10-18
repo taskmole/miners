@@ -196,6 +196,10 @@ export function useUserProfiles() {
               city_id: g.cityId,
               level: g.level,
               receives_alerts: g.receivesAlerts,
+              // Always sent from here, because this screen knows the value.
+              // Forced false below Approve so the request already matches what
+              // the database would store anyway.
+              can_train_ai: g.level === 'approve' && g.canTrainAi,
             })),
           }),
         });

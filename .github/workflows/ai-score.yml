@@ -1,0 +1,117 @@
+name: AI Score
+
+# Runs the AI scout scorer on its own, outside the scraper pipeline:
+# - by hand, for a dry run, a small batch, or a one-off backfill after the
+#   instructions in ai_profiles change (rescore_days);
+# - on pull requests that touch the scorer, as a 2-listing dry run against
+#   prod, so a broken prompt or schema shows up before merge. Dry runs write
+#   nothing to the database.
+#
+# The scheduled scoring still lives in scraper-pipeline.yml, right after each
+# scrape.
+
+on:
+  workflow_dispatch:
+    inputs:
+      city:
+        description: 'City id (madrid, prague, ...). Empty means every city.'
+        required: false
+        default: ''
+        type: string
+      limit:
+        description: 'Max listings per city. Empty means no per-city limit (the run cap of 400 still applies).'
+        required: false
+        default: '20'
+        type: string
+      dry_run:
+        description: 'Dry run: score and print, write nothing to the database'
+        required: false
+        default: true
+        type: boolean
+      rescore_days:
+        description: 'Backfill window in days (e.g. 30). Empty means the normal 7-day window.'
+        required: false
+        default: ''
+        type: string
+  pull_request:
+    paths:
+      - scripts/data-pipeline/score-listings.ts
+      - scripts/data-pipeline/lib/ai-scout.ts
+
+permissions:
+  contents: read
+
+# One scoring run at a time per PR (or for manual runs), so two runs never
+# pay to rate the same listings.
+concurrency:
+  group: ai-score-${{ github.event.pull_request.number || 'manual' }}
+  cancel-in-progress: false
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Secrets are not available to pull requests from forks (the repo is
+    # public), so only same-repo PRs run the dry run.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Score listings with AI
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC }}
+          SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Inputs arrive as env vars, never pasted into the script, so a
+          # typed value cannot inject shell commands.
+          EVENT: ${{ github.event_name }}
+          IN_CITY: ${{ github.event.inputs.city }}
+          IN_LIMIT: ${{ github.event.inputs.limit }}
+          IN_DRY_RUN: ${{ github.event.inputs.dry_run }}
+          IN_RESCORE_DAYS: ${{ github.event.inputs.rescore_days }}
+        run: |
+          set -euo pipefail
+          flags=()
+
+          if [ "$EVENT" = "pull_request" ]; then
+            flags=(--dry-run --limit 2 --city madrid)
+          else
+            if [ -n "$IN_CITY" ]; then
+              if ! [[ "$IN_CITY" =~ ^[a-z_]+$ ]]; then
+                echo "::error::city must be a lowercase city id"; exit 1
+              fi
+              flags+=(--city "$IN_CITY")
+            fi
+            if [ -n "$IN_LIMIT" ]; then
+              if ! [[ "$IN_LIMIT" =~ ^[0-9]+$ ]]; then
+                echo "::error::limit must be a whole number"; exit 1
+              fi
+              flags+=(--limit "$IN_LIMIT")
+            fi
+            if [ -n "$IN_RESCORE_DAYS" ]; then
+              if ! [[ "$IN_RESCORE_DAYS" =~ ^[0-9]+$ ]]; then
+                echo "::error::rescore_days must be a whole number"; exit 1
+              fi
+              flags+=(--rescore-days "$IN_RESCORE_DAYS")
+            fi
+            if [ "$IN_DRY_RUN" = "true" ]; then
+              flags+=(--dry-run)
+            fi
+          fi
+
+          echo "Running: score-listings.ts ${flags[*]}"
+          npx ts-node --project scripts/data-pipeline/tsconfig.json \
+            scripts/data-pipeline/score-listings.ts "${flags[@]}"

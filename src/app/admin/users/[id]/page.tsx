@@ -166,7 +166,7 @@ export default function UserDetailPage() {
       JSON.stringify(
         [...list]
           .sort((a, b) => a.cityId.localeCompare(b.cityId))
-          .map((g) => [g.cityId, g.level, g.receivesAlerts]),
+          .map((g) => [g.cityId, g.level, g.receivesAlerts, g.canTrainAi]),
       );
     return key(formGrants) !== key(savedGrants);
   }, [formGrants, savedGrants]);
@@ -441,6 +441,7 @@ export default function UserDetailPage() {
             allowedCityIds={canEditAccess ? undefined : []}
             maxLevel={canEditAccess ? 'approve' : 'contribute'}
             dimmed={formSuperAdmin}
+            subjectIsSuperAdmin={formSuperAdmin}
           />
 
           {!canEditAccess && (

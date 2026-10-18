@@ -2,6 +2,8 @@
   "regions": ["arn1"],
   "crons": [
     { "path": "/api/send-weekly-summary", "schedule": "0 14 * * 5" },
-    { "path": "/api/send-weekly-summary", "schedule": "0 15 * * 5" }
+    { "path": "/api/send-weekly-summary", "schedule": "0 15 * * 5" },
+    { "path": "/api/send-ai-scout-email", "schedule": "0 6 * * 5" },
+    { "path": "/api/send-ai-scout-email", "schedule": "0 7 * * 5" }
   ]
 }

@@ -24,6 +24,8 @@ type GrantRow = {
   city_id: string;
   level: "view" | "contribute" | "approve";
   receives_alerts: boolean;
+  /** Optional on the way in: an older client that omits it keeps the stored value. */
+  can_train_ai?: boolean;
 };
 
 type ProfileRow = {
@@ -38,8 +40,8 @@ type GrantRowLike = { city_id: string; level: GrantRow["level"] };
 /**
  * Did anything actually move? Compared as a sorted "city:level" list, so the
  * order rows come back in cannot make a re-save look like a change. The
- * financials and alerts ticks are deliberately ignored: they are settings on
- * an access someone already has, not a change to what they can do.
+ * financials, alerts and AI training ticks are deliberately ignored: they are
+ * settings on an access someone already has, not a change to what they can do.
  */
 function grantsDiffer(
   before: GrantRowLike[] | null,
@@ -77,7 +79,7 @@ export async function GET(request: NextRequest) {
     if (mode === "all") {
       const { data, error } = await db(supabase)
         .from("user_city_grants")
-        .select("user_id, city_id, level, receives_alerts");
+        .select("user_id, city_id, level, receives_alerts, can_train_ai");
 
       if (error) {
         console.error("[api/db/user-grants] all query error:", error);
@@ -95,7 +97,7 @@ export async function GET(request: NextRequest) {
 
       const { data, error } = await db(supabase)
         .from("user_city_grants")
-        .select("user_id, city_id, level, receives_alerts")
+        .select("user_id, city_id, level, receives_alerts, can_train_ai")
         .eq("user_id", userId);
 
       if (error) {
@@ -121,7 +123,7 @@ export async function GET(request: NextRequest) {
           .single(),
         db(auth.supabase)
           .from("user_city_grants")
-          .select("city_id, level, receives_alerts")
+          .select("city_id, level, receives_alerts, can_train_ai")
           .eq("user_id", auth.userId),
       ]);
 
@@ -217,6 +219,11 @@ export async function PUT(request: NextRequest) {
         city_id: g.city_id,
         level: g.level,
         receives_alerts: g.receives_alerts === true,
+        // Only sent when the client said something about it. set_user_grants
+        // reads a missing key as "keep what is stored", so an older screen
+        // that knows nothing about AI training cannot wipe it on save. The
+        // function also forces it false for anything below Approve.
+        ...(typeof g.can_train_ai === "boolean" ? { can_train_ai: g.can_train_ai } : {}),
       })),
     });
 

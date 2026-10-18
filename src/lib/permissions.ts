@@ -35,6 +35,16 @@ export interface CityGrant {
   level: CityLevel;
   /** Property alert emails, chosen per city rather than once globally. */
   receivesAlerts: boolean;
+  /**
+   * May their reviews teach the AI scout in this city?
+   *
+   * Only meaningful at Approve. The database refuses the tick on any other
+   * level (a CHECK constraint) and set_user_grants() clears it when somebody
+   * is moved down, so a Contribute grant with this set should never reach the
+   * screens. canTrainAiIn() still tests the level as well, so that a stale row
+   * cannot quietly hand training rights to a franchisee.
+   */
+  canTrainAi: boolean;
 }
 
 /**
@@ -147,6 +157,34 @@ export function canContribute(access: Access, cityId: string): boolean {
 /** Can they decide in this city. */
 export function canApprove(access: Access, cityId: string): boolean {
   return hasCityLevel(access, cityId, 'approve');
+}
+
+/**
+ * Mirrors can_train_ai(city_id): may this person's decisions in this city be
+ * used to train the AI scout?
+ *
+ * A super admin always may, active or not, for the same reason as
+ * hasCityLevel: gating them would let one switch lock every founder out.
+ * Anyone else needs an active account AND an Approve grant in the city AND
+ * the per-city tick. Approve alone is not enough on purpose: approving a
+ * pitch is a judgement call about one cafe, and teaching the model is a
+ * standing say over every future score, so it is handed out separately.
+ */
+export function canTrainAiIn(access: Access, cityId: string): boolean {
+  if (access.isSuperAdmin) return true;
+  if (!access.isActive) return false;
+  const grant = grantFor(access, cityId);
+  return !!grant && grant.level === 'approve' && grant.canTrainAi;
+}
+
+/**
+ * Does this person train the AI scout anywhere at all? Used to decide whether
+ * to show training controls in the first place, before a city is picked.
+ * Goes through canTrainAiIn so the inactive rule cannot drift between the two.
+ */
+export function trainsAiAnywhere(access: Access): boolean {
+  if (access.isSuperAdmin) return true;
+  return access.grants.some((g) => canTrainAiIn(access, g.cityId));
 }
 
 /**
@@ -280,6 +318,11 @@ export interface CityGrantRow {
   city_id: string;
   level: CityLevel;
   receives_alerts: boolean;
+  /**
+   * Optional so a query that never selected the column still type-checks;
+   * a missing value reads as false, which is the safe direction (no training).
+   */
+  can_train_ai?: boolean | null;
 }
 
 export function toGrants(rows: CityGrantRow[] | null | undefined): CityGrant[] {
@@ -287,5 +330,6 @@ export function toGrants(rows: CityGrantRow[] | null | undefined): CityGrant[] {
     cityId: r.city_id,
     level: r.level,
     receivesAlerts: r.receives_alerts,
+    canTrainAi: r.can_train_ai === true,
   }));
 }
