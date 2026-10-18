@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, createServerSupabase, getTokenFromRequest } from "@/lib/supabase-server";
+import { recordAiSignal } from "@/lib/ai-signal";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,16 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("[api/db/property-assignments] upsert error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Saved. Teach the AI scout, best effort (see recordAiSignal).
+    if (row.status === "assigned" || row.status === "pre_rejected") {
+      recordAiSignal(supabase, userId, {
+        placeUuid: body.place_uuid,
+        propertyPlaceId: row.property_place_id,
+        kind: row.status === "assigned" ? "assign" : "reject",
+        note: row.status === "pre_rejected" ? row.rejection_reason : null,
+      });
     }
 
     return NextResponse.json(data);

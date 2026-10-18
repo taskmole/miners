@@ -1,11 +1,166 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest } from "@/lib/supabase-server";
+import { accessFor, authenticateRequest, untypedDb } from "@/lib/supabase-server";
+import { canTrainAiIn } from "@/lib/permissions";
 import { parseWkbPoint } from "@/lib/wkb";
 import { generatePropertyPlaceId } from "@/lib/place-id";
+import type { AiBreakdown, AiBreakdownPoint, AiVerdict } from "@/types/inbox";
 
 export const dynamic = "force-dynamic";
 
 const PROPERTY_SOURCES = ["idealista", "idealista_transfer", "sreality"];
+
+/** The one customer today. Every AI record carries it. */
+const CUSTOMER_ID = "miners";
+
+const VERDICTS: AiVerdict[] = ["too_low", "right", "too_high"];
+
+/** A rating point as an ai_profiles version defines it. */
+interface ProfilePoint {
+  id: string;
+  label: string;
+  kind: "fact" | "ai";
+  weight: number;
+}
+
+/** A 1-5 integer, or null for anything else ("can't tell"). */
+function toRating(v: unknown): number | null {
+  return typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 5 ? v : null;
+}
+
+/**
+ * The AI scout's breakdown for each listing, keyed by places.id.
+ *
+ * Uses the newest rating per listing from ANY instructions version, not just
+ * the active one: when the instructions change, older listings keep their
+ * breakdown until they are re-scored. Labels, kinds and weights come from the
+ * version that produced each rating, so they always match its values.
+ *
+ * Best effort on purpose: a listing without a rating, or any failure here
+ * (including the AI tables not existing yet), just means the card shows no
+ * breakdown. The inbox itself must never fail because of the AI.
+ *
+ * Two round trips: ratings, the caller's access and the caller's own
+ * feedback in parallel, then the profiles those ratings point at.
+ */
+async function loadAiBreakdowns(
+  supabase: unknown,
+  userId: string,
+  cityId: string,
+  placeIds: string[],
+): Promise<Map<string, AiBreakdown>> {
+  const out = new Map<string, AiBreakdown>();
+  if (placeIds.length === 0) return out;
+
+  try {
+    const db = untypedDb(supabase);
+    const [ratingsRes, access, feedbackRes] = await Promise.all([
+      db
+        .from("ai_ratings")
+        .select("id, place_id, profile_id, points, blend, gut, second_look, summary, photos_checked")
+        .eq("customer_id", CUSTOMER_ID)
+        .in("place_id", placeIds)
+        .order("created_at", { ascending: false }),
+      accessFor(supabase, userId),
+      db
+        .from("ai_feedback")
+        .select("place_id, kind, point_id, human_value, verdict, note")
+        .eq("user_id", userId)
+        .in("kind", ["point", "overall"])
+        .in("place_id", placeIds),
+    ]);
+
+    if (ratingsRes.error) {
+      console.warn("[api/db/inbox] ai_ratings read failed:", ratingsRes.error.message);
+      return out;
+    }
+
+    // Newest first, so the first row seen per listing is its latest rating.
+    const latest = new Map<string, any>();
+    for (const r of ratingsRes.data || []) {
+      if (!latest.has(r.place_id)) latest.set(r.place_id, r);
+    }
+    if (latest.size === 0) return out;
+
+    const profileIds = [...new Set([...latest.values()].map((r) => r.profile_id))];
+    // ai_profiles itself is readable only by trainers (it holds the
+    // customer's strategy). This RPC hands anyone signed in just the labels,
+    // kinds and weights the card needs: rows of { id, points }.
+    const { data: profiles, error: profilesError } = await db.rpc("ai_profile_labels", {
+      p_ids: profileIds,
+    });
+
+    if (profilesError) {
+      console.warn("[api/db/inbox] ai_profile_labels failed:", profilesError.message);
+      return out;
+    }
+
+    const pointsByProfile = new Map<string, ProfilePoint[]>();
+    for (const p of (profiles || []) as { id: string; points: unknown }[]) {
+      if (!Array.isArray(p.points)) continue;
+      pointsByProfile.set(
+        p.id,
+        (p.points as ProfilePoint[]).filter(
+          (pt) => pt && typeof pt.id === "string" && (pt.kind === "fact" || pt.kind === "ai"),
+        ),
+      );
+    }
+
+    if (feedbackRes.error) {
+      console.warn("[api/db/inbox] ai_feedback read failed:", feedbackRes.error.message);
+    }
+
+    // The caller's earlier answers, grouped per listing.
+    const mineByPlace = new Map<string, AiBreakdown["mine"]>();
+    for (const f of feedbackRes.data || []) {
+      let mine = mineByPlace.get(f.place_id);
+      if (!mine) {
+        mine = { points: {}, verdict: null, note: null };
+        mineByPlace.set(f.place_id, mine);
+      }
+      if (f.kind === "point" && f.point_id) {
+        const v = toRating(f.human_value);
+        if (v !== null) mine.points[f.point_id] = v;
+      } else if (f.kind === "overall") {
+        mine.verdict = VERDICTS.includes(f.verdict) ? f.verdict : null;
+        mine.note = typeof f.note === "string" && f.note ? f.note : null;
+      }
+    }
+
+    // No access record (failed lookup) means read-only, never an error.
+    const canTrain = access ? canTrainAiIn(access, cityId) : false;
+
+    for (const r of latest.values()) {
+      const profilePoints = pointsByProfile.get(r.profile_id);
+      if (!profilePoints) continue;
+
+      const values = (r.points || {}) as Record<string, { value?: unknown; reason?: unknown }>;
+      const points: AiBreakdownPoint[] = profilePoints.map((p) => ({
+        id: p.id,
+        label: p.label || p.id,
+        kind: p.kind,
+        weight: Number(p.weight) || 0,
+        value: toRating(values[p.id]?.value),
+        reason: typeof values[p.id]?.reason === "string" ? (values[p.id].reason as string) : "",
+      }));
+
+      out.set(r.place_id, {
+        ratingId: r.id,
+        blend: Number(r.blend) || 0,
+        gut: r.gut != null ? Number(r.gut) : null,
+        secondLook: r.second_look || null,
+        summary: r.summary || "",
+        photosChecked: Number(r.photos_checked) || 0,
+        points,
+        canTrain,
+        mine: mineByPlace.get(r.place_id) ?? { points: {}, verdict: null, note: null },
+      });
+    }
+  } catch (err) {
+    console.warn("[api/db/inbox] AI breakdown skipped:", err);
+  }
+
+  return out;
+}
 
 export async function GET(request: NextRequest) {
   const cityId = request.nextUrl.searchParams.get("city_id");
@@ -88,11 +243,17 @@ export async function GET(request: NextRequest) {
     }
 
     const placeIds = places.map((p: any) => p.id);
-    const { data: reads } = await supabase
-      .from("inbox_reads")
-      .select("place_id")
-      .eq("user_id", userId)
-      .in("place_id", placeIds);
+    // The AI breakdown runs alongside the read-marks rather than after them,
+    // so it adds no extra round trip. It may cover a few already-read
+    // listings; those are dropped below with the rest of them.
+    const [{ data: reads }, aiBreakdowns] = await Promise.all([
+      supabase
+        .from("inbox_reads")
+        .select("place_id")
+        .eq("user_id", userId)
+        .in("place_id", placeIds),
+      loadAiBreakdowns(supabase, userId, cityId, placeIds),
+    ]);
 
     const readSet = new Set((reads || []).map((r: any) => r.place_id));
 
@@ -130,6 +291,7 @@ export async function GET(request: NextRequest) {
           aiScore: (p.image_analysis as any)?.text?.qualitative_score ?? undefined,
           aiReason: (p.image_analysis as any)?.text?.reason ?? undefined,
           createdAt: p.created_at || undefined,
+          aiBreakdown: aiBreakdowns.get(p.id),
         };
       })
       .filter(Boolean);

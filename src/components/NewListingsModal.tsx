@@ -257,7 +257,10 @@ export function NewListingsModal({
 
       try {
         if (type === "team") {
-          await assignProperty(currentProperty.placeId, null, { teamId: targetId });
+          await assignProperty(currentProperty.placeId, null, {
+            teamId: targetId,
+            placeUuid: currentProperty.id,
+          });
           logActivity("assigned_property", {
             ...propertyMeta,
             team_id: targetId,
@@ -271,7 +274,9 @@ export function NewListingsModal({
             placeAddress: currentProperty.address,
           });
         } else {
-          await assignProperty(currentProperty.placeId, targetId);
+          await assignProperty(currentProperty.placeId, targetId, {
+            placeUuid: currentProperty.id,
+          });
           logActivity("assigned_property", {
             ...propertyMeta,
             assigned_to: targetId,
@@ -377,7 +382,12 @@ export function NewListingsModal({
       setActiveSheet(null);
 
       try {
-        await preRejectProperty(currentProperty.placeId, reason);
+        await preRejectProperty(
+          currentProperty.placeId,
+          reason,
+          undefined,
+          currentProperty.id,
+        );
         logActivity("pre_rejected_property", {
           ...propertyMetaOf(currentProperty),
           rejectionReason: reason,
@@ -401,6 +411,7 @@ export function NewListingsModal({
         property_name: currentProperty.name || null,
         property_address: currentProperty.address || null,
         property_url: currentProperty.url || null,
+        place_uuid: currentProperty.id,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to send request";

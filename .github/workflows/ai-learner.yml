@@ -1,0 +1,95 @@
+name: AI Learner
+
+# The AI scout's learning loop (scripts/data-pipeline/ai-learner.ts):
+# - weekly, Wednesday 22:00 UTC: proposes up to 3 changes to the scout's
+#   instructions from the week's head office feedback, tests them, and tries
+#   a weight self-tune. Ready before the Friday summary email.
+# - test, every 2 hours on weekdays (06:00-18:00 UTC, about 08:00-20:00 in
+#   Prague): tests suggestions waiting in 'testing' (including ones head
+#   office typed themselves) and checks the newest accepted change. With
+#   nothing to do it exits after a few small reads.
+# - by hand, either mode, as a dry run by default. Dry runs write nothing.
+
+on:
+  schedule:
+    - cron: '0 22 * * 3'
+    - cron: '0 6-18/2 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'test: test waiting suggestions. weekly: propose new ones from this week.'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - weekly
+      dry_run:
+        description: 'Dry run: compute and print, write nothing to the database'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+# Never two learner runs at once: two runs could test the same suggestion or
+# roll back the same version twice. A queued run waits rather than cancelling
+# one that is part way through.
+concurrency:
+  group: ai-learner
+  cancel-in-progress: false
+
+jobs:
+  learn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run the AI learner
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC }}
+          SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Inputs arrive as env vars, never pasted into the script, so a
+          # typed value cannot inject shell commands.
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          IN_MODE: ${{ github.event.inputs.mode }}
+          IN_DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          flags=()
+
+          if [ "$EVENT" = "schedule" ]; then
+            if [ "$SCHEDULE" = "0 22 * * 3" ]; then
+              mode=weekly
+            else
+              mode=test
+            fi
+          else
+            mode="$IN_MODE"
+            if [ "$IN_DRY_RUN" = "true" ]; then
+              flags+=(--dry-run)
+            fi
+          fi
+
+          if [ "$mode" != "test" ] && [ "$mode" != "weekly" ]; then
+            echo "::error::mode must be test or weekly"; exit 1
+          fi
+
+          echo "Running: ai-learner.ts --mode $mode ${flags[*]:-}"
+          npx ts-node --project scripts/data-pipeline/tsconfig.json \
+            scripts/data-pipeline/ai-learner.ts --mode "$mode" ${flags[@]+"${flags[@]}"}

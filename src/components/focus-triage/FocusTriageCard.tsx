@@ -2,6 +2,7 @@
 
 import { Snowflake, Bath, Store, Sparkles } from "lucide-react";
 import { ImageCarousel } from "./ImageCarousel";
+import { AiBreakdown } from "./AiBreakdown";
 import { BeamGlow } from "@/components/BeamGlow";
 import { formatPrice } from "@/types/inbox";
 import type { InboxProperty } from "@/types/inbox";
@@ -198,6 +199,18 @@ export function FocusTriageCard({
               {property.aiReason}
             </p>
           </BeamGlow>
+        )}
+
+        {/* AI scout breakdown: "worth a second look" plus the collapsible
+            "Why {score}?" reasons. Only listings the scout has rated carry
+            one; the rest render exactly as before. Keyed by rating so a
+            re-scored listing starts with fresh local state. */}
+        {property.aiBreakdown && (
+          <AiBreakdown
+            key={property.aiBreakdown.ratingId}
+            placeId={property.id}
+            breakdown={property.aiBreakdown}
+          />
         )}
 
         {/* Features. Only rendered when there is at least one chip: an empty

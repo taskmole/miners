@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Component, ErrorInfo, ReactNode, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, ChevronRight, Download, RefreshCw, Coffee, UtensilsCrossed, Plus, Filter, SlidersHorizontal, Info, Search, Users2, Trash2, Shield, UserPlus } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, ChevronRight, Download, RefreshCw, Coffee, UtensilsCrossed, Plus, Filter, SlidersHorizontal, Info, Search, Users2, Trash2, Shield, UserPlus, Sparkles } from 'lucide-react';
 import { useUserProfiles } from '@/hooks/useUserProfiles';
 import { useTeams, type Team, type TeamMember } from '@/hooks/useTeams';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
@@ -25,10 +25,12 @@ import { parseCompetitors } from '@/components/NearbyCompetitors';
 import { useScoutingDefaults, type ScoutingDefaults, type CurrencyCode, type MarketDefaults, MARKET_LABELS } from '@/hooks/useScoutingDefaults';
 import { Input } from '@/components/ui/input';
 import { RequestsTab } from '@/components/admin/RequestsTab';
+import { AiScoutPanel } from '@/components/admin/AiScoutPanel';
+import { trainsAiAnywhere } from '@/lib/permissions';
 import { cityNames, cityOptions } from '@/lib/cities';
 import { accessSummary } from '@/components/admin/CityAccessEditor';
 
-type Tab = 'submissions' | 'requests' | 'users' | 'settings' | 'cafe-profiles' | 'teams';
+type Tab = 'submissions' | 'requests' | 'users' | 'settings' | 'cafe-profiles' | 'teams' | 'ai-scout';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -911,6 +913,7 @@ function AdminContent() {
 
   const {
     users,
+    access,
     accessResolved,
     isSuperAdmin,
     canAccessDashboard,
@@ -949,6 +952,10 @@ function AdminContent() {
   } = useCafeProfiles(activeTab === 'cafe-profiles');
 
   const { teams } = useTeams();
+
+  // The AI scout tab is for anyone who trains the AI: super admins, and
+  // approvers with the "Can train AI" switch in at least one city.
+  const canTrainAi = trainsAiAnywhere(access);
 
   // Sync tab to URL
   const handleTabChange = (tab: Tab) => {
@@ -1112,7 +1119,7 @@ function AdminContent() {
     );
   }
 
-  // Not authenticated — show sign-in prompt
+  // Not authenticated: show sign-in prompt
   if (!accessResolved) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
@@ -1206,6 +1213,20 @@ function AdminContent() {
             <Coffee className="w-4 h-4" />
             Cafes
           </button>
+          {canTrainAi && (
+            <button
+              onClick={() => handleTabChange('ai-scout')}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                activeTab === 'ai-scout'
+                  ? "border-zinc-900 text-zinc-900"
+                  : "border-transparent text-zinc-500 hover:text-zinc-700"
+              )}
+            >
+              <Sparkles className="w-4 h-4" />
+              AI scout
+            </button>
+          )}
           {isSuperAdmin && (
             <>
               <button
@@ -1827,6 +1848,9 @@ function AdminContent() {
         )}
         {activeTab === 'settings' && isSuperAdmin && (
           <ScoutingSettingsPanel />
+        )}
+        {activeTab === 'ai-scout' && canTrainAi && (
+          <AiScoutPanel />
         )}
       </main>
     </div>

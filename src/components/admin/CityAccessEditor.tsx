@@ -21,7 +21,7 @@
  * the same right-hand edge at the same height.
  *
  * Everything below the head line only exists once the city is on, because the
- * level, the financials tick and the alerts tick are all meaningless for a
+ * level, the alerts tick and the AI training tick are all meaningless for a
  * city somebody cannot open.
  *
  * One layout, phone and desktop alike. There is no wide variant that puts the
@@ -72,7 +72,18 @@ interface CityAccessEditorProps {
    * switch.
    */
   dimmed?: boolean;
+  /**
+   * The person being edited is a Super Admin (as the form currently stands).
+   * They can always train the AI scout, so that row reads On and cannot be
+   * changed, the same way the Financials row on the user page does. Kept apart
+   * from `dimmed` because one is about looks and the other is a fact about
+   * the person.
+   */
+  subjectIsSuperAdmin?: boolean;
 }
+
+/** Why the AI training row is locked for anyone below Approve. */
+const TRAIN_AI_NEEDS_APPROVE = "Needs Approve in this city";
 
 export function CityAccessEditor({
   cities,
@@ -81,6 +92,7 @@ export function CityAccessEditor({
   allowedCityIds,
   maxLevel = "approve",
   dimmed = false,
+  subjectIsSuperAdmin = false,
 }: CityAccessEditorProps) {
   const grantFor = (cityId: string) => grants.find((g) => g.cityId === cityId);
   const mayEdit = (cityId: string) =>
@@ -93,15 +105,28 @@ export function CityAccessEditor({
       return;
     }
     if (grantFor(cityId)) return;
-    // New access starts quiet: View, no financials, no alerts. All opt-in.
+    // New access starts quiet: View, no alerts, no AI training. All opt-in.
     onChange([
       ...grants,
-      { cityId, level: "view", receivesAlerts: false },
+      { cityId, level: "view", receivesAlerts: false, canTrainAi: false },
     ]);
   };
 
+  /**
+   * Moving a city off Approve also clears its AI training tick. The database
+   * would refuse the pair anyway (a CHECK constraint, and set_user_grants
+   * forces it false), so clearing it here keeps the screen telling the same
+   * story and means a later move back to Approve starts from Off rather than
+   * quietly restoring a right somebody may not remember giving.
+   */
   const setLevel = (cityId: string, level: CityLevel) => {
-    onChange(grants.map((g) => (g.cityId === cityId ? { ...g, level } : g)));
+    onChange(
+      grants.map((g) =>
+        g.cityId === cityId
+          ? { ...g, level, canTrainAi: level === "approve" ? g.canTrainAi : false }
+          : g,
+      ),
+    );
   };
 
   const setExtra = (cityId: string, patch: Partial<CityGrant>) => {
@@ -123,6 +148,7 @@ export function CityAccessEditor({
         {cities.map((city) => {
           const grant = grantFor(city.id);
           const editable = mayEdit(city.id);
+          const approves = grant?.level === "approve";
 
           return (
             <div key={city.id} className="py-3">
@@ -171,18 +197,35 @@ export function CityAccessEditor({
                     {CITY_LEVELS.find((l) => l.id === grant.level)?.hint}
                   </p>
 
-                  {/* 3. The one extra that is genuinely per city.
-                         Financials used to sit here beside it. It never was a
+                  {/* 3. The extras that are genuinely per city, one per line,
+                         label left and switch right. Never side by side: two
+                         switches sharing a line is how this row overlapped
+                         itself on a phone once before (10e2951).
+
+                         Financials used to sit here too. It never was a
                          per-city choice: is_finance_plus() returned true if
                          ANY city had the tick, and not one of the six finance
                          tables has a city column. It is one row per person at
                          the top of the panel now, and switched off. */}
-                  <div className="mt-2.5">
+                  <div className="mt-2.5 space-y-2">
                     <ExtraToggle
                       label="Gets alerts for this city"
                       on={grant.receivesAlerts}
                       disabled={!editable}
                       onChange={(v) => setExtra(city.id, { receivesAlerts: v })}
+                    />
+                    {/* AI training is an Approve-only right, so below Approve
+                        the row stays visible but locked at Off, with the
+                        reason written under it. The tooltip alone would be
+                        invisible on a phone. A Super Admin always has it, so
+                        for them it reads On whatever the stored tick says. */}
+                    <ExtraToggle
+                      label="Can train the AI scout"
+                      on={subjectIsSuperAdmin || (approves && grant.canTrainAi)}
+                      disabled={!editable || !approves || subjectIsSuperAdmin}
+                      hint={!approves && !subjectIsSuperAdmin ? TRAIN_AI_NEEDS_APPROVE : undefined}
+                      title={!approves && !subjectIsSuperAdmin ? TRAIN_AI_NEEDS_APPROVE : undefined}
+                      onChange={(v) => setExtra(city.id, { canTrainAi: v })}
                     />
                   </div>
                 </>
@@ -261,29 +304,41 @@ function LevelSegments({
  * Written as a full sentence rather than a one-word label. "Financials" needed
  * the row around it to be readable; "Can see financials" does not, which is
  * what lets these sit on their own lines instead of side by side.
+ *
+ * `hint` is a second line under the label saying why the switch is locked.
+ * It wraps rather than truncates, because a clipped reason is no reason. The
+ * label column is min-w-0 and flex-1, so a long hint grows the row downwards
+ * and can never push the switch off the right edge.
  */
 function ExtraToggle({
   label,
   on,
   disabled,
   onChange,
+  hint,
+  title,
 }: {
   label: string;
   on: boolean;
   disabled: boolean;
   onChange: (value: boolean) => void;
+  hint?: string;
+  /** Hover text for the whole row. Desktop only, so never the only explanation. */
+  title?: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span
-        className={cn(
-          "text-xs min-w-0 truncate",
-          on ? "text-zinc-900 font-medium" : "text-zinc-500",
-          disabled && "opacity-50",
-        )}
-      >
-        {label}
-      </span>
+    <div className="flex items-center justify-between gap-3" title={title}>
+      <div className={cn("min-w-0 flex-1", disabled && "opacity-50")}>
+        <div
+          className={cn(
+            "text-xs truncate",
+            on ? "text-zinc-900 font-medium" : "text-zinc-500",
+          )}
+        >
+          {label}
+        </div>
+        {hint && <p className="text-[11px] text-zinc-400 mt-0.5">{hint}</p>}
+      </div>
       <OnOffSegments ariaLabel={label} on={on} disabled={disabled} onChange={onChange} />
     </div>
   );

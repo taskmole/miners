@@ -21,6 +21,44 @@ export interface InboxProperty {
   aiScore?: number;
   aiReason?: string;
   createdAt?: string;
+  /** The AI scout's point-by-point rating. Absent until the scorer has rated it. */
+  aiBreakdown?: AiBreakdown;
+}
+
+/** How the overall score felt to the person reviewing it. */
+export type AiVerdict = "too_low" | "right" | "too_high";
+
+/** One rated point: either a fact read off the map or a judgment from photos. */
+export interface AiBreakdownPoint {
+  id: string;
+  label: string;
+  kind: "fact" | "ai";
+  weight: number;
+  /** 1 to 5, or null when the AI could not tell. */
+  value: number | null;
+  reason: string;
+}
+
+export interface AiBreakdown {
+  ratingId: string;
+  /** The final 0-100 score. */
+  blend: number;
+  /** The AI's gut score from the photos alone, if it gave one. */
+  gut: number | null;
+  /** Set when facts and gut disagree enough to deserve a human look. */
+  secondLook: string | null;
+  summary: string;
+  photosChecked: number;
+  points: AiBreakdownPoint[];
+  /** May this person correct the AI in this city? */
+  canTrain: boolean;
+  /** What this person already told the AI about this listing. */
+  mine: {
+    /** pointId -> the value they set (1 to 5). */
+    points: Record<string, number>;
+    verdict: AiVerdict | null;
+    note: string | null;
+  };
 }
 
 export function formatPrice(amount: number, source: string): string {

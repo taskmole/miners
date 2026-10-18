@@ -140,7 +140,9 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
   const assignProperty = useCallback(async (
     placeId: string,
     assignedTo: string | null,
-    options?: { teamId?: string; notes?: string }
+    // placeUuid is the listing's places.id. Optional: only the inbox has it,
+    // and the server uses it for the AI scout's learning signal alone.
+    options?: { teamId?: string; notes?: string; placeUuid?: string }
   ) => {
     const result = await apiFetch<PropertyAssignment>('/api/db/property-assignments', {
       method: 'POST',
@@ -150,6 +152,7 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
         assigned_to_team: options?.teamId ?? null,
         status: 'assigned',
         notes: options?.notes ?? null,
+        place_uuid: options?.placeUuid,
       }),
     });
     setAssignments(prev => {
@@ -162,7 +165,9 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
   const preRejectProperty = useCallback(async (
     placeId: string,
     reason: string,
-    notes?: string
+    notes?: string,
+    /** The listing's places.id, for the AI scout. Optional, see assignProperty. */
+    placeUuid?: string
   ) => {
     const result = await apiFetch<PropertyAssignment>('/api/db/property-assignments', {
       method: 'POST',
@@ -171,6 +176,7 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
         status: 'pre_rejected',
         rejection_reason: reason,
         notes: notes ?? null,
+        place_uuid: placeUuid,
       }),
     });
     setAssignments(prev => {
