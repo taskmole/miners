@@ -5,14 +5,17 @@ import { Funnel, Pencil, FolderOpen, MapPinned, Activity } from "lucide-react";
 import { useSheetState } from "@/contexts/SheetContext";
 import { useMobile } from "@/hooks/useMobile";
 import { cn } from "@/lib/utils";
+import { NewButtonGlow } from "@/components/BeamGlow";
 
 interface MobileBottomNavProps {
   onNewListingsOpen?: () => void;
   newListingsCount?: number;
+  /** Changes when new listings arrive; plays the glow on the NEW button. */
+  newListingsGlow?: number;
   activityCount?: number;
 }
 
-export function MobileBottomNav({ onNewListingsOpen, newListingsCount = 0, activityCount = 0 }: MobileBottomNavProps) {
+export function MobileBottomNav({ onNewListingsOpen, newListingsCount = 0, newListingsGlow = 0, activityCount = 0 }: MobileBottomNavProps) {
   const isMobile = useMobile();
   const filters = useSheetState("filters");
   const draw = useSheetState("draw");
@@ -65,7 +68,9 @@ export function MobileBottomNav({ onNewListingsOpen, newListingsCount = 0, activ
             className="relative flex items-center justify-center w-12 h-12 rounded-[20px] bg-zinc-900 shadow-lg active:scale-95 transition-transform"
             aria-label="New listings"
           >
-            <span className="text-[11px] font-extrabold text-white tracking-tight">NEW</span>
+            <NewButtonGlow playKey={newListingsGlow} borderRadius={20}>
+              <span className="text-[11px] font-extrabold text-white tracking-tight">NEW</span>
+            </NewButtonGlow>
             {newListingsCount > 0 && (
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full" />
             )}

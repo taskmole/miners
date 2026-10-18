@@ -42,6 +42,7 @@ import { PitchStatusProvider } from "@/contexts/PitchStatusContext";
 import { PropertyAssignmentProvider } from "@/contexts/PropertyAssignmentContext";
 import { TeamsProvider } from "@/contexts/TeamsContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
+import { NewButtonGlow } from "@/components/BeamGlow";
 import { supabase, signOut } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api-client";
 import { setAuthUserId } from "@/lib/browser-session";
@@ -133,6 +134,11 @@ function HomeContent() {
     return () => window.removeEventListener("reopen-new-listings", handleReopen);
   }, []);
   const [newListingsCount, setNewListingsCount] = useState(0);
+  // Plays the glow on the NEW button (desktop and mobile). Bumped in fetchCount
+  // only when the count goes UP, so it glows for fresh listings, not on every
+  // 60-second re-check or when the modal closes with listings still waiting.
+  const [newListingsGlow, setNewListingsGlow] = useState(0);
+  const lastListingsCount = useRef(0);
 
   useEffect(() => {
     if (!user) return;
@@ -140,7 +146,11 @@ function HomeContent() {
     async function fetchCount() {
       try {
         const data = await apiFetch<{ count: number }>(`/api/db/inbox?city_id=${selectedCity.id}&mode=count`);
-        if (!cancelled) setNewListingsCount(data?.count || 0);
+        if (cancelled) return;
+        const count = data?.count || 0;
+        if (count > lastListingsCount.current) setNewListingsGlow((n) => n + 1);
+        lastListingsCount.current = count;
+        setNewListingsCount(count);
       } catch { /* ignore */ }
     }
     fetchCount();
@@ -550,7 +560,10 @@ function HomeContent() {
               style={{ position: "fixed", top: "244px", right: "24px", zIndex: 30, display: "flex", boxShadow: "0 4px 20px rgba(0,0,0,0.22), 0 0 0 1px rgba(255,255,255,0.15)" }}
               aria-label="New listings"
             >
-              <span className="text-[10px] font-extrabold text-white tracking-tight leading-none">NEW</span>
+              {/* 10px = rounded-lg with this theme's --radius */}
+              <NewButtonGlow playKey={newListingsGlow} borderRadius={10}>
+                <span className="text-[10px] font-extrabold text-white tracking-tight leading-none">NEW</span>
+              </NewButtonGlow>
               {newListingsCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full" />
               )}
@@ -561,7 +574,7 @@ function HomeContent() {
             onClose={() => setIsNewListingsOpen(false)}
             cityId={selectedCity.id}
           />
-          <MobileBottomNav onNewListingsOpen={() => setIsNewListingsOpen(true)} newListingsCount={newListingsCount} activityCount={activityUnreadCount} />
+          <MobileBottomNav onNewListingsOpen={() => setIsNewListingsOpen(true)} newListingsCount={newListingsCount} newListingsGlow={newListingsGlow} activityCount={activityUnreadCount} />
           <FeedbackButton selectedCity={selectedCity} user={user} onExposeOpen={handleExposeOpen} />
           <ProfileMenu onFeedbackOpen={() => feedbackOpenRef.current?.()} />
         </>
