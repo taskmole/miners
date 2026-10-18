@@ -1,4 +1,5 @@
 import React from "react";
+import { focusPath } from "@/lib/place-id";
 import {
   Body,
   Container,
@@ -36,7 +37,7 @@ export const FEEDBACK_EMAIL = "matus.husar@theminers.eu";
 
 /** CTA target: deep-link to the property when we know which one it is. */
 export function propertyUrl(appUrl: string, placeId?: string | null): string {
-  return placeId ? `${appUrl}/?focus=${encodeURIComponent(placeId)}` : appUrl;
+  return placeId ? `${appUrl}${focusPath(placeId)}` : appUrl;
 }
 
 export function EmailShell({

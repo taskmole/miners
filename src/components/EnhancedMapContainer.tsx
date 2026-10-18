@@ -96,6 +96,7 @@ import {
     Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ShareButton } from "@/components/ShareButton";
 import { formatCompactNumber } from "@/lib/format-numbers";
 import { scoreTier, SCORE_TIER_BG, SCORE_TIER_COLORS, SCORE_TIER_LABELS } from "@/lib/gravity-lookup";
 
@@ -1038,9 +1039,12 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
                 </div>
             )}
 
-            {/* Header */}
-            <div className="popup-header">
-                <span className="popup-name">{cafe.name}</span>
+            {/* Header: hide/close sit on the photo or in the badge row, never here */}
+            <div className="popup-header no-header-buttons">
+                <div className="popup-title-row">
+                    <span className="popup-name">{cafe.name}</span>
+                    <ShareButton placeId={placeId} placeType="eu_coffee_trip" title={cafe.name} address={cafe.address} photoUrl={cafe.image} />
+                </div>
             </div>
 
             {/* Address */}
@@ -1149,9 +1153,12 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }:
                 )}
                 <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
             </div>
-            {/* Header */}
-            <div className="popup-header">
-                <span className="popup-name">{cafe.name}</span>
+            {/* Header: hide/close sit on the photo or in the badge row, never here */}
+            <div className="popup-header no-header-buttons">
+                <div className="popup-title-row">
+                    <span className="popup-name">{cafe.name}</span>
+                    <ShareButton placeId={placeId} placeType="regular_cafe" title={cafe.name} address={cafe.address} photoUrl={cafe.image} />
+                </div>
             </div>
 
             {/* Address */}
@@ -1778,6 +1785,7 @@ function PropertyScoreBadge({
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
     const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address, true);
     const placeId = generatePropertyPlaceId(property);
+    const title = capitalizeFirst(property.title);
     const { getPitchStatus, getPitchDate, getPitchRejectionReason, getPitchReturnReason } = usePitchStatusContext();
     const { getAssignment, canPitch: checkCanPitch, users: assignableUsers, assignProperty, preRejectProperty, removeAssignment } = usePropertyAssignmentContext();
     const { canAccessDashboard, accessResolved } = useUserProfiles();
@@ -1935,12 +1943,22 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                 </div>
             )}
 
-            {/* Header - Title */}
-            <div className="popup-header">
-                <span className="popup-name">{capitalizeFirst(property.title)}</span>
+            {/* Header - Title. With a photo, hide/close sit on the photo instead. */}
+            <div className={cn("popup-header", property.image_url && "no-header-buttons")}>
+                {/* First in the DOM so MapLibre's focus-on-open lands on Hide */}
                 {!property.image_url && (
                     <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
                 )}
+                <div className="popup-title-row">
+                    <span className="popup-name">{title}</span>
+                    <ShareButton
+                        placeId={placeId}
+                        placeType="property"
+                        title={title}
+                        address={capitalizeFirst(property.address)}
+                        photoUrl={property.image_url}
+                    />
+                </div>
             </div>
 
             {/* Address */}
@@ -2050,7 +2068,12 @@ const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi, onC
         <div className="popup-base">
             {/* Header with name, type chip, and comment bubble */}
             <div className="popup-header">
-                <span className="popup-name">{poi.name}</span>
+                {/* First in the DOM so MapLibre's focus-on-open lands on Hide */}
+                <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
+                <div className="popup-title-row">
+                    <span className="popup-name">{poi.name}</span>
+                    <ShareButton placeId={placeId} placeType={poi.type} title={poi.name} address={poi.address} />
+                </div>
                 <span className="popup-chip type">{poi.category}</span>
                 {commentCount > 0 && (
                     <button className="popup-comments">
@@ -2058,7 +2081,6 @@ const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi, onC
                         {commentCount}
                     </button>
                 )}
-                <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
             </div>
 
             {/* Address */}
@@ -2499,6 +2521,51 @@ const IconMarker = React.memo(function IconMarker({
     );
 });
 
+/** What a shared link resolved to: the navigate-and-open-popup detail. */
+interface FocusTarget {
+    lat: number;
+    lon: number;
+    /** Finer than the place-id prefix, so the right map layer gets switched on. */
+    placeType: string;
+    data: unknown;
+}
+
+/**
+ * Open the card a shared link points at, once the map can show it.
+ *
+ * page.tsx has already checked access and switched to the right city. This
+ * waits for the map, then for that city's data (`ready`; useMapData's own
+ * timeouts make a failed load "ready" too), finds the place and fires the
+ * same navigate-and-open-popup event the lists panel uses, so zooming,
+ * switching the layer on and opening the card all reuse that path. Its zoom
+ * also cancels CityNavigator's fly-over, so the two never fight. Rendered
+ * after NavigationEventListener, whose listener is therefore already attached.
+ */
+function PendingFocusOpener({
+    placeId,
+    ready,
+    find,
+    onDone,
+}: {
+    placeId: string;
+    ready: boolean;
+    find: (placeId: string) => FocusTarget | null;
+    onDone: (found: boolean) => void;
+}) {
+    const { map, isLoaded } = useMap();
+
+    useEffect(() => {
+        if (!map || !isLoaded || !ready) return;
+        const target = find(placeId);
+        if (target) {
+            window.dispatchEvent(new CustomEvent("navigate-and-open-popup", { detail: { ...target, placeId } }));
+        }
+        onDone(!!target);
+    }, [map, isLoaded, ready, placeId, find, onDone]);
+
+    return null;
+}
+
 interface EnhancedMapContainerProps {
     activeFilters: Set<string>;
     ratingFilter?: number;
@@ -2520,6 +2587,9 @@ interface EnhancedMapContainerProps {
     propertyPriceChangeFilter?: PropertyPriceChangeFilter;
     propertyPitchStatusFilter?: PropertyPitchStatusFilter;
     demoMode?: boolean;
+    /** A shared link's place to open once its city's data is in. */
+    pendingFocus?: { placeId: string; cityId: string } | null;
+    onPendingFocusDone?: (found: boolean) => void;
 }
 
 export function EnhancedMapContainer({
@@ -2543,6 +2613,8 @@ export function EnhancedMapContainer({
     propertyPriceChangeFilter = "all",
     propertyPitchStatusFilter = "all",
     demoMode = false,
+    pendingFocus = null,
+    onPendingFocusDone,
 }: EnhancedMapContainerProps) {
     const { cafes, properties, otherPois, isLoading, error, retry } = useMapData(selectedCity?.id);
     const { cafes: dbCafes, profilesByPlaceId: cafeProfilesByPlaceId } = useCafeProfiles(true);
@@ -3048,6 +3120,35 @@ export function EnhancedMapContainer({
         }
     }, [otherPois]);
 
+    /**
+     * Resolve a shared link's place id against the loaded data, or null when
+     * the place is gone (a listing taken down, a cafe removed).
+     */
+    const findFocusTarget = React.useCallback((placeId: string): FocusTarget | null => {
+        const coords = parseCoordinatesFromPlaceId(placeId);
+        if (!coords) return null;
+        const type = placeId.split("-")[0];
+        const at = (lat: number, lon: number) => coordsMatch(lat, coords.lat) && coordsMatch(lon, coords.lon);
+
+        if (type === "property") {
+            // Coordinates alone only for old ids with no URL hash: with one,
+            // a near miss would be a different listing in the same building.
+            const hasHash = /-[0-9a-f]{8}$/.test(placeId);
+            const p = properties.find(p => at(p.latitude, p.longitude) && (!hasHash || generatePropertyPlaceId(p) === placeId));
+            return p ? { lat: p.latitude, lon: p.longitude, placeType: "property", data: p } : null;
+        }
+        if (type === "cafe" || type === "eu_coffee_trip" || type === "regular_cafe") {
+            const c = minersCafes.find(c => at(c.lat, c.lon)) ?? cafes.find(c => at(c.lat, c.lon));
+            if (!c) return null;
+            const placeType = c.link?.includes("europeancoffeetrip") ? "eu_coffee_trip" : "regular_cafe";
+            return { lat: c.lat, lon: c.lon, placeType, data: c };
+        }
+        // Type and spot both: two kinds of place can share a spot (a metro
+        // exit inside a shopping centre) and the link was for one of them.
+        const poi = otherPois.find(o => o.type === type && at(o.lat, o.lon));
+        return poi ? { lat: poi.lat, lon: poi.lon, placeType: poi.type, data: poi } : null;
+    }, [properties, minersCafes, cafes, otherPois]);
+
     // Load traffic data when enabled or hour changes
     useEffect(() => {
         if (trafficEnabled) {
@@ -3146,6 +3247,16 @@ export function EnhancedMapContainer({
 
                 {/* City navigator - flies to selected city */}
                 <CityNavigator city={selectedCity} />
+
+                {/* Shared link: open its card once that city's data has loaded */}
+                {pendingFocus && onPendingFocusDone && (
+                    <PendingFocusOpener
+                        placeId={pendingFocus.placeId}
+                        ready={selectedCity?.id === pendingFocus.cityId && !isLoading}
+                        find={findFocusTarget}
+                        onDone={onPendingFocusDone}
+                    />
+                )}
 
                 {/* TRAFFIC VALUE CARDS - Show when Values toggle is on */}
                 {/* Compact when zoomed out (!showIcons), full when zoomed in (showIcons) */}

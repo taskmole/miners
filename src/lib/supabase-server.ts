@@ -95,6 +95,27 @@ export function untypedDb(client: unknown): SupabaseClient<any> {
   return client as SupabaseClient;
 }
 
+/**
+ * Does the caller hold at least View in this city? null when the check
+ * itself failed, which callers must treat as "no" (fail closed).
+ *
+ * Asks the database (has_city_level) rather than re-deriving the rule, so
+ * routes and the row policies can never drift into disagreeing about who
+ * may see Prague. Pass the caller's own client: under the service role the
+ * function sees no user.
+ */
+export async function mayViewCity(supabase: unknown, cityId: string): Promise<boolean | null> {
+  const { data, error } = await untypedDb(supabase).rpc("has_city_level", {
+    p_city_id: cityId,
+    p_min_level: "view",
+  });
+  if (error) {
+    console.error("[city-access] has_city_level failed:", error);
+    return null;
+  }
+  return data === true;
+}
+
 export async function getUserTeamIds(supabase: SupabaseClient<Database>, userId: string): Promise<string[]> {
   const { data } = await supabase
     .from("team_members")

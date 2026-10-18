@@ -493,6 +493,92 @@
   overflow: hidden;
 }
 
+/* Title + share button on one row. The title takes what is left and still
+   clamps to 2 lines; the button never shrinks or wraps under it. Anything
+   after the row in .popup-header (type chip, comment count) wraps below. */
+.popup-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.popup-title-row .popup-name {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+
+/* Header whose hide/close buttons sit on the photo or in the badge row, so
+   the 100px kept clear for them on the right is not needed. */
+.popup-header.no-header-buttons {
+  padding-right: 24px;
+}
+
+/* Share link: deliberately quiet. No fill or border until hovered. */
+.share-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 8px;
+  margin-top: -2px; /* centre on the title's first line */
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #737373;
+  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.share-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.share-btn:not([data-copied]):hover {
+  background: #f3f3f2;
+  color: #404040;
+}
+
+.share-btn:focus-visible {
+  outline: 2px solid #a3a3a3;
+  outline-offset: 1px;
+}
+
+.share-btn[data-copied] {
+  color: #16a34a;
+}
+
+/* Every label in one grid cell: the button is as wide as its longest word,
+   so swapping "Copy" for "Copied" never nudges the title. */
+.share-btn-label {
+  display: inline-grid;
+}
+
+.share-btn-label > span {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+
+.share-btn-label > span[data-active] {
+  visibility: visible;
+}
+
+/* Fingers need a bigger target than a mouse, label or not. */
+@media (pointer: coarse) {
+  .share-btn {
+    min-width: 40px;
+    min-height: 40px;
+    margin-top: -8px;
+  }
+}
+
 /* Chips row - before footer */
 .popup-chips-row {
   display: flex;
@@ -1233,6 +1319,11 @@
 
   /* Keep mobile padding at 20px (desktop uses 24px) */
   .popup-header { padding: 20px 100px 0 20px; }
+  .popup-header.no-header-buttons { padding-right: 20px; }
+  /* Icon only on phones: every pixel of the title row goes to the title. */
+  .share-btn { width: 40px; height: 40px; padding: 0; margin-top: -8px; }
+  .share-btn svg { width: 18px; height: 18px; }
+  .share-btn-label { display: none; }
   .popup-address { padding: 4px 20px 12px 20px; }
   .popup-body { padding: 0 20px 12px 20px; }
   .popup-chips-row { padding: 4px 20px 16px 20px; }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parse } from "csv-parse/sync";
 import fs from "fs";
 import path from "path";
-import { authenticateRequest, untypedDb as db } from "@/lib/supabase-server";
+import { authenticateRequest, mayViewCity } from "@/lib/supabase-server";
 
 // Prevent static generation - this route needs to run at request time
 export const dynamic = "force-dynamic";
@@ -47,28 +47,6 @@ const FILE_MAP: Record<string, { fileName: string; delimiter?: string; city: str
     osm_pois_prague: { fileName: "osm_pois_prague.csv", city: "prague" },
 };
 
-/**
- * Does the caller hold at least View in this city?
- *
- * Asks the database rather than re-deriving the rule, so this route and the
- * row policies can never drift into disagreeing about who may see Prague.
- */
-async function mayViewCity(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    supabase: any,
-    cityId: string,
-): Promise<boolean> {
-    const { data, error } = await db(supabase).rpc("has_city_level", {
-        p_city_id: cityId,
-        p_min_level: "view",
-    });
-    if (error) {
-        console.error("[api/data] city check failed:", error);
-        // A failed check is not permission. Fail closed.
-        return false;
-    }
-    return data === true;
-}
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
