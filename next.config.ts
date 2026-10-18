@@ -42,6 +42,17 @@ const nextConfig: NextConfig = {
    * outputFileTracingIncludes says so. Moving them would trade a closed hole
    * for a production-only 404.
    */
+  /**
+   * Ship the share-preview image's font and logo with its function.
+   *
+   * /s/<code>/opengraph-image reads them with fs from `process.cwd()`, which
+   * file tracing cannot follow, so without this they exist locally and are
+   * missing on Vercel.
+   */
+  outputFileTracingIncludes: {
+    "/s/**": ["./src/assets/fonts/*.ttf", "./public/assets/miners-logo-cropped.png"],
+  },
+
   async rewrites() {
     return {
       beforeFiles: [

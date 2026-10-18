@@ -27,7 +27,9 @@ import {
 import { useMapData } from "@/hooks/useMapData";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { useMobile } from "@/hooks/useMobile";
-import { generatePropertyPlaceId } from "@/lib/place-id";
+import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
+import { cityForCoordinates } from "@/lib/notify-routing";
+import { clearPendingFocus, readPendingFocus, savePendingFocus } from "@/lib/share";
 import { ListsProvider } from "@/contexts/ListsContext";
 import { HiddenPoisProvider } from "@/contexts/HiddenPoisContext";
 import { GeoDataProvider } from "@/contexts/GeoDataContext";
@@ -36,7 +38,8 @@ import { ScoutingTripsProvider } from "@/contexts/ScoutingTripsContext";
 import { PointCategoriesProvider } from "@/contexts/PointCategoriesContext";
 import { SheetProvider } from "@/contexts/SheetContext";
 import { WalkingRadiusProvider } from "@/contexts/WalkingRadiusContext";
-import { ToastProvider } from "@/contexts/ToastContext";
+import { ToastProvider, useToast } from "@/contexts/ToastContext";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ShapeDataProvider } from "@/contexts/ShapeDataContext";
 import { PitchStatusProvider } from "@/contexts/PitchStatusContext";
 import { PropertyAssignmentProvider } from "@/contexts/PropertyAssignmentContext";
@@ -155,6 +158,34 @@ function HomeContent() {
   const [showCityPicker, setShowCityPicker] = useState(false);
 
   /**
+   * Shared links (/s/<code> forwards to /?focus=<placeId>).
+   *
+   * savedCityApplied: the person's saved default city has been applied, so a
+   * shared link's city can safely go on top of it without being overwritten.
+   * pendingFocus: the place the map should open once its city has loaded.
+   * noAccessCity: the city a shared link pointed at that they cannot view.
+   */
+  const savedCityAppliedFor = useRef<string | null>(null);
+  const [savedCityApplied, setSavedCityApplied] = useState(false);
+  const [pendingFocus, setPendingFocus] = useState<{ placeId: string; cityId: string } | null>(null);
+  const [noAccessCity, setNoAccessCity] = useState<City | null>(null);
+  const { showToast } = useToast();
+
+  // Park a shared link's destination before anything else runs on mount. The
+  // Google sign-in round trip comes back to a bare "/", and the auth-error
+  // handler below wipes the query string, so the URL cannot be relied on.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const focusId = params.get("focus");
+    if (!focusId) return;
+    savePendingFocus(focusId);
+    params.delete("focus");
+    params.delete("city"); // older email links carried it; the place id decides now
+    const rest = params.toString();
+    window.history.replaceState({}, "", rest ? `?${rest}` : window.location.pathname);
+  }, []);
+
+  /**
    * Is this account switched on?
    *
    * This used to swallow any failure and set active = true, which meant a
@@ -212,14 +243,19 @@ function HomeContent() {
 
     // Show picker for any signed-in user without a saved city; otherwise apply
     // the saved city. Madrid is the in-memory fallback while the picker renders.
+    //
+    // Once per person, not on every SIGNED_IN: Supabase can fire that event
+    // again seconds later (tab refocus), which used to be harmless but would
+    // now yank someone back out of the city a shared link just opened.
     const applyCityForUser = (u: User) => {
+      if (savedCityAppliedFor.current === u.id) return;
+      savedCityAppliedFor.current = u.id;
       if (shouldShowOnboardingPicker(u)) {
         setShowCityPicker(true);
-        return;
-      }
-      if (hasStoredDefaultCity(u)) {
+      } else if (hasStoredDefaultCity(u)) {
         setSelectedCity(getStoredDefaultCity(u));
       }
+      setSavedCityApplied(true);
     };
 
     // Get initial session
@@ -351,47 +387,61 @@ function HomeContent() {
     };
   }, [activeFilters]);
 
-  // Deep-link: open a property popup when navigating from /inbox with ?focus=placeId
-  useEffect(() => {
-    if (!properties.length) return;
-    const params = new URLSearchParams(window.location.search);
-    const focusId = params.get("focus");
-    if (!focusId) return;
-
-    // Clean up URL immediately to prevent re-triggering
-    params.delete("focus");
-    params.delete("city");
-    const clean = params.toString();
-    window.history.replaceState({}, "", clean ? `?${clean}` : window.location.pathname);
-
-    // Find matching property and navigate
-    const match = properties.find(
-      (p: any) => generatePropertyPlaceId(p) === focusId,
-    );
-    if (match) {
-      // Ensure the property filter is active
-      if (!activeFilters.has("property")) {
-        setActiveFilters((prev) => {
-          const next = new Set(prev);
-          next.add("property");
-          return next;
-        });
-      }
-      setTimeout(() => {
-        window.dispatchEvent(
-          new CustomEvent("navigate-and-open-popup", {
-            detail: {
-              lat: (match as any).latitude,
-              lon: (match as any).longitude,
-              placeId: focusId,
-              placeType: "property",
-              data: match,
-            },
-          }),
-        );
-      }, 300);
+  /**
+   * Switch the map to another city, turning off overlays it has no data for.
+   *
+   * The picker saves the choice as the person's default. A shared link does
+   * not: following a link to Prague should not quietly change where the app
+   * opens tomorrow.
+   */
+  const switchCity = useCallback((city: City, { saveAsDefault }: { saveAsDefault: boolean }) => {
+    setSelectedCity(city);
+    if (saveAsDefault && user) {
+      void saveDefaultCity(user, city.id);
     }
-  }, [properties, activeFilters]);
+    const cityOverlays = CITY_OVERLAYS[city.id] ?? DEFAULT_OVERLAYS;
+    if (!cityOverlays.traffic) { setTrafficEnabled(false); setTrafficValuesEnabled(false); }
+    if (!cityOverlays.population) { setPopulationEnabled(false); setPopulationDensityFilter(0); }
+    if (!cityOverlays.income) { setIncomeEnabled(false); setIncomeWealthyFilter(0); }
+    if (!cityOverlays.locationScore) { setGravityEnabled(false); }
+  }, [user]);
+
+  /**
+   * Act on a parked shared link once we know who this is and what they hold.
+   *
+   * Waits for: signed in, account active, city access loaded, saved city
+   * applied, and the first-time city picker out of the way. Then either says
+   * they have no access to that city, or switches to it and hands the place
+   * to the map, which opens the card once that city's data has loaded.
+   */
+  useEffect(() => {
+    if (!user || isActive !== true || !accessResolved || !savedCityApplied || showCityPicker) return;
+    const placeId = readPendingFocus();
+    if (!placeId) return;
+    clearPendingFocus();
+
+    // "No cities at all" already has its own full-screen explanation.
+    if (grantedCities.length === 0) return;
+
+    const coords = parseCoordinatesFromPlaceId(placeId);
+    const cityId = coords ? cityForCoordinates(coords.lat, coords.lon) : null;
+    const city = cities.find(c => c.id === cityId);
+    if (!city) {
+      showToast("This place is no longer on the map", "error");
+      return;
+    }
+    if (!grantedCities.some(c => c.id === city.id)) {
+      setNoAccessCity(city);
+      return;
+    }
+    if (city.id !== selectedCity.id) switchCity(city, { saveAsDefault: false });
+    setPendingFocus({ placeId, cityId: city.id });
+  }, [user, isActive, accessResolved, savedCityApplied, showCityPicker, grantedCities, selectedCity.id, switchCity, showToast]);
+
+  const handlePendingFocusDone = useCallback((found: boolean) => {
+    setPendingFocus(null);
+    if (!found) showToast("This place is no longer on the map", "error");
+  }, [showToast]);
 
   // Deep-link: open new listings modal from email CTA (?listings=open)
   useEffect(() => {
@@ -449,6 +499,8 @@ function HomeContent() {
           propertyPriceChangeFilter={propertyPriceChangeFilter}
           propertyPitchStatusFilter={propertyPitchStatusFilter}
           demoMode={demoMode}
+          pendingFocus={pendingFocus}
+          onPendingFocusDone={handlePendingFocusDone}
         />
       </div>
 
@@ -459,17 +511,7 @@ function HomeContent() {
             <CitySelector
               selectedCity={selectedCity}
               available={grantedCities}
-              onCityChange={(city) => {
-                setSelectedCity(city);
-                if (user) {
-                  void saveDefaultCity(user, city.id);
-                }
-                const cityOverlays = CITY_OVERLAYS[city.id] ?? DEFAULT_OVERLAYS;
-                if (!cityOverlays.traffic) { setTrafficEnabled(false); setTrafficValuesEnabled(false); }
-                if (!cityOverlays.population) { setPopulationEnabled(false); setPopulationDensityFilter(0); }
-                if (!cityOverlays.income) { setIncomeEnabled(false); setIncomeWealthyFilter(0); }
-                if (!cityOverlays.locationScore) { setGravityEnabled(false); }
-              }}
+              onCityChange={(city) => switchCity(city, { saveAsDefault: true })}
             />
             <LocationSearch
               cafes={cafes}
@@ -674,6 +716,27 @@ function HomeContent() {
           </div>
         </div>
       )}
+
+      {/* A shared link pointed at a city this person cannot view */}
+      <Dialog open={!!noAccessCity} onOpenChange={(open) => { if (!open) setNoAccessCity(null); }}>
+        <DialogContent className="sm:max-w-sm" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>You don&apos;t have access to {noAccessCity?.name} yet</DialogTitle>
+            <DialogDescription>
+              Someone shared a place in {noAccessCity?.name} with you. Ask your admin to add you to that city, then open the link again.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setNoAccessCity(null)}
+              className="h-10 rounded-lg bg-zinc-900 px-5 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              OK
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* City Picker - shown to new users after sign-in */}
       <CityPicker
