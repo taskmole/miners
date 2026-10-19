@@ -33,7 +33,7 @@ const RULE_MIN = 5;
 const RULE_MAX = 300;
 
 /** Suggestions only start once this many listings are rated in a week. */
-const UNLOCK_RATINGS = 10;
+const UNLOCK_RATINGS = 5;
 
 /**
  * apiFetch throws "API 400: {"error":"..."}". Pull out the server's own
