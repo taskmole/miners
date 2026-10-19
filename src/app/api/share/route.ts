@@ -1,9 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { authenticateRequest, createServiceSupabase, mayViewCity } from "@/lib/supabase-server";
 import { cityForCoordinates } from "@/lib/notify-routing";
 import { cleanShareInput } from "@/lib/share";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Render a new link's preview picture once, so it is ready before anyone
+ * pastes the link. Its first render takes ~3 s (cold server, photo download),
+ * long enough for a chat app to give up and show the link without a picture.
+ * Reads the image address from the page itself because Next adds a version
+ * suffix to it, and the CDN keeps one copy per exact address. Best effort:
+ * any failure only means the first paste renders it instead.
+ */
+async function warmPreview(origin: string, code: string) {
+  try {
+    const page = await fetch(`${origin}/s/${code}`, { signal: AbortSignal.timeout(15000) });
+    const image = (await page.text()).match(/property="og:image" content="([^"]+)"/)?.[1]?.replaceAll("&amp;", "&");
+    if (!image?.startsWith(`${origin}/s/${code}/`)) return;
+    const res = await fetch(image, { signal: AbortSignal.timeout(15000) });
+    await res.arrayBuffer();
+  } catch (err) {
+    console.warn("[api/share] preview warm-up failed:", err);
+  }
+}
 
 /**
  * Save a share link (the row behind /s/<code>).
@@ -68,5 +88,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Could not save the link" }, { status: 500 });
   }
 
+  after(() => warmPreview(request.nextUrl.origin, share.code));
   return NextResponse.json({ ok: true }, { status: 201 });
 }

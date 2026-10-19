@@ -1,5 +1,5 @@
 /**
- * Share links: the /s/<code> URLs behind the "Copy" button on place cards.
+ * Share links: the /s/<code> URLs behind the "Link" button on place cards.
  *
  * Shared by the browser (making the code, remembering where a link should
  * land across the Google sign-in round trip) and the server (checking what a

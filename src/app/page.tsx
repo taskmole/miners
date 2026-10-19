@@ -280,9 +280,16 @@ function HomeContent() {
       setAuthChecked(true);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    // Listen for auth changes.
+    //
+    // Supabase calls this while holding its auth lock, which every open tab
+    // shares, and fires SIGNED_IN each time a tab comes back into view. The
+    // migration below is a Supabase call that needs that same lock, so awaiting
+    // it in here waited on itself forever: that tab never let go of the lock,
+    // and every tab opened after it sat on "Loading map data" for good. Hence
+    // the work runs on the next tick, after Supabase has released the lock.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setTimeout(async () => {
         if (event === 'SIGNED_IN' && session?.user) {
           await migrateAnonymousData(session.user.id);
         }
@@ -296,8 +303,8 @@ function HomeContent() {
         } else if (!session?.user) {
           setIsActive(null);
         }
-      }
-    );
+      }, 0);
+    });
 
     return () => subscription.unsubscribe();
   }, []);
