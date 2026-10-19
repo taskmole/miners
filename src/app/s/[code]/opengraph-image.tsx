@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
 import { isAllowedPhotoUrl, placeTypeLabel } from "@/lib/share";
-import { getShare } from "./get-share";
+import { findShare } from "./get-share";
 
 /**
  * The preview picture WhatsApp, Slack and Teams show for a /s/<code> link.
@@ -75,7 +75,7 @@ function truncate(text: string, max: number): string {
 
 export default async function Image({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  const [share, { regular, semibold, logo, logoPng }] = await Promise.all([getShare(code), assets]);
+  const [share, { regular, semibold, logo, logoPng }] = await Promise.all([findShare(code), assets]);
 
   // Unknown code: just the logo, uncached. Cheap for anyone probing random
   // codes, and never cached because the row may simply not be saved yet when
@@ -156,8 +156,10 @@ export default async function Image({ params }: { params: Promise<{ code: string
       "Content-Type": "image/jpeg",
       // A share's snapshot never changes, so the finished picture caches for
       // good. If its photo failed to load (slow or briefly down host), the
-      // stand-in card is kept for a minute only, so the photo gets another go.
-      "Cache-Control": photo || !share.photoUrl ? "public, max-age=31536000, immutable" : "public, max-age=60",
+      // stand-in card is not cached at all, so every fetch gives the photo
+      // another go: the warm-up right after saving must not pin it for the
+      // minute in which the link is usually pasted.
+      "Cache-Control": photo || !share.photoUrl ? "public, max-age=31536000, immutable" : "no-store",
     },
   });
 }

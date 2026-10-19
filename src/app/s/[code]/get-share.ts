@@ -21,14 +21,14 @@ export interface PublicShare {
 const RETRY_DELAYS_MS = [500, 1000, 1500, 1500, 1500];
 
 /**
- * Look a share code up for the public preview page and its image.
+ * Look a share code up, asking again after each of `retryDelays` while it is
+ * missing.
  *
  * Runs with the service role because share_links has no policies (chat-app
  * link fetchers have no session). A malformed code is turned away before the
- * database is asked. Wrapped in React's cache so the page and its metadata
- * share one query (and one wait) per request.
+ * database is asked.
  */
-export const getShare = cache(async (code: string): Promise<PublicShare | null> => {
+async function lookupShare(code: string, retryDelays: number[]): Promise<PublicShare | null> {
   if (!SHARE_CODE_RE.test(code)) return null;
   const db = createServiceSupabase();
   if (!db) return null;
@@ -41,7 +41,7 @@ export const getShare = cache(async (code: string): Promise<PublicShare | null> 
       .maybeSingle();
 
   let { data, error } = await lookup();
-  for (const delay of RETRY_DELAYS_MS) {
+  for (const delay of retryDelays) {
     if (data || error) break;
     await new Promise((resolve) => setTimeout(resolve, delay));
     ({ data, error } = await lookup());
@@ -60,4 +60,17 @@ export const getShare = cache(async (code: string): Promise<PublicShare | null> 
     address: data.address,
     photoUrl: data.photo_url,
   };
-});
+}
+
+/**
+ * For the /s/<code> page, waiting for a link that may still be saving.
+ * Wrapped in React's cache so the page and its metadata share one lookup
+ * (and one wait) per request.
+ */
+export const getShare = cache((code: string) => lookupShare(code, RETRY_DELAYS_MS));
+
+/**
+ * For the preview image: no wait. Chat apps fetch it only after the page,
+ * which already waited, and probing random codes stays cheap.
+ */
+export const findShare = cache((code: string) => lookupShare(code, []));

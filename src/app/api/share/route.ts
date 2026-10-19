@@ -17,10 +17,13 @@ async function warmPreview(origin: string, code: string) {
   try {
     const signal = AbortSignal.timeout(15000); // for both requests together
     const pageUrl = shareUrl(origin, code);
-    const page = await fetch(pageUrl, { signal });
+    const page = await fetch(pageUrl, { signal, redirect: "error" });
     const image = (await page.text()).match(/property="og:image" content="([^"]+)"/)?.[1]?.replaceAll("&amp;", "&");
-    if (!image?.startsWith(`${pageUrl}/`)) return;
-    const res = await fetch(image, { signal });
+    if (!image?.startsWith(`${pageUrl}/`)) {
+      console.warn("[api/share] preview warm-up skipped, image address:", image ?? "none");
+      return;
+    }
+    const res = await fetch(image, { signal, redirect: "error" });
     await res.arrayBuffer();
   } catch (err) {
     console.warn("[api/share] preview warm-up failed:", err);

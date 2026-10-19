@@ -17,7 +17,7 @@ vi.mock("@/lib/supabase-server", () => ({
   }),
 }));
 
-const { getShare } = await import("../get-share");
+const { getShare, findShare } = await import("../get-share");
 
 const ROW = { place_id: "gym-40.4-3.7-abc", place_type: "gym", title: "Gym", address: null, photo_url: null };
 
@@ -44,6 +44,20 @@ describe("getShare", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(await share).toBeNull();
     expect(lookups).toBe(6);
+  });
+
+  it("stops waiting as soon as the database errors", async () => {
+    answers = [{ data: null, error: null }, { data: null, error: { message: "boom" } }];
+    const share = getShare("Mid123XYZ9");
+    await vi.runAllTimersAsync();
+    expect(await share).toBeNull();
+    expect(lookups).toBe(2);
+  });
+
+  it("finds without waiting for the preview image", async () => {
+    answers = [{ data: null, error: null }];
+    expect(await findShare("Img123XYZ9")).toBeNull();
+    expect(lookups).toBe(1);
   });
 
   it("does not wait on a database error or a malformed code", async () => {

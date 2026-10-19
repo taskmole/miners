@@ -3020,6 +3020,9 @@ export function EnhancedMapContainer({
     // Street-level pins are drawn only inside this area (see PinAreaTracker),
     // plus the pin whose card is open, so panning never closes it.
     const [pinArea, setPinArea] = useState<PinArea | null>(null);
+    // Clusters stay up until the pin area is known, so crossing into street
+    // level mid-gesture (a pinch, a fly-in) never leaves the map empty.
+    const showPins = showIcons && pinArea !== null;
     const shouldDrawPin = React.useCallback((markerKey: string, lat: number, lon: number) =>
         markerKey === activeMarkerKey || (!!pinArea
             && lat >= pinArea.south && lat <= pinArea.north
@@ -3403,7 +3406,7 @@ export function EnhancedMapContainer({
                 })}
 
                 {/* CAFES - Conditional rendering based on zoom */}
-                {showIcons ? (
+                {showPins ? (
                     <>
                         {/* Zoomed in: Show icon markers */}
                         {visibleCafes.map((cafe, i) => {
@@ -3517,7 +3520,7 @@ export function EnhancedMapContainer({
                 )}
 
                 {/* PROPERTIES - Conditional rendering based on zoom */}
-                {showIcons ? (
+                {showPins ? (
                     <>
                         {/* Zoomed in: Show icon markers */}
                         {visibleProperties.map((property, i) => {
@@ -3604,7 +3607,7 @@ export function EnhancedMapContainer({
                 )}
 
                 {/* OTHER POIs - Conditional rendering based on zoom */}
-                {showIcons ? (
+                {showPins ? (
                     <>
                         {/* Zoomed in: Show icon markers */}
                         {visibleOtherPois.map((poi, i) => {

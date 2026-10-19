@@ -22,6 +22,8 @@ type Status = (typeof STATUSES)[number];
 /** The visible word for each status. */
 const WORDS: Record<Status, string> = { idle: "Link", copied: "Copied", shared: "Done" };
 
+const SAVE_FAILED = "The link couldn't be saved. Please try again.";
+
 /**
  * The "Link" button at the end of a place card's title line.
  *
@@ -66,15 +68,18 @@ export function ShareButton({ placeId, placeType, title, address, photoUrl }: Sh
     const code = makeShareCode();
     const url = shareUrl(window.location.origin, code);
 
+    // Set when the save fails, so a share sheet closing later can't say "Done".
+    let saveFailed = false;
     apiFetch("/api/share", {
       method: "POST",
       keepalive: true,
       body: JSON.stringify({ code, placeId, placeType, title, address, photoUrl }),
     }).catch((err) => {
       console.error("[share] saving the link failed:", err);
+      saveFailed = true;
       stopReset();
       setStatus("idle");
-      showToast("The link couldn't be saved. Please try again.", "error");
+      showToast(SAVE_FAILED, "error");
     });
 
     /** Resolves true once the link is on the clipboard. */
@@ -92,8 +97,13 @@ export function ShareButton({ placeId, placeType, title, address, photoUrl }: Sh
 
     if (useShareSheet) {
       navigator.share({ title, url }).then(
-        () => flash("shared"),
+        () => {
+          // The sheet may have hidden the save error: say it again now.
+          if (saveFailed) showToast(SAVE_FAILED, "error");
+          else flash("shared");
+        },
         async (err: unknown) => {
+          if (saveFailed) return showToast(SAVE_FAILED, "error");
           // Closing the sheet without picking an app is not an error.
           if (err instanceof DOMException && err.name === "AbortError") return;
           if (await copy()) showToast("Link copied");
