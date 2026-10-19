@@ -14,6 +14,7 @@ import { FootfallTimePicker } from "@/components/FootfallTimePicker";
 import { FeedbackButton } from "@/components/FeedbackButton";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { NewListingsModal } from "@/components/NewListingsModal";
+import { WhatsNewPopup } from "@/components/WhatsNewPopup";
 import { LocationSearch } from "@/components/LocationSearch";
 import { EnhancedMapContainer } from "@/components/EnhancedMapContainer";
 import { LandingPage } from "@/components/LandingPage";
@@ -27,6 +28,7 @@ import {
 import { useMapData } from "@/hooks/useMapData";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { useMobile } from "@/hooks/useMobile";
+import { useWhatsNew } from "@/hooks/useWhatsNew";
 import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { cityForCoordinates } from "@/lib/notify-routing";
 import { clearPendingFocus, readPendingFocus, savePendingFocus } from "@/lib/share";
@@ -177,6 +179,18 @@ function HomeContent() {
   const [pendingFocus, setPendingFocus] = useState<{ placeId: string; cityId: string } | null>(null);
   const [noAccessCity, setNoAccessCity] = useState<City | null>(null);
   const { showToast } = useToast();
+
+  // "What's new" popup. Held back for anyone who arrived through an email or
+  // share link: they came for one thing, so a popup on top would be noise.
+  const { unseen: whatsNewUnseen, hasUnread: whatsNewUnread, markSeen: markWhatsNewSeen } = useWhatsNew(user);
+  const [arrivedViaLink] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.has("focus") || params.has("listings") || readPendingFocus() !== null;
+  });
+  // Opening the profile menu (same corner) puts it away for this visit,
+  // without counting as seen.
+  const [whatsNewSnoozed, setWhatsNewSnoozed] = useState(false);
 
   // Park a shared link's destination before anything else runs on mount. The
   // Google sign-in round trip comes back to a bare "/", and the auth-error
@@ -480,6 +494,13 @@ function HomeContent() {
     };
   }, []);
 
+  // Only once they are fully in and nothing else is asking for attention.
+  const whatsNewCanShow =
+    isActive === true && !showLanding && savedCityApplied && !showCityPicker &&
+    !hasNoCities && !isNewListingsOpen && !arrivedViaLink && !whatsNewSnoozed &&
+    !parkedFocus && !pendingFocus && !noAccessCity &&
+    !isScoutingFormOpen && !isScoutingUploadOpen && !isScoutingDetailOpen;
+
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-zinc-100">
       {/* Linking mode banner */}
@@ -617,7 +638,16 @@ function HomeContent() {
           />
           <MobileBottomNav onNewListingsOpen={() => setIsNewListingsOpen(true)} newListingsCount={newListingsCount} newListingsGlow={newListingsGlow} activityCount={activityUnreadCount} />
           <FeedbackButton selectedCity={selectedCity} user={user} onExposeOpen={handleExposeOpen} />
-          <ProfileMenu onFeedbackOpen={() => feedbackOpenRef.current?.()} />
+          <ProfileMenu
+            onFeedbackOpen={() => feedbackOpenRef.current?.()}
+            onOpen={() => setWhatsNewSnoozed(true)}
+            whatsNewUnread={whatsNewUnread}
+          />
+          <WhatsNewPopup
+            entries={whatsNewUnseen}
+            canShow={whatsNewCanShow}
+            onDismiss={markWhatsNewSeen}
+          />
         </>
       )}
 

@@ -37,8 +37,10 @@ export async function saveDefaultCity(
   if (!supabase) return { ok: false };
 
   const attempt = async () => {
+    // Only our own key: Supabase merges metadata keys, and sending back the
+    // whole (possibly stale) object would undo other settings saved since.
     const { error } = await supabase!.auth.updateUser({
-      data: { ...user.user_metadata, default_city: cityId },
+      data: { default_city: cityId },
     });
     return !error;
   };
@@ -51,4 +53,48 @@ export async function saveDefaultCity(
 export function shouldShowOnboardingPicker(user: User | null): boolean {
   if (!user) return false;
   return !hasStoredDefaultCity(user);
+}
+
+// ---------------------------------------------------------------------------
+// "What's new": the highest update id this person has closed the popup on.
+// Kept on the account (so a phone knows what the laptop saw) and mirrored in
+// localStorage per account, so the popup never flashes back while the save is
+// in flight, if it fails, or for a second account on the same computer.
+// ---------------------------------------------------------------------------
+
+const WHATS_NEW_KEY = "whats_new_seen";
+const localSeenKey = (userId: string) => `miners-whats-new-seen:${userId}`;
+
+function readLocalSeen(userId: string): number | null {
+  try {
+    const n = Number(localStorage.getItem(localSeenKey(userId)));
+    return Number.isInteger(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+function readAccountSeen(user: User): number | null {
+  const saved = (user.user_metadata as Record<string, unknown> | undefined)?.[WHATS_NEW_KEY];
+  return typeof saved === "number" && saved > 0 ? saved : null;
+}
+
+/** Highest id seen, from the account or this device. Null = never closed it. */
+export function getWhatsNewSeen(user: User): number | null {
+  return Math.max(readAccountSeen(user) ?? 0, readLocalSeen(user.id) ?? 0) || null;
+}
+
+/** Fire-and-forget: the local copy alone keeps the popup closed if this fails. */
+export async function saveWhatsNewSeen(user: User, id: number): Promise<void> {
+  try {
+    localStorage.setItem(localSeenKey(user.id), String(id));
+  } catch {
+    // Private mode: the account copy below still covers it.
+  }
+  if (!supabase || (readAccountSeen(user) ?? 0) >= id) return;
+  try {
+    await supabase.auth.updateUser({ data: { [WHATS_NEW_KEY]: id } });
+  } catch {
+    // Offline: the local copy keeps it closed here; the next close retries.
+  }
 }
