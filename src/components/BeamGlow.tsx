@@ -33,11 +33,14 @@ export function BeamGlow({ playKey, playMs, ...beamProps }: BeamGlowProps) {
     return () => clearTimeout(timer);
   }, [playKey, playMs, reduceMotion]);
 
-  return <BorderBeam {...beamProps} active={playing && !reduceMotion} />;
+  // `!!playKey`: clearing the signal mid-glow stops it at once (the cleanup
+  // has already cancelled the timer that would have).
+  return <BorderBeam {...beamProps} active={!!playKey && playing && !reduceMotion} />;
 }
 
 /**
- * The NEW listings button's glow (desktop and phone). Goes inside the button,
+ * The NEW listings button's glow (desktop and phone), also used on the
+ * "What's new" Next button so both "look here" moments match. Goes inside the button,
  * so the button keeps its own position, shadow, red dot and tap shrink.
  * `borderRadius` must match the button's corners: Beam can't read them from
  * the text label it wraps. Green, held still, to stay on-brand; the "sm" and
@@ -63,5 +66,44 @@ export function NewButtonGlow({
     >
       {children}
     </BeamGlow>
+  );
+}
+
+/**
+ * Two soft green breaths inside a light box (AI Summary, "All caught up").
+ * `borderRadius` must match the box's corners.
+ */
+export function BreatheGlow(props: Omit<BeamGlowProps, "playMs">) {
+  return (
+    <BeamGlow
+      playMs={4600}
+      size="pulse-inner"
+      colorVariant="forest"
+      staticColors
+      theme="light"
+      {...props}
+    />
+  );
+}
+
+/**
+ * A 2 px glowing ring just outside a button (sign-in, Done). The negative
+ * margin hands the 2 px back, so nothing moves. `background` must match what
+ * is around the button, so the ring can't be seen while idle. Flex keeps an
+ * inline-flex button from sitting a pixel low. Must sit in a flex container,
+ * or it would stretch to full width.
+ */
+export function RingGlow({
+  radius,
+  background,
+  ...glowProps
+}: Omit<BeamGlowProps, "borderRadius" | "style"> & { radius: number; background: string }) {
+  return (
+    <BeamGlow
+      brightness={1.9}
+      {...glowProps}
+      borderRadius={radius + 2}
+      style={{ display: "flex", padding: 2, margin: -2, background }}
+    />
   );
 }

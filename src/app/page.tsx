@@ -14,6 +14,7 @@ import { FootfallTimePicker } from "@/components/FootfallTimePicker";
 import { FeedbackButton } from "@/components/FeedbackButton";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { NewListingsModal } from "@/components/NewListingsModal";
+import { WhatsNewPopup } from "@/components/WhatsNewPopup";
 import { LocationSearch } from "@/components/LocationSearch";
 import { EnhancedMapContainer } from "@/components/EnhancedMapContainer";
 import { LandingPage } from "@/components/LandingPage";
@@ -27,6 +28,7 @@ import {
 import { useMapData } from "@/hooks/useMapData";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { useMobile } from "@/hooks/useMobile";
+import { useWhatsNew } from "@/hooks/useWhatsNew";
 import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { cityForCoordinates } from "@/lib/notify-routing";
 import { clearPendingFocus, readPendingFocus, savePendingFocus } from "@/lib/share";
@@ -36,7 +38,7 @@ import { GeoDataProvider } from "@/contexts/GeoDataContext";
 import { LinkingProvider, useLinking } from "@/contexts/LinkingContext";
 import { ScoutingTripsProvider } from "@/contexts/ScoutingTripsContext";
 import { PointCategoriesProvider } from "@/contexts/PointCategoriesContext";
-import { SheetProvider } from "@/contexts/SheetContext";
+import { SheetProvider, useSheet } from "@/contexts/SheetContext";
 import { WalkingRadiusProvider } from "@/contexts/WalkingRadiusContext";
 import { ToastProvider, useToast } from "@/contexts/ToastContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -70,7 +72,7 @@ function HomeContent() {
     () => cities.find(c => c.id === "madrid") ?? cities[0]
   );
 
-  const { cafes, properties, otherPois, counts } = useMapData(selectedCity.id);
+  const { cafes, properties, otherPois, counts, isLoading: mapLoading } = useMapData(selectedCity.id);
 
   const { startLinking, isLinking } = useLinking();
   const isMobile = useMobile();
@@ -145,24 +147,6 @@ function HomeContent() {
   const [newListingsGlow, setNewListingsGlow] = useState(0);
   const lastListingsCount = useRef(0);
 
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    async function fetchCount() {
-      try {
-        const data = await apiFetch<{ count: number }>(`/api/db/inbox?city_id=${selectedCity.id}&mode=count`);
-        if (cancelled) return;
-        const count = data?.count || 0;
-        if (count > lastListingsCount.current) setNewListingsGlow((n) => n + 1);
-        lastListingsCount.current = count;
-        setNewListingsCount(count);
-      } catch { /* ignore */ }
-    }
-    fetchCount();
-    const interval = setInterval(fetchCount, 60_000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [user, selectedCity.id, isNewListingsOpen]);
-
   // Landing page state - shows on first load (unless already logged in)
   const [showLanding, setShowLanding] = useState(true);
 
@@ -177,6 +161,55 @@ function HomeContent() {
   const [pendingFocus, setPendingFocus] = useState<{ placeId: string; cityId: string } | null>(null);
   const [noAccessCity, setNoAccessCity] = useState<City | null>(null);
   const { showToast } = useToast();
+
+  // "What's new" popup. Held back for anyone who arrived through an email or
+  // share link: they came for one thing, so a popup on top would be noise.
+  const { unseen: whatsNewUnseen, hasUnread: whatsNewUnread, markSeen: markWhatsNewSeen } = useWhatsNew(user);
+  const [arrivedViaLink] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.has("focus") || params.has("listings") || readPendingFocus() !== null;
+  });
+  // Opening the profile menu (same corner) puts it away for this visit,
+  // without counting as seen.
+  const [whatsNewSnoozed, setWhatsNewSnoozed] = useState(false);
+  const dismissWhatsNew = useCallback(() => markWhatsNewSeen(), [markWhatsNewSeen]);
+  // Phone sheets (filters, lists, a tapped place...) own the screen: wait.
+  const { activeSheet } = useSheet();
+
+  // Counts only once the user's own city is set (and picked, for a new user).
+  // Counting the Madrid fallback first used to bump the glow for Madrid's
+  // listings, which then played on a city that might have none.
+  useEffect(() => {
+    if (!user || !savedCityApplied || showCityPicker) return;
+    let cancelled = false;
+    async function fetchCount() {
+      try {
+        const data = await apiFetch<{ count: number }>(`/api/db/inbox?city_id=${selectedCity.id}&mode=count`);
+        if (cancelled) return;
+        const count = data?.count || 0;
+        if (count > lastListingsCount.current) setNewListingsGlow((n) => n + 1);
+        lastListingsCount.current = count;
+        setNewListingsCount(count);
+      } catch { /* ignore */ }
+    }
+    fetchCount();
+    const interval = setInterval(fetchCount, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [user, savedCityApplied, showCityPicker, selectedCity.id, isNewListingsOpen]);
+
+  // The NEW glow waits until someone is likely looking: map loaded for a
+  // second and the listings window closed. On a phone the first count usually
+  // landed while the map was still loading, so the glow was over before anyone
+  // looked at the buttons. The second also rides out the blip where loading
+  // briefly reads false while switching to the saved city.
+  const [newButtonGlow, setNewButtonGlow] = useState(0);
+  const newButtonVisible = !mapLoading && !isNewListingsOpen;
+  useEffect(() => {
+    if (!newButtonVisible) return;
+    const timer = setTimeout(() => setNewButtonGlow(newListingsGlow), 1000);
+    return () => clearTimeout(timer);
+  }, [newButtonVisible, newListingsGlow]);
 
   // Park a shared link's destination before anything else runs on mount. The
   // Google sign-in round trip comes back to a bare "/", and the auth-error
@@ -487,6 +520,13 @@ function HomeContent() {
     };
   }, []);
 
+  // Only once they are fully in and nothing else is asking for attention.
+  const whatsNewCanShow =
+    isActive === true && !showLanding && savedCityApplied && !showCityPicker &&
+    !hasNoCities && !isNewListingsOpen && !arrivedViaLink && !whatsNewSnoozed &&
+    !parkedFocus && !pendingFocus && !noAccessCity &&
+    !isScoutingFormOpen && !isScoutingUploadOpen && !isScoutingDetailOpen && !activeSheet;
+
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-zinc-100">
       {/* Linking mode banner */}
@@ -609,7 +649,7 @@ function HomeContent() {
               aria-label="New listings"
             >
               {/* 10px = rounded-lg with this theme's --radius */}
-              <NewButtonGlow playKey={newListingsGlow} borderRadius={10}>
+              <NewButtonGlow playKey={newButtonGlow} borderRadius={10}>
                 <span className="text-[10px] font-extrabold text-white tracking-tight leading-none">NEW</span>
               </NewButtonGlow>
               {newListingsCount > 0 && (
@@ -622,9 +662,18 @@ function HomeContent() {
             onClose={() => setIsNewListingsOpen(false)}
             cityId={selectedCity.id}
           />
-          <MobileBottomNav onNewListingsOpen={() => setIsNewListingsOpen(true)} newListingsCount={newListingsCount} newListingsGlow={newListingsGlow} activityCount={activityUnreadCount} />
+          <MobileBottomNav onNewListingsOpen={() => setIsNewListingsOpen(true)} newListingsCount={newListingsCount} newListingsGlow={newButtonGlow} activityCount={activityUnreadCount} />
           <FeedbackButton selectedCity={selectedCity} user={user} onExposeOpen={handleExposeOpen} />
-          <ProfileMenu onFeedbackOpen={() => feedbackOpenRef.current?.()} />
+          <ProfileMenu
+            onFeedbackOpen={() => feedbackOpenRef.current?.()}
+            onOpen={() => setWhatsNewSnoozed(true)}
+            whatsNewUnread={whatsNewUnread}
+          />
+          <WhatsNewPopup
+            entries={whatsNewUnseen}
+            canShow={whatsNewCanShow}
+            onDismiss={dismissWhatsNew}
+          />
         </>
       )}
 
@@ -759,6 +808,8 @@ function HomeContent() {
         onComplete={(city) => {
           setSelectedCity(city);
           setShowCityPicker(false);
+          // A brand-new account: nothing is "new" to them yet.
+          markWhatsNewSeen(true);
         }}
       />
 

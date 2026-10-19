@@ -4,6 +4,7 @@ import React from 'react';
 import { X, Check, MapPin, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLinking } from '@/contexts/LinkingContext';
+import { RingGlow } from '@/components/BeamGlow';
 
 // Banner that shows when in linking mode
 export function LinkingBanner() {
@@ -37,15 +38,28 @@ export function LinkingBanner() {
             >
               Cancel
             </Button>
-            <Button
-              size="sm"
-              onClick={confirmLinking}
-              disabled={selectedItems.length === 0}
-              className="bg-white text-zinc-900 hover:bg-zinc-100 h-8 gap-1.5"
+            {/* Glows when a pin is picked, saying "now press here": the
+                scout is looking at the map, and Done is up in the corner.
+                The ring clips the button's own focus ring, so it draws one
+                just inside its edge instead. */}
+            <RingGlow
+              playKey={selectedItems[0]?.id}
+              playMs={4000}
+              colorVariant="forest"
+              staticColors
+              radius={8}
+              background="var(--color-zinc-900)"
             >
-              <Check className="w-3.5 h-3.5" />
-              Done
-            </Button>
+              <Button
+                size="sm"
+                onClick={confirmLinking}
+                disabled={selectedItems.length === 0}
+                className="bg-white text-zinc-900 hover:bg-zinc-100 h-8 gap-1.5 focus-visible:ring-0 focus-visible:outline-solid focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-zinc-900"
+              >
+                <Check className="w-3.5 h-3.5" />
+                Done
+              </Button>
+            </RingGlow>
           </div>
         </div>
 
