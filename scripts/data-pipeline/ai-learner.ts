@@ -14,9 +14,10 @@
  *   accepted change together with everything else in the active version, and
  *   rolls it back if the combination made scores worse. With nothing to do it
  *   exits after three small reads.
- * - weekly (Wednesday night): asks the model for at most 3 changes from the
- *   week's feedback, tests them, and tries a weight self-tune that needs no
- *   model calls.
+ * - weekly (Wednesday night): once head office has rated UNLOCK_LISTINGS
+ *   listings since the last run that asked the model (in any number of weeks),
+ *   asks the model for at most 3 changes from that new feedback, tests them,
+ *   and tries a weight self-tune that needs no model calls.
  *
  * The scoreboard re-rates the 50 most recently labelled listings with each
  * version, using the scorer's own rateListing (facts, examples, photos,
@@ -112,13 +113,25 @@ const MAX_TESTS_PER_RUN = 3;
 // into an unbounded bill. Suggestions left over stay 'testing' for next run.
 const MAX_AI_CALLS = 160;
 const CONCURRENCY = 5;
-const MIN_LABELS = 5;
+// Fewest labels a scoreboard needs before its result means anything. Equal
+// to UNLOCK_LISTINGS, so a run that unlocks can almost always test what it
+// suggests. It only binds in the first weeks: the scoreboard uses the 50
+// most recently labelled listings of all time.
+const MIN_LABELS = 3;
+// New suggestions need feedback on this many listings (point fix, overall
+// verdict, assign, reject or request) since the last weekly run that asked
+// the model. Counted across weeks, so a slow trickle still unlocks. Keep in
+// step with UNLOCK_RATINGS in src/lib/ai-scout-unlock.ts, which the Friday
+// email and the admin tab use.
+const UNLOCK_LISTINGS = 3;
+// app_settings key holding when that run started. Same key in
+// src/lib/ai-scout-unlock.ts.
+const WATERMARK_KEY = "ai_learner_watermark";
 // The combined version is rolled back only when it is clearly worse.
 const ROLLBACK_MARGIN = 0.02;
 const TUNE_MIN_LABELS = 50;
 const TUNE_MIN_GAIN = 0.05;
 const MAX_SUGGESTIONS = 3;
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // The weekly run is skipped when it already ran in the last 6 days, so a
 // manual re-run does not pile up a second batch of near-identical ideas.
 const WEEKLY_GAP_MS = 6 * 24 * 60 * 60 * 1000;
@@ -467,9 +480,10 @@ async function testSuggestion(run: Run, s: { id: string; title: string; change: 
     return;
   }
   if (run.sample.length < MIN_LABELS) {
-    const reason = `Not enough ratings yet to test this (need ${MIN_LABELS})`;
-    console.log(`    held: ${reason} (have ${run.sample.length})`);
-    await updateSuggestion(run, s.id, { status: "held", held_reason: reason, base_profile_id: active.id, sample: run.sample.length });
+    // Left in 'testing' rather than held: a held suggestion is never tested
+    // again, and this check is cheap enough to repeat every 2 hours until
+    // there are enough ratings.
+    console.log(`    waiting: not enough ratings yet to test this (have ${run.sample.length}, need ${MIN_LABELS})`);
     return;
   }
 
@@ -636,7 +650,7 @@ async function combinationCheck(run: Run, accepted: SuggestionRow): Promise<void
  * that comes from the customer's own instructions and feedback, sent at run
  * time.
  */
-const LEARNER_PROMPT = `You improve the instructions an AI location scout uses to rate commercial property listings for one client. Head office reviewed the scout's ratings this week. Propose at most ${MAX_SUGGESTIONS} small, exact changes that would make the scout agree with head office more often.
+const LEARNER_PROMPT = `You improve the instructions an AI location scout uses to rate commercial property listings for one client. Head office reviewed more of the scout's ratings since your last suggestions. Propose at most ${MAX_SUGGESTIONS} small, exact changes that would make the scout agree with head office more often.
 
 Kinds of change:
 - rule: one new line for the list of things the client has taught the scout. A short, concrete instruction the scout can apply while rating a listing from its text, photos and map facts.
@@ -777,7 +791,7 @@ function groupByPlace(rows: FeedbackDbRow[]): Map<string, FeedbackDbRow[]> {
 }
 
 /** The user message for the weekly call: instructions now, then the evidence. */
-function buildWeeklyMessage(run: Run, weekRows: FeedbackDbRow[], weekStart: string): string {
+function buildWeeklyMessage(run: Run, newRows: FeedbackDbRow[], since: string): string {
   const profile = run.active.profile;
   type Item = { line: string; disagreed: boolean; newest: string };
   const toItems = (groups: Map<string, FeedbackDbRow[]>): Item[] => {
@@ -793,14 +807,14 @@ function buildWeeklyMessage(run: Run, weekRows: FeedbackDbRow[], weekStart: stri
     return items.sort((a, b) => Number(b.disagreed) - Number(a.disagreed) || (a.newest < b.newest ? 1 : -1));
   };
 
-  const week = toItems(groupByPlace(weekRows)).slice(0, MAX_WEEK_LISTINGS);
-  const older = toItems(groupByPlace(run.feedback.filter((f) => feedbackTime(f) < weekStart)))
+  const fresh = toItems(groupByPlace(newRows)).slice(0, MAX_WEEK_LISTINGS);
+  const older = toItems(groupByPlace(run.feedback.filter((f) => new Date(feedbackTime(f)).getTime() <= new Date(since).getTime())))
     .filter((i) => i.disagreed)
     .slice(0, MAX_OLD_MISSES);
 
-  const count = (k: FeedbackRow["kind"]) => weekRows.filter((f) => f.kind === k).length;
-  const verdicts = (v: string) => weekRows.filter((f) => f.kind === "overall" && f.verdict === v).length;
-  const rejections = weekRows.filter((f) => f.kind === "reject" && f.note);
+  const count = (k: FeedbackRow["kind"]) => newRows.filter((f) => f.kind === k).length;
+  const verdicts = (v: string) => newRows.filter((f) => f.kind === "overall" && f.verdict === v).length;
+  const rejections = newRows.filter((f) => f.kind === "reject" && f.note);
 
   const sections = [
     `## The client\n${profile.business.trim()}`,
@@ -808,16 +822,16 @@ function buildWeeklyMessage(run: Run, weekRows: FeedbackDbRow[], weekStart: stri
     `## Rating points now (weights add up to 100)\n${profile.points
       .map((p) => `- ${p.id} "${p.label}" (${p.kind === "fact" ? "map fact, computed" : "judged by the AI"}, weight ${p.weight}): ${p.guide.trim() || "no guide"}`)
       .join("\n")}`,
-    `## This week in numbers\n` +
-      `${groupByPlace(weekRows).size} listings reviewed: ${count("point")} point corrections, ` +
+    `## Since your last suggestions, in numbers\n` +
+      `${groupByPlace(newRows).size} listings reviewed: ${count("point")} point corrections, ` +
       `${count("overall")} overall verdicts (${verdicts("too_high")} too high, ${verdicts("right")} right, ${verdicts("too_low")} too low), ` +
       `${count("reject")} rejections, ${count("assign")} scouts sent, ${count("request")} viewings asked for.`,
-    `## Rejection reasons this week (group these by theme)\n${
+    `## Rejection reasons since then (group these by theme)\n${
       rejections.length
         ? rejections.map((f) => `- "${oneLine(f.note!, 200)}" (${withDistrictOf(run, f.place_id)})`).join("\n")
         : "(none written)"
     }`,
-    `## Listings reviewed this week (disagreements first)\n${week.map((i) => i.line).join("\n") || "(none)"}`,
+    `## Listings reviewed since then (disagreements first)\n${fresh.map((i) => i.line).join("\n") || "(none)"}`,
   ];
   if (older.length) sections.push(`## Earlier disagreements, for context\n${older.map((i) => i.line).join("\n")}`);
   return sections.join("\n\n");
@@ -986,33 +1000,49 @@ async function runTest(supabase: SupabaseClient): Promise<Run | null> {
 
 async function runWeekly(supabase: SupabaseClient): Promise<Run | null> {
   const active = await loadActive(supabase);
+  // Taken before any feedback is read, so feedback saved while this run
+  // works counts toward the next one instead of falling between the two.
+  const startedAt = new Date().toISOString();
   const now = Date.now();
-  const weekStart = new Date(now - WEEK_MS).toISOString();
 
+  // New feedback is everything since the last run that asked the model,
+  // however many weeks back, so feedback from quiet weeks adds up instead of
+  // expiring. A run in the last 6 days means a manual re-run: skip it.
+  const { data: mark, error: markError } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", WATERMARK_KEY)
+    .maybeSingle();
+  if (markError) throw new Error(`Could not read ${WATERMARK_KEY}: ${markError.message}`);
+  const lastRun = (mark?.value as { since?: unknown } | null)?.since;
+  const since = typeof lastRun === "string" ? lastRun : new Date(0).toISOString();
+  if (now - new Date(since).getTime() < WEEKLY_GAP_MS && !DRY_RUN) {
+    console.log(`The weekly run already asked for suggestions in the last 6 days (${since}). Nothing to do.`);
+    return null;
+  }
+
+  // Weekly suggestions from the last 6 days, for the self-tune below.
   const { data: recent, error } = await supabase
     .from("ai_suggestions")
-    .select("id, kind")
+    .select("kind")
     .eq("customer_id", CUSTOMER_ID)
     .eq("source", "weekly")
     .gte("created_at", new Date(now - WEEKLY_GAP_MS).toISOString());
   if (error) throw new Error(`Could not read ai_suggestions: ${error.message}`);
-  if ((recent || []).length > 0 && !DRY_RUN) {
-    console.log(`The weekly run already made suggestions in the last 6 days (${recent!.length}). Nothing to do.`);
-    return null;
-  }
 
   const run = await loadRun(supabase, active, true);
-  const weekRows = run.feedback.filter((f) => feedbackTime(f) >= weekStart);
-  const weekLabels = run.labels.filter((l) => l.at >= weekStart);
-  console.log(`Labels: ${run.labels.length} all-time, ${weekLabels.length} this week`);
+  const sinceMs = new Date(since).getTime();
+  const newRows = run.feedback.filter((f) => new Date(feedbackTime(f)).getTime() > sinceMs);
+  const rated = new Set(newRows.map((f) => f.place_id)).size;
+  console.log(`Labels: ${run.labels.length} all-time. Listings with feedback since the last run: ${rated}`);
 
-  if (weekLabels.length < MIN_LABELS) {
-    console.log(`Fewer than ${MIN_LABELS} labels this week. No suggestions; the Friday email covers the quiet week.`);
+  if (rated < UNLOCK_LISTINGS) {
+    console.log(`Fewer than ${UNLOCK_LISTINGS} listings with feedback since the last run. No suggestions yet; the count carries over.`);
     return run;
   }
 
   const blocked = await existingChangeKeys(supabase);
-  const userText = buildWeeklyMessage(run, weekRows, weekStart);
+  const userText = buildWeeklyMessage(run, newRows, since);
   console.log(`Evidence: ${userText.length} characters for the model\n`);
 
   const inserted: { id: string; title: string; change: unknown }[] = [];
@@ -1056,6 +1086,14 @@ async function runWeekly(supabase: SupabaseClient): Promise<Run | null> {
       );
       inserted.push({ id, title, change: checked.change });
     }
+  }
+
+  // The model has seen this feedback: the next run waits for new feedback.
+  if (!DRY_RUN) {
+    const { error: markWriteError } = await supabase
+      .from("app_settings")
+      .upsert({ key: WATERMARK_KEY, value: { since: startedAt }, updated_at: new Date().toISOString() });
+    if (markWriteError) throw new Error(`Could not save ${WATERMARK_KEY}: ${markWriteError.message}`);
   }
 
   if (inserted.length) {
