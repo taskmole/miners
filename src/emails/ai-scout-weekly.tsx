@@ -5,11 +5,11 @@ import {
   AI_SCOUT_TAB,
   HIGH_SCORE,
   LOW_SCORE,
-  QUIET_WEEK_RATINGS,
   SAMPLE_AI_SCOUT_EMAIL,
   type AiScoutEmailData,
   type AiScoutMisses,
 } from "@/lib/ai-scout-email-queries";
+import { UNLOCK_RATINGS } from "@/lib/ai-scout-unlock";
 
 /**
  * "Your AI scout this week." Friday morning, to everyone who trains the AI.
@@ -18,8 +18,9 @@ import {
  * it leads with how well the AI matched them, says where it went wrong in
  * plain words, lists what it suggests, and ends on one button.
  *
- * A quiet week (too few ratings, nothing ready to accept) gets a short
- * version instead: one line on what unlocks suggestions, and a button.
+ * A quiet week (too few new ratings since the last suggestions, nothing
+ * ready to accept) gets a short version instead: one line on what unlocks
+ * suggestions, and a button.
  *
  * The stat tiles are a three-cell table with percentage widths, the same
  * technique the weekly summary uses, so they hold up in Outlook and on a
@@ -102,7 +103,7 @@ export function AiScoutWeekly({
   // ---- quiet week ---------------------------------------------------------
 
   if (quiet) {
-    const left = Math.max(QUIET_WEEK_RATINGS - stats.listingsRated, 1);
+    const left = Math.max(UNLOCK_RATINGS - stats.ratedSinceSuggestions, 1);
     return (
       <EmailShell preview={`Rate ${left} more listings to unlock suggestions`} headStyles={MOBILE_CSS}>
         <Text style={{ ...headingStyle, marginBottom: "2px" }}>{heading}</Text>
@@ -112,12 +113,10 @@ export function AiScoutWeekly({
           Rate {left} more {plural(left, "listing", "listings")} to unlock suggestions.
         </Text>
         <Text className="ai-text" style={textStyle}>
-          Your AI scout learns from the listings you rate. Once head office has
-          rated {QUIET_WEEK_RATINGS} in a week, it suggests ways to match your
+          Your AI scout learns from the listings you rate. Every time head
+          office has rated {UNLOCK_RATINGS} more, it suggests ways to match your
           taste better.
-          {stats.listingsRated > 0
-            ? ` This week: ${stats.listingsRated} rated.`
-            : " Nobody rated a listing this week."}
+          {stats.ratedSinceSuggestions > 0 && ` ${stats.ratedSinceSuggestions} rated so far.`}
         </Text>
 
         <Link href={appUrl} style={buttonStyle}>

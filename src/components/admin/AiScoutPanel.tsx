@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { ToastProvider, useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api-client";
+import { UNLOCK_RATINGS } from "@/lib/ai-scout-unlock";
 import { cn } from "@/lib/utils";
 import type {
   AiScoutOverview,
@@ -31,9 +32,6 @@ import type {
 
 const RULE_MIN = 5;
 const RULE_MAX = 300;
-
-/** Suggestions only start once this many listings are rated in a week. */
-const UNLOCK_RATINGS = 5;
 
 /**
  * apiFetch throws "API 400: {"error":"..."}". Pull out the server's own
@@ -195,6 +193,7 @@ function AiScoutPanelInner() {
   // Before any test has run, fall back to how many ratings exist at all.
   const testedOn = data.suggestions.find((s) => s.status !== "testing" && s.sample)?.sample ?? 0;
   const ruleLength = ruleText.replace(/\s+/g, " ").trim().length;
+  const ratingsLeft = Math.max(UNLOCK_RATINGS - data.ratedSinceSuggestions, 0);
 
   return (
     <div className="space-y-6">
@@ -226,8 +225,9 @@ function AiScoutPanelInner() {
         </h2>
         {data.suggestions.length === 0 ? (
           <div className="bg-white rounded-xl px-4 py-8 text-center text-sm text-zinc-500">
-            No suggestions yet. They arrive every Friday once head office has rated at least{" "}
-            {UNLOCK_RATINGS} listings that week.
+            {ratingsLeft > 0
+              ? `No suggestions yet. Rate ${ratingsLeft} more ${ratingsLeft === 1 ? "listing" : "listings"} to unlock them.`
+              : "Enough new ratings. Suggestions arrive after the next Wednesday-night check."}
           </div>
         ) : (
           <div className="space-y-3">

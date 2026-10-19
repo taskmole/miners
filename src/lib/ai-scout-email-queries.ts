@@ -1,5 +1,6 @@
 import { createServiceSupabase } from "@/lib/supabase-server";
 import { formatRangeLabel } from "@/lib/weekly-summary-queries";
+import { UNLOCK_RATINGS, listingsRatedSinceSuggestions } from "@/lib/ai-scout-unlock";
 
 /**
  * The Friday "Your AI scout this week" email: its data shape, a sample for
@@ -15,13 +16,6 @@ const CUSTOMER_ID = "miners";
 
 /** The admin tab the email links to. Must match the Tab id in src/app/admin/page.tsx. */
 export const AI_SCOUT_TAB = "ai-scout";
-
-/**
- * Below this many listings rated by head office in a week, and with nothing
- * ready to accept, the email shrinks to a one-line nudge. The weekly learner
- * has too little to go on, so a full report would be mostly zeros.
- */
-export const QUIET_WEEK_RATINGS = 5;
 
 /** A rejection of a listing the AI scored at least this high is a big miss. */
 export const HIGH_SCORE = 70;
@@ -61,6 +55,13 @@ export interface AiScoutEmailData {
     listingsScored: number;
     /** Distinct listings head office rated (point fix or overall verdict). */
     listingsRated: number;
+    /**
+     * Distinct listings with feedback since the learner last asked the
+     * model, any week (ratings, assigns and rejects alike).
+     * Below UNLOCK_RATINGS, with nothing ready to accept, the email shrinks
+     * to a one-line nudge: the learner has too little new to go on.
+     */
+    ratedSinceSuggestions: number;
     /** Whole percent of this week's point ratings where head office agreed. Null with none. */
     agreement: number | null;
     bigMisses: number;
@@ -83,7 +84,7 @@ export interface AiScoutEmailData {
 /** A full week, for the preview. Every section renders. */
 export const SAMPLE_AI_SCOUT_EMAIL: AiScoutEmailData = {
   rangeLabel: "Oct 9 - 16",
-  stats: { listingsScored: 41, listingsRated: 23, agreement: 74, bigMisses: 4 },
+  stats: { listingsScored: 41, listingsRated: 23, ratedSinceSuggestions: 23, agreement: 74, bigMisses: 4 },
   misses: {
     highRejected: { count: 3, topNotes: [{ note: "cellar", count: 2 }] },
     lowAssigned: { count: 1, topNotes: [] },
@@ -108,7 +109,7 @@ export const SAMPLE_AI_SCOUT_EMAIL: AiScoutEmailData = {
 /** A quiet week, for the preview of the short version. */
 export const SAMPLE_AI_SCOUT_EMAIL_QUIET: AiScoutEmailData = {
   ...SAMPLE_AI_SCOUT_EMAIL,
-  stats: { listingsScored: 38, listingsRated: 4, agreement: 75, bigMisses: 0 },
+  stats: { listingsScored: 38, listingsRated: 1, ratedSinceSuggestions: 1, agreement: 75, bigMisses: 0 },
   misses: { highRejected: { count: 0, topNotes: [] }, lowAssigned: { count: 0, topNotes: [] } },
   suggestions: [],
   quiet: true,
@@ -146,6 +147,8 @@ export interface RawAiScoutRows {
   }[];
   /** The active version's points jsonb, as stored. */
   activePoints: unknown;
+  /** From listingsRatedSinceSuggestions: a count, not rows, as it spans any number of weeks. */
+  ratedSinceSuggestions: number;
 }
 
 function time(at: string | null | undefined): number {
@@ -276,6 +279,7 @@ export function buildAiScoutEmail(
     stats: {
       listingsScored,
       listingsRated,
+      ratedSinceSuggestions: rows.ratedSinceSuggestions,
       agreement,
       bigMisses: highRejected.length + lowAssigned.length,
     },
@@ -285,7 +289,9 @@ export function buildAiScoutEmail(
     },
     suggestions,
     weights,
-    quiet: listingsRated < QUIET_WEEK_RATINGS && !hasReady,
+    // A busy week is never quiet, even when Wednesday's run already used up
+    // its ratings and every suggestion it made was held back.
+    quiet: !hasReady && rows.ratedSinceSuggestions < UNLOCK_RATINGS && listingsRated < UNLOCK_RATINGS,
     appUrl,
   };
 }
@@ -381,7 +387,7 @@ export async function getAiScoutEmail(
   const start = new Date(now.getTime() - 7 * DAY_MS);
   const since = start.toISOString();
 
-  const [ratingsRes, feedbackRes, suggestionsRes, profileRes] = await Promise.all([
+  const [ratingsRes, feedbackRes, suggestionsRes, profileRes, ratedSinceSuggestions] = await Promise.all([
     supabase
       .from("ai_ratings")
       .select("id, place_id, blend, created_at")
@@ -404,6 +410,8 @@ export async function getAiScoutEmail(
       .eq("customer_id", CUSTOMER_ID)
       .eq("is_active", true)
       .maybeSingle(),
+    // Throws on a failed read, which fails the send the same way as below.
+    listingsRatedSinceSuggestions(supabase),
   ]);
 
   // Throw, never carry on with empty rows: a failed read would look like a
@@ -442,6 +450,7 @@ export async function getAiScoutEmail(
       feedback,
       suggestions: (suggestionsRes.data as RawAiScoutRows["suggestions"]) || [],
       activePoints: (profileRes.data as { points?: unknown } | null)?.points ?? [],
+      ratedSinceSuggestions,
     },
     start,
     now,

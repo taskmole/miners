@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { accessFor, authenticateRequest, untypedDb as db } from "@/lib/supabase-server";
+import {
+  accessFor,
+  authenticateRequest,
+  createServiceSupabase,
+  untypedDb as db,
+} from "@/lib/supabase-server";
+import { listingsRatedSinceSuggestions } from "@/lib/ai-scout-unlock";
 import { trainsAiAnywhere } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +82,8 @@ export interface AiScoutOverview {
    * query cannot do DISTINCT, and reading every row would hit the 1000-row cap.
    */
   ratingsSaved: number;
+  /** Distinct listings with feedback since the learner last asked the model: what unlocks the next suggestions. */
+  ratedSinceSuggestions: number;
   week: {
     /** Distinct listings rated in the last 7 days. */
     listingsRated: number;
@@ -193,6 +201,13 @@ function errorResponse(where: string, error: { code?: string; message: string })
   );
 }
 
+/** Feedback since the learner's last run, read with the service role. */
+async function serviceCount(): Promise<number> {
+  const service = createServiceSupabase();
+  if (!service) throw new Error("Supabase service role is not configured");
+  return listingsRatedSinceSuggestions(db(service));
+}
+
 /**
  * GET /api/db/ai-scout
  *
@@ -206,7 +221,7 @@ export async function GET(request: NextRequest) {
   const since = new Date(Date.now() - 7 * DAY_MS).toISOString();
 
   try {
-    const [versionsRes, activeRes, suggestionsRes, feedbackRes, totalRes] = await Promise.all([
+    const [versionsRes, activeRes, suggestionsRes, feedbackRes, totalRes, ratedSinceSuggestions] = await Promise.all([
       db(supabase)
         .from("ai_profiles")
         .select("id, version, is_active, note, scoreboard, created_at")
@@ -244,6 +259,9 @@ export async function GET(request: NextRequest) {
         .select("place_id", { count: "exact", head: true })
         .eq("customer_id", CUSTOMER_ID)
         .in("kind", ["point", "overall"]),
+      // Service role, so the count matches the learner's across every city
+      // (only trainers get this far). Throws on a failed read, caught below.
+      serviceCount(),
     ]);
 
     const failed = [versionsRes, activeRes, suggestionsRes, feedbackRes, totalRes].find(
@@ -279,6 +297,7 @@ export async function GET(request: NextRequest) {
       })),
       suggestions: ((suggestionsRes.data as SuggestionRow[]) || []).map(toSuggestion),
       ratingsSaved: totalRes.count ?? 0,
+      ratedSinceSuggestions,
       week: {
         listingsRated: new Set(thisWeek.map((f) => f.place_id)).size,
         ratings: thisWeek.length,
