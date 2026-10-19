@@ -126,8 +126,11 @@ async function loadAiBreakdowns(
       }
     }
 
-    // No access record (failed lookup) means read-only, never an error.
+    // The breakdown is only shown to people who train the AI (today that is
+    // the super admins). Everyone else keeps the score and the AI summary, as
+    // before. A failed access lookup means no breakdown, never an error.
     const canTrain = access ? canTrainAiIn(access, cityId) : false;
+    if (!canTrain) return out;
 
     for (const r of latest.values()) {
       const profilePoints = pointsByProfile.get(r.profile_id);
