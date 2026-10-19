@@ -3,7 +3,7 @@
 import { Snowflake, Bath, Store, Sparkles } from "lucide-react";
 import { ImageCarousel } from "./ImageCarousel";
 import { AiBreakdown } from "./AiBreakdown";
-import { BeamGlow } from "@/components/BeamGlow";
+import { BreatheGlow } from "@/components/BeamGlow";
 import { formatPrice } from "@/types/inbox";
 import type { InboxProperty } from "@/types/inbox";
 
@@ -174,13 +174,8 @@ export function FocusTriageCard({
         {property.aiReason && (
           // The box is its own glow holder: two soft breaths when the card
           // appears. The card remounts per listing, so it breathes once each.
-          <BeamGlow
+          <BreatheGlow
             playKey={property.id}
-            playMs={4600}
-            size="pulse-inner"
-            colorVariant="forest"
-            staticColors
-            theme="light"
             borderRadius={14} // rounded-xl with this theme's --radius
             className="rounded-xl px-4 py-3"
             style={{
@@ -198,7 +193,7 @@ export function FocusTriageCard({
             <p className="text-[13px] text-zinc-700 leading-relaxed">
               {property.aiReason}
             </p>
-          </BeamGlow>
+          </BreatheGlow>
         )}
 
         {/* AI scout breakdown: "worth a second look" plus the collapsible

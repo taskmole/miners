@@ -45,6 +45,13 @@ describe("BeamGlow", () => {
     expect(glowing()).toBe(true);
   });
 
+  it("stops at once when the play signal is cleared mid-glow", () => {
+    const { rerender } = render(<BeamGlow playKey="pin-1" playMs={1000}>x</BeamGlow>);
+    expect(glowing()).toBe(true);
+    rerender(<BeamGlow playKey={undefined} playMs={1000}>x</BeamGlow>);
+    expect(glowing()).toBe(false);
+  });
+
   it("never plays when the device asks for reduced motion", () => {
     reduceMotion = true;
     render(<BeamGlow playKey={1} playMs={1000}>x</BeamGlow>);
