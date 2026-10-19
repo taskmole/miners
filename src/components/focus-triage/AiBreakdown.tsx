@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useId, useRef, useState } from "react";
-import { Check, ChevronDown, ThumbsUp } from "lucide-react";
+import { Check, ChevronDown, Pencil, ThumbsUp } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "@/contexts/ToastContext";
 import type { AiBreakdown as AiBreakdownData, AiBreakdownPoint, AiVerdict } from "@/types/inbox";
@@ -39,6 +39,21 @@ function DotMeter({ value }: { value: number }) {
 function CantTell() {
   return <span className="text-[12px] italic text-zinc-400 whitespace-nowrap">can&apos;t tell</span>;
 }
+
+/**
+ * The rating column. Fixed width and right-aligned, so dots and "can't tell"
+ * line up down the whole list, facts and AI rows alike.
+ */
+function MeterCell({ value }: { value: number | null }) {
+  return (
+    <span className="w-14 shrink-0 flex justify-end">
+      {value != null ? <DotMeter value={value} /> : <CantTell />}
+    </span>
+  );
+}
+
+/** Width of the trainer's two 44px buttons, reserved on every row. */
+const ACTIONS_WIDTH = "w-[88px]";
 
 /** Small inline "Saving..." / "Saved" line. Announced to screen readers. */
 function StatusText({ status }: { status: SaveStatus | undefined }) {
@@ -218,9 +233,9 @@ export function AiBreakdown({ placeId, breakdown }: AiBreakdownProps) {
             {facts.length > 0 && (
               <section className="space-y-2">
                 <SectionLabel title="Facts" hint="from the map" />
-                <ul className="space-y-2.5">
+                <ul className="space-y-1">
                   {facts.map((p) => (
-                    <li key={p.id} className="flex items-start gap-3">
+                    <li key={p.id} className="flex items-center gap-2 min-h-[44px]">
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] text-zinc-800 break-words">{p.label}</p>
                         {p.reason && (
@@ -229,9 +244,8 @@ export function AiBreakdown({ placeId, breakdown }: AiBreakdownProps) {
                           </p>
                         )}
                       </div>
-                      <div className="shrink-0 pt-1">
-                        {p.value != null ? <DotMeter value={p.value} /> : <CantTell />}
-                      </div>
+                      <MeterCell value={p.value} />
+                      {canTrain && <span aria-hidden="true" className={`${ACTIONS_WIDTH} shrink-0`} />}
                     </li>
                   ))}
                 </ul>
@@ -278,42 +292,43 @@ export function AiBreakdown({ placeId, breakdown }: AiBreakdownProps) {
                             )}
                           </div>
 
-                          <div className="shrink-0 flex items-center">
-                            <span className="pr-1">
-                              {shown != null ? <DotMeter value={shown} /> : <CantTell />}
-                            </span>
-                            {canTrain && (
-                              <>
-                                {p.value != null && (
-                                  <button
-                                    type="button"
-                                    onClick={() => savePoint(p, p.value as number)}
-                                    aria-pressed={agreed}
-                                    aria-label={`Agree with the AI: ${p.label} ${p.value} out of 5`}
-                                    className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                                      agreed ? "text-emerald-600" : "text-zinc-400"
-                                    }`}
-                                  >
-                                    <ThumbsUp
-                                      className="w-4 h-4"
-                                      fill={agreed ? "currentColor" : "none"}
-                                      aria-hidden="true"
-                                    />
-                                  </button>
-                                )}
+                          <MeterCell value={shown ?? null} />
+                          {canTrain && (
+                            <span className={`${ACTIONS_WIDTH} shrink-0 flex justify-end`}>
+                              {p.value == null ? (
+                                // Nothing to agree with; keep the slot so Fix stays in its column.
+                                <span aria-hidden="true" className="w-11 h-11" />
+                              ) : (
                                 <button
                                   type="button"
-                                  onClick={() => setFixing(isFixing ? null : p.id)}
-                                  aria-expanded={isFixing}
-                                  aria-controls={fixPanelId}
-                                  aria-label={`Fix ${p.label}`}
-                                  className="min-w-11 h-11 px-1.5 rounded-full text-[12px] text-zinc-500 underline underline-offset-2 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                                  onClick={() => savePoint(p, p.value as number)}
+                                  aria-pressed={agreed}
+                                  aria-label={`Agree with the AI: ${p.label} ${p.value} out of 5`}
+                                  className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                                    agreed ? "text-emerald-600" : "text-zinc-400 hover:text-zinc-600"
+                                  }`}
                                 >
-                                  fix
+                                  <ThumbsUp
+                                    className="w-4 h-4"
+                                    fill={agreed ? "currentColor" : "none"}
+                                    aria-hidden="true"
+                                  />
                                 </button>
-                              </>
-                            )}
-                          </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setFixing(isFixing ? null : p.id)}
+                                aria-expanded={isFixing}
+                                aria-controls={fixPanelId}
+                                aria-label={`Fix ${p.label}`}
+                                className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                                  isFixing ? "bg-zinc-100 text-zinc-900" : "text-zinc-400 hover:text-zinc-600"
+                                }`}
+                              >
+                                <Pencil className="w-4 h-4" aria-hidden="true" />
+                              </button>
+                            </span>
+                          )}
                         </div>
 
                         {canTrain && isFixing && (

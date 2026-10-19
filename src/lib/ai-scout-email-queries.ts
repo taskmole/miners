@@ -21,7 +21,7 @@ export const AI_SCOUT_TAB = "ai-scout";
  * ready to accept, the email shrinks to a one-line nudge. The weekly learner
  * has too little to go on, so a full report would be mostly zeros.
  */
-export const QUIET_WEEK_RATINGS = 10;
+export const QUIET_WEEK_RATINGS = 5;
 
 /** A rejection of a listing the AI scored at least this high is a big miss. */
 export const HIGH_SCORE = 70;

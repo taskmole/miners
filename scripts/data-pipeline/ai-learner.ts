@@ -112,7 +112,7 @@ const MAX_TESTS_PER_RUN = 3;
 // into an unbounded bill. Suggestions left over stay 'testing' for next run.
 const MAX_AI_CALLS = 160;
 const CONCURRENCY = 5;
-const MIN_LABELS = 10;
+const MIN_LABELS = 5;
 // The combined version is rolled back only when it is clearly worse.
 const ROLLBACK_MARGIN = 0.02;
 const TUNE_MIN_LABELS = 50;
