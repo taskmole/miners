@@ -30,11 +30,20 @@ export function useWhatsNew(user: User | null) {
 
   const all = useMemo(() => (ready ? visibleEntries(access) : []), [ready, access]);
 
-  const markSeen = useCallback(() => {
+  /**
+   * Marks seen up to the newest update this person can see, not the newest
+   * that exists: someone given AI training next week should still get the
+   * trainer-only update they were never shown. `everything` is for a brand-new
+   * account finishing the city picker: news about an app they have never used
+   * is noise, so they start from today.
+   */
+  const markSeen = useCallback((everything = false) => {
     if (!user) return;
+    const upTo = everything ? LATEST_WHATS_NEW_ID : Math.max(0, ...all.map((e) => e.id));
+    if (upTo === 0) return;
     setClosedFor(user.id);
-    void saveWhatsNewSeen(user, LATEST_WHATS_NEW_ID);
-  }, [user]);
+    void saveWhatsNewSeen(user, upTo);
+  }, [user, all]);
 
   return { ready, unseen, all, hasUnread: unseen.length > 0, markSeen };
 }

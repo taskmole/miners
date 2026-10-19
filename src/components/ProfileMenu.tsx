@@ -68,7 +68,12 @@ export function ProfileMenu({ onFeedbackOpen, onOpen, whatsNewUnread }: ProfileM
       >
         <Sparkles className="w-4 h-4 text-zinc-400" />
         What&apos;s new
-        {whatsNewUnread && <span className="ml-auto w-2 h-2 rounded-full bg-red-500" aria-label="Unread" />}
+        {whatsNewUnread && (
+          <>
+            <span className="ml-auto w-2 h-2 rounded-full bg-red-500" aria-hidden />
+            <span className="sr-only">(unread)</span>
+          </>
+        )}
       </button>
       <button
         onClick={() => handleNavigate("/user-guide")}
@@ -111,7 +116,7 @@ export function ProfileMenu({ onFeedbackOpen, onOpen, whatsNewUnread }: ProfileM
             setIsOpen(!isOpen);
           }}
           className="relative glass flex items-center justify-center p-2.5 rounded-2xl md:w-9 md:h-9 md:p-0 md:rounded-lg md:border md:border-white/40 hover:bg-white/20 active:bg-white/30 transition-all duration-200"
-          aria-label="Profile menu"
+          aria-label={whatsNewUnread ? "Profile menu, new updates" : "Profile menu"}
         >
           <User className="w-5 h-5 md:w-[18px] md:h-[18px] text-zinc-500" />
           {whatsNewUnread && (

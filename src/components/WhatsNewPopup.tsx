@@ -38,7 +38,7 @@ export const WhatsNewPopup = memo(function WhatsNewPopup({ entries, canShow, onD
   const isMobile = useMobile();
   const titleId = useId();
   const cardRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef<number | null>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const [visible, setVisible] = useState(false);
   const [rawIndex, setIndex] = useState(0);
 
@@ -55,20 +55,28 @@ export const WhatsNewPopup = memo(function WhatsNewPopup({ entries, canShow, onD
   const last = entries.length - 1;
   const go = (to: number) => setIndex(Math.max(0, Math.min(last, to)));
 
-  // Escape closes from anywhere. (Arrow keys live on the card itself, so they
-  // only page while focus is inside it and never steal map panning.)
+  // Escape closes, and closing counts as read, so it must be aimed at the
+  // card: on phones (modal) any Escape not already handled; on desktop (not
+  // modal) only while focus is inside the card, never one meant for search or
+  // a place popup. Arrow keys live on the card itself for the same reason.
   useEffect(() => {
     if (!visible) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onDismiss();
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (!isMobile && !cardRef.current?.contains(document.activeElement)) return;
+      onDismiss();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [visible, onDismiss]);
+  }, [visible, isMobile, onDismiss]);
 
-  // On phones it is modal: move focus in so screen readers announce it.
+  // On phones it is modal: move focus in so screen readers announce it, and
+  // hand it back to wherever it was when the card goes.
   useEffect(() => {
-    if (visible && isMobile) cardRef.current?.focus();
+    if (!visible || !isMobile) return;
+    const previous = document.activeElement as HTMLElement | null;
+    cardRef.current?.focus();
+    return () => previous?.focus?.();
   }, [visible, isMobile]);
 
   if (!visible || !hasEntries) return null;
@@ -78,13 +86,15 @@ export const WhatsNewPopup = memo(function WhatsNewPopup({ entries, canShow, onD
   const isLast = index === last;
 
   const onTouchStart = (e: TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   };
+  // Mostly sideways only, so scrolling a tall card never flips the slide.
   const onTouchEnd = (e: TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    touchStartX.current = null;
-    if (Math.abs(dx) > SWIPE_PX) go(index + (dx < 0 ? 1 : -1));
+    if (!touchStart.current) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    touchStart.current = null;
+    if (Math.abs(dx) > SWIPE_PX && Math.abs(dx) > Math.abs(dy)) go(index + (dx < 0 ? 1 : -1));
   };
 
   const card = (
@@ -109,7 +119,7 @@ export const WhatsNewPopup = memo(function WhatsNewPopup({ entries, canShow, onD
         ...GLASS,
         maxHeight: isMobile
           ? "calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))"
-          : "calc(100vh - 88px)",
+          : "calc(100dvh - 88px)",
       }}
     >
       <div className="flex items-center justify-between mb-3">
@@ -136,7 +146,10 @@ export const WhatsNewPopup = memo(function WhatsNewPopup({ entries, canShow, onD
 
       {/* Every slide's text stacked in one grid cell: the box is as tall as
           the longest one, so nothing below it jumps when you page through. */}
-      <div className="grid mt-4" aria-live="polite">
+      {/* Screen readers hear each page turn; the stacked panes below never
+          change text, so they cannot announce it themselves. */}
+      <p className="sr-only" aria-live="polite">{`Update ${index + 1} of ${entries.length}: ${current.title}`}</p>
+      <div className="grid mt-4">
         {entries.map((entry, i) => (
           <div
             key={entry.id}
@@ -151,14 +164,14 @@ export const WhatsNewPopup = memo(function WhatsNewPopup({ entries, canShow, onD
 
       <div className="flex items-center gap-3 mt-5">
         {entries.length > 1 && (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center -ml-1">
             {entries.map((entry, i) => (
               <button
                 key={entry.id}
                 onClick={() => go(i)}
                 aria-label={`Show update ${i + 1} of ${entries.length}`}
                 aria-current={i === index}
-                className="py-2"
+                className="px-1 py-3 -my-1"
               >
                 <span
                   className={cn(

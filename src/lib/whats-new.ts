@@ -89,7 +89,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     audience: "everyone",
     visual: {
       kind: "image",
-      src: "/assets/whats-new/share-chat-v1.jpg",
+      src: "/assets/whats-new/share-chat-v2.jpg",
       alt: "A shared place link in a chat, showing a preview card for Mugshot Coffee",
     },
   },

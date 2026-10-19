@@ -38,7 +38,7 @@ import { GeoDataProvider } from "@/contexts/GeoDataContext";
 import { LinkingProvider, useLinking } from "@/contexts/LinkingContext";
 import { ScoutingTripsProvider } from "@/contexts/ScoutingTripsContext";
 import { PointCategoriesProvider } from "@/contexts/PointCategoriesContext";
-import { SheetProvider } from "@/contexts/SheetContext";
+import { SheetProvider, useSheet } from "@/contexts/SheetContext";
 import { WalkingRadiusProvider } from "@/contexts/WalkingRadiusContext";
 import { ToastProvider, useToast } from "@/contexts/ToastContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -173,6 +173,9 @@ function HomeContent() {
   // Opening the profile menu (same corner) puts it away for this visit,
   // without counting as seen.
   const [whatsNewSnoozed, setWhatsNewSnoozed] = useState(false);
+  const dismissWhatsNew = useCallback(() => markWhatsNewSeen(), [markWhatsNewSeen]);
+  // Phone sheets (filters, lists, a tapped place...) own the screen: wait.
+  const { activeSheet } = useSheet();
 
   // Counts only once the user's own city is set (and picked, for a new user).
   // Counting the Madrid fallback first used to bump the glow for Madrid's
@@ -515,7 +518,7 @@ function HomeContent() {
     isActive === true && !showLanding && savedCityApplied && !showCityPicker &&
     !hasNoCities && !isNewListingsOpen && !arrivedViaLink && !whatsNewSnoozed &&
     !parkedFocus && !pendingFocus && !noAccessCity &&
-    !isScoutingFormOpen && !isScoutingUploadOpen && !isScoutingDetailOpen;
+    !isScoutingFormOpen && !isScoutingUploadOpen && !isScoutingDetailOpen && !activeSheet;
 
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-zinc-100">
@@ -662,7 +665,7 @@ function HomeContent() {
           <WhatsNewPopup
             entries={whatsNewUnseen}
             canShow={whatsNewCanShow}
-            onDismiss={markWhatsNewSeen}
+            onDismiss={dismissWhatsNew}
           />
         </>
       )}
@@ -798,6 +801,8 @@ function HomeContent() {
         onComplete={(city) => {
           setSelectedCity(city);
           setShowCityPicker(false);
+          // A brand-new account: nothing is "new" to them yet.
+          markWhatsNewSeen(true);
         }}
       />
 

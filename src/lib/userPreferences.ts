@@ -87,14 +87,19 @@ export function getWhatsNewSeen(user: User): number | null {
 /** Fire-and-forget: the local copy alone keeps the popup closed if this fails. */
 export async function saveWhatsNewSeen(user: User, id: number): Promise<void> {
   try {
-    localStorage.setItem(localSeenKey(user.id), String(id));
+    if ((readLocalSeen(user.id) ?? 0) < id) localStorage.setItem(localSeenKey(user.id), String(id));
   } catch {
     // Private mode: the account copy below still covers it.
   }
   if (!supabase || (readAccountSeen(user) ?? 0) >= id) return;
-  try {
-    await supabase.auth.updateUser({ data: { [WHATS_NEW_KEY]: id } });
-  } catch {
-    // Offline: the local copy keeps it closed here; the next close retries.
+  // updateUser reports failure in `error`, it does not throw; one retry, like
+  // saveDefaultCity, so a single blip does not bring the popup back.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { error } = await supabase.auth.updateUser({ data: { [WHATS_NEW_KEY]: id } });
+      if (!error) return;
+    } catch {
+      // Offline: fall through to the retry, then rely on the local copy.
+    }
   }
 }
