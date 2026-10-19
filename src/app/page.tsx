@@ -72,7 +72,7 @@ function HomeContent() {
     () => cities.find(c => c.id === "madrid") ?? cities[0]
   );
 
-  const { cafes, properties, otherPois, counts } = useMapData(selectedCity.id);
+  const { cafes, properties, otherPois, counts, isLoading: mapLoading } = useMapData(selectedCity.id);
 
   const { startLinking, isLinking } = useLinking();
   const isMobile = useMobile();
@@ -147,24 +147,6 @@ function HomeContent() {
   const [newListingsGlow, setNewListingsGlow] = useState(0);
   const lastListingsCount = useRef(0);
 
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    async function fetchCount() {
-      try {
-        const data = await apiFetch<{ count: number }>(`/api/db/inbox?city_id=${selectedCity.id}&mode=count`);
-        if (cancelled) return;
-        const count = data?.count || 0;
-        if (count > lastListingsCount.current) setNewListingsGlow((n) => n + 1);
-        lastListingsCount.current = count;
-        setNewListingsCount(count);
-      } catch { /* ignore */ }
-    }
-    fetchCount();
-    const interval = setInterval(fetchCount, 60_000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [user, selectedCity.id, isNewListingsOpen]);
-
   // Landing page state - shows on first load (unless already logged in)
   const [showLanding, setShowLanding] = useState(true);
 
@@ -191,6 +173,40 @@ function HomeContent() {
   // Opening the profile menu (same corner) puts it away for this visit,
   // without counting as seen.
   const [whatsNewSnoozed, setWhatsNewSnoozed] = useState(false);
+
+  // Counts only once the user's own city is set (and picked, for a new user).
+  // Counting the Madrid fallback first used to bump the glow for Madrid's
+  // listings, which then played on a city that might have none.
+  useEffect(() => {
+    if (!user || !savedCityApplied || showCityPicker) return;
+    let cancelled = false;
+    async function fetchCount() {
+      try {
+        const data = await apiFetch<{ count: number }>(`/api/db/inbox?city_id=${selectedCity.id}&mode=count`);
+        if (cancelled) return;
+        const count = data?.count || 0;
+        if (count > lastListingsCount.current) setNewListingsGlow((n) => n + 1);
+        lastListingsCount.current = count;
+        setNewListingsCount(count);
+      } catch { /* ignore */ }
+    }
+    fetchCount();
+    const interval = setInterval(fetchCount, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [user, savedCityApplied, showCityPicker, selectedCity.id, isNewListingsOpen]);
+
+  // The NEW glow waits until someone is likely looking: map loaded for a
+  // second and the listings window closed. On a phone the first count usually
+  // landed while the map was still loading, so the glow was over before anyone
+  // looked at the buttons. The second also rides out the blip where loading
+  // briefly reads false while switching to the saved city.
+  const [newButtonGlow, setNewButtonGlow] = useState(0);
+  const newButtonVisible = !mapLoading && !isNewListingsOpen;
+  useEffect(() => {
+    if (!newButtonVisible) return;
+    const timer = setTimeout(() => setNewButtonGlow(newListingsGlow), 1000);
+    return () => clearTimeout(timer);
+  }, [newButtonVisible, newListingsGlow]);
 
   // Park a shared link's destination before anything else runs on mount. The
   // Google sign-in round trip comes back to a bare "/", and the auth-error
@@ -623,7 +639,7 @@ function HomeContent() {
               aria-label="New listings"
             >
               {/* 10px = rounded-lg with this theme's --radius */}
-              <NewButtonGlow playKey={newListingsGlow} borderRadius={10}>
+              <NewButtonGlow playKey={newButtonGlow} borderRadius={10}>
                 <span className="text-[10px] font-extrabold text-white tracking-tight leading-none">NEW</span>
               </NewButtonGlow>
               {newListingsCount > 0 && (
@@ -636,7 +652,7 @@ function HomeContent() {
             onClose={() => setIsNewListingsOpen(false)}
             cityId={selectedCity.id}
           />
-          <MobileBottomNav onNewListingsOpen={() => setIsNewListingsOpen(true)} newListingsCount={newListingsCount} newListingsGlow={newListingsGlow} activityCount={activityUnreadCount} />
+          <MobileBottomNav onNewListingsOpen={() => setIsNewListingsOpen(true)} newListingsCount={newListingsCount} newListingsGlow={newButtonGlow} activityCount={activityUnreadCount} />
           <FeedbackButton selectedCity={selectedCity} user={user} onExposeOpen={handleExposeOpen} />
           <ProfileMenu
             onFeedbackOpen={() => feedbackOpenRef.current?.()}

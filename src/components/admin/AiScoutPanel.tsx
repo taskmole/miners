@@ -199,7 +199,7 @@ function AiScoutPanelInner() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <section className="bg-white rounded-xl border border-zinc-200 p-4 sm:p-5">
+      <section className="bg-white rounded-xl border border-zinc-200 p-4">
         <h2 className="text-lg font-semibold text-zinc-900">Improve your AI scout</h2>
         <p className="text-sm text-zinc-500">
           {testedOn > 0
@@ -265,12 +265,12 @@ function AiScoutPanelInner() {
             placeholder="e.g. Never above the 2nd floor"
             maxLength={RULE_MAX}
             aria-label="Your rule"
-            className="h-11 text-base sm:text-sm flex-1"
+            className="h-11 md:h-11 text-base sm:text-sm flex-1"
           />
           <Button
             type="submit"
             disabled={ruleLength < RULE_MIN || proposing}
-            className="h-11 sm:px-8 bg-zinc-900 hover:bg-zinc-800 text-white"
+            className="h-11 sm:w-32 bg-zinc-900 hover:bg-zinc-800 text-white"
           >
             {proposing ? "Adding..." : "Test it"}
           </Button>
@@ -289,7 +289,7 @@ function AiScoutPanelInner() {
                 <span className="flex-1 min-w-0 text-sm text-zinc-900 break-words">{p.label}</span>
                 <span
                   className={cn(
-                    "shrink-0 text-xs font-medium px-2 py-0.5 rounded-full",
+                    "shrink-0 w-12 text-center text-xs font-medium py-0.5 rounded-full",
                     p.kind === "ai" ? "bg-violet-50 text-violet-700" : "bg-zinc-100 text-zinc-600",
                   )}
                 >
@@ -302,11 +302,11 @@ function AiScoutPanelInner() {
             ))}
           </div>
           {data.profile.rules.length > 0 && (
-            <details className="mt-3 bg-white rounded-xl px-4 py-3 text-sm">
-              <summary className="cursor-pointer text-zinc-700 font-medium min-h-[28px]">
+            <details className="mt-3 bg-white rounded-xl px-4 text-sm">
+              <summary className="cursor-pointer text-zinc-700 font-medium py-3">
                 Rules it follows ({data.profile.rules.length})
               </summary>
-              <ul className="mt-2 space-y-1.5 list-disc pl-5 text-zinc-600">
+              <ul className="pb-3 space-y-1.5 list-disc pl-5 text-zinc-600">
                 {data.profile.rules.map((rule, i) => (
                   <li key={i} className="break-words">
                     {rule}
@@ -336,17 +336,15 @@ function AiScoutPanelInner() {
                       </span>
                     )}
                   </div>
-                  <div className="text-sm text-zinc-500 break-words">
-                    {v.note ? `${v.note} · ` : ""}
-                    {formatDate(v.createdAt)}
-                  </div>
+                  {v.note && <p className="text-sm text-zinc-500 break-words">{v.note}</p>}
+                  <p className="text-xs text-zinc-400">{formatDate(v.createdAt)}</p>
                 </div>
                 {!v.isActive && (
                   <Button
                     variant="outline"
                     onClick={() => setConfirmVersion(v)}
                     disabled={busyId !== null}
-                    className="h-11 shrink-0"
+                    className="h-11 sm:w-32 shrink-0"
                   >
                     {busyId === v.id ? "Switching..." : "Switch back"}
                   </Button>
@@ -439,12 +437,12 @@ function SuggestionCard({
         </div>
       )}
 
-      <div className="flex gap-2 pt-1">
+      <div className="flex gap-2 pt-1 sm:justify-end">
         <Button
           variant="outline"
           onClick={() => onDecide(false)}
           disabled={disabled}
-          className="flex-1 h-11"
+          className="flex-1 sm:flex-none sm:w-32 h-11"
         >
           {busy ? "Saving..." : held ? "Dismiss" : "Skip"}
         </Button>
@@ -452,7 +450,7 @@ function SuggestionCard({
           <Button
             onClick={() => onDecide(true)}
             disabled={disabled}
-            className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="flex-1 sm:flex-none sm:w-32 h-11 bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             Accept
           </Button>

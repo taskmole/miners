@@ -21,6 +21,7 @@ import { usePropertyRequests } from "@/hooks/usePropertyRequests";
 import { logActivity } from "@/lib/supabaseHelpers";
 import { notifyTeam } from "@/lib/notify-team";
 import { FocusTriageCard, AssignSheet, ActionsSheet } from "@/components/focus-triage";
+import { BreatheGlow } from "@/components/BeamGlow";
 import type { InboxProperty } from "@/types/inbox";
 import type { PlaceInfo } from "@/types/lists";
 import type { LinkedItem } from "@/types/scouting";
@@ -79,6 +80,10 @@ export function NewListingsModal({
   const [cardAnim, setCardAnim] = useState<"idle" | "exiting" | "entering">("idle");
   const [activeSheet, setActiveSheet] = useState<"assign" | "actions" | null>(null);
   const [snapshotProperty, setSnapshotProperty] = useState<InboxProperty | null>(null);
+  // Plays the "All caught up" glow. Bumped only when the scout's own action
+  // empties the deck, and reset on every load and close, so an inbox that was
+  // already empty shows the tick without a glow.
+  const [caughtUpGlow, setCaughtUpGlow] = useState(0);
 
   // Score-sorted deck, filtered for non-admin users
   const deck = useMemo(() => {
@@ -144,6 +149,7 @@ export function NewListingsModal({
 
   // Load listings
   useEffect(() => {
+    setCaughtUpGlow(0);
     if (!isOpen) return;
     let cancelled = false;
 
@@ -190,6 +196,7 @@ export function NewListingsModal({
       } catch (err) {
         console.error("Failed to mark as read:", err);
         if (removed) setProperties((prev) => [...prev, removed]);
+        setCaughtUpGlow(0); // the card is back, so nothing to celebrate
         showToast("Couldn't save, please try again", "error");
       }
     },
@@ -200,6 +207,7 @@ export function NewListingsModal({
   const handleMarkAllRead = useCallback(async () => {
     const ids = deck.map((p) => p.id);
     if (ids.length === 0) return;
+    setCaughtUpGlow((n) => n + 1);
 
     const removed = [...properties];
     setProperties([]);
@@ -217,6 +225,7 @@ export function NewListingsModal({
     } catch (err) {
       console.error("Failed to mark all as read:", err);
       setProperties(removed);
+      setCaughtUpGlow(0);
       showToast("Couldn't save, please try again", "error");
     }
   }, [deck, properties, cityId, showToast]);
@@ -230,6 +239,12 @@ export function NewListingsModal({
 
       if (markRead) {
         handleMarkRead(currentProperty.id);
+        // Last card: one left and it's the one on screen. During the exit
+        // animation the screen shows the previous card, so a fast double tap
+        // with two left doesn't count.
+        if (deck.length === 1 && deck[0].id === currentProperty.id) {
+          setCaughtUpGlow((n) => n + 1);
+        }
       }
 
       setCardAnim("exiting");
@@ -243,7 +258,7 @@ export function NewListingsModal({
         setCardAnim("idle");
       }, 600);
     },
-    [currentProperty, handleMarkRead],
+    [currentProperty, deck, handleMarkRead],
   );
 
   // Assign handler
@@ -563,9 +578,13 @@ export function NewListingsModal({
           </div>
         ) : deck.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20">
-            <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
+            <BreatheGlow
+              playKey={caughtUpGlow}
+              borderRadius={24}
+              className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mb-3"
+            >
               <Check className="w-6 h-6 text-emerald-600" />
-            </div>
+            </BreatheGlow>
             <p className="text-sm font-medium text-zinc-900">All caught up</p>
             <p className="text-xs text-zinc-400 mt-1">
               No new properties to review.
