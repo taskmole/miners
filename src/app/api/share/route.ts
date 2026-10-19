@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { authenticateRequest, createServiceSupabase, mayViewCity } from "@/lib/supabase-server";
 import { cityForCoordinates } from "@/lib/notify-routing";
-import { cleanShareInput } from "@/lib/share";
+import { cleanShareInput, shareUrl } from "@/lib/share";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +15,12 @@ export const dynamic = "force-dynamic";
  */
 async function warmPreview(origin: string, code: string) {
   try {
-    const page = await fetch(`${origin}/s/${code}`, { signal: AbortSignal.timeout(15000) });
+    const signal = AbortSignal.timeout(15000); // for both requests together
+    const pageUrl = shareUrl(origin, code);
+    const page = await fetch(pageUrl, { signal });
     const image = (await page.text()).match(/property="og:image" content="([^"]+)"/)?.[1]?.replaceAll("&amp;", "&");
-    if (!image?.startsWith(`${origin}/s/${code}/`)) return;
-    const res = await fetch(image, { signal: AbortSignal.timeout(15000) });
+    if (!image?.startsWith(`${pageUrl}/`)) return;
+    const res = await fetch(image, { signal });
     await res.arrayBuffer();
   } catch (err) {
     console.warn("[api/share] preview warm-up failed:", err);

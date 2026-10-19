@@ -2411,7 +2411,10 @@ function PinAreaTracker({ onChange }: { onChange: (area: PinArea | null) => void
         const report = () => {
             const zoom = map.getZoom();
             if (zoom < ICON_ZOOM_THRESHOLD) {
-                if (last) onChange(last = null);
+                if (last) {
+                    last = null;
+                    onChange(null);
+                }
                 return;
             }
             const b = map.getBounds();
@@ -3010,7 +3013,6 @@ export function EnhancedMapContainer({
 
     // Track whether to show icons (zoomed in) or clusters (zoomed out)
     const [showIcons, setShowIcons] = useState(false);
-
 
     // Track which marker has its popup open (to keep icon scaled)
     const [activeMarkerKey, setActiveMarkerKey] = useState<string | null>(null);

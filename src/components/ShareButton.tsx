@@ -16,11 +16,11 @@ interface ShareButtonProps {
 }
 
 /** Resting, link on the clipboard, or sent through the phone's share sheet. */
-type Status = "idle" | "copied" | "shared";
+const STATUSES = ["idle", "copied", "shared"] as const;
+type Status = (typeof STATUSES)[number];
 
-/** The visible word for each status, and what a screen reader hears. */
+/** The visible word for each status. */
 const WORDS: Record<Status, string> = { idle: "Link", copied: "Copied", shared: "Done" };
-const ANNOUNCE: Record<Status, string> = { idle: "", copied: "Link copied", shared: "Link shared" };
 
 /**
  * The "Link" button at the end of a place card's title line.
@@ -119,12 +119,13 @@ export function ShareButton({ placeId, placeType, title, address, photoUrl }: Sh
       {done ? <Check aria-hidden /> : <LinkIcon aria-hidden />}
       {/* Every word shares one grid cell; see .share-btn-label */}
       <span className="share-btn-label" aria-hidden>
-        {(Object.keys(WORDS) as Status[]).map((s) => (
+        {STATUSES.map((s) => (
           <span key={s} data-active={s === status || undefined}>{WORDS[s]}</span>
         ))}
       </span>
+      {/* Screen readers hear "Link copied" or "Link shared". */}
       <span className="sr-only" aria-live="polite">
-        {ANNOUNCE[status]}
+        {done ? `Link ${status}` : ""}
       </span>
     </button>
   );
