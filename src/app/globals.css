@@ -2072,3 +2072,18 @@
     font-size: 16px; /* Prevents iOS zoom on focus */
   }
 }
+
+/* "What's new" speed card: a map strip racing past, plus light streaks. */
+@keyframes whats-new-race {
+  to { transform: translateX(-50%); }
+}
+@keyframes whats-new-streak {
+  from { transform: translateX(110%); opacity: 0; }
+  20% { opacity: 1; }
+  to { transform: translateX(-330%); opacity: 0; }
+}
+.whats-new-race { animation: whats-new-race 2.4s linear infinite; will-change: transform; }
+.whats-new-streak { animation: whats-new-streak 0.9s linear infinite; will-change: transform; }
+@media (prefers-reduced-motion: reduce) {
+  .whats-new-race, .whats-new-streak { animation: none; }
+}

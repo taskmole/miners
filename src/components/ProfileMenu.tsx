@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { User, MessageSquareText, LogOut, LayoutDashboard, BookOpen } from "lucide-react";
+import { User, MessageSquareText, LogOut, LayoutDashboard, BookOpen, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMobile } from "@/hooks/useMobile";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
@@ -10,9 +10,13 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 
 interface ProfileMenuProps {
   onFeedbackOpen?: () => void;
+  /** Fired when the menu opens, so the What's new card can get out of the way. */
+  onOpen?: () => void;
+  /** Shows a small dot on the avatar and the What's new item. */
+  whatsNewUnread?: boolean;
 }
 
-export function ProfileMenu({ onFeedbackOpen }: ProfileMenuProps) {
+export function ProfileMenu({ onFeedbackOpen, onOpen, whatsNewUnread }: ProfileMenuProps) {
   const isMobile = useMobile();
   const router = useRouter();
   const { canAccessDashboard } = useUserProfiles();
@@ -59,6 +63,19 @@ export function ProfileMenu({ onFeedbackOpen }: ProfileMenuProps) {
         </button>
       )}
       <button
+        onClick={() => handleNavigate("/whats-new")}
+        className="w-full text-left px-4 py-2.5 text-sm font-medium text-zinc-900 hover:bg-black/5 active:bg-black/10 transition-colors flex items-center gap-2"
+      >
+        <Sparkles className="w-4 h-4 text-zinc-400" />
+        What&apos;s new
+        {whatsNewUnread && (
+          <>
+            <span className="ml-auto w-2 h-2 rounded-full bg-red-500" aria-hidden />
+            <span className="sr-only">(unread)</span>
+          </>
+        )}
+      </button>
+      <button
         onClick={() => handleNavigate("/user-guide")}
         className="w-full text-left px-4 py-2.5 text-sm font-medium text-zinc-900 hover:bg-black/5 active:bg-black/10 transition-colors flex items-center gap-2"
       >
@@ -94,11 +111,17 @@ export function ProfileMenu({ onFeedbackOpen }: ProfileMenuProps) {
         style={isMobile ? { top: "calc(24px + env(safe-area-inset-top, 0px))" } : undefined}
       >
         <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="glass flex items-center justify-center p-2.5 rounded-2xl md:w-9 md:h-9 md:p-0 md:rounded-lg md:border md:border-white/40 hover:bg-white/20 active:bg-white/30 transition-all duration-200"
-          aria-label="Profile menu"
+          onClick={() => {
+            if (!isOpen) onOpen?.();
+            setIsOpen(!isOpen);
+          }}
+          className="relative glass flex items-center justify-center p-2.5 rounded-2xl md:w-9 md:h-9 md:p-0 md:rounded-lg md:border md:border-white/40 hover:bg-white/20 active:bg-white/30 transition-all duration-200"
+          aria-label={whatsNewUnread ? "Profile menu, new updates" : "Profile menu"}
         >
           <User className="w-5 h-5 md:w-[18px] md:h-[18px] text-zinc-500" />
+          {whatsNewUnread && (
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full" aria-hidden />
+          )}
         </button>
 
         {/* Desktop dropdown - opens upward */}

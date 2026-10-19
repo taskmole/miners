@@ -66,6 +66,23 @@ When the user types any of these, immediately execute the action - no questions 
   3. Print the full path to the new folder so the user can open a new conversation there
   4. Remind the user: "Open a new Claude Code conversation in that folder to start working. Run `.3` there to start the dev server (it auto-picks a free port)."
 
+# "What's new" check (runs inside `.c`, `/ship` and any merge to main)
+The app shows a "What's new" popup from `src/lib/whats-new.ts`. Before committing in `.c` (before its step 2), always run this check. Never add or change an entry without the user's explicit OK.
+1. Read what is shipping (the branch diff against main). Decide if any change is something a user would notice: a new feature, a visible improvement, or a fixed everyday annoyance. Invisible fixes, refactors and internal tooling do not count.
+2. Nothing worth mentioning: say so in one line and carry on with `.c`.
+3. Worth mentioning: draft the entry and show it to the user for approval. Show:
+   - **Title:** a few words, said like a person, naming the kind of change rather than the widget. Example: "The UI got a glow up", not "The NEW button lights up".
+   - **Description:** one or two plain sentences on what it means for them.
+   - **Who sees it:** everyone, contributors, approvers, AI trainers or super admins, plus cities if limited.
+   - **Picture:** a real screenshot you take yourself, or a colour card. Zoom out so it has margins and the important part reads at popup size. Blur or crop out what doesn't matter.
+   - **Preview:** a screenshot of the actual popup slide.
+4. Wait for the user's OK. Change it as often as they ask.
+5. Only after the OK, add the entry with the next id and a new image filename (never reuse one), then continue `.c`.
+
+Rules for every entry:
+- The repo is public, so never put these in text or screenshots: scoring rules or thresholds, AI instructions, customer data, or internal numbers.
+- Take screenshots in a signed-in browser that blocks every write to the live database.
+
 # Available Tools & Skills
 - Code simplifier plugin
 - Feature development plugin
