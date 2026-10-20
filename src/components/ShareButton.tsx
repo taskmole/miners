@@ -15,12 +15,13 @@ interface ShareButtonProps {
   photoUrl?: string | null;
 }
 
-/** Resting, link on the clipboard, or sent through the phone's share sheet. */
-const STATUSES = ["idle", "copied", "shared"] as const;
-type Status = (typeof STATUSES)[number];
-
-/** The visible word for each status. */
-const WORDS: Record<Status, string> = { idle: "Link", copied: "Copied", shared: "Done" };
+/**
+ * The visible word for each status: resting, link on the clipboard, or sent
+ * through the phone's share sheet.
+ */
+const WORDS = { idle: "Link", copied: "Copied", shared: "Done" } as const;
+type Status = keyof typeof WORDS;
+const STATUSES = Object.keys(WORDS) as Status[];
 
 const SAVE_FAILED = "The link couldn't be saved. Please try again.";
 
@@ -86,6 +87,9 @@ export function ShareButton({ placeId, placeType, title, address, photoUrl }: Sh
     const copy = () =>
       navigator.clipboard.writeText(url).then(
         () => {
+          // Offline, the save has usually failed already: don't confirm a
+          // link that will not open.
+          if (saveFailed) return false;
           flash("copied");
           return true;
         },

@@ -494,7 +494,7 @@
 
 /* Title + share button on one row. The title takes what is left and still
    clamps to 2 lines; the button never shrinks or wraps under it. Anything
-   after the row in .popup-header (type chip, comment count) wraps below. */
+   after the row in .popup-header (the comment count) wraps below. */
 .popup-title-row {
   display: flex;
   align-items: flex-start;
