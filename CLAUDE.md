@@ -90,6 +90,8 @@ Since 2026-10-30 Supabase gives new tables in "public" no API access by default.
 - `anon`: nothing, plus `REVOKE ALL ... FROM anon` (the app requires sign-in).
 - Prefer uuid primary keys. A serial or identity id also needs `GRANT USAGE` on its sequence.
 - After applying to prod, confirm with `has_table_privilege`, because grants can silently do nothing here.
+- PostGIS lives in the `extensions` schema, not `public`. A function that uses ST_* or geography and pins its `search_path` must include `extensions` (e.g. `SET search_path = public, extensions`). CI (`src/lib/__tests__/migration-postgis-path.test.ts`) checks this.
+- New extensions go in `extensions` (`CREATE EXTENSION ... WITH SCHEMA extensions`). One in `public` puts its tables on the API, and Supabase owns them so no migration can lock them. The same CI test checks this.
 
 # Available Tools & Skills
 - Code simplifier plugin
