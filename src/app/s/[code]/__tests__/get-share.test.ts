@@ -46,11 +46,12 @@ describe("getShare", () => {
     expect(lookups).toBe(6);
   });
 
-  it("stops waiting as soon as the database errors", async () => {
+  it("stops waiting as soon as the database errors, and says so", async () => {
     answers = [{ data: null, error: null }, { data: null, error: { message: "boom" } }];
     const share = getShare("Mid123XYZ9");
+    const settled = expect(share).rejects.toThrow("Share lookup failed");
     await vi.runAllTimersAsync();
-    expect(await share).toBeNull();
+    await settled;
     expect(lookups).toBe(2);
   });
 
@@ -62,8 +63,14 @@ describe("getShare", () => {
 
   it("does not wait on a database error or a malformed code", async () => {
     answers = [{ data: null, error: { message: "boom" } }];
-    expect(await getShare("Err123XYZ9")).toBeNull();
+    await expect(getShare("Err123XYZ9")).rejects.toThrow("Share lookup failed");
     expect(await getShare("short")).toBeNull();
+    expect(lookups).toBe(1);
+  });
+
+  it("falls back to the logo picture on a database error", async () => {
+    answers = [{ data: null, error: { message: "boom" } }];
+    expect(await findShare("Log123XYZ9")).toBeNull();
     expect(lookups).toBe(1);
   });
 });

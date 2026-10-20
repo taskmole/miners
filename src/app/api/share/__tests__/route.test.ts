@@ -10,7 +10,20 @@ const state = {
   insertError: null as unknown,
   rpcArgs: [] as unknown[],
   inserted: [] as unknown[],
+  // What the database says the listing is; null = no such listing, "error" = lookup failed.
+  listing: null as { title: string; address: string | null; photoUrl: string | null } | null | "error",
+  listingUrls: [] as unknown[],
 };
+
+const LISTING = { title: "Local en Žižkov", address: "Bořivojova 1, Praha", photoUrl: "https://d18-a.sdn.cz/real.png" };
+
+vi.mock("@/lib/share-place", () => ({
+  findListing: async (_db: unknown, _cityId: string, _placeId: string, listingUrl: unknown) => {
+    state.listingUrls.push(listingUrl);
+    if (state.listing === "error") throw new Error("boom");
+    return state.listing;
+  },
+}));
 
 vi.mock("@/lib/supabase-server", () => ({
   authenticateRequest: async () =>
@@ -51,6 +64,7 @@ const body = (overrides: Record<string, unknown> = {}) => ({
   title: "Pronájem obchodního prostoru 24 m²",
   address: "Bořivojova, Žižkov, Praha",
   photoUrl: "https://d18-a.sdn.cz/x.png?fl=res,749,562,3",
+  listingUrl: "https://www.sreality.cz/detail/123",
   ...overrides,
 });
 const post = (json: unknown) =>
@@ -58,7 +72,9 @@ const post = (json: unknown) =>
 
 describe("POST /api/share", () => {
   beforeEach(() => {
-    Object.assign(state, { authed: true, mayView: true, rpcError: null, insertError: null, rpcArgs: [], inserted: [] });
+    Object.assign(state, {
+      authed: true, mayView: true, rpcError: null, insertError: null, rpcArgs: [], inserted: [], listing: LISTING, listingUrls: [],
+    });
     afterTasks.length = 0;
   });
   afterEach(() => vi.unstubAllGlobals());
@@ -109,8 +125,41 @@ describe("POST /api/share", () => {
   });
 
   it("stores no photo from a host that is not allowed", async () => {
-    await post(body({ photoUrl: "https://evil.com/x.jpg" }));
+    state.listing = { ...LISTING, photoUrl: "https://evil.com/x.jpg" };
+    await post(body());
     expect(state.inserted).toEqual([expect.objectContaining({ photo_url: null })]);
+  });
+
+  it("stores a listing's real name, address and photo, not the browser's", async () => {
+    await post(body({ title: "Made up", address: "Nowhere", photoUrl: null, placeType: "cafe" }));
+    expect(state.listingUrls).toEqual(["https://www.sreality.cz/detail/123"]);
+    expect(state.inserted).toEqual([
+      expect.objectContaining({ title: LISTING.title, address: LISTING.address, photo_url: LISTING.photoUrl, place_type: "property" }),
+    ]);
+  });
+
+  it("refuses a listing the database does not have", async () => {
+    state.listing = null;
+    expect((await post(body())).status).toBe(404);
+    expect(state.inserted).toEqual([]);
+  });
+
+  it("fails closed when the listing lookup errors", async () => {
+    state.listing = "error";
+    expect((await post(body())).status).toBe(503);
+    expect(state.inserted).toEqual([]);
+  });
+
+  it("never lets another kind of place pass as a listing", async () => {
+    expect((await post(body({ placeId: "gym-50.08353-14.45230", placeType: "property" }))).status).toBe(400);
+    await post(body({ placeId: "Property-50.08353-14.45230-1a2b3c4d", title: "Made up" }));
+    expect(state.inserted).toEqual([expect.objectContaining({ title: LISTING.title })]);
+  });
+
+  it("keeps what the browser sent for places that are not listings", async () => {
+    await post(body({ placeId: "gym-50.08353-14.45230", placeType: "gym", title: "Gym Žižkov", listingUrl: undefined }));
+    expect(state.listingUrls).toEqual([]);
+    expect(state.inserted).toEqual([expect.objectContaining({ title: "Gym Žižkov", place_type: "gym" })]);
   });
 
   describe("preview warm-up", () => {

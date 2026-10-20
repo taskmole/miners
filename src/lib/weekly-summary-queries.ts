@@ -1,5 +1,6 @@
 import { createServiceSupabase } from "@/lib/supabase-server";
 import { AUTO_REJECT_REASON } from "@/lib/property-requests";
+import { PROPERTY_SOURCES } from "@/lib/place-id";
 
 /**
  * The shape of the weekly activity summary, and a realistic week of sample
@@ -220,15 +221,6 @@ export interface RawWeeklyRows {
   /** Everyone holding at least one city grant. Used for "of how many". */
   grantUserIds: string[];
 }
-
-/**
- * The property feeds, and only them.
- *
- * `places` also holds cafes, gyms and hand-added Miners locations. Counting
- * those as "properties added" would put 400 gyms in a report about scouting.
- * The same two Idealista feeds the digest treats as one source.
- */
-const PROPERTY_SOURCES = ["idealista", "idealista_transfer", "sreality"];
 
 /** Actions that only exist in the activity log, mapped to what they mean. */
 const ACTION = {

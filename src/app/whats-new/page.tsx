@@ -13,12 +13,15 @@ const MONTH = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" 
 const DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
 /** Midday, so "2026-10-03" never shows as the 2nd west of UTC. */
 const noonOf = (date: string) => new Date(`${date}T12:00:00`);
+/** Normally ready in under a second; past this, offer a way out. */
+const SLOW_MS = 10_000;
 
 /** Every update this person may see, newest first, grouped by month. */
 export default function WhatsNewPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const { ready, all, hasUnread, markSeen } = useWhatsNew(user);
+  const [slow, setSlow] = useState(false);
 
   // Signed out: back to the map, which shows the sign-in page.
   useEffect(() => {
@@ -31,6 +34,13 @@ export default function WhatsNewPage() {
       else router.replace("/");
     });
   }, [router]);
+
+  // Never a silent blank page: if loading stalls, say so.
+  useEffect(() => {
+    if (ready) return;
+    const timer = setTimeout(() => setSlow(true), SLOW_MS);
+    return () => clearTimeout(timer);
+  }, [ready]);
 
   // Reading the page counts as reading the popup.
   useEffect(() => {
@@ -65,6 +75,7 @@ export default function WhatsNewPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-8" style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))" }}>
+        {!ready && (slow ? <SlowNotice /> : <UpdatesSkeleton />)}
         {ready && months.length === 0 && (
           <p className="text-sm text-zinc-500">No updates yet. New features will show up here.</p>
         )}
@@ -88,6 +99,39 @@ export default function WhatsNewPage() {
           </section>
         ))}
       </main>
+    </div>
+  );
+}
+
+/** Loading stalled: say so and offer a way out, never a silent blank page. */
+function SlowNotice() {
+  return (
+    <div className="text-sm text-zinc-500">
+      <p>This is taking longer than usual.</p>
+      <button
+        onClick={() => window.location.reload()}
+        className="mt-3 h-11 px-5 rounded-lg bg-zinc-900 text-white font-medium hover:bg-zinc-800 transition-colors"
+      >
+        Reload
+      </button>
+    </div>
+  );
+}
+
+/** Two grey cards in the shape of the real ones while updates load. */
+function UpdatesSkeleton() {
+  return (
+    <div className="space-y-4" aria-busy="true" aria-label="Loading updates">
+      {[0, 1].map((i) => (
+        <div key={i} className="bg-white rounded-2xl border border-zinc-200 overflow-hidden animate-pulse motion-reduce:animate-none">
+          <div className="w-full aspect-[16/10] bg-zinc-100" />
+          <div className="p-4 space-y-2">
+            <div className="h-3 w-16 rounded bg-zinc-100" />
+            <div className="h-5 w-2/3 rounded bg-zinc-100" />
+            <div className="h-4 w-full rounded bg-zinc-100" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

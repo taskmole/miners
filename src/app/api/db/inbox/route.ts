@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { accessFor, authenticateRequest, untypedDb } from "@/lib/supabase-server";
 import { canTrainAiIn } from "@/lib/permissions";
 import { parseWkbPoint } from "@/lib/wkb";
-import { generatePropertyPlaceId } from "@/lib/place-id";
+import { PROPERTY_SOURCES, generatePropertyPlaceId } from "@/lib/place-id";
 import type { AiBreakdown, AiBreakdownPoint, AiVerdict } from "@/types/inbox";
 
 export const dynamic = "force-dynamic";
-
-const PROPERTY_SOURCES = ["idealista", "idealista_transfer", "sreality"];
 
 /** The one customer today. Every AI record carries it. */
 const CUSTOMER_ID = "miners";

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { authenticateRequest, createServiceSupabase, mayViewCity } from "@/lib/supabase-server";
 import { cityForCoordinates } from "@/lib/notify-routing";
 import { cleanShareInput, shareUrl } from "@/lib/share";
+import { findListing } from "@/lib/share-place";
+import { isPropertyPlaceId } from "@/lib/place-id";
 
 export const dynamic = "force-dynamic";
 
@@ -40,13 +42,16 @@ async function warmPreview(origin: string, code: string) {
  * - the caller is signed in;
  * - the city comes from the place id's coordinates, never from the browser;
  * - the caller holds at least View in that city (mayViewCity, asked as them);
+ * - for a property listing, name, address and photo come from the database,
+ *   not the browser (findListing), so nobody can give a link a made-up title;
  * - name, address and photo are trimmed and the photo host is allow-listed.
  *
  * The insert uses the service role: see 20261018000001_share_links.sql.
  */
 export async function POST(request: NextRequest) {
   // Check the body before paying for the auth round trip.
-  const share = cleanShareInput(await request.json().catch(() => null));
+  const body = await request.json().catch(() => null);
+  let share = cleanShareInput(body);
   if (!share) {
     return NextResponse.json({ error: "Invalid share" }, { status: 400 });
   }
@@ -64,6 +69,28 @@ export async function POST(request: NextRequest) {
   }
   if (!mayView) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Cafes, gyms and other spots come from data files the browser merges
+  // before display, so only listings can be checked against a source.
+  // Only a listing id may carry the "property" label, so a made-up title
+  // cannot pass as a listing by using some other id.
+  if (share.placeType === "property" && !isPropertyPlaceId(share.placeId)) {
+    return NextResponse.json({ error: "Invalid share" }, { status: 400 });
+  }
+  if (isPropertyPlaceId(share.placeId)) {
+    const listing = await findListing(auth.supabase, cityId, share.placeId, body?.listingUrl).catch((err) => {
+      console.error("[api/share] listing lookup failed:", err);
+      return undefined;
+    });
+    if (listing === undefined) {
+      return NextResponse.json({ error: "Could not check the listing" }, { status: 503 });
+    }
+    if (!listing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+    share = cleanShareInput({ ...share, placeType: "property", ...listing });
+    if (!share) return NextResponse.json({ error: "Invalid share" }, { status: 400 });
   }
 
   const service = createServiceSupabase();

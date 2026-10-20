@@ -3,6 +3,7 @@ import { authenticateRequest } from "@/lib/supabase-server";
 import { parseWkbPoint } from "@/lib/wkb";
 import { getGravityIndex } from "@/lib/gravity-server";
 import { scoreAt } from "@/lib/gravity-grid";
+import { PROPERTY_SOURCES } from "@/lib/place-id";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
                 .from("places")
                 .select("name, address, location, source, metadata, photos, updated_at, created_at")
                 .eq("city_id", cityId)
-                .in("source", ["idealista", "idealista_transfer", "sreality"])
+                .in("source", PROPERTY_SOURCES)
                 .eq("status", "active"),
             getGravityIndex(cityId),
         ]);
