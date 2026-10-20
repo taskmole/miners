@@ -1039,8 +1039,7 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
                 </div>
             )}
 
-            {/* Header: hide/close sit on the photo or in the badge row, never here */}
-            <div className="popup-header no-header-buttons">
+            <div className="popup-header">
                 <div className="popup-title-row">
                     <span className="popup-name">{cafe.name}</span>
                     <ShareButton placeId={placeId} placeType="eu_coffee_trip" title={cafe.name} address={cafe.address} photoUrl={cafe.image} />
@@ -1153,8 +1152,7 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }:
                 )}
                 <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
             </div>
-            {/* Header: hide/close sit on the photo or in the badge row, never here */}
-            <div className="popup-header no-header-buttons">
+            <div className="popup-header">
                 <div className="popup-title-row">
                     <span className="popup-name">{cafe.name}</span>
                     <ShareButton placeId={placeId} placeType="regular_cafe" title={cafe.name} address={cafe.address} photoUrl={cafe.image} />
@@ -1914,7 +1912,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                 </div>
             )}
 
-            {/* No-photo fallback: badges above title */}
+            {/* No-photo fallback: badges above the title, hide/close on the right */}
             {!property.image_url && (
                 <div className="header-badges">
                     {typeof property.score === "number" ? (
@@ -1940,15 +1938,12 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                             {pitchTooltip && <span className={`badge-tooltip badge-tooltip-wrap ${activeTooltip === "pitch" ? "visible" : ""}`}>{pitchTooltip}</span>}
                         </span>
                     )}
+                    {/* The badges are not focusable, so MapLibre's focus-on-open lands on Hide */}
+                    <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
                 </div>
             )}
 
-            {/* Header - Title. With a photo, hide/close sit on the photo instead. */}
-            <div className={cn("popup-header", property.image_url && "no-header-buttons")}>
-                {/* First in the DOM so MapLibre's focus-on-open lands on Hide */}
-                {!property.image_url && (
-                    <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
-                )}
+            <div className="popup-header">
                 <div className="popup-title-row">
                     <span className="popup-name">{title}</span>
                     <ShareButton
@@ -2066,15 +2061,18 @@ const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi, onC
 
     return (
         <div className="popup-base">
-            {/* Header with name, type chip, and comment bubble */}
-            <div className="popup-header">
-                {/* First in the DOM so MapLibre's focus-on-open lands on Hide */}
+            {/* Type chip on the left, hide/close on the right. The chip is not
+                focusable, so MapLibre's focus-on-open lands on Hide. */}
+            <div className="header-badges">
+                <span className="popup-chip type">{poi.category}</span>
                 <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
+            </div>
+
+            <div className="popup-header">
                 <div className="popup-title-row">
                     <span className="popup-name">{poi.name}</span>
                     <ShareButton placeId={placeId} placeType={poi.type} title={poi.name} address={poi.address} />
                 </div>
-                <span className="popup-chip type">{poi.category}</span>
                 {commentCount > 0 && (
                     <button className="popup-comments">
                         <MessageSquare size={14} />
@@ -2380,6 +2378,65 @@ function ZoomTracker({ onShowIconsChange }: { onShowIconsChange: (showIcons: boo
             });
         };
     }, [map, isLoaded, onShowIconsChange]);
+
+    return null;
+}
+
+/** The patch of map that street-level pins are drawn for. */
+interface PinArea {
+    zoom: number;
+    west: number;
+    south: number;
+    east: number;
+    north: number;
+}
+
+/** How far past each screen edge pins are drawn, as a share of the screen. */
+const PIN_AREA_MARGIN = 0.25;
+
+/**
+ * Report where street-level pins should be drawn: the screen plus a margin,
+ * or null below street level. Pinning every place froze the page for seconds
+ * (each DOM pin is repositioned on every frame of a fly-in), and reporting on
+ * moveend only means nothing new is drawn mid-flight. A new area is reported
+ * only when the old one stops fitting, so small pans don't re-render the map.
+ */
+function PinAreaTracker({ onChange }: { onChange: (area: PinArea | null) => void }) {
+    const { map, isLoaded } = useMap();
+
+    useEffect(() => {
+        if (!map || !isLoaded) return;
+        let last: PinArea | null = null;
+
+        const report = () => {
+            const zoom = map.getZoom();
+            if (zoom < ICON_ZOOM_THRESHOLD) {
+                if (last) {
+                    last = null;
+                    onChange(null);
+                }
+                return;
+            }
+            const b = map.getBounds();
+            const [west, south, east, north] = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+            const stillFits = last
+                && Math.abs(last.zoom - zoom) < 1
+                && west >= last.west && east <= last.east && south >= last.south && north <= last.north;
+            if (stillFits) return;
+            const dx = (east - west) * PIN_AREA_MARGIN;
+            const dy = (north - south) * PIN_AREA_MARGIN;
+            last = { zoom, west: west - dx, south: south - dy, east: east + dx, north: north + dy };
+            onChange(last);
+        };
+
+        report();
+        map.on('moveend', report);
+        return () => {
+            safeMapCleanup(map, (m) => {
+                m.off('moveend', report);
+            });
+        };
+    }, [map, isLoaded, onChange]);
 
     return null;
 }
@@ -2960,6 +3017,18 @@ export function EnhancedMapContainer({
     // Track which marker has its popup open (to keep icon scaled)
     const [activeMarkerKey, setActiveMarkerKey] = useState<string | null>(null);
 
+    // Street-level pins are drawn only inside this area (see PinAreaTracker),
+    // plus the pin whose card is open, so panning never closes it.
+    const [pinArea, setPinArea] = useState<PinArea | null>(null);
+    // Clusters stay up until the pin area is known, so crossing into street
+    // level mid-gesture (a pinch, a fly-in) never leaves the map empty.
+    const showPins = showIcons && pinArea !== null;
+    const shouldDrawPin = React.useCallback((markerKey: string, lat: number, lon: number) =>
+        markerKey === activeMarkerKey || (!!pinArea
+            && lat >= pinArea.south && lat <= pinArea.north
+            && lon >= pinArea.west && lon <= pinArea.east),
+    [pinArea, activeMarkerKey]);
+
     // Track style changes to trigger overlay re-add
     const [mapStyleKey, setMapStyleKey] = useState(0);
 
@@ -3244,6 +3313,7 @@ export function EnhancedMapContainer({
 
                 {/* Zoom tracker for hybrid rendering */}
                 <ZoomTracker onShowIconsChange={handleShowIconsChange} />
+                <PinAreaTracker onChange={setPinArea} />
 
                 {/* City navigator - flies to selected city */}
                 <CityNavigator city={selectedCity} />
@@ -3336,12 +3406,13 @@ export function EnhancedMapContainer({
                 })}
 
                 {/* CAFES - Conditional rendering based on zoom */}
-                {showIcons ? (
+                {showPins ? (
                     <>
                         {/* Zoomed in: Show icon markers */}
                         {visibleCafes.map((cafe, i) => {
                             const isEuCoffeeTrip = cafe.link?.includes("europeancoffeetrip");
                             const markerKey = `cafe-icon-${cafe.lat}-${cafe.lon}-${i}`;
+                            if (!shouldDrawPin(markerKey, cafe.lat, cafe.lon)) return null;
                             const placeId = generatePlaceId('cafe', cafe.lat, cafe.lon);
                             const hidden = isHidden(placeId);
                             // In "Hidden" mode, only show hidden POIs
@@ -3449,11 +3520,12 @@ export function EnhancedMapContainer({
                 )}
 
                 {/* PROPERTIES - Conditional rendering based on zoom */}
-                {showIcons ? (
+                {showPins ? (
                     <>
                         {/* Zoomed in: Show icon markers */}
                         {visibleProperties.map((property, i) => {
                             const markerKey = `property-icon-${property.latitude}-${property.longitude}-${i}`;
+                            if (!shouldDrawPin(markerKey, property.latitude, property.longitude)) return null;
                             const placeId = generatePropertyPlaceId(property);
                             const hidden = isHidden(placeId);
                             // In "Hidden" mode, only show hidden POIs
@@ -3535,7 +3607,7 @@ export function EnhancedMapContainer({
                 )}
 
                 {/* OTHER POIs - Conditional rendering based on zoom */}
-                {showIcons ? (
+                {showPins ? (
                     <>
                         {/* Zoomed in: Show icon markers */}
                         {visibleOtherPois.map((poi, i) => {
@@ -3552,6 +3624,7 @@ export function EnhancedMapContainer({
                                 gym: "bg-red-700",
                             };
                             const markerKey = `poi-icon-${poi.lat}-${poi.lon}-${i}`;
+                            if (!shouldDrawPin(markerKey, poi.lat, poi.lon)) return null;
                             const placeId = generatePlaceId(poi.type, poi.lat, poi.lon);
                             const hidden = isHidden(placeId);
                             // In "Hidden" mode, only show hidden POIs

@@ -460,9 +460,10 @@
   z-index: 15;
 }
 
-/* Header - name row (with optional chips and comments) */
+/* Header - name row (with optional chips and comments). Hide/close never sit
+   here: they are on the photo or in the badge row above. */
 .popup-header {
-  padding: 20px 100px 0 24px;
+  padding: 20px 24px 0 24px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -470,13 +471,11 @@
   position: relative;
 }
 
-/* For popups without image - buttons go in header */
+/* Hide/close in the badge row of a card without a photo, pushed right */
 .popup-header-buttons {
-  position: absolute;
-  top: 10px;
-  right: 10px;
   display: flex;
   gap: 8px;
+  margin-left: auto;
 }
 
 .popup-name {
@@ -509,26 +508,23 @@
   max-width: none;
 }
 
-/* Header whose hide/close buttons sit on the photo or in the badge row, so
-   the 100px kept clear for them on the right is not needed. */
-.popup-header.no-header-buttons {
-  padding-right: 24px;
-}
-
-/* Share link: deliberately quiet. No fill or border until hovered. */
+/* Share link: a quiet outlined pill at the end of the title line. Same light
+   border as the badge chips, so it reads as a button without competing with
+   the title. */
 .share-btn {
+  position: relative;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  height: 28px;
-  padding: 0 8px;
-  margin-top: -2px; /* centre on the title's first line */
-  border: none;
-  border-radius: 7px;
-  background: transparent;
-  color: #737373;
+  height: 30px;
+  padding: 0 10px;
+  margin-top: -3px; /* centre on the title's first line */
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #fff;
+  color: #525252;
   font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px;
   font-weight: 500;
@@ -541,9 +537,9 @@
   height: 14px;
 }
 
-.share-btn:not([data-copied]):hover {
-  background: #f3f3f2;
-  color: #404040;
+.share-btn:not([data-done]):hover {
+  background: #f5f5f4;
+  color: #262626;
 }
 
 .share-btn:focus-visible {
@@ -551,12 +547,12 @@
   outline-offset: 1px;
 }
 
-.share-btn[data-copied] {
+.share-btn[data-done] {
   color: #16a34a;
 }
 
 /* Every label in one grid cell: the button is as wide as its longest word,
-   so swapping "Copy" for "Copied" never nudges the title. */
+   so swapping "Link" for "Copied" or "Done" never nudges the title. */
 .share-btn-label {
   display: inline-grid;
 }
@@ -570,12 +566,13 @@
   visibility: visible;
 }
 
-/* Fingers need a bigger target than a mouse, label or not. */
+/* Fingers need a bigger target than a mouse. An invisible layer around the
+   pill makes it 44px tall without making the title row any taller. */
 @media (pointer: coarse) {
-  .share-btn {
-    min-width: 40px;
-    min-height: 40px;
-    margin-top: -8px;
+  .share-btn::after {
+    content: "";
+    position: absolute;
+    inset: -7px -4px;
   }
 }
 
@@ -930,18 +927,13 @@
   border-radius: 8px;
 }
 
-/* No-photo fallback: badges above title */
+/* Badges (or the type chip) above the title, hide/close on the right */
 .header-badges {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   padding: 14px 24px 0;
-}
-
-.header-badges .popup-header-buttons {
-  position: static;
-  margin-left: auto;
 }
 
 .header-score-badge {
@@ -1318,12 +1310,7 @@
   }
 
   /* Keep mobile padding at 20px (desktop uses 24px) */
-  .popup-header { padding: 20px 100px 0 20px; }
-  .popup-header.no-header-buttons { padding-right: 20px; }
-  /* Icon only on phones: every pixel of the title row goes to the title. */
-  .share-btn { width: 40px; height: 40px; padding: 0; margin-top: -8px; }
-  .share-btn svg { width: 18px; height: 18px; }
-  .share-btn-label { display: none; }
+  .popup-header { padding: 20px 20px 0 20px; }
   .popup-address { padding: 4px 20px 12px 20px; }
   .popup-body { padding: 0 20px 12px 20px; }
   .popup-chips-row { padding: 4px 20px 16px 20px; }

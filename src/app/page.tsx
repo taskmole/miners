@@ -54,7 +54,7 @@ import { supabase, signOut } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api-client";
 import { setAuthUserId } from "@/lib/browser-session";
 import { migrateAnonymousData } from "@/lib/supabaseHelpers";
-import type { User } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 import type { ScoutingTrip, LinkedItem } from "@/types/scouting";
 import { usePathname } from "next/navigation";
 import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter, PropertyPitchStatusFilter } from "@/types/filters";
@@ -313,24 +313,37 @@ function HomeContent() {
       setAuthChecked(true);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          await migrateAnonymousData(session.user.id);
-        }
-        setUser(session?.user ?? null);
-        setAuthUserId(session?.user?.id ?? null);
-        if (event === 'SIGNED_IN' && session?.user) {
-          await checkUserActive();
-          setShowLanding(false);
-          setAuthError(null);
-          applyCityForUser(session.user);
-        } else if (!session?.user) {
-          setIsActive(null);
-        }
+    // Listen for auth changes.
+    //
+    // Supabase runs this inside its auth lock, shared by every open tab, and
+    // fires SIGNED_IN whenever a tab comes back into view. Awaiting a Supabase
+    // call in here waits on that same lock forever, leaving every later tab on
+    // "Loading map data". So the work runs on the next tick, after the lock,
+    // one event at a time: a sign-out must never finish before an earlier
+    // sign-in that is still busy, or the stale sign-in would win.
+    let authWork = Promise.resolve();
+    const handleAuthEvent = async (event: string, session: Session | null) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        await migrateAnonymousData(session.user.id);
       }
-    );
+      setUser(session?.user ?? null);
+      setAuthUserId(session?.user?.id ?? null);
+      if (event === 'SIGNED_IN' && session?.user) {
+        await checkUserActive();
+        setShowLanding(false);
+        setAuthError(null);
+        applyCityForUser(session.user);
+      } else if (!session?.user) {
+        setIsActive(null);
+      }
+    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setTimeout(() => {
+        authWork = authWork
+          .then(() => handleAuthEvent(event, session))
+          .catch((err) => console.error('[auth] handling', event, 'failed:', err));
+      }, 0);
+    });
 
     return () => subscription.unsubscribe();
   }, []);

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Check, Link2 } from "lucide-react";
+import { Check, Link as LinkIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { makeShareCode, shareUrl } from "@/lib/share";
 import { useToast } from "@/contexts/ToastContext";
@@ -15,21 +15,31 @@ interface ShareButtonProps {
   photoUrl?: string | null;
 }
 
+/** Resting, link on the clipboard, or sent through the phone's share sheet. */
+const STATUSES = ["idle", "copied", "shared"] as const;
+type Status = (typeof STATUSES)[number];
+
+/** The visible word for each status. */
+const WORDS: Record<Status, string> = { idle: "Link", copied: "Copied", shared: "Done" };
+
+const SAVE_FAILED = "The link couldn't be saved. Please try again.";
+
 /**
- * The quiet "Copy" link next to a place card's title.
+ * The "Link" button at the end of a place card's title line.
  *
  * With a mouse it copies a /s/<code> link and says "Copied" for two seconds.
  * On touch screens it opens the phone's share sheet instead (WhatsApp is one
- * tap from there), falling back to copying where there is no share sheet.
+ * tap from there) and says "Done" once something was sent, falling back to
+ * copying where there is no share sheet.
  *
  * The code is made here, synchronously (see makeShareCode for why). Saving
  * the link runs alongside, with keepalive so closing the card cannot cancel
- * it. If the save fails the copied link would not resolve, so "Copied" is
+ * it. If the save fails the link would not resolve, so the confirmation is
  * taken back and a toast says to try again.
  */
 export function ShareButton({ placeId, placeType, title, address, photoUrl }: ShareButtonProps) {
   const { showToast } = useToast();
-  const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState<Status>("idle");
   // Decided after mount: the media query and navigator.share are browser-only.
   const [useShareSheet, setUseShareSheet] = useState(false);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -45,10 +55,10 @@ export function ShareButton({ placeId, placeType, title, address, photoUrl }: Sh
     return stopReset;
   }, []);
 
-  const flashCopied = () => {
-    setCopied(true);
+  const flash = (next: Exclude<Status, "idle">) => {
+    setStatus(next);
     stopReset();
-    resetTimer.current = setTimeout(() => setCopied(false), 2000);
+    resetTimer.current = setTimeout(() => setStatus("idle"), 2000);
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -58,22 +68,25 @@ export function ShareButton({ placeId, placeType, title, address, photoUrl }: Sh
     const code = makeShareCode();
     const url = shareUrl(window.location.origin, code);
 
+    // Set when the save fails, so a share sheet closing later can't say "Done".
+    let saveFailed = false;
     apiFetch("/api/share", {
       method: "POST",
       keepalive: true,
       body: JSON.stringify({ code, placeId, placeType, title, address, photoUrl }),
     }).catch((err) => {
       console.error("[share] saving the link failed:", err);
+      saveFailed = true;
       stopReset();
-      setCopied(false);
-      showToast("The link couldn't be saved. Please try again.", "error");
+      setStatus("idle");
+      showToast(SAVE_FAILED, "error");
     });
 
     /** Resolves true once the link is on the clipboard. */
     const copy = () =>
       navigator.clipboard.writeText(url).then(
         () => {
-          flashCopied();
+          flash("copied");
           return true;
         },
         () => {
@@ -83,36 +96,46 @@ export function ShareButton({ placeId, placeType, title, address, photoUrl }: Sh
       );
 
     if (useShareSheet) {
-      navigator.share({ title, url }).catch(async (err: unknown) => {
-        // Closing the sheet without picking an app is not an error.
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        if (await copy()) showToast("Link copied");
-      });
+      navigator.share({ title, url }).then(
+        () => {
+          // The sheet may have hidden the save error: say it again now.
+          if (saveFailed) showToast(SAVE_FAILED, "error");
+          else flash("shared");
+        },
+        async (err: unknown) => {
+          if (saveFailed) return showToast(SAVE_FAILED, "error");
+          // Closing the sheet without picking an app is not an error.
+          if (err instanceof DOMException && err.name === "AbortError") return;
+          if (await copy()) showToast("Link copied");
+        },
+      );
       return;
     }
     void copy();
   };
 
-  const verb = useShareSheet ? "Share" : "Copy";
-  const label = useShareSheet ? "Share this place" : "Copy link to this place";
+  const label = useShareSheet ? "Share link to this place" : "Copy link to this place";
+  const done = status !== "idle";
 
   return (
     <button
       type="button"
       onClick={handleClick}
       className="share-btn"
-      data-copied={copied || undefined}
+      data-done={done || undefined}
       aria-label={label}
       title={label}
     >
-      {copied ? <Check aria-hidden /> : <Link2 aria-hidden />}
-      {/* Both words share one grid cell; see .share-btn-label */}
+      {done ? <Check aria-hidden /> : <LinkIcon aria-hidden />}
+      {/* Every word shares one grid cell; see .share-btn-label */}
       <span className="share-btn-label" aria-hidden>
-        <span data-active={!copied || undefined}>{verb}</span>
-        <span data-active={copied || undefined}>Copied</span>
+        {STATUSES.map((s) => (
+          <span key={s} data-active={s === status || undefined}>{WORDS[s]}</span>
+        ))}
       </span>
+      {/* Screen readers hear "Link copied" or "Link shared". */}
       <span className="sr-only" aria-live="polite">
-        {copied ? "Link copied" : ""}
+        {done ? `Link ${status}` : ""}
       </span>
     </button>
   );

@@ -20,7 +20,7 @@
  *      leaves everybody on the old picture.
  */
 
-import { Zap, type LucideIcon } from "lucide-react";
+import { Link as LinkIcon, Zap, type LucideIcon } from "lucide-react";
 import {
   canApprove,
   canContribute,
@@ -115,6 +115,21 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       kind: "image",
       src: "/assets/whats-new/ai-scout-v3.jpg",
       alt: "A listing's AI summary and Why 86? score, next to the Can train the AI scout switch set to On",
+    },
+  },
+  {
+    id: 5,
+    date: "2026-10-19",
+    title: "Shared links open in a flash",
+    body: "A link to a place now opens it in about a second instead of ten, and extra tabs no longer get stuck loading.",
+    audience: "everyone",
+    visual: {
+      kind: "card",
+      tone: "mint",
+      icon: LinkIcon,
+      headline: "1 sec",
+      subline: "to open a link",
+      speedBackdrop: "/assets/whats-new/map-strip-v1.jpg",
     },
   },
 ];
