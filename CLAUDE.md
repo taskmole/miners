@@ -30,7 +30,7 @@ I'm not technical - I don't read or understand code.
 - When fixing UI/layout issues, ALWAYS read the FULL component file and ALL related CSS/style files BEFORE making any edits
 - Trace the full style cascade including parent containers, media queries, and conditional classes
 - Explain the root cause of any layout issue before proposing a fix
-- Never apply small incremental CSS patches — understand the full picture first
+- Never apply small incremental CSS patches: understand the full picture first
 - After making UI changes, verify the layout works at mobile widths: 375px, 390px, and 428px
 - Check that no elements overflow, get cut off, or overlap at any viewport size
 - Test the fix by describing the expected visual result for ALL screen sizes (mobile, tablet, desktop)
@@ -38,9 +38,9 @@ I'm not technical - I don't read or understand code.
 
 # Debugging Rules
 - If a bug report is vague (e.g. "the button is broken"), ask WHAT is wrong and WHERE before touching code
-- Keep track of what you've already tried in the current session — never repeat the same failed approach
+- Keep track of what you've already tried in the current session: never repeat the same failed approach
 - If a fix fails twice, stop and rethink the approach from scratch instead of making more small tweaks
-- When the user says something "still doesn't work", re-read the full component from scratch — don't just tweak your last edit
+- When the user says something "still doesn't work", re-read the full component from scratch: don't just tweak your last edit
 
 # Workflow Rules
 - Always create a git branch before fixing bugs or adding features
@@ -48,7 +48,7 @@ I'm not technical - I don't read or understand code.
 - Complete each item and mark it done immediately
 - Do NOT report a task as done until every single todo item is checked off
 - After completing all items, re-read the todo list and confirm each one is actually done
-- Keep tasks small and focused — one component or one feature per session, not full codebase audits
+- Keep tasks small and focused: one component or one feature per session, not full codebase audits
 
 # When Done
 - Run build and fix any errors
@@ -82,6 +82,14 @@ The app shows a "What's new" popup from `src/lib/whats-new.ts`. Before committin
 Rules for every entry:
 - The repo is public, so never put these in text or screenshots: scoring rules or thresholds, AI instructions, customer data, or internal numbers.
 - Take screenshots in a signed-in browser that blocks every write to the live database.
+
+# Database migrations
+Since 2026-10-30 Supabase gives new tables in "public" no API access by default. Every migration that creates a table must grant it in the same file. CI (`src/lib/__tests__/migration-grants.test.ts`) only checks that `service_role` and, when policies need it, `authenticated` got a grant. The rest below is on you:
+- `service_role`: `GRANT ALL` (server routes, crons and the scraper need it).
+- `authenticated`: only the verbs its RLS policies allow.
+- `anon`: nothing, plus `REVOKE ALL ... FROM anon` (the app requires sign-in).
+- Prefer uuid primary keys. A serial or identity id also needs `GRANT USAGE` on its sequence.
+- After applying to prod, confirm with `has_table_privilege`, because grants can silently do nothing here.
 
 # Available Tools & Skills
 - Code simplifier plugin
