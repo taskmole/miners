@@ -300,17 +300,32 @@ function HomeContent() {
       setSavedCityApplied(true);
     };
 
+    // All auth work runs one step at a time on this chain (see the listener
+    // below for why). The first load goes on it too, so a sign-out from
+    // another tab can never be undone by a slower first load finishing late.
+    let authWork = Promise.resolve();
+    const enqueue = (label: string, work: () => Promise<void>) => {
+      authWork = authWork
+        .then(work)
+        .catch((err) => console.error('[auth] handling', label, 'failed:', err));
+    };
+    // Set once a sign-out has been handled: the first load must not then
+    // bring back the session it read before it.
+    let signedOutSince = false;
+
     // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        await migrateAnonymousData(session.user.id);
-        setUser(session.user);
-        setAuthUserId(session.user.id);
-        await checkUserActive();
-        setShowLanding(false);
-        applyCityForUser(session.user);
-      }
-      setAuthChecked(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      enqueue('initial session', async () => {
+        if (session?.user && !signedOutSince) {
+          await migrateAnonymousData(session.user.id);
+          setUser(session.user);
+          setAuthUserId(session.user.id);
+          await checkUserActive();
+          setShowLanding(false);
+          applyCityForUser(session.user);
+        }
+        setAuthChecked(true);
+      });
     });
 
     // Listen for auth changes.
@@ -321,28 +336,26 @@ function HomeContent() {
     // "Loading map data". So the work runs on the next tick, after the lock,
     // one event at a time: a sign-out must never finish before an earlier
     // sign-in that is still busy, or the stale sign-in would win.
-    let authWork = Promise.resolve();
     const handleAuthEvent = async (event: string, session: Session | null) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        await migrateAnonymousData(session.user.id);
-      }
-      setUser(session?.user ?? null);
-      setAuthUserId(session?.user?.id ?? null);
-      if (event === 'SIGNED_IN' && session?.user) {
+      const sessionUser = session?.user ?? null;
+      const signedIn = event === 'SIGNED_IN' && sessionUser;
+      if (signedIn) await migrateAnonymousData(sessionUser.id);
+      setUser(sessionUser);
+      setAuthUserId(sessionUser?.id ?? null);
+      if (signedIn) {
         await checkUserActive();
         setShowLanding(false);
         setAuthError(null);
-        applyCityForUser(session.user);
-      } else if (!session?.user) {
+        applyCityForUser(sessionUser);
+      } else if (!sessionUser) {
+        signedOutSince = true;
         setIsActive(null);
+        // Signing back in later should apply their saved city again.
+        savedCityAppliedFor.current = null;
       }
     };
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setTimeout(() => {
-        authWork = authWork
-          .then(() => handleAuthEvent(event, session))
-          .catch((err) => console.error('[auth] handling', event, 'failed:', err));
-      }, 0);
+      setTimeout(() => enqueue(event, () => handleAuthEvent(event, session)), 0);
     });
 
     return () => subscription.unsubscribe();
