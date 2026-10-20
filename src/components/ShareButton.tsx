@@ -13,6 +13,8 @@ interface ShareButtonProps {
   title: string;
   address?: string | null;
   photoUrl?: string | null;
+  /** A listing's own URL, so the server can look the listing up. Properties only. */
+  listingUrl?: string;
 }
 
 /**
@@ -38,7 +40,7 @@ const SAVE_FAILED = "The link couldn't be saved. Please try again.";
  * it. If the save fails the link would not resolve, so the confirmation is
  * taken back and a toast says to try again.
  */
-export function ShareButton({ placeId, placeType, title, address, photoUrl }: ShareButtonProps) {
+export function ShareButton({ placeId, placeType, title, address, photoUrl, listingUrl }: ShareButtonProps) {
   const { showToast } = useToast();
   const [status, setStatus] = useState<Status>("idle");
   // Decided after mount: the media query and navigator.share are browser-only.
@@ -74,7 +76,7 @@ export function ShareButton({ placeId, placeType, title, address, photoUrl }: Sh
     apiFetch("/api/share", {
       method: "POST",
       keepalive: true,
-      body: JSON.stringify({ code, placeId, placeType, title, address, photoUrl }),
+      body: JSON.stringify({ code, placeId, placeType, title, address, photoUrl, listingUrl }),
     }).catch((err) => {
       console.error("[share] saving the link failed:", err);
       saveFailed = true;

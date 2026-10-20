@@ -1,7 +1,9 @@
 // Service Worker for Miners Location Scout
-// Network-first for pages, cache-first for static assets. API routes never cached.
+// Network-first for pages, cache-first for build files and /assets. Everything
+// else (API routes, Next.js page data, generated images) is never cached.
 
-const CACHE_VERSION = 2;
+// Bump to drop everything stored under the old name (activate deletes it).
+const CACHE_VERSION = 3;
 const CACHE_NAME = `miners-scout-v${CACHE_VERSION}`;
 const STATIC_ASSETS = [
   '/',
@@ -63,8 +65,10 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => caches.match(event.request))
     );
-  } else {
-    // Cache-first for static assets (JS, CSS, images, fonts)
+  } else if (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/assets/')) {
+    // Cache-first for build files (hashed names) and /assets images. Anything
+    // else, like Next.js page data (?_rsc=), belongs to one release and goes
+    // straight to the network.
     event.respondWith(
       caches.match(event.request).then((cached) => {
         if (cached) return cached;

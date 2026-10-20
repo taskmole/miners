@@ -26,7 +26,8 @@ const RETRY_DELAYS_MS = [500, 1000, 1500, 1500, 1500];
  *
  * Runs with the service role because share_links has no policies (chat-app
  * link fetchers have no session). A malformed code is turned away before the
- * database is asked.
+ * database is asked. Null means "no such link"; a database error throws, so
+ * an outage is never passed off as a missing link.
  */
 async function lookupShare(code: string, retryDelays: number[]): Promise<PublicShare | null> {
   if (!SHARE_CODE_RE.test(code)) return null;
@@ -49,7 +50,7 @@ async function lookupShare(code: string, retryDelays: number[]): Promise<PublicS
 
   if (error) {
     console.error("[share] lookup failed:", error);
-    return null;
+    throw new Error("Share lookup failed");
   }
   if (!data) return null;
 
@@ -71,6 +72,7 @@ export const getShare = cache((code: string) => lookupShare(code, RETRY_DELAYS_M
 
 /**
  * For the preview image: no wait. Chat apps fetch it only after the page,
- * which already waited, and probing random codes stays cheap.
+ * which already waited, and probing random codes stays cheap. A database
+ * error falls back to the logo picture rather than a broken image.
  */
-export const findShare = cache((code: string) => lookupShare(code, []));
+export const findShare = cache((code: string) => lookupShare(code, []).catch(() => null));

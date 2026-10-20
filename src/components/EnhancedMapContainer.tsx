@@ -20,6 +20,7 @@ import { ShapeHoverTooltip } from "@/components/ShapeHoverTooltip";
 import { DrawingIndicator } from "@/components/DrawingIndicator";
 import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
 import { generatePlaceId, generatePropertyPlaceId, parseCoordinatesFromPlaceId } from "@/lib/place-id";
+import { capitalizeFirst } from "@/lib/text";
 import { logActivity } from "@/lib/supabaseHelpers";
 import { notifyTeam } from "@/lib/notify-team";
 import { evaluatePropertyActions, pendingPropertyActions } from "@/lib/property-actions";
@@ -1272,12 +1273,6 @@ function rehydratePropertyData(raw: any): PropertyData {
     return p as PropertyData;
 }
 
-// Helper to capitalize first letter of address
-function capitalizeFirst(str: string): string {
-    if (!str) return str;
-    return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
 function getPriceChange(property: PropertyData): { direction: "up" | "down"; percent: number } | null {
     if (!property.priceHistory?.length || !property.price) return null;
     const lastOldPrice = property.priceHistory[property.priceHistory.length - 1].price;
@@ -1952,6 +1947,7 @@ const PropertyPopupContent = React.memo(function PropertyPopupContent({ property
                         title={title}
                         address={capitalizeFirst(property.address)}
                         photoUrl={property.image_url}
+                        listingUrl={property.url}
                     />
                 </div>
             </div>

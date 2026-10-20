@@ -56,6 +56,12 @@ export function getSupabase(): SupabaseClient {
         autoRefreshToken: true,
         // Detect session from URL (for OAuth callbacks)
         detectSessionInUrl: true,
+        // How long to wait for the cross-tab auth lock before taking it back.
+        // auth-js defaults to 5 s, but supabase-js forwards this key as
+        // undefined, which overwrites that default and makes the wait endless:
+        // one tab stuck holding the lock then froze every other Miners tab
+        // (blank What's new, "Loading map data" for ever). Must stay set.
+        lockAcquireTimeout: 5000,
       },
     });
   }

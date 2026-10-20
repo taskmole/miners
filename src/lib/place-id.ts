@@ -1,4 +1,4 @@
-function hashUrl(url: string): string {
+export function hashUrl(url: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < url.length; i++) {
     h ^= url.charCodeAt(i);
@@ -7,12 +7,27 @@ function hashUrl(url: string): string {
   return (h >>> 0).toString(16).padStart(8, "0");
 }
 
+/**
+ * The `places.source` values that are property listings, and only them.
+ * `places` also holds cafes, gyms and hand-added Miners locations; counting
+ * those as properties would put 400 gyms in a report about scouting.
+ */
+export const PROPERTY_SOURCES = ["idealista", "idealista_transfer", "sreality"];
+
 export function generatePropertyPlaceId(property: {
   latitude: number;
   longitude: number;
   url: string;
 }): string {
   return `property-${property.latitude.toFixed(5)}-${property.longitude.toFixed(5)}-${hashUrl(property.url)}`;
+}
+
+/**
+ * True for the id of a property listing (see generatePropertyPlaceId). Any
+ * case, because parseCoordinatesFromPlaceId accepts any case too.
+ */
+export function isPropertyPlaceId(placeId: string): boolean {
+  return /^property-/i.test(placeId);
 }
 
 export function generatePlaceId(
