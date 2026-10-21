@@ -87,10 +87,8 @@ export function InlineError({ children }: { children: ReactNode }) {
 }
 
 /**
- * An error pinned to the bottom of the screen until dismissed. Pinned rather
- * than placed at the top of the page because the button that failed is often
- * far down the list, and `html, body { overflow-x: hidden }` in globals.css
- * stops a sticky header from staying on screen.
+ * An error pinned to the bottom of the screen until dismissed, so it is seen
+ * even when the button that failed is far down a long list.
  */
 export function ErrorBar({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
   if (!message) return null;

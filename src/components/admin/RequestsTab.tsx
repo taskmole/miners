@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { Check, MapPin } from "lucide-react";
+import { focusPath } from "@/lib/place-id";
 import { Button } from "@/components/ui/button";
 import {
   DecisionPanel,
@@ -116,17 +118,16 @@ export function RequestsTab({
                           {request.note}
                         </p>
                       )}
-                      {request.property_url && (
-                        <a
-                          href={request.property_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 mt-2"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          View listing
-                        </a>
-                      )}
+                      {/* Opens the property on our map (the link emails and
+                          shared places use), not the portal it was scraped from.
+                          The place card there still links out to the portal. */}
+                      <Link
+                        href={focusPath(request.property_place_id)}
+                        className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 mt-2"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        View on map
+                      </Link>
                     </div>
 
                     {/* Disabled while ANY row is deciding, not just this one.

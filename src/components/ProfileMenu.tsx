@@ -104,10 +104,10 @@ export function ProfileMenu({ onFeedbackOpen, onOpen, whatsNewUnread }: ProfileM
 
   return (
     <>
-      {/* Avatar button - desktop: bottom-right above feedback, mobile: top-right */}
+      {/* Avatar button - desktop: bottom-right, 24px in like the map buttons above it; mobile: top-right */}
       <div
         ref={menuRef}
-        className="fixed z-40 right-4 md:bottom-4"
+        className="fixed z-40 right-4 md:right-6 md:bottom-6"
         style={isMobile ? { top: "calc(24px + env(safe-area-inset-top, 0px))" } : undefined}
       >
         <button

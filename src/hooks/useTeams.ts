@@ -104,15 +104,18 @@ export function useTeams() {
     [isReady, fetchTeams]
   );
 
+  /** True when the team is gone, so a caller can tell the admin when it is not. */
   const deleteTeam = useCallback(
-    async (id: string) => {
-      if (!isReady) return;
+    async (id: string): Promise<boolean> => {
+      if (!isReady) return false;
 
       try {
         await apiFetch(`/api/db/teams?id=${id}`, { method: "DELETE" });
         await fetchTeams();
+        return true;
       } catch (err) {
         console.error("[useTeams] delete error:", err);
+        return false;
       }
     },
     [isReady, fetchTeams]

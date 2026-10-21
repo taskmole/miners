@@ -150,6 +150,11 @@
   html, body {
     @apply bg-background text-foreground;
     overflow-x: hidden;
+    /* clip, where supported, hides sideways overflow the same way without
+       turning body into a scroll container. With hidden alone, body became
+       one that never scrolls, so no "sticky" header on any page could stick.
+       Older browsers ignore this line and keep hidden. */
+    overflow-x: clip;
     max-width: 100vw;
   }
 

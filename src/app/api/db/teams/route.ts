@@ -147,14 +147,21 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const { error } = await supabase
+    // .select() returns the rows actually deleted. Row level security turns
+    // a refused delete into "0 rows" with no error, which used to come back
+    // as a 204 while the team stayed put.
+    const { data, error } = await supabase
       .from("teams")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
 
     if (error) {
       console.error("[api/db/teams] delete error:", error);
       return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: "Team not found or not allowed" }, { status: 404 });
     }
 
     return new NextResponse(null, { status: 204 });
