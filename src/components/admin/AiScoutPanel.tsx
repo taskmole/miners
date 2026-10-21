@@ -16,6 +16,7 @@ import { ToastProvider, useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api-client";
 import { UNLOCK_RATINGS } from "@/lib/ai-scout-unlock";
 import { cn } from "@/lib/utils";
+import { EmptyRow, ListCard, SectionHeader } from "@/components/admin/admin-ui";
 import type {
   AiScoutOverview,
   AiScoutSuggestion,
@@ -220,15 +221,13 @@ function AiScoutPanelInner() {
 
       {/* Suggestions */}
       <section>
-        <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-2">
-          Suggestions
-        </h2>
+        <SectionHeader title="Suggestions" />
         {data.suggestions.length === 0 ? (
-          <div className="bg-white rounded-xl px-4 py-8 text-center text-sm text-zinc-500">
+          <EmptyRow>
             {ratingsLeft > 0
               ? `No suggestions yet. Rate ${ratingsLeft} more ${ratingsLeft === 1 ? "listing" : "listings"} to unlock them.`
               : "Enough new ratings. Suggestions arrive after the next Wednesday-night check."}
-          </div>
+          </EmptyRow>
         ) : (
           <div className="space-y-3">
             {data.suggestions.map((s) => (
@@ -280,10 +279,8 @@ function AiScoutPanelInner() {
       {/* Weights */}
       {data.profile && (
         <section>
-          <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-2">
-            How the score is weighted
-          </h2>
-          <div className="bg-white rounded-xl divide-y divide-zinc-100">
+          <SectionHeader title="How the score is weighted" />
+          <ListCard>
             {data.profile.points.map((p) => (
               <div key={p.id} className="px-4 py-3 flex items-center gap-3">
                 <span className="flex-1 min-w-0 text-sm text-zinc-900 break-words">{p.label}</span>
@@ -300,9 +297,9 @@ function AiScoutPanelInner() {
                 </span>
               </div>
             ))}
-          </div>
+          </ListCard>
           {data.profile.rules.length > 0 && (
-            <details className="mt-3 bg-white rounded-xl px-4 text-sm">
+            <details className="mt-3 bg-white rounded-xl border border-zinc-200 px-4 text-sm">
               <summary className="cursor-pointer text-zinc-700 font-medium py-3">
                 Rules it follows ({data.profile.rules.length})
               </summary>
@@ -321,10 +318,8 @@ function AiScoutPanelInner() {
       {/* Versions */}
       {data.versions.length > 0 && (
         <section>
-          <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-2">
-            Versions
-          </h2>
-          <div className="bg-white rounded-xl divide-y divide-zinc-100">
+          <SectionHeader title="Versions" />
+          <ListCard>
             {data.versions.map((v) => (
               <div key={v.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1 min-w-0">
@@ -351,7 +346,7 @@ function AiScoutPanelInner() {
                 )}
               </div>
             ))}
-          </div>
+          </ListCard>
         </section>
       )}
 
