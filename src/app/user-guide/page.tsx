@@ -418,14 +418,14 @@ export default function UserGuidePage() {
                   a: (
                     <>
                       Admin Dashboard, "Requests" tab. You also get an email for each new
-                      request.
-                      <GuideImage src="/assets/guide/requests-tab.png" alt="The Requests tab. The tab and the Approve and Reject buttons are marked in red." />
+                      request. Tap "View on map" to see the property on the map first.
+                      <GuideImage src="/assets/guide/requests-tab-v2.png" alt="The Requests tab. The tab and the Reject and Approve buttons are marked in red." />
                     </>
                   ),
                 },
                 {
                   q: "What happens when I approve a request?",
-                  a: "The property goes to that person. They get an email. Other requests for the same property are auto-rejected. Only Super Admins can decide. You cannot decide your own request.",
+                  a: "The property goes to that person. They get an email. You can add a note for them if you like. Other requests for the same property are auto-rejected. Only Super Admins can decide. You cannot decide your own request.",
                 },
                 {
                   q: "What happens when I reject a request?",
@@ -442,10 +442,11 @@ export default function UserGuidePage() {
                   q: "How do I review a submitted trip?",
                   a: (
                     <>
-                      Admin Dashboard, "Pitches" tab. Open the trip and read it. Then pick:
-                      "Approve", "Return" (they fix it and send again), or
-                      "Reject" (final). For Return and Reject you must write a short note.
-                      <GuideImage src="/assets/guide/pitches-review.png" alt="A submission. The Approve, Return for Edits, and Reject buttons are marked in red." />
+                      Admin Dashboard, "Pitches" tab. Tap "Details" to read the trip, or
+                      "PDF" to download it. Then pick: "Approve", "Return" (they fix it
+                      and send again), or "Reject" (final). For Return and Reject you
+                      must write a short note.
+                      <GuideImage src="/assets/guide/pitches-review-v2.png" alt="A submission. The Pitches tab and the Reject, Return and Approve buttons are marked in red." />
                     </>
                   ),
                 },
@@ -470,15 +471,15 @@ export default function UserGuidePage() {
                   a: (
                     <>
                       Admin Dashboard, "Users" tab. Click the person. Find the city
-                      you want them to hear about and turn on "Alerts" under it.
-                      Tap "Save Changes".
-                      <GuideImage src="/assets/guide/user-notifications.png" alt="User settings. The per-city access rows and their Alerts switches are marked in red." />
+                      you want them to hear about and switch "Gets alerts for this
+                      city" to On. Tap "Save changes".
+                      <GuideImage src="/assets/guide/user-notifications-v2.png" alt="User settings. The Madrid row and its Gets alerts for this city switch are marked in red." />
                     </>
                   ),
                 },
                 {
-                  q: "Why is Alerts under each city?",
-                  a: "Because the emails were always per city. Alerts is switched on city by city, so someone can hear about Madrid and not Prague. They must have access to the city first: no access means no emails, never all of them.",
+                  q: "Why are alerts set city by city?",
+                  a: "Because the emails were always per city. Alerts are switched on city by city, so someone can hear about Madrid and not Prague. They must have access to the city first: no access means no emails, never all of them.",
                 },
                 {
                   q: "When do these emails go out?",

@@ -29,6 +29,7 @@ import { AiScoutPanel } from '@/components/admin/AiScoutPanel';
 import { trainsAiAnywhere } from '@/lib/permissions';
 import { cityNames, cityOptions } from '@/lib/cities';
 import { accessSummary } from '@/components/admin/CityAccessEditor';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DecisionPanel, EmptyRow, ErrorBar, InlineError, ListCard, SectionHeader, StatusBadge, formatShortDate } from '@/components/admin/admin-ui';
 
 type Tab = 'submissions' | 'requests' | 'users' | 'settings' | 'cafe-profiles' | 'teams' | 'ai-scout';
@@ -1746,6 +1747,31 @@ function TeamsPanel({ users }: TeamsPanelProps) {
   const [addingMember, setAddingMember] = useState(false);
   const [addMemberUserId, setAddMemberUserId] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // The "Delete team?" dialog. The team is kept after closing so its name
+  // does not vanish from the title while the dialog animates out.
+  const [deleteTarget, setDeleteTarget] = useState<Team | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const askDelete = (team: Team) => {
+    setDeleteTarget(team);
+    setDeleteError(null);
+    setDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const ok = await deleteTeam(deleteTarget.id);
+    setDeleting(false);
+    if (!ok) {
+      setDeleteError('The team was not deleted. Please try again.');
+      return;
+    }
+    setDeleteOpen(false);
+    setExpandedTeam(null);
+  };
 
   const handleExpandTeam = async (teamId: string) => {
     if (expandedTeam === teamId) {
@@ -1946,7 +1972,7 @@ function TeamsPanel({ users }: TeamsPanelProps) {
                           Add member
                         </Button>
                         <Button
-                          onClick={() => { deleteTeam(team.id); setExpandedTeam(null); }}
+                          onClick={() => askDelete(team)}
                           variant="ghost"
                           size="sm"
                           className="ml-auto text-red-600 hover:bg-red-50 hover:text-red-700"
@@ -1962,6 +1988,26 @@ function TeamsPanel({ users }: TeamsPanelProps) {
           </div>
         ))}
       </ListCard>}
+
+      <Dialog open={deleteOpen} onOpenChange={(open) => { if (!deleting) setDeleteOpen(open); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {deleteTarget?.name}?</DialogTitle>
+            <DialogDescription>
+              This can't be undone. Members keep their accounts, pitches and lists, but any property assigned to this team will no longer be assigned to anyone.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError && <InlineError>{deleteError}</InlineError>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete team'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

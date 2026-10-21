@@ -220,6 +220,7 @@ export const WhatsNewPopup = memo(function WhatsNewPopup({ entries, canShow, onD
     );
   }
 
-  // Above the right-hand sidebar (z 60), clear of the profile avatar below it.
-  return <div className="fixed right-4 bottom-16 z-[70]">{card}</div>;
+  // Above the right-hand sidebar (z 60), just clear of the profile avatar
+  // below it (24px in, 36px tall) and on the same right edge.
+  return <div className="fixed right-6 bottom-[72px] z-[70]">{card}</div>;
 });

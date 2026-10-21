@@ -11,7 +11,7 @@ interface TeamsContextValue {
   isInTeam: (teamId: string) => boolean;
   createTeam: (name: string, memberIds?: string[]) => Promise<Team | null>;
   updateTeam: (id: string, updates: { name?: string; is_active?: boolean }) => Promise<void>;
-  deleteTeam: (id: string) => Promise<void>;
+  deleteTeam: (id: string) => Promise<boolean>;
   fetchMembers: (teamId: string) => Promise<TeamMember[]>;
   addMember: (teamId: string, memberId: string, role?: "owner" | "member") => Promise<void>;
   removeMember: (teamId: string, memberId: string) => Promise<void>;
