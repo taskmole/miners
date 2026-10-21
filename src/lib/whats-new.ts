@@ -132,6 +132,18 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       speedBackdrop: "/assets/whats-new/map-strip-v1.jpg",
     },
   },
+  {
+    id: 6,
+    date: "2026-10-21",
+    title: "Reviewing got easier",
+    body: "Requests and pitches now have small, clear Approve and Reject buttons, and the admin dashboard is calmer to work in.",
+    audience: "approvers",
+    visual: {
+      kind: "image",
+      src: "/assets/whats-new/admin-review-v1.jpg",
+      alt: "A property request with small Reject and Approve buttons next to it",
+    },
+  },
 ];
 
 /** The newest id that exists. Closing the popup marks everything up to here seen. */

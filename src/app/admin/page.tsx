@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, Component, ErrorInfo, ReactNode, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, Component, ErrorInfo, ReactNode, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, ChevronRight, Download, RefreshCw, Coffee, UtensilsCrossed, Plus, Filter, SlidersHorizontal, Info, Search, Users2, Trash2, Shield, UserPlus, Sparkles } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, ChevronRight, Download, RefreshCw, Coffee, UtensilsCrossed, Plus, Filter, SlidersHorizontal, Info, Search, Users2, UserPlus, Sparkles } from 'lucide-react';
 import { useUserProfiles } from '@/hooks/useUserProfiles';
 import { useTeams, type Team, type TeamMember } from '@/hooks/useTeams';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
@@ -29,6 +29,7 @@ import { AiScoutPanel } from '@/components/admin/AiScoutPanel';
 import { trainsAiAnywhere } from '@/lib/permissions';
 import { cityNames, cityOptions } from '@/lib/cities';
 import { accessSummary } from '@/components/admin/CityAccessEditor';
+import { DecisionPanel, EmptyRow, ErrorBar, InlineError, ListCard, SectionHeader, StatusBadge, formatShortDate } from '@/components/admin/admin-ui';
 
 type Tab = 'submissions' | 'requests' | 'users' | 'settings' | 'cafe-profiles' | 'teams' | 'ai-scout';
 
@@ -506,13 +507,11 @@ function CafeProfileForm({
       </div>
 
       {/* Save */}
-      <Button
-        onClick={handleSave}
-        disabled={saving}
-        className="w-full bg-zinc-900 hover:bg-zinc-800 text-white h-12"
-      >
-        {saving ? 'Saving...' : 'Save'}
-      </Button>
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : 'Save'}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -532,9 +531,9 @@ function AddCafeForm({ onSave, onCancel }: { onSave: () => void; onCancel: () =>
   const [cityId, setCityId] = useState('madrid');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const searchAddress = React.useCallback((query: string) => {
+  const searchAddress = useCallback((query: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (query.length < 3) { setSuggestions([]); return; }
     debounceRef.current = setTimeout(async () => {
@@ -892,16 +891,35 @@ function AddUserForm({ onSave, onCancel, teams }: {
   );
 }
 
+const pitchTitle = (pitch: AdminPitch) => pitch.address || pitch.name || 'Untitled';
+
+/** "Details" toggle and "PDF" download under a pitch's title. */
+function PitchLinks({ pitch, expanded, onToggle }: { pitch: AdminPitch; expanded: boolean; onToggle: () => void }) {
+  return (
+    <div className="flex items-center gap-1 mt-2 -ml-2">
+      <Button variant="ghost" size="sm" onClick={onToggle} aria-expanded={expanded} className="text-zinc-500 hover:text-zinc-900">
+        {expanded ? <ChevronUp /> : <ChevronDown />}
+        {expanded ? 'Hide details' : 'Details'}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => downloadPitchAsPdf(pitch)} className="text-zinc-500 hover:text-zinc-900">
+        <Download />
+        PDF
+      </Button>
+    </div>
+  );
+}
+
 function AdminContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') as Tab) || 'submissions';
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [rejectNotes, setRejectNotes] = useState('');
-  const [returningId, setReturningId] = useState<string | null>(null);
-  const [returnNotes, setReturnNotes] = useState('');
+  // The pitch whose reject/return note box is open, and the pitch a decision
+  // is being saved for. Every pitch's buttons are disabled while one saves,
+  // so a double click cannot send the scout two emails.
+  const [deciding, setDeciding] = useState<{ id: string; kind: 'rejected' | 'returned' } | null>(null);
+  const [busyPitchId, setBusyPitchId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [cafesCityFilter, setCafesCityFilter] = useState<string>('all');
   const [showAddCafe, setShowAddCafe] = useState(false);
@@ -960,6 +978,7 @@ function AdminContent() {
   // Sync tab to URL
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
+    setActionError(null);
     const url = new URL(window.location.href);
     url.searchParams.set('tab', tab);
     window.history.replaceState({}, '', url.toString());
@@ -983,77 +1002,36 @@ function AdminContent() {
     }
   };
 
-  const handleApprove = async (pitchId: string) => {
+  /**
+   * Approve, reject or return a pitch. Reject and return carry the note the
+   * reviewer typed; the scout sees it in their email and activity feed.
+   */
+  const decidePitch = async (pitchId: string, status: 'approved' | 'rejected' | 'returned', note?: string) => {
     setActionError(null);
+    setBusyPitchId(pitchId);
     try {
       await apiFetch('/api/db/pitches', {
         method: 'PATCH',
         body: JSON.stringify({
           id: pitchId,
-          status: 'approved',
+          status,
+          ...(status === 'rejected' && { rejection_notes: note }),
+          ...(status === 'returned' && { return_notes: note }),
           reviewed_by: 'Admin',
           final_reviewed_at: new Date().toISOString(),
         }),
       });
-      refetchSubmissions();
-      sendTripStatusEmail(pitchId, 'approved');
-      notifyTeamStatus(pitchId, 'approved');
+      sendTripStatusEmail(pitchId, status, note);
+      notifyTeamStatus(pitchId, status, note);
+      await refetchSubmissions();
+      // Close the note box only now, and only if it belongs to this pitch:
+      // closing it earlier flashed the row's buttons for the reload, and
+      // approving another pitch must not wipe a note being typed here.
+      setDeciding(d => (d?.id === pitchId ? null : d));
     } catch {
-      setActionError('Failed to approve');
-    }
-  };
-
-  const handleReject = async (pitchId: string) => {
-    setActionError(null);
-    if (!rejectNotes.trim()) {
-      setActionError('Please enter rejection notes');
-      return;
-    }
-    try {
-      await apiFetch('/api/db/pitches', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          id: pitchId,
-          status: 'rejected',
-          rejection_notes: rejectNotes,
-          reviewed_by: 'Admin',
-          final_reviewed_at: new Date().toISOString(),
-        }),
-      });
-      setRejectingId(null);
-      setRejectNotes('');
-      refetchSubmissions();
-      sendTripStatusEmail(pitchId, 'rejected', rejectNotes);
-      notifyTeamStatus(pitchId, 'rejected', rejectNotes);
-    } catch {
-      setActionError('Failed to reject');
-    }
-  };
-
-  const handleReturn = async (pitchId: string) => {
-    setActionError(null);
-    if (!returnNotes.trim()) {
-      setActionError('Please enter return notes');
-      return;
-    }
-    try {
-      await apiFetch('/api/db/pitches', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          id: pitchId,
-          status: 'returned',
-          return_notes: returnNotes,
-          reviewed_by: 'Admin',
-          final_reviewed_at: new Date().toISOString(),
-        }),
-      });
-      setReturningId(null);
-      setReturnNotes('');
-      refetchSubmissions();
-      sendTripStatusEmail(pitchId, 'returned', returnNotes);
-      notifyTeamStatus(pitchId, 'returned', returnNotes);
-    } catch {
-      setActionError('Failed to return');
+      setActionError('That decision did not save. Please try again.');
+    } finally {
+      setBusyPitchId(null);
     }
   };
 
@@ -1149,387 +1127,184 @@ function AdminContent() {
     );
   }
 
+  // Tabs in display order. `show` keeps each tab to the people it is for.
+  const tabs: { id: Tab; label: string; icon: typeof FileText; count?: number; show: boolean }[] = [
+    { id: 'submissions', label: 'Pitches', icon: FileText, count: pendingSubmissions.length, show: true },
+    { id: 'requests', label: 'Requests', icon: UserPlus, count: pendingRequests.length, show: true },
+    { id: 'cafe-profiles', label: 'Cafes', icon: Coffee, show: true },
+    { id: 'ai-scout', label: 'AI scout', icon: Sparkles, show: canTrainAi },
+    { id: 'settings', label: 'Inputs', icon: SlidersHorizontal, show: isSuperAdmin },
+    { id: 'users', label: 'Users', icon: Users, show: isSuperAdmin },
+    { id: 'teams', label: 'Teams', icon: Users2, show: isSuperAdmin },
+  ];
+
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* Header */}
-      <header className="bg-white border-b border-zinc-200 sticky top-0 z-10" style={{ paddingTop: "calc(12px + env(safe-area-inset-top, 0px))" }}>
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-4">
-          <button
+      {/* Header: title and tabs */}
+      <header className="bg-white border-b border-zinc-200 sticky top-0 z-10" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+        <div className="max-w-4xl mx-auto px-4 pt-3 flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => router.push('/')}
-            className="p-2 -ml-2 hover:bg-zinc-100 rounded-lg transition-colors"
+            aria-label="Back to the map"
+            className="-ml-2 text-zinc-600"
           >
-            <ArrowLeft className="w-5 h-5 text-zinc-600" />
-          </button>
-          <h1 className="text-lg font-bold text-zinc-900">Admin Dashboard</h1>
+            <ArrowLeft className="size-5" />
+          </Button>
+          <h1 className="text-lg font-semibold text-zinc-900 font-[family-name:var(--font-heading)]">Admin Dashboard</h1>
         </div>
+
+        <nav className="max-w-4xl mx-auto px-4 flex gap-1 overflow-x-auto scrollbar-hide">
+          {tabs.filter(t => t.show).map(({ id, label, icon: Icon, count }) => {
+            const active = activeTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => handleTabChange(id)}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400 rounded-t-md",
+                  active
+                    ? "border-zinc-900 text-zinc-900"
+                    : "border-transparent text-zinc-500 hover:text-zinc-900"
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+                {!!count && (
+                  <span className={cn(
+                    "min-w-5 h-5 px-1.5 rounded-full text-xs font-semibold tabular-nums flex items-center justify-center",
+                    active ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-700"
+                  )}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
       </header>
 
-      {/* Tabs */}
-      <div className="bg-white overflow-x-auto scrollbar-hide">
-        <div className="max-w-4xl mx-auto px-4 flex gap-1 min-w-max">
-          <button
-            onClick={() => handleTabChange('submissions')}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-              activeTab === 'submissions'
-                ? "border-zinc-900 text-zinc-900"
-                : "border-transparent text-zinc-500 hover:text-zinc-700"
-            )}
-          >
-            <FileText className="w-4 h-4" />
-            Pitches
-            {pendingSubmissions.length > 0 && (
-              <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-                {pendingSubmissions.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => handleTabChange('requests')}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-              activeTab === 'requests'
-                ? "border-zinc-900 text-zinc-900"
-                : "border-transparent text-zinc-500 hover:text-zinc-700"
-            )}
-          >
-            <UserPlus className="w-4 h-4" />
-            Requests
-            {pendingRequests.length > 0 && (
-              <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-                {pendingRequests.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => handleTabChange('cafe-profiles')}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-              activeTab === 'cafe-profiles'
-                ? "border-zinc-900 text-zinc-900"
-                : "border-transparent text-zinc-500 hover:text-zinc-700"
-            )}
-          >
-            <Coffee className="w-4 h-4" />
-            Cafes
-          </button>
-          {canTrainAi && (
-            <button
-              onClick={() => handleTabChange('ai-scout')}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-                activeTab === 'ai-scout'
-                  ? "border-zinc-900 text-zinc-900"
-                  : "border-transparent text-zinc-500 hover:text-zinc-700"
-              )}
-            >
-              <Sparkles className="w-4 h-4" />
-              AI scout
-            </button>
-          )}
-          {isSuperAdmin && (
-            <>
-              <button
-                onClick={() => handleTabChange('settings')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-                  activeTab === 'settings'
-                    ? "border-zinc-900 text-zinc-900"
-                    : "border-transparent text-zinc-500 hover:text-zinc-700"
-                )}
-              >
-                <SlidersHorizontal className="w-4 h-4" />
-                Inputs
-              </button>
-              <button
-                onClick={() => handleTabChange('users')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-                  activeTab === 'users'
-                    ? "border-zinc-900 text-zinc-900"
-                    : "border-transparent text-zinc-500 hover:text-zinc-700"
-                )}
-              >
-                <Users className="w-4 h-4" />
-                Users
-              </button>
-              <button
-                onClick={() => setActiveTab('teams')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-                  activeTab === 'teams'
-                    ? "border-zinc-900 text-zinc-900"
-                    : "border-transparent text-zinc-500 hover:text-zinc-700"
-                )}
-              >
-                <Users2 className="w-4 h-4" />
-                Teams
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Error banner */}
-      {actionError && (
-        <div className="bg-red-50 border-b border-red-200 px-4 py-2">
-          <div className="max-w-4xl mx-auto text-sm text-red-600">
-            {actionError}
-            <button
-              onClick={() => setActionError(null)}
-              className="ml-2 underline"
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
+      <ErrorBar message={actionError} onDismiss={() => setActionError(null)} />
 
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 py-6">
         {activeTab === 'submissions' && (
-          <div className="space-y-6">
-            {submissionsError && (
-              <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
-                {submissionsError}
-              </div>
+          <div className="space-y-8">
+            {submissionsError && <InlineError>{submissionsError}</InlineError>}
+
+            {/* First load only: a refetch after a decision keeps the list in place. */}
+            {submissionsLoading && pendingSubmissions.length + processedSubmissions.length === 0 && (
+              <div className="text-center py-8 text-sm text-zinc-500">Loading pitches...</div>
             )}
 
-            {submissionsLoading && (
-              <div className="text-center py-8 text-zinc-500">Loading submissions...</div>
-            )}
-
-            {/* New submissions */}
+            {/* Waiting for a decision */}
             <section>
-              <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-2">
-                Awaiting Review ({pendingSubmissions.length})
-              </h2>
+              <SectionHeader title="Awaiting review" count={pendingSubmissions.length} />
               {pendingSubmissions.length === 0 ? (
-                <div className="bg-white rounded-xl px-4 py-8 text-center text-zinc-400 text-sm">
-                  No pending submissions
-                </div>
+                <EmptyRow>No pitches waiting for review</EmptyRow>
               ) : (
-                <div className="bg-white rounded-xl divide-y divide-zinc-100">
-                  {pendingSubmissions.map((pitch) => (
-                    <div
-                      key={pitch.id}
-                      className="p-4"
-                    >
-                      <div className="flex flex-col gap-3">
-                        {/* Header with expand toggle */}
-                        <div
-                          className="cursor-pointer"
-                          onClick={() => toggleExpand(pitch.id)}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <div className="font-medium text-zinc-900">
-                                📍 {pitch.address || pitch.name || 'Untitled'}
-                              </div>
-                              <div className="text-sm text-zinc-500">
-                                Submitted by {pitch.authorName || 'Unknown'} • {new Date(pitch.submittedAt || pitch.createdAt).toLocaleDateString()}
-                              </div>
+                <ListCard>
+                  {pendingSubmissions.map((pitch) => {
+                    const panel = canReviewSubmissions && deciding?.id === pitch.id ? deciding.kind : null;
+                    return (
+                      <div key={pitch.id} className="p-4">
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-zinc-900 break-words">
+                              {pitchTitle(pitch)}
                             </div>
-                            <button className="p-1 text-zinc-400 hover:text-zinc-600">
-                              {expandedId === pitch.id ? (
-                                <ChevronUp className="w-5 h-5" />
-                              ) : (
-                                <ChevronDown className="w-5 h-5" />
-                              )}
-                            </button>
+                            <div className="text-sm text-zinc-500 mt-0.5">
+                              Submitted by {pitch.authorName || 'Unknown'}, {formatShortDate(pitch.submittedAt || pitch.createdAt)}
+                            </div>
+                            <PitchLinks pitch={pitch} expanded={expandedId === pitch.id} onToggle={() => toggleExpand(pitch.id)} />
                           </div>
+
+                          {canReviewSubmissions && !panel && (
+                            <div className="flex justify-end gap-2 shrink-0">
+                              <Button
+                                variant="outline"
+                                size="action"
+                                onClick={() => setDeciding({ id: pitch.id, kind: 'rejected' })}
+                                disabled={busyPitchId !== null}
+                              >
+                                Reject
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="action"
+                                onClick={() => setDeciding({ id: pitch.id, kind: 'returned' })}
+                                disabled={busyPitchId !== null}
+                              >
+                                Return
+                              </Button>
+                              <Button
+                                size="action"
+                                onClick={() => decidePitch(pitch.id, 'approved')}
+                                disabled={busyPitchId !== null}
+                              >
+                                <Check />
+                                {busyPitchId === pitch.id ? 'Approving...' : 'Approve'}
+                              </Button>
+                            </div>
+                          )}
                         </div>
 
-                        {/* Expanded details */}
                         {expandedId === pitch.id && <SubmissionDetails pitch={pitch} />}
 
-                        {/* Reject dialog (reviewers only) */}
-                        {canReviewSubmissions && rejectingId === pitch.id && (
-                          <div className="space-y-2">
-                            <textarea
-                              value={rejectNotes}
-                              onChange={(e) => setRejectNotes(e.target.value)}
-                              placeholder="Reason for rejection..."
-                              className="w-full h-20 px-3 py-2 text-sm border border-zinc-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-zinc-400"
-                            />
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={() => handleReject(pitch.id)}
-                                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                              >
-                                Confirm Reject
-                              </Button>
-                              <Button
-                                onClick={() => {
-                                  setRejectingId(null);
-                                  setRejectNotes('');
-                                }}
-                                variant="outline"
-                                className="flex-1"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Return dialog (reviewers only) */}
-                        {canReviewSubmissions && returningId === pitch.id && (
-                          <div className="space-y-2">
-                            <textarea
-                              value={returnNotes}
-                              onChange={(e) => setReturnNotes(e.target.value)}
-                              placeholder="What needs to be fixed or added..."
-                              className="w-full h-20 px-3 py-2 text-sm border border-zinc-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-amber-400"
-                            />
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={() => handleReturn(pitch.id)}
-                                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
-                              >
-                                Confirm Return
-                              </Button>
-                              <Button
-                                onClick={() => {
-                                  setReturningId(null);
-                                  setReturnNotes('');
-                                }}
-                                variant="outline"
-                                className="flex-1"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Action buttons */}
-                        {!(canReviewSubmissions && (rejectingId === pitch.id || returningId === pitch.id)) && (
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            {canReviewSubmissions && (
-                              <>
-                                <Button
-                                  onClick={() => handleApprove(pitch.id)}
-                                  className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-white h-12"
-                                >
-                                  <Check className="w-4 h-4 mr-2" />
-                                  Approve
-                                </Button>
-                                <Button
-                                  onClick={() => setReturningId(pitch.id)}
-                                  variant="outline"
-                                  className="flex-1 border-amber-300 text-amber-600 hover:bg-amber-50 h-12"
-                                >
-                                  Return for Edits
-                                </Button>
-                                <Button
-                                  onClick={() => setRejectingId(pitch.id)}
-                                  variant="outline"
-                                  className="flex-1 border-red-300 text-red-600 hover:bg-red-50 h-12"
-                                >
-                                  <X className="w-4 h-4 mr-2" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                            <Button
-                              onClick={() => downloadPitchAsPdf(pitch)}
-                              variant="outline"
-                              className="border-zinc-300 text-zinc-600 hover:bg-zinc-50 h-12 sm:flex-none"
-                            >
-                              <Download className="w-4 h-4 mr-2" />
-                              PDF
-                            </Button>
-                          </div>
+                        {panel && (
+                          <DecisionPanel
+                            key={panel}
+                            label={panel === 'rejected' ? 'Why are you rejecting it?' : 'What needs to be fixed or added?'}
+                            placeholder="The scout will see this"
+                            confirmLabel={panel === 'rejected' ? 'Reject pitch' : 'Return for edits'}
+                            destructive={panel === 'rejected'}
+                            busy={busyPitchId === pitch.id}
+                            locked={busyPitchId !== null}
+                            onConfirm={(note) => decidePitch(pitch.id, panel, note)}
+                            onCancel={() => setDeciding(null)}
+                          />
                         )}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    );
+                  })}
+                </ListCard>
               )}
             </section>
 
-            {/* Processed submissions */}
+            {/* Already decided */}
             <section>
-              <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-2">
-                Processed ({processedSubmissions.length})
-              </h2>
+              <SectionHeader title="Processed" count={processedSubmissions.length} />
               {processedSubmissions.length === 0 ? (
-                <div className="bg-white rounded-xl px-4 py-8 text-center text-zinc-400 text-sm">
-                  No processed submissions yet
-                </div>
+                <EmptyRow>No processed pitches yet</EmptyRow>
               ) : (
-                <div className="bg-white rounded-xl divide-y divide-zinc-100">
-                  {processedSubmissions.map((pitch) => (
-                    <div
-                      key={pitch.id}
-                      className="p-4"
-                    >
-                      {/* Header with expand toggle */}
-                      <div
-                        className="cursor-pointer"
-                        onClick={() => toggleExpand(pitch.id)}
-                      >
+                <ListCard>
+                  {processedSubmissions.map((pitch) => {
+                    const reason = pitch.status === 'rejected' ? pitch.rejectionNotes : pitch.status === 'returned' ? pitch.returnNotes : undefined;
+                    return (
+                      <div key={pitch.id} className="p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-zinc-900 truncate">
-                              📍 {pitch.address || pitch.name || 'Untitled'}
+                            <div className="font-medium text-zinc-900 break-words">
+                              {pitchTitle(pitch)}
                             </div>
-                            <div className="text-sm text-zinc-500">
-                              Reviewed by {pitch.reviewedBy || 'Admin'} • {new Date(pitch.reviewedAt || pitch.createdAt).toLocaleDateString()}
+                            <div className="text-sm text-zinc-500 mt-0.5">
+                              Reviewed by {pitch.reviewedBy || 'Admin'}, {formatShortDate(pitch.reviewedAt || pitch.createdAt)}
                             </div>
-                            {pitch.status === 'rejected' && pitch.rejectionNotes && (
-                              <div className="text-sm text-red-600 mt-1">
-                                Reason: {pitch.rejectionNotes}
-                              </div>
+                            {reason && (
+                              <p className="text-sm text-zinc-600 mt-2 whitespace-pre-wrap">{reason}</p>
                             )}
-                            {pitch.status === 'returned' && pitch.returnNotes && (
-                              <div className="text-sm text-amber-600 mt-1">
-                                Return reason: {pitch.returnNotes}
-                              </div>
-                            )}
+                            <PitchLinks pitch={pitch} expanded={expandedId === pitch.id} onToggle={() => toggleExpand(pitch.id)} />
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={cn(
-                                "px-2 py-1 text-xs font-semibold rounded-full shrink-0",
-                                pitch.status === 'approved' && "bg-green-100 text-green-700",
-                                pitch.status === 'rejected' && "bg-red-100 text-red-700",
-                                pitch.status === 'returned' && "bg-amber-100 text-amber-700",
-                              )}
-                            >
-                              {pitch.status === 'approved' ? 'Approved' : pitch.status === 'returned' ? 'Returned' : 'Rejected'}
-                            </span>
-                            <button className="p-1 text-zinc-400 hover:text-zinc-600">
-                              {expandedId === pitch.id ? (
-                                <ChevronUp className="w-5 h-5" />
-                              ) : (
-                                <ChevronDown className="w-5 h-5" />
-                              )}
-                            </button>
-                          </div>
+                          <StatusBadge status={pitch.status} />
                         </div>
+                        {expandedId === pitch.id && <SubmissionDetails pitch={pitch} />}
                       </div>
-
-                      {/* Expanded details */}
-                      {expandedId === pitch.id && (
-                        <>
-                          <SubmissionDetails pitch={pitch} />
-                          <div className="mt-3 pt-3 border-t border-zinc-100">
-                            <Button
-                              onClick={() => downloadPitchAsPdf(pitch)}
-                              variant="outline"
-                              className="border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                            >
-                              <Download className="w-4 h-4 mr-2" />
-                              PDF
-                            </Button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    );
+                  })}
+                </ListCard>
               )}
             </section>
           </div>
@@ -1566,12 +1341,8 @@ function AdminContent() {
         )}
 
         {activeTab === 'cafe-profiles' && (
-          <div className="space-y-4">
-            {cafesError && (
-              <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
-                {cafesError}
-              </div>
-            )}
+          <div className="space-y-6">
+            {cafesError && <InlineError>{cafesError}</InlineError>}
 
             {/* Toolbar: city filter + add cafe */}
             <div className="flex items-center gap-2">
@@ -1580,7 +1351,7 @@ function AdminContent() {
                 <select
                   value={cafesCityFilter}
                   onChange={(e) => setCafesCityFilter(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 bg-white border border-zinc-200 rounded-lg text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                  className="w-full h-9 pl-9 pr-4 bg-white border border-zinc-200 rounded-md shadow-xs text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-zinc-400"
                 >
                   <option value="all">All cities ({cafeProfiles.length})</option>
                   {Object.entries(CITY_LABELS).map(([id, label]) => {
@@ -1592,13 +1363,10 @@ function AdminContent() {
                   })}
                 </select>
               </div>
-              <button
-                onClick={() => setShowAddCafe(!showAddCafe)}
-                className="flex items-center gap-1.5 px-4 py-2.5 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 whitespace-nowrap"
-              >
-                <Plus className="w-4 h-4" />
-                Add Cafe
-              </button>
+              <Button onClick={() => setShowAddCafe(!showAddCafe)}>
+                <Plus />
+                Add cafe
+              </Button>
             </div>
 
             {/* Add Cafe form */}
@@ -1613,13 +1381,11 @@ function AdminContent() {
             )}
 
             {cafesLoading && (
-              <div className="text-center py-8 text-zinc-500">Loading cafe profiles...</div>
+              <div className="text-center py-8 text-sm text-zinc-500">Loading cafes...</div>
             )}
 
             {!cafesLoading && !showAddCafe && cafeProfiles.length === 0 && (
-              <div className="bg-white rounded-xl px-4 py-8 text-center text-zinc-400 text-sm">
-                No Miners cafes found
-              </div>
+              <EmptyRow>No Miners cafes yet</EmptyRow>
             )}
 
             {/* Cafe list - grouped by city when showing all, flat when filtered */}
@@ -1638,19 +1404,19 @@ function AdminContent() {
               return Object.entries(grouped).map(([cityId, cityCafes]) => (
                 <section key={cityId}>
                   {cafesCityFilter === 'all' && (
-                    <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-2">
-                      {CITY_LABELS[cityId] || cityId} ({cityCafes.length})
-                    </h2>
+                    <SectionHeader title={CITY_LABELS[cityId] || cityId} count={cityCafes.length} />
                   )}
-                  <div className="bg-white rounded-xl divide-y divide-zinc-100">
+                  <ListCard>
                     {cityCafes.map((cafe) => (
                       <div
                         key={cafe.placeId}
                         className="p-4"
                       >
-                        <div
-                          className="cursor-pointer"
-                          onClick={() => setExpandedId(expandedId === cafe.placeId ? null : cafe.placeId)}
+                        <button
+                          type="button"
+                          className="w-full text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+                          onClick={() => toggleExpand(cafe.placeId)}
+                          aria-expanded={expandedId === cafe.placeId}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
@@ -1663,7 +1429,7 @@ function AdminContent() {
                               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                 {cafe.category && (
                                   <span className={cn(
-                                    "px-2 py-0.5 text-xs font-semibold rounded-full",
+                                    "px-2 py-0.5 text-xs font-medium rounded-md",
                                     CATEGORY_COLORS[cafe.category]
                                   )}>
                                     {CATEGORY_LABELS[cafe.category]}
@@ -1692,15 +1458,15 @@ function AdminContent() {
                                 )}
                               </div>
                             </div>
-                            <button className="p-1 text-zinc-400 hover:text-zinc-600 ml-2">
+                            <span className="p-1 text-zinc-400 ml-2">
                               {expandedId === cafe.placeId ? (
                                 <ChevronUp className="w-5 h-5" />
                               ) : (
                                 <ChevronDown className="w-5 h-5" />
                               )}
-                            </button>
+                            </span>
                           </div>
-                        </div>
+                        </button>
 
                         {expandedId === cafe.placeId && (
                           <CafeProfileForm
@@ -1718,7 +1484,7 @@ function AdminContent() {
                         )}
                       </div>
                     ))}
-                  </div>
+                  </ListCard>
                 </section>
               ));
             })()}
@@ -1735,31 +1501,25 @@ function AdminContent() {
 
           return (
             <div className="space-y-4">
-              {usersError && (
-                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
-                  {usersError}
-                </div>
-              )}
+              {usersError && <InlineError>{usersError}</InlineError>}
 
               {/* Toolbar */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                  <input
-                    type="text"
+                  <Input
+                    type="search"
                     value={usersSearch}
                     onChange={(e) => setUsersSearch(e.target.value)}
                     placeholder="Search users..."
-                    className="w-full pl-9 pr-4 py-2.5 bg-white border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                    aria-label="Search users"
+                    className="pl-9 bg-white"
                   />
                 </div>
-                <button
-                  onClick={() => setShowAddUser(!showAddUser)}
-                  className="flex items-center gap-1.5 px-4 py-2.5 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 whitespace-nowrap"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add User
-                </button>
+                <Button onClick={() => setShowAddUser(!showAddUser)}>
+                  <Plus />
+                  Add user
+                </Button>
               </div>
 
               {/* Add User form */}
@@ -1775,17 +1535,16 @@ function AdminContent() {
 
               {/* User list */}
               {!showAddUser && filteredUsers.length === 0 ? (
-                <div className="bg-white rounded-xl px-4 py-8 text-center text-zinc-400 text-sm">
-                  {usersSearch ? 'No users match your search' : 'No users yet'}
-                </div>
+                <EmptyRow>{usersSearch ? 'No users match your search' : 'No users yet'}</EmptyRow>
               ) : !showAddUser && (
-                <div className="bg-white rounded-xl divide-y divide-zinc-100">
+                <ListCard>
                   {filteredUsers.map((user) => {
                     const teamName = teams.find(t => t.id === user.team_id)?.name;
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={user.id}
-                        className="p-4 cursor-pointer hover:bg-zinc-50 transition-colors"
+                        className="block w-full text-left p-4 hover:bg-zinc-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400"
                         onClick={() => router.push(`/admin/users/${user.id}`)}
                       >
                         <div className="flex items-center gap-3">
@@ -1803,7 +1562,7 @@ function AdminContent() {
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {teamName && (
-                              <span className="hidden sm:inline px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
+                              <span className="hidden sm:inline px-2 py-0.5 text-xs font-medium rounded-md border border-zinc-200 text-zinc-600">
                                 {teamName}
                               </span>
                             )}
@@ -1820,7 +1579,7 @@ function AdminContent() {
                               return (
                                 <span
                                   className={cn(
-                                    'px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap',
+                                    'px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap',
                                     summary.tone === 'dark' && 'bg-zinc-900 text-white',
                                     summary.tone === 'green' && 'bg-emerald-50 text-emerald-700',
                                     summary.tone === 'blue' && 'bg-blue-50 text-blue-700',
@@ -1835,10 +1594,10 @@ function AdminContent() {
                             <ChevronRight className="w-4 h-4 text-zinc-400" />
                           </div>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
-                </div>
+                </ListCard>
               )}
             </div>
           );
@@ -1897,72 +1656,71 @@ function ScoutingSettingsPanel() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto mt-6 px-4">
-      <div className="max-w-lg">
-        <div className="bg-white rounded-xl border border-zinc-200 p-5 space-y-5">
-          <div className="flex rounded-lg bg-zinc-100 p-1">
-            {(Object.keys(MARKET_LABELS) as CurrencyCode[]).map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setActiveMarket(code)}
-                className={cn(
-                  "flex-1 text-sm font-medium py-2 rounded-[7px] transition-all",
-                  activeMarket === code
-                    ? "bg-white text-zinc-900 shadow-sm"
-                    : "text-zinc-500 hover:text-zinc-700"
+    <div className="max-w-lg">
+      <SectionHeader title="Scouting inputs" />
+      <div className="bg-white rounded-xl border border-zinc-200 p-5 space-y-5">
+        <div className="flex rounded-lg bg-zinc-100 p-1">
+          {(Object.keys(MARKET_LABELS) as CurrencyCode[]).map((code) => (
+            <button
+              key={code}
+              type="button"
+              onClick={() => setActiveMarket(code)}
+              className={cn(
+                "flex-1 text-sm font-medium py-2 rounded-[7px] transition-all",
+                activeMarket === code
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700"
+              )}
+            >
+              {MARKET_LABELS[code]}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-3">
+          {SCOUTING_FIELDS.map(({ key, label, tooltip, step, isMoney }) => (
+            <div key={key} className="space-y-1">
+              <label className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
+                {label}
+                <button
+                  type="button"
+                  className="info-tip relative text-zinc-400 hover:text-zinc-600"
+                  onClick={(e) => {
+                    const tip = e.currentTarget.querySelector('.badge-tooltip');
+                    if (tip) tip.classList.toggle('visible');
+                  }}
+                  onBlur={(e) => {
+                    const tip = e.currentTarget.querySelector('.badge-tooltip');
+                    if (tip) tip.classList.remove('visible');
+                  }}
+                >
+                  <Info className="w-3.5 h-3.5" />
+                  <span className="badge-tooltip badge-tooltip-lg" style={{ whiteSpace: 'normal', width: 200, left: '50%', transform: 'translateX(-50%)' }}>{tooltip}</span>
+                </button>
+              </label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  step={step}
+                  value={current[key]}
+                  onChange={(e) => updateField(key, parseFloat(e.target.value) || 0)}
+                  className={isMoney ? "pr-10" : ""}
+                />
+                {isMoney && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400 pointer-events-none">
+                    {CURRENCY_SYMBOLS[activeMarket]}
+                  </span>
                 )}
-              >
-                {MARKET_LABELS[code]}
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-3">
-            {SCOUTING_FIELDS.map(({ key, label, tooltip, step, isMoney }) => (
-              <div key={key} className="space-y-1">
-                <label className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
-                  {label}
-                  <button
-                    type="button"
-                    className="info-tip relative text-zinc-400 hover:text-zinc-600"
-                    onClick={(e) => {
-                      const tip = e.currentTarget.querySelector('.badge-tooltip');
-                      if (tip) tip.classList.toggle('visible');
-                    }}
-                    onBlur={(e) => {
-                      const tip = e.currentTarget.querySelector('.badge-tooltip');
-                      if (tip) tip.classList.remove('visible');
-                    }}
-                  >
-                    <Info className="w-3.5 h-3.5" />
-                    <span className="badge-tooltip badge-tooltip-lg" style={{ whiteSpace: 'normal', width: 200, left: '50%', transform: 'translateX(-50%)' }}>{tooltip}</span>
-                  </button>
-                </label>
-                <div className="relative">
-                  <Input
-                    type="number"
-                    step={step}
-                    value={current[key]}
-                    onChange={(e) => updateField(key, parseFloat(e.target.value) || 0)}
-                    className={isMoney ? "pr-10" : ""}
-                  />
-                  {isMoney && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400 pointer-events-none">
-                      {CURRENCY_SYMBOLS[activeMarket]}
-                    </span>
-                  )}
-                </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
 
-          <div className="flex items-center justify-end gap-3 pt-1">
-            {saved && <span className="text-sm text-green-600">Saved</span>}
-            <Button onClick={handleSave} disabled={saving} className="h-11 px-10">
-              {saving ? "Saving..." : "Save"}
-            </Button>
-          </div>
+        <div className="flex items-center justify-end gap-3 pt-1">
+          {saved && <span className="text-sm text-emerald-600">Saved</span>}
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save"}
+          </Button>
         </div>
       </div>
     </div>
@@ -2055,29 +1813,27 @@ function TeamsPanel({ users }: TeamsPanelProps) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-900">Teams</h2>
-        <Button onClick={() => setShowCreate(!showCreate)} className="h-9 gap-1.5">
-          <Plus className="w-4 h-4" />
-          New Team
+    <div className="space-y-4">
+      <SectionHeader title="Teams" count={teams.length}>
+        <Button onClick={() => setShowCreate(!showCreate)}>
+          <Plus />
+          New team
         </Button>
-      </div>
+      </SectionHeader>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
+        <InlineError>
           {error}
           <button onClick={() => setError(null)} className="ml-2 underline">Dismiss</button>
-        </div>
+        </InlineError>
       )}
 
       {/* Create form */}
       {showCreate && (
-        <div className="bg-white border border-zinc-200 rounded-lg p-4 space-y-3">
+        <div className="bg-white border border-zinc-200 rounded-xl p-4 space-y-3">
           <div>
-            <label className="text-sm font-medium text-zinc-700 block mb-1">Team Name</label>
+            <label className="text-sm font-medium text-zinc-700 block mb-1">Team name</label>
             <Input
               value={newTeamName}
               onChange={(e) => setNewTeamName(e.target.value)}
@@ -2086,7 +1842,7 @@ function TeamsPanel({ users }: TeamsPanelProps) {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-zinc-700 block mb-1">Add Members (optional)</label>
+            <label className="text-sm font-medium text-zinc-700 block mb-1">Add members (optional)</label>
             <div className="max-h-40 overflow-y-auto border border-zinc-200 rounded-lg divide-y divide-zinc-100">
               {users.map(user => (
                 <label key={user.id} className="flex items-center gap-2 px-3 py-2 hover:bg-zinc-50 cursor-pointer">
@@ -2105,31 +1861,29 @@ function TeamsPanel({ users }: TeamsPanelProps) {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleCreate} className="h-9">Create Team</Button>
-            <Button onClick={() => { setShowCreate(false); setNewTeamName(''); setSelectedMembers([]); }} variant="outline" className="h-9">Cancel</Button>
+            <Button onClick={handleCreate}>Create team</Button>
+            <Button onClick={() => { setShowCreate(false); setNewTeamName(''); setSelectedMembers([]); }} variant="outline">Cancel</Button>
           </div>
         </div>
       )}
 
       {/* Teams list */}
       {teams.length === 0 && !showCreate && (
-        <div className="text-center py-12 text-zinc-500">
-          No teams yet. Create one to get started.
-        </div>
+        <EmptyRow>No teams yet. Create one to get started.</EmptyRow>
       )}
 
-      <div className="space-y-2">
+      {teams.length > 0 && <ListCard>
         {teams.map(team => (
-          <div key={team.id} className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+          <div key={team.id}>
             {/* Team row */}
             <button
               onClick={() => handleExpandTeam(team.id)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 transition-colors text-left"
+              className="w-full flex items-center gap-3 p-4 hover:bg-zinc-50 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400"
             >
               <Users2 className="w-5 h-5 text-zinc-400 shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-zinc-900 truncate">{team.name}</div>
-                <div className="text-xs text-zinc-500">
+                <div className="text-sm text-zinc-500 mt-0.5">
                   {team.team_members.length} member{team.team_members.length !== 1 ? 's' : ''}
                 </div>
               </div>
@@ -2187,14 +1941,15 @@ function TeamsPanel({ users }: TeamsPanelProps) {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 pt-2">
-                        <Button onClick={() => setAddingMember(true)} variant="outline" size="sm" className="sm:border-0 sm:p-0 sm:h-auto sm:text-xs sm:text-zinc-500 sm:hover:text-zinc-900 sm:hover:bg-transparent sm:font-normal">
-                          + Add member
+                        <Button onClick={() => setAddingMember(true)} variant="outline" size="sm">
+                          <Plus />
+                          Add member
                         </Button>
                         <Button
                           onClick={() => { deleteTeam(team.id); setExpandedTeam(null); }}
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="ml-auto text-red-500 border-red-200 hover:bg-red-50 hover:text-red-700 sm:border-0 sm:p-0 sm:h-auto sm:text-xs sm:hover:bg-transparent sm:font-normal"
+                          className="ml-auto text-red-600 hover:bg-red-50 hover:text-red-700"
                         >
                           Delete team
                         </Button>
@@ -2206,7 +1961,7 @@ function TeamsPanel({ users }: TeamsPanelProps) {
             )}
           </div>
         ))}
-      </div>
+      </ListCard>}
     </div>
   );
 }

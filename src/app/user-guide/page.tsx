@@ -443,7 +443,7 @@ export default function UserGuidePage() {
                   a: (
                     <>
                       Admin Dashboard, "Pitches" tab. Open the trip and read it. Then pick:
-                      "Approve", "Return for Edits" (they fix it and send again), or
+                      "Approve", "Return" (they fix it and send again), or
                       "Reject" (final). For Return and Reject you must write a short note.
                       <GuideImage src="/assets/guide/pitches-review.png" alt="A submission. The Approve, Return for Edits, and Reject buttons are marked in red." />
                     </>
