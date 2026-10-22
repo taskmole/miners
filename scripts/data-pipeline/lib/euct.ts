@@ -139,11 +139,22 @@ export function checkSafety(existing: EuctRow[], listed: ListedCafe[] | null): s
 
 const BLANK_DETAILS: CafeDetails = { website: "", instagram: "", facebook: "", date_published: "", date_modified: "" };
 
+/** A "new" cafe this close to a "removed" one is the same cafe under a new link. */
+export const RELINK_MAX_METRES = 30;
+
 export interface MergeStats {
   kept: number;
-  added: number;
-  removed: number;
+  added: string[];
+  removed: string[];
+  relinked: string[];
   detailFailures: number;
+}
+
+function metresApart(a: Pick<EuctRow, "latitude" | "longitude">, b: Pick<EuctRow, "latitude" | "longitude">): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const [lat1, lon1, lat2, lon2] = [a.latitude, a.longitude, b.latitude, b.longitude].map(Number);
+  const x = toRad(lon2 - lon1) * Math.cos(toRad((lat1 + lat2) / 2));
+  return Math.hypot(x, toRad(lat2 - lat1)) * 6_371_000;
 }
 
 /**
@@ -151,7 +162,9 @@ export interface MergeStats {
  *
  * Map pins, comments, lists, hidden pins and share links are keyed by a
  * cafe's coordinates, so a cafe already in the file keeps its latitude and
- * longitude exactly as written. Cafes the site no longer lists are dropped.
+ * longitude exactly as written. That includes a cafe whose link changed: a
+ * new cafe within RELINK_MAX_METRES of a removed one takes over its
+ * coordinates. Cafes the site no longer lists are dropped.
  * A null entry in `details` means that cafe's page failed: keep its old details.
  */
 export function mergeCity(
@@ -161,38 +174,48 @@ export function mergeCity(
   details: Map<string, CafeDetails | null>
 ): { rows: EuctRow[]; stats: MergeStats } {
   const existingByKey = new Map(existing.filter((r) => r.link).map((r) => [linkKey(r.link), r]));
-  const stats: MergeStats = { kept: 0, added: 0, removed: 0, detailFailures: 0 };
-  const seen = new Set<string>();
-  const rows: EuctRow[] = [];
+  const listedByKey = new Map(listed.map((c) => [linkKey(c.link), c]));
+  const stats: MergeStats = { kept: 0, added: [], removed: [], relinked: [], detailFailures: 0 };
 
-  for (const cafe of listed) {
-    const key = linkKey(cafe.link);
-    if (seen.has(key)) continue;
-    seen.add(key);
+  // Existing cafes the site no longer lists under the same link.
+  const unmatched = [...existingByKey].filter(([key]) => !listedByKey.has(key)).map(([, row]) => row);
 
-    const old = existingByKey.get(key);
+  const rows = [...listedByKey].map(([key, cafe]): EuctRow => {
+    let old = existingByKey.get(key);
+    if (old) {
+      stats.kept++;
+    } else {
+      // Miners rows are dropped on purpose (they come from the DB), never relinked.
+      const moved = unmatched.findIndex(
+        (r) => !MINERS_NAME.test(r.name) && metresApart(r, cafe) <= RELINK_MAX_METRES
+      );
+      if (moved >= 0) {
+        [old] = unmatched.splice(moved, 1);
+        stats.relinked.push(`${old.name} -> ${cafe.name}`);
+      } else {
+        stats.added.push(cafe.name);
+      }
+    }
+
     const fresh = details.get(key) ?? null;
     if (!fresh) stats.detailFailures++;
+    const from: CafeDetails = fresh ?? old ?? BLANK_DETAILS;
 
-    const pageDetails: CafeDetails = fresh ?? old ?? BLANK_DETAILS;
-
-    rows.push({
+    return {
       city_name: cityName,
       ...cafe,
-      link: old?.link ?? cafe.link,
+      website: from.website,
+      instagram: from.instagram,
+      facebook: from.facebook,
+      date_published: from.date_published,
+      date_modified: from.date_modified,
+      // A relinked cafe takes the site's new link; a kept one keeps its own spelling.
+      link: existingByKey.has(key) ? old!.link : cafe.link,
       latitude: old?.latitude ?? cafe.latitude,
       longitude: old?.longitude ?? cafe.longitude,
-      website: pageDetails.website,
-      instagram: pageDetails.instagram,
-      facebook: pageDetails.facebook,
-      date_published: pageDetails.date_published,
-      date_modified: pageDetails.date_modified,
-    });
+    };
+  });
 
-    if (old) stats.kept++;
-    else stats.added++;
-  }
-
-  stats.removed = [...existingByKey.keys()].filter((k) => !seen.has(k)).length;
+  stats.removed = unmatched.map((r) => r.name);
   return { rows, stats };
 }

@@ -107,7 +107,7 @@ describe("mergeCity", () => {
     expect(rows[0].longitude).toBe("-3.707322100");
     expect(rows[0].link).toBe(`${BASE}/cafe/a/`);
     expect(rows[0].website).toBe("https://new.example");
-    expect(stats).toEqual({ kept: 1, added: 0, removed: 0, detailFailures: 0 });
+    expect(stats).toEqual({ kept: 1, added: [], removed: [], relinked: [], detailFailures: 0 });
   });
 
   it("adds new cafes and drops cafes the site no longer lists", () => {
@@ -119,7 +119,26 @@ describe("mergeCity", () => {
     expect(rows.map((r) => r.name)).toEqual(["a", "new"]);
     expect(rows[1].latitude).toBe("41.5");
     expect(rows[1].city_name).toBe("madrid");
-    expect(stats).toEqual({ kept: 1, added: 1, removed: 1, detailFailures: 0 });
+    expect(stats).toEqual({ kept: 1, added: ["new"], removed: ["gone"], relinked: [], detailFailures: 0 });
+  });
+
+  it("treats a new link at the same spot as the same cafe and keeps its coordinates", () => {
+    const existing = [row("old-slug", { latitude: "50.0716900", longitude: "14.4458700" })];
+    const site = [listed("new-slug", "50.07171", "14.44590")]; // ~3 m away
+    const { rows, stats } = mergeCity("prague", existing, site, new Map([[linkKey(site[0].link), freshDetails]]));
+
+    expect(rows[0]).toMatchObject({ link: site[0].link, latitude: "50.0716900", longitude: "14.4458700" });
+    expect(stats.relinked).toEqual(["old-slug -> new-slug"]);
+    expect(stats.removed).toEqual([]);
+  });
+
+  it("never hands a dropped Miners row's coordinates to another cafe", () => {
+    const existing = [row("x", { name: "The Miners Karlin", latitude: "50.09238", longitude: "14.44431" })];
+    const site = [listed("neighbour", "50.09239", "14.44432")];
+    const { rows, stats } = mergeCity("prague", existing, site, new Map());
+
+    expect(rows[0].latitude).toBe("50.09239");
+    expect(stats.removed).toEqual(["The Miners Karlin"]);
   });
 
   it("keeps old details when a cafe page failed", () => {

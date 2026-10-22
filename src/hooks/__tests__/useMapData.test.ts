@@ -161,14 +161,12 @@ describe("loadCafes", () => {
         expect(result).toEqual([]);
     });
 
-    it("builds Madrid from cafe_info.csv but keeps data.csv coordinates", async () => {
-        const known = "https://europeancoffeetrip.com/cafe/known-madrid/";
-        const fresh = "https://europeancoffeetrip.com/cafe/fresh-madrid/";
+    it("builds Madrid from cafe_info.csv and adds data.csv ratings", async () => {
         const files: Record<string, unknown[]> = {
-            data: [{ name: "Known", link: known, lat: "40.4350995", lon: "-3.7071314", rating: "4.5" }],
+            data: [{ name: "Known", link: "https://europeancoffeetrip.com/cafe/Known-madrid/", lat: "1", lon: "2", rating: "4.5" }],
             cafes: [
-                { name: "Known", link: known, latitude: "40.4351297", longitude: "-3.7073221", premium: "True" },
-                { name: "Fresh", link: fresh, latitude: "40.42", longitude: "-3.70", premium: "False" },
+                { name: "Known", link: "https://europeancoffeetrip.com/cafe/known-madrid/", latitude: "40.4350995", longitude: "-3.7071314", premium: "True" },
+                { name: "Fresh", link: "https://europeancoffeetrip.com/cafe/fresh-madrid/", latitude: "40.42", longitude: "-3.70", premium: "False" },
                 { name: "No link", link: "", latitude: "40.43", longitude: "-3.69" },
             ],
         };
@@ -181,9 +179,9 @@ describe("loadCafes", () => {
         const cafes = await __test.loadCafes("madrid");
 
         expect(cafes.map((c) => c.name)).toEqual(["Known", "Fresh"]);
-        // Saved pins and comments are keyed by these coordinates, so they must not move.
+        // Position always comes from cafe_info.csv; the rating matches despite the link's capital K.
         expect(cafes[0]).toMatchObject({ lat: 40.4350995, lon: -3.7071314, rating: 4.5, premium: true });
-        expect(cafes[1]).toMatchObject({ lat: 40.42, lon: -3.7, premium: false });
+        expect(cafes[1]).toMatchObject({ lat: 40.42, lon: -3.7, premium: false, rating: undefined });
     });
 });
 
