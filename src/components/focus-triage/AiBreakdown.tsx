@@ -10,17 +10,32 @@ interface AiBreakdownProps {
   /** The listing's places.id (InboxProperty.id), which feedback is filed under. */
   placeId: string;
   breakdown: AiBreakdownData;
+  /**
+   * Start with "Why" open. Wide screens have the room for it. If the person
+   * closes it there, that choice sticks for the next listings too.
+   */
+  openByDefault?: boolean;
 }
 
 type SaveStatus = "saving" | "saved";
 
 const MAX_NOTE = 500;
+/** Remembers a closed "Why" panel on wide screens, across listings. */
+const WHY_CLOSED_KEY = "miners:triage-why-closed";
 const RATINGS = [1, 2, 3, 4, 5] as const;
 const VERDICT_CHOICES: { value: AiVerdict; label: string }[] = [
   { value: "too_low", label: "Too low" },
   { value: "right", label: "About right" },
   { value: "too_high", label: "Too high" },
 ];
+
+function whyClosedByChoice(): boolean {
+  try {
+    return localStorage.getItem(WHY_CLOSED_KEY) === "1";
+  } catch {
+    return false; // storage blocked (private mode): just use the default
+  }
+}
 
 /** Five dots, filled up to the value. Read out as "4 out of 5". */
 function DotMeter({ value }: { value: number }) {
@@ -87,12 +102,12 @@ function SectionLabel({ title, hint }: { title: string; hint: string }) {
  * how the overall score felt. Every change saves at once, optimistically, and
  * rolls back with a toast if the server refuses it.
  */
-export function AiBreakdown({ placeId, breakdown }: AiBreakdownProps) {
+export function AiBreakdown({ placeId, breakdown, openByDefault = false }: AiBreakdownProps) {
   const { showToast } = useToast();
   const panelId = useId();
   const noteId = useId();
 
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => openByDefault && !whyClosedByChoice());
   const [fixing, setFixing] = useState<string | null>(null);
   const [myPoints, setMyPoints] = useState<Record<string, number>>(breakdown.mine.points);
   const [verdict, setVerdict] = useState<AiVerdict | null>(breakdown.mine.verdict);
@@ -211,7 +226,17 @@ export function AiBreakdown({ placeId, breakdown }: AiBreakdownProps) {
       <div className="rounded-xl border border-zinc-200 overflow-hidden">
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            const next = !open;
+            setOpen(next);
+            if (openByDefault) {
+              try {
+                localStorage.setItem(WHY_CLOSED_KEY, next ? "0" : "1");
+              } catch {
+                // storage blocked: the choice just won't carry over
+              }
+            }
+          }}
           aria-expanded={open}
           aria-controls={panelId}
           className="w-full min-h-[44px] flex items-center justify-between px-4 py-3 text-left hover:bg-zinc-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"

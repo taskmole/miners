@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Check,
   ChevronLeft,
@@ -9,7 +9,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
-import { useMobile } from "@/hooks/useMobile";
+import { useMobile, useWideScreen } from "@/hooks/useMobile";
 import { apiFetch } from "@/lib/api-client";
 import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
 import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
@@ -22,6 +22,7 @@ import { logActivity } from "@/lib/supabaseHelpers";
 import { notifyTeam } from "@/lib/notify-team";
 import { FocusTriageCard, AssignSheet, ActionsSheet } from "@/components/focus-triage";
 import { BreatheGlow } from "@/components/BeamGlow";
+import { nextUnseenIndex } from "@/lib/triage-deck";
 import type { InboxProperty } from "@/types/inbox";
 import type { PlaceInfo } from "@/types/lists";
 import type { LinkedItem } from "@/types/scouting";
@@ -31,6 +32,15 @@ interface NewListingsModalProps {
   onClose: () => void;
   cityId: string;
 }
+
+/**
+ * How long "Undo" stays up after "Seen, next". The server is only told once
+ * this runs out, so undoing never needs an "unread" call of its own.
+ */
+const UNDO_MS = 4000;
+
+/** Fired on window once flushed reads reach the server. page.tsx recounts. */
+export const INBOX_READS_SAVED = "inbox-reads-saved";
 
 /** The property details every inbox activity-log entry carries. */
 function propertyMetaOf(p: InboxProperty) {
@@ -49,6 +59,7 @@ export function NewListingsModal({
   cityId,
 }: NewListingsModalProps) {
   const isMobile = useMobile();
+  const isWide = useWideScreen();
   const { showToast } = useToast();
   const {
     assignProperty,
@@ -76,7 +87,23 @@ export function NewListingsModal({
   const [reloadKey, setReloadKey] = useState(0);
 
   // Triage state
-  const [currentIndex, setCurrentIndex] = useState(0);
+  //
+  // Seen listings stay in the deck for the rest of the session, ticked off,
+  // so the arrows can always go back to one. They only drop out on the next
+  // open, because the server now has them as read.
+  const [seenIds, setSeenIds] = useState<Set<string>>(() => new Set());
+  // Where we are, by id. An index alone would jump to a different listing
+  // whenever the deck changes under it (a pre-reject hides a listing from
+  // non-admins). The index is the fallback for when the id has gone.
+  const [cursor, setCursor] = useState<{ id: string; index: number } | null>(null);
+  // "All caught up" after the last new listing is ticked off. The arrows
+  // leave it to look back through the seen ones.
+  const [doneView, setDoneView] = useState(false);
+  // The listing the Undo pill would bring back, while it is showing.
+  const [undoId, setUndoId] = useState<string | null>(null);
+  // Seen listings the server has not been told about yet, each with the
+  // timer that will tell it. Undo cancels the timer.
+  const pendingReads = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const [cardAnim, setCardAnim] = useState<"idle" | "exiting" | "entering">("idle");
   const [activeSheet, setActiveSheet] = useState<"assign" | "actions" | null>(null);
   const [snapshotProperty, setSnapshotProperty] = useState<InboxProperty | null>(null);
@@ -101,12 +128,24 @@ export function NewListingsModal({
     return filtered.sort((a, b) => (b.aiScore ?? -1) - (a.aiScore ?? -1));
   }, [properties, canAccessDashboard, assignments]);
 
-  // Clamp currentIndex when deck shrinks
-  useEffect(() => {
-    if (deck.length > 0 && currentIndex >= deck.length) {
-      setCurrentIndex(deck.length - 1);
-    }
-  }, [deck.length, currentIndex]);
+  const currentIndex = useMemo(() => {
+    if (!cursor || deck.length === 0) return 0;
+    const found = deck.findIndex((p) => p.id === cursor.id);
+    return found >= 0 ? found : Math.min(cursor.index, deck.length - 1);
+  }, [cursor, deck]);
+
+  const goTo = useCallback(
+    (index: number) => {
+      const p = deck[index];
+      if (p) setCursor({ id: p.id, index });
+    },
+    [deck],
+  );
+
+  const unseenCount = useMemo(
+    () => deck.filter((p) => !seenIds.has(p.id)).length,
+    [deck, seenIds],
+  );
 
   // Current property (use snapshot during exit animation)
   const currentProperty = snapshotProperty ?? deck[currentIndex];
@@ -162,7 +201,10 @@ export function NewListingsModal({
         );
         if (!cancelled) {
           setProperties(data || []);
-          setCurrentIndex(0);
+          setCursor(null);
+          setSeenIds(new Set());
+          setDoneView(false);
+          setUndoId(null);
         }
       } catch (err) {
         console.error("Failed to load listings:", err);
@@ -179,74 +221,164 @@ export function NewListingsModal({
     return () => { cancelled = true; };
   }, [isOpen, cityId, reloadKey]);
 
-  // Mark single listing as read (optimistic)
-  const handleMarkRead = useCallback(
-    async (propertyId: string) => {
-      const removed = properties.find((p) => p.id === propertyId);
-      setProperties((prev) => prev.filter((p) => p.id !== propertyId));
-      try {
-        await apiFetch("/api/db/inbox", {
-          method: "POST",
-          body: JSON.stringify({
-            action: "mark_read",
-            place_ids: [propertyId],
-            city_id: cityId,
-          }),
-        });
-      } catch (err) {
-        console.error("Failed to mark as read:", err);
-        if (removed) setProperties((prev) => [...prev, removed]);
-        setCaughtUpGlow(0); // the card is back, so nothing to celebrate
-        showToast("Couldn't save, please try again", "error");
-      }
-    },
-    [properties, cityId, showToast],
+  // Tell the server these were read. Same call as always; nothing new.
+  const sendMarkRead = useCallback(
+    (ids: string[], { keepalive = false, all = false } = {}) =>
+      apiFetch("/api/db/inbox", {
+        method: "POST",
+        keepalive,
+        body: JSON.stringify({
+          action: all ? "mark_all_read" : "mark_read",
+          place_ids: ids,
+          city_id: cityId,
+        }),
+      }),
+    [cityId],
   );
 
-  // Mark all as read
+  // Stop every waiting timer and hand back the ids they were holding.
+  const cancelPendingReads = useCallback(() => {
+    const ids = [...pendingReads.current.keys()];
+    pendingReads.current.forEach((timer) => clearTimeout(timer));
+    pendingReads.current.clear();
+    return ids;
+  }, []);
+
+  // The server refused: put the tick back so the listing reads as new.
+  const unsee = useCallback((ids: string[]) => {
+    setSeenIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.delete(id));
+      return next;
+    });
+    setCaughtUpGlow(0); // something is back, so nothing to celebrate
+    setDoneView(false); // and "All caught up" is no longer true
+  }, []);
+
+  // Tick a listing off. With `undoable` (the "Seen, next" button) the server
+  // hears about it after UNDO_MS, giving Undo a window. After a real action
+  // (assign, request, pre-reject) it is told straight away; there is no Undo.
+  const markSeen = useCallback(
+    (id: string, undoable: boolean) => {
+      setSeenIds((prev) => new Set(prev).add(id));
+
+      const send = () =>
+        sendMarkRead([id]).catch((err) => {
+          console.error("Failed to mark as read:", err);
+          unsee([id]);
+          showToast("Couldn't save, please try again", "error");
+        });
+
+      if (!undoable) {
+        send();
+        return;
+      }
+      // One clock for both: when the window closes, the read is sent and
+      // the Undo pill (if it is still this listing's) goes away.
+      const timer = setTimeout(() => {
+        pendingReads.current.delete(id);
+        setUndoId((current) => (current === id ? null : current));
+        send();
+      }, UNDO_MS);
+      pendingReads.current.set(id, timer);
+      setUndoId(id);
+    },
+    [sendMarkRead, unsee, showToast],
+  );
+
+  // Send everything still waiting out its Undo window, now. Runs when the
+  // modal closes, the city changes, or the tab goes away. keepalive lets the
+  // request outlive the page.
+  const flushPendingReads = useCallback(() => {
+    const ids = cancelPendingReads();
+    if (ids.length > 0) {
+      sendMarkRead(ids, { keepalive: true })
+        // The page recounts the NEW dot when the modal closes, which can beat
+        // this save to the server. Ask it to count again once it has landed.
+        .then(() => window.dispatchEvent(new Event(INBOX_READS_SAVED)))
+        .catch((err) => console.error("Failed to mark as read:", err));
+    }
+  }, [cancelPendingReads, sendMarkRead]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    window.addEventListener("pagehide", flushPendingReads);
+    return () => {
+      window.removeEventListener("pagehide", flushPendingReads);
+      flushPendingReads();
+      setUndoId(null); // already sent, so there is nothing left to undo
+    };
+  }, [isOpen, flushPendingReads]);
+
+  // Undo: cancel the pending server call, untick, and show it again.
+  const handleUndo = useCallback(() => {
+    if (!undoId) return;
+    const timer = pendingReads.current.get(undoId);
+    setUndoId(null);
+    // Already sent (the tab was hidden and came back): too late to undo.
+    if (!timer) return;
+    clearTimeout(timer);
+    pendingReads.current.delete(undoId);
+    unsee([undoId]);
+    const index = deck.findIndex((p) => p.id === undoId);
+    if (index >= 0) goTo(index);
+    setDoneView(false);
+  }, [undoId, deck, unsee, goTo]);
+
+  // Mark all as seen. Immediate, no Undo, as before.
   const handleMarkAllRead = useCallback(async () => {
     const ids = deck.map((p) => p.id);
     if (ids.length === 0) return;
+    const newCount = unseenCount;
     setCaughtUpGlow((n) => n + 1);
+
+    // These are all in the batch below, so their own timers can go.
+    const waiting = cancelPendingReads();
+    setUndoId(null);
 
     const removed = [...properties];
     setProperties([]);
 
     try {
-      await apiFetch("/api/db/inbox", {
-        method: "POST",
-        body: JSON.stringify({
-          action: "mark_all_read",
-          place_ids: ids,
-          city_id: cityId,
-        }),
-      });
-      showToast(`Marked ${ids.length} as read`);
+      await sendMarkRead(ids, { all: true });
+      showToast(newCount > 0 ? `Marked ${newCount} as seen` : "All marked as seen");
     } catch (err) {
       console.error("Failed to mark all as read:", err);
       setProperties(removed);
       setCaughtUpGlow(0);
       showToast("Couldn't save, please try again", "error");
+      // The batch took the waiting single reads with it. Send those again,
+      // or untick them so they don't look saved when they are not.
+      if (waiting.length > 0) {
+        sendMarkRead(waiting).catch(() => unsee(waiting));
+      }
     }
-  }, [deck, properties, cityId, showToast]);
+  }, [deck, unseenCount, cancelPendingReads, properties, sendMarkRead, showToast, unsee]);
 
-  // Advance to next card with animation
+  // Move on to the next new listing, with animation. `markRead` ticks the
+  // current one off first; `undoable` is only for the "Seen, next" button.
   const handleAdvance = useCallback(
-    (markRead = true) => {
+    (markRead = true, undoable = false) => {
       if (!currentProperty) return;
 
-      setSnapshotProperty(currentProperty);
-
-      if (markRead) {
-        handleMarkRead(currentProperty.id);
-        // Last card: one left and it's the one on screen. During the exit
-        // animation the screen shows the previous card, so a fast double tap
-        // with two left doesn't count.
-        if (deck.length === 1 && deck[0].id === currentProperty.id) {
-          setCaughtUpGlow((n) => n + 1);
-        }
+      const id = currentProperty.id;
+      const seenNow = new Set(seenIds);
+      const isNew = markRead && !seenIds.has(id);
+      if (isNew) {
+        markSeen(id, undoable);
+        seenNow.add(id);
       }
 
+      const next = nextUnseenIndex(deck, currentIndex, seenNow);
+      if (next === -1) {
+        // Nothing new left. Glow only if this press is what finished it.
+        if (isNew) setCaughtUpGlow((n) => n + 1);
+        setDoneView(true);
+        return;
+      }
+
+      setSnapshotProperty(currentProperty);
+      goTo(next);
       setCardAnim("exiting");
 
       setTimeout(() => {
@@ -258,7 +390,42 @@ export function NewListingsModal({
         setCardAnim("idle");
       }, 600);
     },
-    [currentProperty, deck, handleMarkRead],
+    [currentProperty, seenIds, markSeen, deck, currentIndex, goTo],
+  );
+
+  // The newest handleAdvance and the listing on screen, for code that runs
+  // after an await or a timer and would otherwise act on a stale copy.
+  const latest = useRef({ handleAdvance, currentId: currentProperty?.id });
+  useEffect(() => {
+    latest.current = { handleAdvance, currentId: deck[currentIndex]?.id };
+  });
+
+  // After an action (assign, request, pre-reject) on `id`: tick it off for
+  // good, then move on, but only if the person has not moved on already
+  // while the action was saving.
+  const finishAction = useCallback(
+    (id: string) => {
+      markSeen(id, false);
+      setUndoId(null); // the pill would undo a different listing now
+      setTimeout(() => {
+        const { handleAdvance: advance, currentId } = latest.current;
+        if (currentId === id) advance(false);
+      }, 200);
+    },
+    [markSeen],
+  );
+
+  // Header arrows: browse everything, seen or not, without ticking anything.
+  // From "All caught up" they first bring back the last card shown.
+  const handleBrowse = useCallback(
+    (step: -1 | 1) => {
+      if (doneView) {
+        setDoneView(false);
+        return;
+      }
+      goTo(Math.min(deck.length - 1, Math.max(0, currentIndex + step)));
+    },
+    [doneView, deck.length, currentIndex, goTo],
   );
 
   // Assign handler
@@ -312,9 +479,9 @@ export function NewListingsModal({
       }
 
       showToast(`Assigned to ${targetName}`);
-      setTimeout(() => handleAdvance(true), 200);
+      finishAction(currentProperty.id);
     },
-    [currentProperty, assignProperty, showToast, handleAdvance],
+    [currentProperty, assignProperty, showToast, finishAction],
   );
 
   // Create trip handler
@@ -408,12 +575,12 @@ export function NewListingsModal({
           rejectionReason: reason,
         });
         showToast("Pre-rejected");
-        setTimeout(() => handleAdvance(true), 200);
+        finishAction(currentProperty.id);
       } catch {
         showToast("Failed to pre-reject", "error");
       }
     },
-    [currentProperty, preRejectProperty, showToast, handleAdvance],
+    [currentProperty, preRejectProperty, showToast, finishAction],
   );
 
   // Request handler (franchisees). Copies the listing details onto the request
@@ -439,8 +606,8 @@ export function NewListingsModal({
     logActivity("requested_property", propertyMetaOf(currentProperty));
 
     showToast("Request sent");
-    setTimeout(() => handleAdvance(true), 200);
-  }, [currentProperty, requestProperty, showToast, handleAdvance]);
+    finishAction(currentProperty.id);
+  }, [currentProperty, requestProperty, showToast, finishAction]);
 
   // Backing out of a sheet must not throw you out of the whole screen. Each
   // sheet's own backdrop only covers the card, so a click on the margin around
@@ -482,11 +649,14 @@ export function NewListingsModal({
         onClick={handleDismiss}
       />
 
+      {/* Narrow windows get the classic 512px card. Wide screens (lg) get a
+          wide, fixed-height window for the side-by-side layout, kept clear of
+          the screen edges so it fits a short laptop screen. */}
       <div
         className={`relative flex flex-col overflow-hidden ${
           isMobile
             ? "w-full h-full"
-            : "max-w-lg w-full max-h-[80vh] rounded-2xl"
+            : "max-w-lg w-full max-h-[80vh] rounded-2xl lg:max-w-[1120px] lg:w-[calc(100vw-48px)] lg:max-h-none lg:h-[min(684px,calc(100dvh-32px))]"
         }`}
         style={{
           background: isMobile ? "#ffffff" : "rgba(255, 255, 255, 0.92)",
@@ -507,8 +677,9 @@ export function NewListingsModal({
         >
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-              disabled={currentIndex === 0 || deck.length === 0}
+              onClick={() => handleBrowse(-1)}
+              disabled={deck.length === 0 || (currentIndex === 0 && !doneView)}
+              aria-label="Previous listing"
               className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30"
             >
               <ChevronLeft className="w-5 h-5 text-zinc-600" />
@@ -520,22 +691,29 @@ export function NewListingsModal({
               {deck.length > 0 ? `${currentIndex + 1} / ${deck.length}` : "0 / 0"}
             </span>
             <button
-              onClick={() =>
-                setCurrentIndex((i) => Math.min(deck.length - 1, i + 1))
-              }
-              disabled={currentIndex >= deck.length - 1 || deck.length === 0}
+              onClick={() => handleBrowse(1)}
+              disabled={deck.length === 0 || (currentIndex >= deck.length - 1 && !doneView)}
+              aria-label="Next listing"
               className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30"
             >
               <ChevronRight className="w-5 h-5 text-zinc-600" />
             </button>
+            {deck.length > 0 && (
+              <span
+                className="ml-1 text-xs text-zinc-400 whitespace-nowrap"
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {unseenCount} left
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            {deck.length > 0 && (
+            {unseenCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors px-2 py-1"
+                className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors px-2 py-1 whitespace-nowrap"
               >
-                Skip all
+                Mark all seen
               </button>
             )}
             <button
@@ -576,7 +754,7 @@ export function NewListingsModal({
               Retry
             </button>
           </div>
-        ) : deck.length === 0 ? (
+        ) : deck.length === 0 || doneView ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20">
             <BreatheGlow
               playKey={caughtUpGlow}
@@ -593,17 +771,46 @@ export function NewListingsModal({
         ) : currentProperty ? (
           <div
             key={currentProperty.id}
-            className="flex-1 overflow-y-auto flex flex-col"
+            className="flex-1 min-h-0 overflow-y-auto flex flex-col lg:flex-row lg:overflow-hidden"
             style={cardTransform}
           >
             <FocusTriageCard
               property={currentProperty}
               isDesktop={!isMobile}
+              isWide={isWide}
+              isSeen={seenIds.has(currentProperty.id)}
               onActions={() => setActiveSheet("actions")}
-              onNext={() => handleAdvance(true)}
+              onNext={() => {
+                // Ignore taps while a card is still sliding out.
+                if (cardAnim === "idle") handleAdvance(true, true);
+              }}
             />
           </div>
         ) : null}
+
+        {/* Undo for the last "Seen, next". Above the buttons on narrow
+            screens, in the empty middle of the header on wide ones. Below
+            the sheets (z-40/50) so an open sheet covers it. */}
+        {/* Always mounted, so screen readers announce the text when it
+            appears (a live region that arrives with its text is often
+            skipped). */}
+        <p role="status" className="sr-only">
+          {undoId ? "Marked as seen. Undo is available for a few seconds." : ""}
+        </p>
+        {undoId && (
+          <div
+            className="absolute left-1/2 -translate-x-1/2 bottom-28 lg:bottom-auto lg:top-2.5 z-30 flex items-center gap-3 rounded-full bg-zinc-900 text-white text-[13px] pl-4 pr-1.5 py-1.5 shadow-lg whitespace-nowrap"
+          >
+            Marked as seen
+            <button
+              type="button"
+              onClick={handleUndo}
+              className="rounded-full bg-white/15 hover:bg-white/25 px-3.5 py-1.5 font-medium transition-colors"
+            >
+              Undo
+            </button>
+          </div>
+        )}
 
         {/* Assign sheet */}
         {activeSheet === "assign" && (
