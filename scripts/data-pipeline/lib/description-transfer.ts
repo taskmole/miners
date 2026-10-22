@@ -67,10 +67,12 @@ export async function findTransferFee(
       system: SYSTEM,
       messages: [{ role: "user", content: description.slice(0, 4000) }],
     });
-    if (response.stop_reason !== "end_turn") return null;
     // The reply can open with a thinking block, so take the first text block.
     const block = response.content.find((b): b is Anthropic.TextBlock => b.type === "text");
-    if (!block) return null;
+    if (response.stop_reason !== "end_turn" || !block) {
+      console.error(`    Transfer check got no usable answer (stop: ${response.stop_reason})`);
+      return null;
+    }
     return JSON.parse(block.text) as TransferAnswer;
   } catch (err) {
     const why = err instanceof Anthropic.APIError ? `${err.constructor.name} (${err.status})` : (err as Error)?.name;
