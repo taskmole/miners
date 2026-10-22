@@ -238,24 +238,22 @@ async function loadMadridCafes(): Promise<CafeData[]> {
         fetchArray("/api/data?type=google_enrichment"),
     ]);
 
-    // data.csv is an older Google Maps export of the same cafes. Pins, comments,
-    // lists and Google enrichment were saved against its coordinates, so they
-    // win wherever a cafe appears in both files. cafe_info.csv (refreshed
-    // monthly by fetch-euct.ts) decides which cafes exist.
+    // cafe_info.csv (refreshed monthly by fetch-euct.ts) decides which cafes
+    // exist and where. data.csv is an older Google Maps export of the same
+    // cafes; it only adds Google ratings.
+    const linkKey = (link: string) => link.toLowerCase().replace(/\/+$/, "");
     const dataByLink = new Map<string, any>();
     dataRaw.forEach((c: any) => {
-        if (c.link && c.lat && c.lon) dataByLink.set(c.link, c);
+        if (c.link) dataByLink.set(linkKey(c.link), c);
     });
 
     const euctRows = cafeInfoRaw.filter((c: any) => c.link?.includes("europeancoffeetrip"));
     const madridCafes: CafeData[] = mapEuctCsvCafes(euctRows, "madrid").map((cafe) => {
-        const google = dataByLink.get(cafe.link!);
-        if (!google) return cafe;
+        const google = dataByLink.get(linkKey(cafe.link!));
+        if (!google?.rating) return cafe;
         return {
             ...cafe,
-            lat: parseFloat(google.lat),
-            lon: parseFloat(google.lon),
-            rating: google.rating ? parseFloat(google.rating) : undefined,
+            rating: parseFloat(google.rating),
             reviewCount: google.reviewCount ? parseInt(google.reviewCount) : undefined,
         };
     });

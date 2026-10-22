@@ -163,8 +163,9 @@ npm run fetch:euct -- --dry-run       # fetch and report, write nothing
   Idealista.
 - **Coordinates never move:** pins, comments, lists, hidden pins and share links
   are keyed by a cafe's coordinates. A cafe already in the file keeps its old
-  latitude/longitude; only new cafes get the site's. Madrid's map additionally
-  takes coordinates from the older `data.csv` wherever a cafe is in both files.
+  latitude/longitude; only new cafes get the site's. A "new" cafe within 30 m
+  of a "removed" one is treated as the same cafe under a new link and keeps the
+  old coordinates. Madrid's `data.csv` (older Google export) now only adds ratings.
 - **Removed cafes** (no longer on the site) are dropped. A cafe page that fails
   keeps its previous details. "Miners" entries are skipped (they come from the DB).
 - **Safety stops:** a city's file is left untouched if its page has no cafe
@@ -173,4 +174,5 @@ npm run fetch:euct -- --dry-run       # fetch and report, write nothing
 - **Automation:** `.github/workflows/euct-refresh.yml` runs on the 1st of each
   month at 04:00 UTC and commits changed files to `main`, which redeploys Vercel.
   It can be run manually with a dry-run switch.
+- **Logs:** each run lists the cafes it added, removed and relinked by name.
 - **Cost:** ~360 requests per run (~$0.55), about 20-30 minutes.

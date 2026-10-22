@@ -128,9 +128,12 @@ async function refreshCity(city: string, fileName: string): Promise<boolean> {
   const details = await fetchDetails(listed.map((c) => c.link));
   const { rows, stats } = mergeCity(city, existing, listed, details);
   console.log(
-    `  Kept ${stats.kept}, added ${stats.added}, removed ${stats.removed}, ` +
-      `cafe pages failed ${stats.detailFailures} (kept their old details)`
+    `  Kept ${stats.kept}, added ${stats.added.length}, removed ${stats.removed.length}, ` +
+      `relinked ${stats.relinked.length}, cafe pages failed ${stats.detailFailures} (kept their old details)`
   );
+  for (const [label, names] of Object.entries({ Added: stats.added, Removed: stats.removed, Relinked: stats.relinked })) {
+    if (names.length) console.log(`  ${label}: ${names.join("; ")}`);
+  }
 
   const csv = Papa.unparse(rows, { columns: [...EUCT_COLUMNS], newline }) + newline;
   if (DRY_RUN) {
