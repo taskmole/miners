@@ -68,6 +68,8 @@ export function AttachmentViewer({
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     switch (e.key) {
       case 'Escape':
+        // Used up here, so the card or sheet underneath stays open.
+        e.preventDefault();
         onClose();
         break;
       case 'ArrowLeft':
@@ -84,12 +86,14 @@ export function AttachmentViewer({
   }, [currentIndex, attachments.length, onClose, onNavigate]);
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
+    // Capture, so the viewer sees keys before the card or sheet underneath
+    // and its Escape closes only the viewer.
+    window.addEventListener('keydown', handleKeyDown, true);
     // Prevent body scroll
     document.body.style.overflow = 'hidden';
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown, true);
       document.body.style.overflow = '';
     };
   }, [handleKeyDown]);

@@ -11,6 +11,8 @@ interface AttachmentGalleryProps {
   onUpload: (file: File) => Promise<{ success: boolean; error?: string }>;
   onRemove: (attachmentId: string) => void;
   disabled?: boolean;
+  /** False when the screen has its own attach button (the map card's composer). */
+  showUploader?: boolean;
 }
 
 /**
@@ -22,6 +24,7 @@ export function AttachmentGallery({
   onUpload,
   onRemove,
   disabled = false,
+  showUploader = true,
 }: AttachmentGalleryProps) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
@@ -51,10 +54,12 @@ export function AttachmentGallery({
             showRemove={!disabled}
           />
         ))}
-        <AttachmentUploader
-          onUpload={onUpload}
-          disabled={disabled}
-        />
+        {showUploader && (
+          <AttachmentUploader
+            onUpload={onUpload}
+            disabled={disabled}
+          />
+        )}
       </div>
 
       {/* Fullscreen viewer modal */}

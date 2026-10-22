@@ -77,7 +77,7 @@ export function ActionsSheet({
                 className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-zinc-50 transition-colors"
               >
                 <UserPlus className="w-4 h-4 text-zinc-400" />
-                <span className="text-sm text-zinc-700">Assign to...</span>
+                <span className="text-sm text-zinc-700">Assign…</span>
               </button>
             )}
 
@@ -85,7 +85,7 @@ export function ActionsSheet({
               hasRequested ? (
                 <div className="w-full flex items-center gap-3 py-3">
                   <Check className="w-4 h-4 text-emerald-500" />
-                  <span className="text-sm text-zinc-400">Already requested</span>
+                  <span className="text-sm text-zinc-400">Requested</span>
                 </div>
               ) : (
                 <button
@@ -93,7 +93,7 @@ export function ActionsSheet({
                   className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-zinc-50 transition-colors"
                 >
                   <Hand className="w-4 h-4 text-zinc-400" />
-                  <span className="text-sm text-zinc-700">Request this property</span>
+                  <span className="text-sm text-zinc-700">Request</span>
                 </button>
               )
             )}
@@ -104,7 +104,7 @@ export function ActionsSheet({
                 className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-zinc-50 transition-colors"
               >
                 <Route className="w-4 h-4 text-zinc-400" />
-                <span className="text-sm text-zinc-700">Create trip</span>
+                <span className="text-sm text-zinc-700">Plan trip</span>
               </button>
             )}
 
@@ -115,7 +115,7 @@ export function ActionsSheet({
               className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-zinc-50 transition-colors"
             >
               <ListPlus className="w-4 h-4 text-zinc-400" />
-              <span className="text-sm text-zinc-700">Add to list</span>
+              <span className="text-sm text-zinc-700">Save</span>
             </button>
 
             {actions.showRemoveAssignment && (
@@ -153,13 +153,13 @@ export function ActionsSheet({
                     className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-red-50 transition-colors"
                   >
                     <Ban className="w-4 h-4 text-red-500" />
-                    <span className="text-sm text-red-600">Pre-reject</span>
+                    <span className="text-sm text-red-600">Pre-reject…</span>
                   </button>
                 ) : (
                   <div className="py-2">
                     <input
                       type="text"
-                      placeholder="Reason for rejection"
+                      placeholder="Reason, e.g. too small"
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       onKeyDown={(e) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { priceChange } from "@/components/poi-card/card-format";
 import useSWR from "swr";
 import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
 import { getAuthToken, getRefreshedAuthToken } from "@/lib/api-client";
@@ -71,11 +72,9 @@ export interface OtherPoiData {
 
 export type LocationData = CafeData | PropertyData | OtherPoiData;
 
-/** True when the current price differs from the oldest recorded price by at least 0.5% */
+/** True when the price moved at least 0.5% since the last recorded one; the same rule as the card's arrow. */
 export function hasChangedPrice(p: PropertyData): boolean {
-    const h = p.priceHistory;
-    const oldPrice = h?.[h.length - 1]?.price;
-    return oldPrice != null && oldPrice !== p.price && Math.abs((p.price - oldPrice) / oldPrice) >= 0.005;
+    return priceChange(p) !== null;
 }
 
 const categoryMap: Record<string, OtherPoiData["type"]> = {

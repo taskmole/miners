@@ -11,7 +11,22 @@ import type { ScoutingTripStatus } from "@/types/scouting";
  * Blocked entries are hidden, not greyed out, so the menu shape tells you the
  * state. `caption` carries the explanation that hiding would otherwise lose.
  */
+/**
+ * Which rule below decided the result. The map card reads it to pick the
+ * status it shows in place of the main button, so that choice follows the
+ * same priority as the buttons instead of repeating it.
+ */
+export type PropertyActionStage =
+  | "loading"
+  | "preRejected"
+  | "pitch"
+  | "assigned"
+  | "free"
+  | "declined"
+  | "requested";
+
 export interface PropertyActionState {
+  stage: PropertyActionStage;
   showRequest: boolean;
   showCreateTrip: boolean;
   showAssign: boolean;
@@ -38,7 +53,7 @@ export interface PropertyActionInput {
   wasRejectedForMe: boolean;
 }
 
-const NOTHING: Omit<PropertyActionState, "caption"> = {
+const NOTHING: Omit<PropertyActionState, "caption" | "stage"> = {
   showRequest: false,
   showCreateTrip: false,
   showAssign: false,
@@ -56,7 +71,7 @@ const NOTHING: Omit<PropertyActionState, "caption"> = {
  * one. Every entry is hidden until we actually know.
  */
 export function pendingPropertyActions(): PropertyActionState {
-  return { ...NOTHING, caption: "Checking your permissions" };
+  return { ...NOTHING, stage: "loading", caption: "Checking your permissions" };
 }
 
 function pitchCaption(status: ScoutingTripStatus): string {
@@ -87,6 +102,7 @@ export function evaluatePropertyActions(input: PropertyActionInput): PropertyAct
   if (isPreRejected) {
     return {
       ...NOTHING,
+      stage: "preRejected",
       showUndoPreReject: isAdmin,
       caption: rejectionReason ? `Pre-rejected: ${rejectionReason}` : "Pre-rejected",
     };
@@ -99,6 +115,7 @@ export function evaluatePropertyActions(input: PropertyActionInput): PropertyAct
   if (pitchStatus) {
     return {
       ...NOTHING,
+      stage: "pitch",
       showPreReject: isAdmin && pitchStatus === "rejected",
       showRemoveAssignment: isAdmin && hasAssignment,
       caption: pitchCaption(pitchStatus),
@@ -112,6 +129,7 @@ export function evaluatePropertyActions(input: PropertyActionInput): PropertyAct
   if (hasAssignment) {
     return {
       ...NOTHING,
+      stage: "assigned",
       showCreateTrip: isAssignedToMe,
       showRemoveAssignment: isAdmin,
       caption: isAssignedToMe
@@ -124,6 +142,7 @@ export function evaluatePropertyActions(input: PropertyActionInput): PropertyAct
   if (isAdmin) {
     return {
       ...NOTHING,
+      stage: "free",
       showCreateTrip: true,
       showAssign: true,
       showPreReject: true,
@@ -133,11 +152,12 @@ export function evaluatePropertyActions(input: PropertyActionInput): PropertyAct
 
   // A rejection is final for this person, so do not offer the button again.
   if (wasRejectedForMe) {
-    return { ...NOTHING, caption: "Your request for this property was declined" };
+    return { ...NOTHING, stage: "declined", caption: "Your request for this property was declined" };
   }
 
   return {
     ...NOTHING,
+    stage: hasPendingRequest ? "requested" : "free",
     showRequest: true,
     caption: hasPendingRequest ? "Waiting for a reviewer" : null,
   };

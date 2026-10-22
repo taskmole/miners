@@ -216,22 +216,6 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Image section - fills top half when present */
-.popup-image {
-  position: relative;
-  width: 100%;
-  background: #F7F7F7;
-  overflow: hidden;
-}
-.popup-image.tall { height: min(300px, 40vh); }
-.popup-image.medium { height: min(260px, 38vh); }
-
-.popup-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 /* ===========================================
    MAPBOX DRAW CONTROLS
    (Copied from @mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css
@@ -376,103 +360,6 @@
   color: #222;
 }
 
-/* Carousel navigation */
-.carousel-arrow {
-  position: absolute;
-  top: 60%;
-  transform: translateY(-50%);
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(4px);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #333;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
-  z-index: 5;
-  transition: background 0.15s, transform 0.15s;
-}
-.carousel-arrow:hover { background: #fff; transform: translateY(-50%) scale(1.08); }
-.carousel-arrow.left { left: 10px; }
-.carousel-arrow.right { right: 10px; }
-
-.carousel-dots {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  z-index: 5;
-}
-
-.carousel-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.45);
-  transition: background 0.15s;
-}
-.carousel-dot.active { background: #fff; }
-
-.carousel-dot-more {
-  font-size: 9px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-/* Action buttons floating on image - top right */
-.popup-image-actions {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  z-index: 20;
-}
-
-/* Unified action button - used by PopupActionBar for close/hide */
-.popup-action-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.popup-action-btn:hover {
-  background: rgba(255, 255, 255, 0.7);
-}
-
-.popup-action-btn svg {
-  width: 18px;
-  height: 18px;
-  color: #666;
-}
-
-/* Overlay chips - positioned on image */
-.popup-overlay-chips {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  display: flex;
-  gap: 6px;
-  z-index: 15;
-}
-
 /* Header - name row (with optional chips and comments). Hide/close never sit
    here: they are on the photo or in the badge row above. */
 .popup-header {
@@ -485,11 +372,6 @@
 }
 
 /* Hide/close in the badge row of a card without a photo, pushed right */
-.popup-header-buttons {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-}
 
 .popup-name {
   font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
@@ -503,90 +385,6 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-/* Title + share button on one row. The title takes what is left and still
-   clamps to 2 lines; the button never shrinks or wraps under it. Anything
-   after the row in .popup-header (the comment count) wraps below. */
-.popup-title-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  width: 100%;
-}
-
-.popup-title-row .popup-name {
-  flex: 1;
-  min-width: 0;
-  max-width: none;
-}
-
-/* Share link: a quiet outlined pill at the end of the title line. Same light
-   border as the badge chips, so it reads as a button without competing with
-   the title. */
-.share-btn {
-  position: relative;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 30px;
-  padding: 0 10px;
-  margin-top: -3px; /* centre on the title's first line */
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  background: #fff;
-  color: #525252;
-  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.share-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-.share-btn:not([data-done]):hover {
-  background: #f5f5f4;
-  color: #262626;
-}
-
-.share-btn:focus-visible {
-  outline: 2px solid #a3a3a3;
-  outline-offset: 1px;
-}
-
-.share-btn[data-done] {
-  color: #16a34a;
-}
-
-/* Every label in one grid cell: the button is as wide as its longest word,
-   so swapping "Link" for "Copied" or "Done" never nudges the title. */
-.share-btn-label {
-  display: inline-grid;
-}
-
-.share-btn-label > span {
-  grid-area: 1 / 1;
-  visibility: hidden;
-}
-
-.share-btn-label > span[data-active] {
-  visibility: visible;
-}
-
-/* Fingers need a bigger target than a mouse. An invisible layer around the
-   pill makes it 44px tall without making the title row any taller. */
-@media (pointer: coarse) {
-  .share-btn::after {
-    content: "";
-    position: absolute;
-    inset: -7px -4px;
-  }
 }
 
 /* Chips row - before footer */
@@ -644,178 +442,6 @@
   height: 12px;
 }
 
-/* Comment bubble */
-.popup-comments {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 12px;
-  background: #F3F4F6;
-  color: #6B7280;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.popup-comments:hover {
-  background: #E5E7EB;
-}
-
-.popup-comments svg {
-  width: 14px;
-  height: 14px;
-}
-
-/* Address */
-.popup-address {
-  color: #a3a3a3;
-  font-size: 13px;
-  padding: 4px 24px 12px 24px;
-  line-height: 1.4;
-}
-
-/* Body - content area */
-.popup-body {
-  padding: 0 24px 12px 24px;
-}
-
-/* Rating row - with space-between for comments on right */
-.popup-rating-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.popup-rating {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  color: #222;
-}
-
-.popup-rating .value {
-  font-weight: 600;
-}
-
-.popup-rating .separator,
-.popup-rating .reviews,
-.popup-rating .price {
-  color: #717171;
-}
-
-.popup-rating .status-open {
-  color: #10B981;
-  font-weight: 500;
-}
-
-/* Price row (for properties) */
-.popup-price {
-  font-size: 16px;
-  font-weight: 600;
-  color: #222;
-  margin-bottom: 8px;
-}
-
-.popup-price .size {
-  font-weight: 400;
-  color: #717171;
-}
-
-/* Price card */
-.popup-price-card {
-  margin: 12px 24px;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-  border: 1px solid #bbf7d0;
-  border-radius: 16px;
-}
-
-.popup-price-top-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.popup-price-main {
-  display: flex;
-  align-items: flex-start;
-  gap: 2px;
-  white-space: nowrap;
-}
-
-.price-amount {
-  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 22px;
-  font-weight: 700;
-  color: #1a1a1a;
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-
-.price-period {
-  font-size: 11px;
-  font-weight: 500;
-  color: #717171;
-  line-height: 1;
-  margin-top: 2px;
-}
-
-.popup-price-change {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  position: relative;
-  top: -1px;
-  cursor: pointer;
-}
-
-.popup-price-change.down { color: #16a34a; }
-.popup-price-change.up { color: #dc2626; }
-.popup-price-change svg { flex-shrink: 0; }
-
-/* Score + freshness badges on image (top-left) */
-.image-badges {
-  position: absolute;
-  top: 10px;
-  left: 12px;
-  /* Never reach under the action buttons in the opposite corner: they are
-     84px wide (2 x 38px + 8px gap) sitting 10px in, so reserve 94px, leave a
-     10px gutter, and add back this box's own 12px left offset. This is a cap,
-     not a stretch: the box still hugs its badges, so it never covers the
-     photo. It only tells the flex row where to break when a listing carries
-     all three badges. */
-  max-width: calc(100% - 116px);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  z-index: 2;
-}
-
-.score-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(12px);
-  padding: 5px 10px;
-  border-radius: 8px;
-  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.score-badge:hover { background: rgba(0, 0, 0, 0.75); }
-
 /* The score is still being tuned, so the badges that show one say so.
    Amber is the app-wide beta colour; this base is the dark-surface version,
    shared by the map popup badge and the triage deck's glass chip. */
@@ -826,30 +452,6 @@
   line-height: 1;
   color: #fcd34d;
 }
-
-/* Inside a tier badge the marker needs a hairline divider, or "Moderate BETA"
-   reads as a single phrase. */
-.score-badge .beta-mark,
-.header-score-badge .beta-mark {
-  padding-left: 6px;
-  border-left: 1px solid rgba(255, 255, 255, 0.25);
-}
-
-/* The no-photo badge is light chrome, so the marker darkens to match. */
-.header-score-badge .beta-mark {
-  color: #b45309;
-  border-left-color: #e5e5e5;
-}
-
-/* Anchor the score tooltip to the badge rather than to the badge row. The row
-   can now wrap to two lines, and a tooltip positioned against the row would
-   open below both of them instead of under the badge that was tapped. Only
-   the tier badge opts in: the pitch badge shares `.score-badge` and its
-   tooltip is wide enough to run off a desktop popup if it anchors to itself. */
-.tier-badge {
-  position: relative;
-}
-.freshness-badge { position: relative; }
 
 /* Tooltip for badges (score + freshness) */
 .badge-tooltip {
@@ -878,159 +480,15 @@
   line-height: 1.4;
 }
 
-.badge-tooltip-right {
-  right: 0;
-  left: auto;
-}
-
 .badge-tooltip-above {
   top: auto;
   bottom: calc(100% + 6px);
 }
 
-.badge-tooltip-wrap {
-  white-space: normal;
-  max-width: 250px;
-  overflow-wrap: break-word;
-}
-
 @media (hover: hover) {
-  .score-badge:hover .badge-tooltip,
-  .freshness-badge:hover .badge-tooltip,
-  .header-score-badge:hover .badge-tooltip,
-  .header-freshness:hover .badge-tooltip,
-  .popup-price-change:hover .badge-tooltip,
-  .info-tip:hover .badge-tooltip,
-  .status-chip:hover .badge-tooltip {
+  .info-tip:hover .badge-tooltip, .status-chip:hover .badge-tooltip {
     display: block;
   }
-}
-
-.popup-image-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  min-height: 180px;
-  background: #f0f0f0;
-  color: #999;
-  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.score-badge .dot,
-.header-score-badge .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: inline-block;
-}
-
-.freshness-badge {
-  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(12px);
-  padding: 5px 10px;
-  border-radius: 8px;
-}
-
-/* Badges (or the type chip) above the title, hide/close on the right */
-.header-badges {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 14px 24px 0;
-}
-
-.header-score-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: #f5f5f4;
-  border: 1px solid #e5e5e5;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  color: #525252;
-}
-
-.header-freshness {
-  position: relative;
-  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  color: #a1a1aa;
-  cursor: pointer;
-}
-
-/* Transfer chip (inside price card, subtle outline) */
-.popup-transfer-chip {
-  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  background: rgba(120, 113, 108, 0.08);
-  color: #57534e;
-  border: 1px solid rgba(120, 113, 108, 0.15);
-  padding: 3px 10px;
-  border-radius: 10px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  margin-left: auto;
-  position: relative;
-  top: -1px;
-}
-
-/* Feature pills */
-.popup-feature-pill {
-  display: inline-flex;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 4px 9px;
-  border-radius: 8px;
-  background: #fafafa;
-  border: 1px solid #ebebeb;
-  color: #8c8c8c;
-  white-space: nowrap;
-}
-
-/* Details row - features (used by non-property popups) */
-.popup-details-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 4px 24px;
-  margin-bottom: 9px;
-  font-size: 13px;
-  color: #6B7280;
-}
-
-.popup-details-row .separator {
-  margin: 0 6px;
-  color: #D4D4D8;
-}
-
-/* Collapsible sections (attachments, comments) and the assignment line.
-   These sit between the price card and the footer and must share the card's
-   24px horizontal padding, otherwise their labels fall out of line with the
-   price card and the feature pills directly above them. Set here rather than
-   inline so the mobile override below can reach them. */
-.popup-section {
-  padding: 12px 24px;
-}
-
-.popup-assignment-line {
-  padding: 2px 24px 10px 24px;
 }
 
 /* Description text */
@@ -1052,96 +510,6 @@
 
 .popup-bullet-list li {
   margin-bottom: 4px;
-}
-
-/* Footer - always present */
-.popup-footer {
-  padding: 16px 24px;
-  border-top: 1px solid #f0f0ef;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-/* Footer buttons container */
-.popup-buttons {
-  display: flex;
-  align-items: center;
-}
-
-/* Icon button (social links, maps, source logos) */
-.popup-btn-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 4px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease;
-  margin-right: 8px;
-}
-
-.popup-btn-icon:last-child {
-  margin-right: 0;
-}
-
-.popup-btn-icon:hover {
-  transform: scale(1.05);
-}
-
-.popup-btn-icon.has-bg {
-  background: #F5F5F5;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.popup-btn-icon.has-bg img {
-  padding: 8px;
-}
-
-.popup-btn-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 8px;
-  padding: 4px;
-}
-
-.popup-btn-icon.logo-fill {
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.popup-btn-icon.logo-fill img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 8px;
-  padding: 0;
-}
-
-.popup-btn-icon svg {
-  width: 20px;
-  height: 20px;
-  opacity: 0.5;
-  transition: opacity 0.2s ease;
-}
-
-.popup-btn-icon:hover svg {
-  opacity: 1;
-}
-
-/* Social icons - tighter spacing (2px instead of 8px) */
-.popup-btn-icon.social {
-  margin-right: 2px;
-}
-
-.popup-btn-icon.social:last-child {
-  margin-right: 0;
 }
 
 /* Extra buttons (Edit, PDF for custom points) */
@@ -1169,51 +537,6 @@
 }
 
 /* Actions dropdown menu */
-.actions-dropdown {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  margin-bottom: 4px;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  min-width: 220px;
-  max-height: 320px;
-  overflow: hidden auto;
-  z-index: 50;
-  padding: 0;
-}
-
-.actions-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 12px 16px;
-  border: none;
-  background: none;
-  font-size: 13px;
-  color: #374151;
-  cursor: pointer;
-  text-align: left;
-  text-decoration: none;
-  transition: background 0.15s;
-  margin: 0;
-  box-sizing: border-box;
-}
-
-.actions-item:hover {
-  background: #f3f4f6;
-}
-
-.actions-item:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.actions-item:disabled:hover {
-  background: none;
-}
 
 .actions-hint {
   margin-left: auto;
@@ -1225,87 +548,593 @@
   white-space: nowrap;
 }
 
-.actions-danger {
-  color: #dc2626;
+/* ===========================================
+   MAP PIN CARD (src/components/poi-card)
+   One card for listings, cafes and other places. Desktop: a 411px popup
+   under the pin. Under 640px it fills the phone's bottom sheet, which does
+   the scrolling (see the media query at the end of this block).
+   =========================================== */
+
+.poi-card {
+  --poi-pad: 24px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 411px;
+  max-width: 90vw;
+  background: #fff;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 4px 6px rgba(0,0,0,0.03), 0 16px 48px rgba(0,0,0,0.10);
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #18181b;
+  text-align: left;
 }
 
-.actions-divider {
-  height: 1px;
-  background: #f0f0ef;
-  margin: 4px 0;
-}
+/* Desktop: the photo keeps its size; body and steps scroll inside the cap
+   that PoiCard sets from the map's height. */
+.poi-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.poi-top, .poi-head, .poi-bar, .poi-step-head, .poi-step-foot { flex: none; }
+/* Phone only (see the media query): the bottom sheet's grab bar. */
+.poi-grab { display: none; }
 
-.actions-header {
+/* ── Photo ── */
+.poi-top {
+  position: relative;
+  height: min(270px, 40vh);
+  background: #e4e4e7;
+  overflow: hidden;
+}
+.poi-top:not(:has(.poi-strip)) { height: 150px; }
+.poi-strip {
+  display: flex;
+  height: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.poi-strip::-webkit-scrollbar { display: none; }
+.poi-strip-cell { flex: 0 0 100%; height: 100%; scroll-snap-align: start; scroll-snap-stop: always; }
+.poi-strip-cell img { width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; }
+.poi-photo-missing {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #d4d4d8, #a1a1aa);
+}
+/* Text on the photo always gets a dark fade behind it. */
+.poi-scrim {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 150px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.72));
+  pointer-events: none;
+}
+.poi-overlay {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+.poi-overlay > * { pointer-events: auto; }
+.poi-chips { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
+/* Beside the close button (same top, X width + gap in from the right), so a
+   long chip on the left never runs into it. */
+.poi-count {
+  position: absolute;
+  top: 14px;
+  right: 50px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 99px;
+  background: rgba(0,0,0,0.38);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
+  font: 600 12px var(--font-inter), sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.poi-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 99px;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  background: rgba(255,255,255,0.9);
+  color: #27272a;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.poi-arrow svg { width: 18px; height: 18px; }
+.poi-arrow.is-left { left: 12px; }
+.poi-arrow.is-right { right: 12px; }
+/* Arrows show with a mouse or the keyboard; fingers swipe. */
+@media (hover: hover) and (pointer: fine) {
+  .poi-top:hover .poi-arrow { opacity: 1; pointer-events: auto; }
+}
+.poi-arrow:focus-visible { opacity: 1; pointer-events: auto; }
+
+/* ── Chips, close, tooltip ──
+   Every chip, the photo counter and the X share one size: 28px tall, 12px
+   semibold text. Dark glass on a photo, light grey on the white header. */
+.poi-gchip {
+  position: relative;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 4px;
+  border-radius: 99px;
+  background: rgba(0,0,0,0.38);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
+  font: 600 12px var(--font-inter), sans-serif;
+  white-space: nowrap;
+  cursor: default;
+}
+.poi-gchip:not(:has(.poi-score)) { padding-left: 10px; }
+.poi-gchip small { font: inherit; color: inherit; }
+.poi-score {
+  width: 20px;
+  height: 20px;
+  border-radius: 99px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font: 700 10.5px var(--font-inter), sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.poi-tag {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-radius: 99px;
+  background: rgba(0,0,0,0.38);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
+  font: 600 12px var(--font-inter), sans-serif;
+  white-space: nowrap;
+}
+.poi-tag svg { width: 13px; height: 13px; }
+.poi-tag.is-sales { color: #86efac; }
+.poi-x {
+  order: 2;
+  margin-left: auto;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 99px;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,0.38);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
+  position: relative;
+}
+.poi-x svg { width: 15px; height: 15px; }
+/* 44px to tap, 28px to see. */
+.poi-x::after, .poi-gchip::after, .poi-counts::after, .poi-back::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+.poi-tip-anchor { position: relative; outline: none; }
+.poi-tip-anchor:focus-visible { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #18181b; }
+.poi-tip {
+  position: absolute;
+  left: 0;
+  z-index: 5;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(24,24,27,0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #fff;
+  font: 500 12px/1.45 var(--font-inter), sans-serif;
+  white-space: normal;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  pointer-events: none;
+}
+.poi-tip.is-below { top: calc(100% + 6px); }
+.poi-tip.is-above { bottom: calc(100% + 6px); }
+
+/* ── Headline: on the photo in white, else dark under the header ── */
+.poi-headline { padding: 4px var(--poi-pad) 0; }
+.poi-headline.is-on-photo {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  padding-top: 0;
+  color: #fff;
+  pointer-events: none;
+}
+.poi-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px 16px 0 var(--poi-pad);
+}
+.poi-head .poi-gchip, .poi-head .poi-tag { background: #f4f4f5; color: #3f3f46; backdrop-filter: none; }
+.poi-head .poi-tag.is-sales { color: #15803d; background: #f0fdf4; }
+.poi-head .poi-x, .poi-card.is-step .poi-x { background: #f4f4f5; color: #52525b; backdrop-filter: none; }
+.poi-priceline { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.poi-price { font: 700 26px/1.15 var(--font-outfit), sans-serif; letter-spacing: -0.01em; }
+.poi-price small { font: 400 13px var(--font-inter), sans-serif; opacity: 0.75; margin-left: 2px; }
+.poi-price.is-request { font-size: 18px; }
+.poi-change { display: inline-flex; align-items: center; gap: 2px; font: 600 12px var(--font-inter), sans-serif; pointer-events: auto; }
+.poi-change svg { width: 12px; height: 12px; }
+.poi-change.is-down { color: #15803d; }
+.poi-change.is-up { color: #b91c1c; }
+.is-on-photo .poi-change.is-down { color: #86efac; }
+.is-on-photo .poi-change.is-up { color: #fca5a5; }
+.poi-where {
+  font: 500 14px/1.35 var(--font-inter), sans-serif;
+  padding-top: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.is-on-photo .poi-where { color: rgba(255,255,255,0.88); }
+.poi-headline:not(.is-on-photo) .poi-where { color: #a1a1aa; font-weight: 400; font-size: 13px; }
+.poi-name {
+  font: 600 22px/1.2 var(--font-outfit), sans-serif;
+  letter-spacing: -0.015em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.poi-headline:not(.is-on-photo) .poi-name { font-size: 20px; padding-top: 8px; }
+.poi-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 6px; font: 400 14px var(--font-inter), sans-serif; }
+.poi-rating { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+.poi-rating svg { width: 14px; height: 14px; color: #f59e0b; fill: #f59e0b; }
+.poi-rating span { font-weight: 400; opacity: 0.7; }
+.is-on-photo .poi-meta { color: rgba(255,255,255,0.9); }
+.poi-headline:not(.is-on-photo) .poi-meta { color: #52525b; }
+
+/* ── Body ── */
+.poi-factrow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-  border-bottom: 1px solid #f0f0ef;
+  gap: 10px;
+  padding: 14px var(--poi-pad) 0;
+  min-height: 42px;
 }
-
-.actions-back {
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 0;
-  color: #6b7280;
+.poi-facts {
+  flex: 1;
+  min-width: 0;
+  font: 400 14px/1.45 var(--font-inter), sans-serif;
+  color: #52525b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-.actions-back:hover {
-  color: #374151;
+/* A facts list never cuts a fact off: it wraps between facts instead. */
+.poi-facts.is-list {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
-
-.actions-caption {
-  padding: 8px 12px;
-  font-size: 11px;
-  line-height: 1.35;
+.poi-fact { white-space: nowrap; }
+.poi-facts i { font-style: normal; color: #d4d4d8; margin-left: 6px; }
+.poi-counts { position: relative; display: inline-flex; gap: 6px; margin-left: auto; flex: none; }
+.poi-cnt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 99px;
+  background: #f4f4f5;
+  font: 600 12px var(--font-inter), sans-serif;
+  color: #52525b;
+}
+.poi-cnt svg { width: 14px; height: 14px; }
+.poi-counts:hover .poi-cnt { background: #e4e4e7; }
+.poi-factrow.is-address .poi-facts {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   color: #71717a;
-  border-bottom: 1px solid #f0f0ef;
 }
+.no-top .poi-factrow.is-address { padding-top: 4px; }
+.poi-factrow.is-tight { padding-top: 2px; min-height: 0; }
+.poi-tiles { display: flex; gap: 8px; flex: none; }
+.poi-approval { padding: 8px var(--poi-pad) 0; font: 500 13px var(--font-inter), sans-serif; color: #15803d; }
 
-.actions-empty {
-  padding: 12px 16px;
-  font-size: 12px;
-  color: #9ca3af;
+/* ── Bottom row ── */
+.poi-bar { display: flex; align-items: center; gap: 8px; padding: 18px var(--poi-pad) 20px; }
+/* Main button, pill, More and the link tiles: one height, one corner. */
+.poi-main, .poi-pill, .poi-main-slot {
+  flex: 1;
+  min-width: 112px;
+  height: 44px;
+  border-radius: 12px;
 }
-
-.actions-input {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  font-size: 13px;
-  outline: none;
-  margin-bottom: 8px;
+.poi-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  background: #18181b;
+  color: #fff;
+  font: 600 15px var(--font-inter), sans-serif;
+  white-space: nowrap;
+  transition: background 0.15s, transform 0.1s;
 }
-
-.actions-input:focus {
-  border-color: #60a5fa;
+.poi-main:hover { background: #27272a; }
+.poi-main:active { transform: scale(0.98); }
+.poi-main:disabled { opacity: 0.6; }
+.poi-main-slot { background: #f4f4f5; }
+.poi-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  font: 600 14px var(--font-inter), sans-serif;
+  cursor: default;
 }
+.poi-pill-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.poi-pill.is-grey { background: #f4f4f5; color: #52525b; }
+.poi-pill.is-blue { background: #eff6ff; color: #1d4ed8; }
+.poi-pill.is-green { background: #f0fdf4; color: #15803d; }
+.poi-pill.is-amber { background: #fffbeb; color: #b45309; }
+.poi-pill.is-red { background: #fef2f2; color: #b91c1c; }
+.poi-ib, .poi-tile {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.poi-ib { background: #f4f4f5; color: #27272a; border-radius: 12px; transition: background 0.15s; }
+.poi-ib:hover { background: #e4e4e7; }
+.poi-ib svg { width: 19px; height: 19px; }
+.poi-ib:disabled { opacity: 0.5; }
+.poi-tile { border-radius: 12px; transition: transform 0.15s; }
+.poi-tile:hover { transform: scale(1.05); }
+.poi-tile.is-fill { border: 1px solid rgba(0,0,0,0.08); background: #fff; }
+.poi-tile.is-fill img { width: 100%; height: 100%; object-fit: cover; }
+.poi-tile.is-bg { background: #f4f4f5; }
+.poi-tile.is-bg img { width: 26px; height: 26px; object-fit: contain; }
+.poi-tile.is-glyph { background: #f4f4f5; color: #3f3f46; }
+.poi-tile.is-glyph svg { width: 20px; height: 20px; }
+.poi-bar-spacer { flex: 1; }
 
-.actions-submit {
-  width: 100%;
-  padding: 8px;
-  background: #dc2626;
-  color: white;
+/* ── More menu (Radix, rendered on top of the page) ──
+   Unlayered, so these beat the dropdown's Tailwind utilities without !important. */
+.poi-more {
+  width: 240px;
+  padding: 6px;
+  border-radius: 16px;
   border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 12px 40px rgba(0,0,0,0.16);
+  font-family: var(--font-inter), sans-serif;
+}
+.poi-more-item {
+  min-height: 44px;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font: 500 14px var(--font-inter), sans-serif;
+  color: #27272a;
   cursor: pointer;
 }
+.poi-more-item svg { width: 17px; height: 17px; color: #71717a; }
+.poi-more-item.is-share { background: rgba(236,253,245,0.75); box-shadow: inset 0 0 0 1px rgba(16,185,129,0.18); color: #065f46; font-weight: 600; }
+.poi-more-item.is-share svg { color: #059669; }
+.poi-more-item.is-share[data-highlighted] { background: rgba(209,250,229,0.9); }
+.poi-more-item.is-danger { color: #dc2626; }
+.poi-more-item.is-danger svg { color: #dc2626; }
+.poi-more-count { margin-left: auto; font: 600 11px var(--font-inter), sans-serif; color: #71717a; background: #f4f4f5; border-radius: 99px; padding: 2px 7px; }
+.poi-more-sep { margin: 4px 8px; background: #f4f4f5; }
 
-.actions-submit:hover {
-  background: #b91c1c;
+/* ── Second steps ── */
+.poi-step-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid #f4f4f5;
+}
+.poi-back {
+  width: 28px;
+  height: 28px;
+  border-radius: 99px;
+  display: grid;
+  place-items: center;
+  background: #f4f4f5;
+  color: #27272a;
+  flex: none;
+  position: relative;
+}
+.poi-back svg { width: 15px; height: 15px; }
+.poi-step-title { flex: 1; min-width: 0; }
+.poi-step-name { font: 600 17px/1.25 var(--font-outfit), sans-serif; }
+.poi-step-sub { font: 400 12.5px var(--font-inter), sans-serif; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.poi-step-body { padding: 14px 20px 16px; }
+.poi-step-foot { padding: 12px 16px 16px; border-top: 1px solid #f4f4f5; background: #fff; }
+.poi-empty { font: 400 14px var(--font-inter), sans-serif; color: #a1a1aa; padding: 8px 0; }
+.poi-pad { padding-top: 4px; }
+
+.poi-notes { display: flex; flex-direction: column; gap: 10px; }
+.poi-note { position: relative; background: #f4f4f5; border-radius: 12px; padding: 10px 40px 10px 12px; }
+.poi-note p { font: 400 14px/1.45 var(--font-inter), sans-serif; color: #27272a; white-space: pre-wrap; overflow-wrap: anywhere; }
+.poi-note-meta { font: 400 11.5px var(--font-inter), sans-serif; color: #a1a1aa; padding-top: 4px; }
+.poi-note-del {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #a1a1aa;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.poi-note-del svg { width: 15px; height: 15px; }
+.poi-note-del:hover { color: #dc2626; }
+.poi-note:hover .poi-note-del, .poi-note-del:focus-visible { opacity: 1; }
+.poi-files { padding-top: 4px; }
+/* No hover on touch: delete buttons always show. */
+@media (hover: none) {
+  .poi-note-del { opacity: 1; }
+  .poi-card .attachment-thumb-remove { display: flex; }
 }
 
-.actions-submit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.poi-composer { display: flex; align-items: center; gap: 8px; }
+.poi-input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid #e4e4e7;
+  background: #fff;
+  /* 16px stops iOS zooming into the field. */
+  font: 400 16px var(--font-inter), sans-serif;
+  color: #18181b;
+  outline: none;
+}
+.poi-input:focus { border-color: #a1a1aa; }
+.poi-send {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 99px;
+  display: grid;
+  place-items: center;
+  background: #18181b;
+  color: #fff;
+}
+.poi-send svg { width: 18px; height: 18px; }
+.poi-send:disabled { background: #e4e4e7; color: #a1a1aa; }
+
+.poi-lists { display: flex; flex-direction: column; gap: 2px; }
+.poi-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 10px;
+  font: 500 14px var(--font-inter), sans-serif;
+  color: #27272a;
+  text-align: left;
+}
+.poi-list-row:hover { background: #f4f4f5; }
+.poi-check {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 6px;
+  border: 1.5px solid #d4d4d8;
+  display: grid;
+  place-items: center;
+}
+.poi-list-row.is-on .poi-check { background: #18181b; border-color: #18181b; color: #fff; }
+.poi-check svg { width: 14px; height: 14px; }
+.poi-list-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.poi-new-list { display: flex; align-items: center; gap: 10px; padding: 10px 8px 0; color: #a1a1aa; }
+.poi-new-list svg { width: 18px; height: 18px; flex: none; }
+
+.poi-reason { display: flex; flex-direction: column; gap: 10px; }
+.poi-reason .poi-input { flex: none; }
+.poi-btn {
+  height: 46px;
+  border-radius: 12px;
+  font: 600 15px var(--font-inter), sans-serif;
+}
+.poi-btn.is-danger { background: #dc2626; color: #fff; }
+.poi-btn:disabled { opacity: 0.45; }
+
+@media (prefers-reduced-motion: reduce) {
+  .poi-main, .poi-tile, .poi-ib { transition: none; }
+  .poi-main:active { transform: none; }
+  .poi-strip { scroll-behavior: auto; }
+}
+
+/* ── Phone: the card fills the bottom sheet ── */
+@media (max-width: 639.98px) {
+  .poi-card {
+    --poi-pad: 20px;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 24px 24px 0 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+  /* The sheet scrolls; nothing scrolls inside the card. */
+  .poi-scroll { overflow: visible; flex: none; }
+  /* The sheet (bleedTop) leaves the top to the card: the photo runs to the
+     edge, and the card draws the grab bar over the sheet's touch area. */
+  .poi-top {
+    height: calc(min(280px, 38dvh) + env(safe-area-inset-top, 0px));
+    border-radius: 24px 24px 0 0;
+  }
+  .poi-top:not(:has(.poi-strip)) { height: calc(170px + env(safe-area-inset-top, 0px)); }
+  .poi-grab {
+    display: block;
+    position: absolute;
+    z-index: 3;
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: 50%;
+    width: 40px;
+    height: 4px;
+    margin-left: -20px;
+    border-radius: 99px;
+    background: #a1a1aa;
+    pointer-events: none;
+  }
+  .poi-grab.is-on-photo { background: rgba(255,255,255,0.85); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+  /* Below the drag handle, so taps reach the chips and X. */
+  .poi-overlay { top: calc(28px + env(safe-area-inset-top, 0px)); left: 16px; right: 16px; }
+  .poi-count { top: calc(28px + env(safe-area-inset-top, 0px)); right: 52px; }
+  /* White tops leave room for the grab bar. */
+  .poi-head { padding-top: calc(44px + env(safe-area-inset-top, 0px)); }
+  .poi-step-head { padding-top: calc(40px + env(safe-area-inset-top, 0px)); }
+  /* iPhone home bar. */
+  .poi-bar { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+  .poi-step-foot {
+    position: sticky;
+    bottom: 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Narrow phones: the cafe row (EUCT, Maps, Instagram, Facebook, website,
+   More) must fit 320px, so tiles shrink to 40px. */
+@media (max-width: 359.98px) {
+  .poi-bar, .poi-tiles { gap: 6px; }
+  .poi-tile, .poi-ib { width: 40px; height: 40px; }
+  .poi-main, .poi-pill, .poi-main-slot { min-width: 96px; height: 40px; }
 }
 
 /* ===========================================
@@ -1324,97 +1153,13 @@
 
   /* Keep mobile padding at 20px (desktop uses 24px) */
   .popup-header { padding: 20px 20px 0 20px; }
-  .popup-address { padding: 4px 20px 12px 20px; }
-  .popup-body { padding: 0 20px 12px 20px; }
+
   .popup-chips-row { padding: 4px 20px 16px 20px; }
-  /* One horizontal rhythm for the whole card: every row starts at 20px so the
-     price box, the feature pills, the section labels and the assignment line
-     all share the title's left edge. The price card and details row used to
-     sit at 16px while the header sat at 20px, which read as a wobble down the
-     left side of the sheet. */
-  .popup-details-row { padding: 4px 20px; }
-  .popup-section { padding: 12px 20px; }
-  .popup-assignment-line { padding: 2px 20px 10px 20px; }
-  .popup-price-card { margin: 12px 20px; padding: 16px 16px; }
-  .popup-price-top-row { gap: 8px; }
-  .header-badges { padding: 6px 20px 0; }
-
-  /* Pull image up to extend behind the drag handle (content area has pt-10 = 40px) */
-  .popup-image {
-    margin-top: -40px;
-    padding-top: 40px;
-    border-radius: 0;
-  }
-
-  .popup-image > img {
-    position: absolute;
-    inset: 0;
-  }
-
-  /* Adjust image heights to account for the negative margin */
-  .popup-image.tall {
-    height: min(200px, 28vh);
-  }
-  .popup-image.medium {
-    height: min(210px, 30vh);
-  }
-
-  /* Reposition image overlays on mobile */
-  .popup-image-actions {
-    top: 26px;
-    right: 12px;
-  }
-  .image-badges {
-    top: 31px;
-  }
-
-  /* Icon buttons: same style as desktop, slightly larger for touch */
-  .popup-btn-icon {
-    width: 40px;
-    height: 40px;
-  }
-
-  .popup-btn-icon svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  /* Default: smaller image with space around (for pin-shaped logos like Google Maps) */
-  .popup-btn-icon img {
-    width: 32px;
-    height: 32px;
-    object-fit: contain;
-  }
-
-  .popup-btn-icon.has-bg img {
-    width: 100%;
-    height: 100%;
-    padding: 7px;
-  }
-
-  /* Square logos fill the entire button */
-  .popup-btn-icon.logo-fill img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 8px;
-  }
 
   /* Text buttons: larger touch target */
   .popup-btn-text {
     padding: 12px 16px;
     min-height: 44px;
-  }
-
-  /* Footer: safe area padding + spacing between icon and action groups */
-  .popup-footer {
-    padding: 16px 20px calc(16px + env(safe-area-inset-bottom, 0px)) 20px;
-    gap: 8px;
-  }
-
-  .actions-dropdown {
-    min-width: 200px;
-    max-height: 260px;
   }
 
   /* Attachment viewer mobile adjustments */
@@ -1587,10 +1332,6 @@
 /* ===========================================
    ATTACHMENT COMPONENTS
    =========================================== */
-
-/* Attachment section in popups.
-   Horizontal padding comes from .popup-section so it stays in step with the
-   comments section and the price card. */
 
 /* Attachment grid */
 .attachment-grid {
@@ -2069,8 +1810,7 @@
   select,
   textarea {
     min-height: 44px;
-    font-size: 16px; /* Prevents iOS zoom on focus */
-  }
+    font-size: 16px;   }
 }
 
 /* "What's new" speed card: a map strip racing past, plus light streaks. */
