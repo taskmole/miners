@@ -19,9 +19,6 @@ export const CAFE_REPORT_PATH = path.join(process.cwd(), "public/data/cafe-chang
 /** An old report is never sent: it would announce last month's news as new. */
 export const MAX_REPORT_AGE_DAYS = 10;
 
-/** Longer lists end in "and N more". */
-export const MAX_LISTED = 10;
-
 export interface CafeUpdateCity {
   cityId: string;
   cityName: string;
@@ -84,11 +81,12 @@ export function buildCafeUpdateEmails(
     .filter((e) => e.cities.length > 0);
 }
 
-/** "Cafe map update: Madrid and Prague" */
+/** "129 new cafes in Madrid", or "Cafe map update: Madrid and Prague" when nothing is new. */
 export function cafeUpdateSubject(cities: CafeUpdateCity[]): string {
   const names = cities.map((c) => c.cityName);
   const joined = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
-  return `Cafe map update: ${joined}`;
+  const totalNew = cities.reduce((n, c) => n + c.added.length, 0);
+  return totalNew > 0 ? `${totalNew} new ${totalNew === 1 ? "cafe" : "cafes"} in ${joined}` : `Cafe map update: ${joined}`;
 }
 
 // ---------------------------------------------------------------------------
