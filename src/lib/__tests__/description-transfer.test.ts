@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { acceptFee, mentionsTransfer } from "../../../scripts/data-pipeline/lib/description-transfer";
+import { acceptFee, keepsStoredFee, mentionsTransfer } from "../../../scripts/data-pipeline/lib/description-transfer";
 
 describe("mentionsTransfer", () => {
   it("spots Spanish and English transfer wording", () => {
@@ -30,5 +30,19 @@ describe("acceptFee", () => {
     expect(acceptFee({ isTransfer: true, fee: 999 })).toBeNull();
     expect(acceptFee({ isTransfer: true, fee: 5_000_001 })).toBeNull();
     expect(acceptFee(null)).toBeNull();
+  });
+});
+
+describe("keepsStoredFee", () => {
+  it("keeps the fee while the description still mentions a transfer", () => {
+    expect(keepsStoredFee("Traspaso 170.000 €")).toBe(true);
+  });
+
+  it("keeps the fee when the description could not be read", () => {
+    expect(keepsStoredFee(null)).toBe(true);
+  });
+
+  it("drops the fee once the description no longer mentions one", () => {
+    expect(keepsStoredFee("Local diáfano a pie de calle")).toBe(false);
   });
 });

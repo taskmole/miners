@@ -74,7 +74,12 @@ import {
   buildProxyUri,
 } from "./config/idealista";
 import Anthropic from "@anthropic-ai/sdk";
-import { acceptFee, findTransferFee, mentionsTransfer } from "./lib/description-transfer";
+import {
+  acceptFee,
+  findTransferFee,
+  keepsStoredFee,
+  mentionsTransfer,
+} from "./lib/description-transfer";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -583,14 +588,13 @@ async function publishListings(
         hasStorefront: listing.hasStorefront,
         datePosted: listing.datePosted,
       },
+      // Rentals keep a fee found by an earlier description check.
+      keepKeys: !isTransfer && keepsStoredFee(listing.description) ? ["transfer"] : undefined,
     });
   }
 
-  // Rentals keep a transfer fee found in an earlier run's description check,
-  // since only new listings are checked.
-  const keepKeys = source === SOURCES.IDEALISTA ? ["transfer"] : [];
   const stats = await publishListingsShared(
-    client, validated, cityId, categoryId, source, envName, keepKeys
+    client, validated, cityId, categoryId, source, envName
   );
 
   if (skippedValidation > 0) {

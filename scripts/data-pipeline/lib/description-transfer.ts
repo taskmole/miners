@@ -26,6 +26,16 @@ export function mentionsTransfer(text: string | null | undefined): boolean {
   return !!text && /traspas|transfer|key money/i.test(text);
 }
 
+/**
+ * Whether a rental keeps a fee found on an earlier run. Only new listings are
+ * checked, so the stored fee is kept while the description still mentions a
+ * transfer (or could not be read), and dropped once it no longer does. That
+ * clears a misread or a fee the landlord has since removed.
+ */
+export function keepsStoredFee(description: string | null): boolean {
+  return description === null || mentionsTransfer(description);
+}
+
 /** The fee to save, or null when the answer is not a believable transfer fee. */
 export function acceptFee(answer: TransferAnswer | null): number | null {
   if (!answer?.isTransfer || typeof answer.fee !== "number") return null;
