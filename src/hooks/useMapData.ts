@@ -25,6 +25,10 @@ export interface CafeData {
     premium?: boolean;
     datePublished?: string;
     fetchedAt?: string;
+    /** Google cafes: when their details were last re-read (fetchedAt stays "first seen"). */
+    refreshedAt?: string;
+    /** Google's price, ready to show ("€1–10", "100–200 Kč", "Moderate"). */
+    priceRange?: string;
     city: "madrid" | "barcelona" | "prague";
     placeId?: string;
 }
@@ -200,6 +204,8 @@ function mapGooglePlacesCafes(raw: any[], city: CafeData["city"]): CafeData[] {
             premium: false,
             datePublished: undefined,
             fetchedAt: c.fetchedAt || undefined,
+            refreshedAt: c.refreshedAt || undefined,
+            priceRange: c.priceRange || undefined,
             city,
         }));
 }
@@ -219,6 +225,7 @@ function applyGoogleEnrichment(cafes: CafeData[], enrichmentRaw: any[]): void {
             if (enrichment.gp_rating) cafe.rating = parseFloat(enrichment.gp_rating);
             if (enrichment.gp_reviewCount) cafe.reviewCount = parseInt(enrichment.gp_reviewCount);
             if (enrichment.gp_openingHours) cafe.openingHours = enrichment.gp_openingHours;
+            if (enrichment.gp_priceRange) cafe.priceRange = enrichment.gp_priceRange;
         }
     }
 }

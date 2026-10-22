@@ -1062,8 +1062,12 @@ const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose 
                                 <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
                             </>
                         )}
-                        <span className="price">€1-10</span>
-                        <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
+                        {cafe.priceRange && (
+                            <>
+                                <span className="price">{cafe.priceRange}</span>
+                                <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
+                            </>
+                        )}
                         <span className="status-open">Open</span>
                     </div>
 
@@ -1134,6 +1138,8 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }:
     const mapsUrl = buildGoogleMapsUrl(cafe.name, cafe.googleMapsUrl, cafe.lat, cafe.lon, cafe.address);
     const commentCount = 0; // TODO: Get from data when available
     const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
+    // The monthly refresh re-reads Google's details; fetchedAt is only when the cafe first appeared.
+    const updatedAt = cafe.refreshedAt ?? cafe.fetchedAt;
     const [activeTooltip, setActiveTooltip] = React.useState<string | null>(null);
     React.useEffect(() => {
         if (!activeTooltip) return;
@@ -1145,10 +1151,10 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }:
     return (
         <div className="popup-base">
             <div className="header-badges">
-                {cafe.fetchedAt && (
+                {updatedAt && (
                     <span className="header-freshness" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "freshness" ? null : "freshness"); }}>
-                        {freshBadgeText(cafe.fetchedAt)}
-                        <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>{freshTooltipText(cafe.fetchedAt)}</span>
+                        {freshBadgeText(updatedAt)}
+                        <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>{freshTooltipText(updatedAt)}</span>
                     </span>
                 )}
                 <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
@@ -1175,8 +1181,12 @@ const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }:
                                 <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
                             </>
                         )}
-                        <span className="price">€1-10</span>
-                        <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
+                        {cafe.priceRange && (
+                            <>
+                                <span className="price">{cafe.priceRange}</span>
+                                <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
+                            </>
+                        )}
                         <span className="status-open">Open</span>
                     </div>
 

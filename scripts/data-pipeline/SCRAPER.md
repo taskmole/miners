@@ -176,3 +176,51 @@ npm run fetch:euct -- --dry-run       # fetch and report, write nothing
   It can be run manually with a dry-run switch.
 - **Logs:** each run lists the cafes it added, removed and relinked by name.
 - **Cost:** ~360 requests per run (~$0.55), about 20-30 minutes.
+
+---
+
+# Google Regular-Cafe Refresh
+
+`refresh-google-cafes.ts` refreshes the Google cafes in
+`public/data/google_places_madrid.csv` and `google_places_prague.csv`, plus the
+Google details (rating, hours, price) of coffee-trip pins in
+`google_places_enrichment.csv` (Madrid) and `google_places_enrichment_prague.csv`.
+
+```bash
+npm run refresh:google                    # Madrid + Prague
+npm run refresh:google -- --city prague   # one city
+npm run refresh:google -- --dry-run       # fetch and report, write nothing
+```
+
+- **How:** Google Places Text Search for "specialty coffee" over a 6x6 grid of
+  each city's bounds (`config/cities.ts`). Needs `GOOGLE_PLACES_API_KEY`; without
+  it the step is skipped with a warning, never failed.
+- **Coordinates never move**, same rule as the coffee-trip cafes. `fetchedAt` is
+  "first seen" (drives the map's 30-day new count); `refreshedAt` is the last
+  refresh (drives the popup's "Updated X ago").
+- **Missed by the search is not closed:** Google shuffles results, so each cafe
+  the search missed gets a single-place check. Removed only when Google says
+  permanently closed, or "no longer exists" with no similar cafe within 30 m
+  (that one is the same cafe under a new id and keeps the old pin). Temporarily
+  closed cafes stay.
+- **New results:** a hit matching a coffee-trip cafe by name (50 m, or 100 m with
+  a very close name) only lends that pin its Google details. Supermarkets,
+  petrol stations, hotels and malls are skipped.
+- **Safety stops:** a city's files are left untouched if a search square fails
+  after retries, Google returns nothing, or over 15% of its cafes would go.
+- **Automation:** second step of `.github/workflows/euct-refresh.yml` (runs even
+  if the coffee-trip step stopped).
+- **Cost:** at most ~216 searches a month for both cities plus a few checks,
+  inside Google's free monthly allowance.
+
+# Cafe Change Email
+
+Both refresh scripts write `public/data/cafe-changes.json` (new, gone and
+changed cafes per city), only when the workflow sets `CAFE_REPORT_STAMP`, so
+never on dry or local runs. It ships in the same commit as the cafe files.
+`/api/send-cafe-update-email` (daily Vercel cron, 08:00 UTC) sends it once to
+everyone with access to a changed city, plus super admins, and records the
+stamp and who got it in `app_settings.cafe_update_email_last_sent`, so a retry only reaches people a failure skipped. Reports older than 10 days
+are never sent. A city file's first refresh (no price column yet) only reports
+gone cafes. Manual test: `POST` with `x-digest-secret` and `{"to": "<address>"}`
+sends to that one address and never touches the marker.
