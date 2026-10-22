@@ -168,6 +168,18 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       alt: "A new listing with its photo on the left and rent, size and AI summary on the right",
     },
   },
+  {
+    id: 9,
+    date: "2026-10-22",
+    title: "Map cards got a makeover",
+    body: "Tap any pin and the photo comes first, with the price and address on it. One button shows what to do next, and everything else sits under the ··· menu.",
+    audience: "everyone",
+    visual: {
+      kind: "image",
+      src: "/assets/whats-new/map-card-makeover-v1.jpg",
+      alt: "A listing card on the map: photo with price and address, one Request button, the menu and the Idealista and Maps links",
+    },
+  },
 ];
 
 /** The newest id that exists. Closing the popup marks everything up to here seen. */

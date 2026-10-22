@@ -25,6 +25,10 @@ interface BottomSheetProps {
   showCloseButton?: boolean;
   // Extra buttons to render next to close button (e.g., hide button)
   headerButtons?: React.ReactNode;
+  // Content runs to the very top and draws its own grab bar (map cards put a
+  // photo there): no top padding, no white fade, and the drag handle stays
+  // as an invisible touch area.
+  bleedTop?: boolean;
 }
 
 // Threshold for swipe-to-dismiss (pixels)
@@ -40,6 +44,7 @@ export function BottomSheet({
   snapPoint = "partial",
   showCloseButton = true,
   headerButtons,
+  bleedTop = false,
 }: BottomSheetProps) {
   const { isMobile, isMobileLandscape } = useMobileDevice();
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -66,7 +71,9 @@ export function BottomSheet({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      // Something inside already used this Escape (a menu closing, a card
+      // stepping back), so it must not also close the whole sheet.
+      if (e.key === 'Escape' && !e.defaultPrevented) {
         onClose();
       }
     };
@@ -220,13 +227,15 @@ export function BottomSheet({
           className="absolute left-0 right-0 flex justify-center pb-2 z-40 rounded-t-3xl"
           style={{
             paddingTop: "calc(12px + env(safe-area-inset-top, 0px))",
-            background: "linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 70%, transparent 100%)"
+            background: bleedTop
+              ? undefined
+              : "linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 70%, transparent 100%)"
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <div className="w-10 h-1 bg-zinc-400 rounded-full shadow-sm" />
+          <div className={cn("w-10 h-1 rounded-full", bleedTop ? "invisible" : "bg-zinc-400 shadow-sm")} />
         </div>
 
         {/* Scrollable content — full sheets use absolute for explicit height,
@@ -237,9 +246,12 @@ export function BottomSheet({
             (snapPoint === "full" || isLandscapeMode) ? "absolute inset-0" : "flex-1 min-h-0"
           )}
           style={{
-            paddingTop: "calc(40px + env(safe-area-inset-top, 0px))",
+            paddingTop: bleedTop ? undefined : "calc(40px + env(safe-area-inset-top, 0px))",
             WebkitOverflowScrolling: 'touch',
           }}
+          // Lets content find the sheet's scroll area, e.g. to scroll back to
+          // the top when a card swaps to another view.
+          data-sheet-scroll
         >
           {title && (
             <div className="px-4 pb-3 pr-16 sticky top-0 bg-white z-[5]">

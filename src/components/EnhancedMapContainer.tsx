@@ -20,37 +20,22 @@ import { ShapeHoverTooltip } from "@/components/ShapeHoverTooltip";
 import { DrawingIndicator } from "@/components/DrawingIndicator";
 import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
 import { generatePlaceId, generatePropertyPlaceId, parseCoordinatesFromPlaceId } from "@/lib/place-id";
-import { capitalizeFirst } from "@/lib/text";
-import { logActivity } from "@/lib/supabaseHelpers";
-import { notifyTeam } from "@/lib/notify-team";
-import { evaluatePropertyActions, pendingPropertyActions } from "@/lib/property-actions";
+import { evaluatePropertyActions } from "@/lib/property-actions";
 import { useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
-import { AddToListButton } from "@/components/AddToListButton";
-import { CreateTripButton } from "@/components/CreateTripButton";
-import { PopupActionBar } from "@/components/PopupActionBar";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
 import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
 import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
-import { usePropertyRequests, type RequestSnapshot } from "@/hooks/usePropertyRequests";
-import type { PropertyAssignment } from "@/hooks/usePropertyAssignments";
-import { useTeamsContext } from "@/contexts/TeamsContext";
-import { useListsContext } from "@/contexts/ListsContext";
-import type { PlaceInfo } from "@/types/lists";
-import type { ScoutingTripStatus } from "@/types/scouting";
+import { usePropertyRequests } from "@/hooks/usePropertyRequests";
 import type { EuctFilter, PropertyPostedFilter, PropertyTransferFilter, PropertyPriceChangeFilter, PropertyPitchStatusFilter } from "@/types/filters";
 import { TrafficValueCard } from "@/components/TrafficValueCard";
 import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
 import { useMapData, CafeData, PropertyData, OtherPoiData, LocationData, hasChangedPrice } from "@/hooks/useMapData";
-import { useCafeProfiles, CafeProfile, CATEGORY_LABELS } from "@/hooks/useCafeProfiles";
+import { useCafeProfiles, CafeProfile } from "@/hooks/useCafeProfiles";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
-import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { useOverlayData } from "@/hooks/useOverlayData";
-import { useAttachments } from "@/hooks/useAttachments";
 import { useWalkingRadius } from "@/contexts/WalkingRadiusContext";
-import { AttachmentGallery } from "@/components/attachments";
-import { PopupCommentsSection } from "@/components/PopupCommentsSection";
 import { DisambiguationPopup } from "@/components/DisambiguationPopup";
 import { useMobile } from "@/hooks/useMobile";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -65,41 +50,17 @@ import {
     Users,
     GraduationCap,
     Home,
-    ExternalLink,
-    MapPin,
     Star,
     Snowflake,
-    Flame,
     Sparkles,
-    Instagram,
-    Facebook,
-    Globe,
-    LayoutGrid,
-    ChevronDown,
     X,
-    MessageSquare,
-    Paperclip,
     Dumbbell,
-    TrendingDown,
-    TrendingUp,
-    ChevronLeft,
-    ChevronRight,
-    UtensilsCrossed,
-    Armchair,
-    Ruler,
-    Euro,
-    Route,
-    ListPlus,
-    Ban,
-    UserPlus,
-    Trash2,
-    Hand,
-    Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ShareButton } from "@/components/ShareButton";
+import { ListingCard } from "@/components/poi-card/ListingCard";
+import { CafeCard, PlaceCard } from "@/components/poi-card/PlaceCards";
 import { formatCompactNumber } from "@/lib/format-numbers";
-import { scoreTier, SCORE_TIER_BG, SCORE_TIER_COLORS, SCORE_TIER_LABELS } from "@/lib/gravity-lookup";
+import { scoreTier, SCORE_TIER_BG } from "@/lib/gravity-lookup";
 
 // Context for sharing cafe profile data with popup components
 const CafeProfilesContext = React.createContext<{
@@ -181,36 +142,6 @@ const iconConfig: Record<string, { icon: React.ElementType; color: string; bg: s
 
 function coordsMatch(a: number, b: number, tolerance = 0.0001) {
     return Math.abs(a - b) < tolerance;
-}
-
-// Adaptive popup container - renders MapPopup on desktop, BottomSheet on mobile
-interface AdaptivePopupProps {
-    coordinates: [number, number];
-    onClose: () => void;
-    children: React.ReactNode;
-    isMobile: boolean;
-}
-
-function AdaptivePopup({ coordinates, onClose, children, isMobile }: AdaptivePopupProps) {
-    if (isMobile) {
-        return (
-            <BottomSheet isOpen={true} onClose={onClose} snapPoint="partial">
-                <div className="p-4">{children}</div>
-            </BottomSheet>
-        );
-    }
-
-    return (
-        <MapPopup
-            longitude={coordinates[0]}
-            latitude={coordinates[1]}
-            onClose={onClose}
-            anchor="top"
-            className="animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"
-        >
-            {children}
-        </MapPopup>
-    );
 }
 
 // Helper function to check if a POI's type filter is currently active
@@ -868,379 +799,25 @@ function EnhancedMarkerIcon({
 
 // isRecentlyAdded imported from @/lib/dateUtils
 
-// Reusable attachments section for POI popups (collapsible) - memoized to prevent re-renders
-const PopupAttachmentsSection = React.memo(function PopupAttachmentsSection({ placeId, placeName, placeType, lat, lon }: { placeId: string; placeName?: string; placeType?: string; lat?: number; lon?: number }) {
-    const { getPoiAttachments, addPoiAttachment, removePoiAttachment } = useAttachments();
-    const { showToast } = useToast();
-    const [isExpanded, setIsExpanded] = useState(false);
-    const attachments = getPoiAttachments(placeId);
-
-    const handleUpload = async (file: File) => {
-        const result = await addPoiAttachment(placeId, file, { placeName, placeType, lat, lon });
-        if (result.success) {
-            showToast('Saved');
-        } else {
-            showToast(result.error || 'Upload failed', 'error');
-        }
-        return result;
-    };
-
-    const handleRemove = async (attachmentId: string) => {
-        const result = await removePoiAttachment(placeId, attachmentId, { placeName, placeType });
-        // Nothing was there to remove, usually a double tap. Stay quiet rather
-        // than showing a second "Deleted" for a delete that already happened.
-        if (result.noop) return;
-        if (result.success) {
-            showToast('Deleted');
-        } else {
-            showToast(result.error || 'Could not delete that file', 'error');
-        }
-    };
-
-    return (
-        <div
-            className="popup-attachments popup-section group/section hover:bg-zinc-100 transition-colors duration-150 cursor-pointer"
-            onClick={() => setIsExpanded(!isExpanded)}
-        >
-            {/* Header row */}
-            <div className="flex items-center gap-2">
-                <Paperclip className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="text-[11px] font-medium text-[#c4c4c4] uppercase" style={{ letterSpacing: '0.03em' }}>Attachments</span>
-                <span className="w-4 h-4 flex items-center justify-center bg-zinc-100 group-hover/section:bg-zinc-200 text-zinc-500 text-[9px] font-medium rounded-full transition-colors duration-150">
-                    {attachments.length}
-                </span>
-                <ChevronDown
-                    className={`w-3.5 h-3.5 text-zinc-300 ml-auto opacity-0 group-hover/section:opacity-100 transition-all duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                />
-            </div>
-            {isExpanded && (
-                <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-                    <AttachmentGallery
-                        attachments={attachments}
-                        onUpload={handleUpload}
-                        onRemove={handleRemove}
-                    />
-                </div>
-            )}
-        </div>
-    );
-});
-
-// Cafe profile section for Miners cafes (used in both popup types)
-const PROFILE_CATEGORY_CHIP = {
-    background: '#2d2d2d',
-    color: '#ffffff',
-    padding: '4px 10px',
-    fontSize: 11,
-    fontWeight: 600,
-    borderRadius: 8,
-    fontFamily: 'var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif',
-} as const;
-
-function CafeProfileSection({ placeId }: { placeId: string }) {
-    const { profilesByPlaceId, canSeeRevenue } = React.useContext(CafeProfilesContext);
-    const profile = profilesByPlaceId[placeId];
-
-    if (!profile || !profile.category) return null;
-
-    const totalSeats = (profile.interiorSeats || 0) + (profile.exteriorSeats || 0);
-
-    const formatRevenue = (v: number) => {
-        if (v >= 1000) { const k = v / 1000; return `€${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K/mo`; }
-        return `€${v}/mo`;
-    };
-
-    const details: string[] = [];
-    if (totalSeats > 0) details.push(`${totalSeats} seats`);
-    if (profile.areaSqm) details.push(`${profile.areaSqm} m²`);
-    if (profile.hasKitchen) details.push('Kitchen');
-
-    return (
-        <div style={{
-            margin: '6px 12px 10px',
-            padding: '10px 12px',
-            background: '#faf9f7',
-            border: '1px solid #e8e5e0',
-            borderRadius: 10,
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ display: 'inline-block', ...PROFILE_CATEGORY_CHIP }}>
-                    {CATEGORY_LABELS[profile.category]}
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-                    {details.map((d, i) => (
-                        <React.Fragment key={i}>
-                            {i > 0 && <span style={{ fontSize: 16, color: '#a1a1aa', lineHeight: 1 }}>·</span>}
-                            <span style={{ fontSize: 13, color: '#52525b', whiteSpace: 'nowrap' }}>{d}</span>
-                        </React.Fragment>
-                    ))}
-                </div>
-                {canSeeRevenue && profile.monthlyRevenue ? (
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#18181b', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
-                        {formatRevenue(profile.monthlyRevenue)}
-                    </span>
-                ) : null}
-            </div>
-        </div>
-    );
-}
-
-// EU Coffee Trip Popup - Uses universal popup base classes - memoized to prevent re-renders
-const EuCoffeeTripPopup = React.memo(function EuCoffeeTripPopup({ cafe, onClose }: { cafe: CafeData; onClose?: () => void }) {
-    const mapsUrl = buildGoogleMapsUrl(cafe.name, cafe.googleMapsUrl, cafe.lat, cafe.lon, cafe.address);
-    const commentCount = 0; // TODO: Get from data when available
-    const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
-    const [activeTooltip, setActiveTooltip] = React.useState<string | null>(null);
-    React.useEffect(() => {
-        if (!activeTooltip) return;
-        const close = () => setActiveTooltip(null);
-        document.addEventListener("click", close);
-        return () => document.removeEventListener("click", close);
-    }, [activeTooltip]);
-
-    return (
-        <div className="popup-base">
-            {/* Image with overlays and action buttons */}
-            {cafe.image && (
-                <div className="popup-image tall">
-                    <img src={cafe.image} alt={cafe.name} />
-
-                    <PopupActionBar position="image" placeId={placeId} onClose={onClose} />
-
-                    {cafe.fetchedAt && (
-                        <div className="image-badges">
-                            <span className="freshness-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "freshness" ? null : "freshness"); }}>
-                                {formatTimeAgo(cafe.fetchedAt)}
-                                <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>{freshTooltipText(cafe.fetchedAt)}</span>
-                            </span>
-                        </div>
-                    )}
-
-                    {/* Chips on image */}
-                    {cafe.premium && (
-                        <div className="popup-overlay-chips">
-                            <span className="popup-chip premium">
-                                <Star size={12} /> Premium
-                            </span>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* No-photo fallback: freshness badge + action bar above title */}
-            {!cafe.image && (
-                <div className="header-badges">
-                    {cafe.fetchedAt && (
-                        <span className="header-freshness" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "freshness" ? null : "freshness"); }}>
-                            {freshBadgeText(cafe.fetchedAt)}
-                            <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>{freshTooltipText(cafe.fetchedAt)}</span>
-                        </span>
-                    )}
-                    <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
-                </div>
-            )}
-
-            <div className="popup-header">
-                <div className="popup-title-row">
-                    <span className="popup-name">{cafe.name}</span>
-                    <ShareButton placeId={placeId} placeType="eu_coffee_trip" title={cafe.name} address={cafe.address} photoUrl={cafe.image} />
-                </div>
-            </div>
-
-            {/* Address */}
-            <div className="popup-address">{cafe.address}</div>
-
-            {/* Body - Rating row with comments on right */}
-            <div className="popup-body">
-                <div className="popup-rating-row">
-                    <div className="popup-rating">
-                        {cafe.rating && (
-                            <>
-                                <Star size={14} fill="#FFD700" color="#FFD700" />
-                                <span className="value">{cafe.rating.toFixed(1)}</span>
-                                {cafe.reviewCount && <span className="reviews">({cafe.reviewCount})</span>}
-                                <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
-                            </>
-                        )}
-                        {cafe.priceRange && (
-                            <>
-                                <span className="price">{cafe.priceRange}</span>
-                                <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
-                            </>
-                        )}
-                        <span className="status-open">Open</span>
-                    </div>
-
-                    {/* Comments bubble - right aligned */}
-                    {commentCount > 0 && (
-                        <button className="popup-comments">
-                            <MessageSquare size={14} />
-                            {commentCount}
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Cafe profile enrichment (Miners cafes only) */}
-            {cafe.franchisePartner && cafe.placeId && <CafeProfileSection placeId={cafe.placeId} />}
-
-            {/* Attachments section */}
-            <PopupAttachmentsSection placeId={placeId} placeName={cafe.name} placeType="cafe" lat={cafe.lat} lon={cafe.lon} />
-
-            {/* Comments section */}
-            <PopupCommentsSection placeId={placeId} placeName={cafe.name} />
-
-            {/* Footer */}
-            <div className="popup-footer">
-                <div className="popup-buttons">
-                    {cafe.link && (
-                        <a href={cafe.link} target="_blank" rel="noopener noreferrer" className="popup-btn-icon logo-fill">
-                            <img src="/assets/eu_coffee_trip_logo.png" alt="EU Coffee Trip" />
-                        </a>
-                    )}
-                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="popup-btn-icon has-bg">
-                        <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
-                    </a>
-                    {cafe.instagram && (
-                        <a href={cafe.instagram} target="_blank" rel="noopener noreferrer" className="popup-btn-icon social">
-                            <Instagram />
-                        </a>
-                    )}
-                    {cafe.facebook && (
-                        <a href={cafe.facebook} target="_blank" rel="noopener noreferrer" className="popup-btn-icon social">
-                            <Facebook />
-                        </a>
-                    )}
-                    {cafe.website && (
-                        <a href={cafe.website} target="_blank" rel="noopener noreferrer" className="popup-btn-icon social">
-                            <Globe />
-                        </a>
-                    )}
-                </div>
-                {/* Hide "Add to list" for Miners' own cafes */}
-                {!cafe.franchisePartner && (
-                    <AddToListButton place={{
-                        placeId: `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`,
-                        placeType: 'eu_coffee_trip',
-                        placeName: cafe.name,
-                        placeAddress: cafe.address,
-                        lat: cafe.lat,
-                        lon: cafe.lon,
-                    }} />
-                )}
-            </div>
-        </div>
-    );
-});
-
-// Regular Cafe popup content (non-EU Coffee Trip) - Uses universal popup base - memoized
-const RegularCafePopup = React.memo(function RegularCafePopup({ cafe, onClose }: { cafe: CafeData; onClose?: () => void }) {
-    const mapsUrl = buildGoogleMapsUrl(cafe.name, cafe.googleMapsUrl, cafe.lat, cafe.lon, cafe.address);
-    const commentCount = 0; // TODO: Get from data when available
-    const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
-    // The monthly refresh re-reads Google's details; fetchedAt is only when the cafe first appeared.
-    const updatedAt = cafe.refreshedAt ?? cafe.fetchedAt;
-    const [activeTooltip, setActiveTooltip] = React.useState<string | null>(null);
-    React.useEffect(() => {
-        if (!activeTooltip) return;
-        const close = () => setActiveTooltip(null);
-        document.addEventListener("click", close);
-        return () => document.removeEventListener("click", close);
-    }, [activeTooltip]);
-
-    return (
-        <div className="popup-base">
-            <div className="header-badges">
-                {updatedAt && (
-                    <span className="header-freshness" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "freshness" ? null : "freshness"); }}>
-                        {freshBadgeText(updatedAt)}
-                        <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>{freshTooltipText(updatedAt)}</span>
-                    </span>
-                )}
-                <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
-            </div>
-            <div className="popup-header">
-                <div className="popup-title-row">
-                    <span className="popup-name">{cafe.name}</span>
-                    <ShareButton placeId={placeId} placeType="regular_cafe" title={cafe.name} address={cafe.address} photoUrl={cafe.image} />
-                </div>
-            </div>
-
-            {/* Address */}
-            <div className="popup-address">{cafe.address}</div>
-
-            {/* Body - Rating row with comments on right */}
-            <div className="popup-body">
-                <div className="popup-rating-row">
-                    <div className="popup-rating">
-                        {cafe.rating && (
-                            <>
-                                <Star size={14} fill="#FFD700" color="#FFD700" />
-                                <span className="value">{cafe.rating.toFixed(1)}</span>
-                                {cafe.reviewCount && <span className="reviews">({cafe.reviewCount})</span>}
-                                <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
-                            </>
-                        )}
-                        {cafe.priceRange && (
-                            <>
-                                <span className="price">{cafe.priceRange}</span>
-                                <span className="separator" style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#d4d4d4', verticalAlign: 'middle' }} />
-                            </>
-                        )}
-                        <span className="status-open">Open</span>
-                    </div>
-
-                    {/* Comments bubble - right aligned */}
-                    {commentCount > 0 && (
-                        <button className="popup-comments">
-                            <MessageSquare size={14} />
-                            {commentCount}
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Cafe profile enrichment (Miners cafes only) */}
-            {cafe.franchisePartner && cafe.placeId && <CafeProfileSection placeId={cafe.placeId} />}
-
-            {/* Attachments section */}
-            <PopupAttachmentsSection placeId={placeId} placeName={cafe.name} placeType="cafe" lat={cafe.lat} lon={cafe.lon} />
-
-            {/* Comments section */}
-            <PopupCommentsSection placeId={placeId} placeName={cafe.name} />
-
-            {/* Footer */}
-            <div className="popup-footer">
-                <div className="popup-buttons">
-                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="popup-btn-icon has-bg">
-                        <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
-                    </a>
-                </div>
-                {/* Hide "Add to list" for Miners' own cafes */}
-                {!cafe.franchisePartner && (
-                    <AddToListButton place={{
-                        placeId: placeId,
-                        placeType: 'regular_cafe',
-                        placeName: cafe.name,
-                        placeAddress: cafe.address,
-                        lat: cafe.lat,
-                        lon: cafe.lon,
-                    }} />
-                )}
-            </div>
-        </div>
-    );
-});
-
-// Cafe popup dispatcher - renders appropriate popup based on cafe type
+// The cafe card. Keyed by place, so tooltips, steps and drafts never carry
+// over to the next pin.
 function CafePopupContent({ cafe, onClose }: { cafe: CafeData; onClose?: () => void }) {
-    const isEuCoffeeTrip = cafe.link?.includes("europeancoffeetrip");
-
-    if (isEuCoffeeTrip) {
-        return <EuCoffeeTripPopup cafe={cafe} onClose={onClose} />;
-    }
-
-    return <RegularCafePopup cafe={cafe} onClose={onClose} />;
+    const { profilesByPlaceId, canSeeRevenue } = React.useContext(CafeProfilesContext);
+    const placeId = `cafe-${cafe.lat.toFixed(5)}-${cafe.lon.toFixed(5)}`;
+    const mapsUrl = buildGoogleMapsUrl(cafe.name, cafe.googleMapsUrl, cafe.lat, cafe.lon, cafe.address);
+    const profile = cafe.franchisePartner && cafe.placeId ? profilesByPlaceId[cafe.placeId] ?? null : null;
+    return (
+        <CafeCard
+            key={placeId}
+            cafe={cafe}
+            placeId={placeId}
+            mapsUrl={mapsUrl}
+            isEuCoffeeTrip={!!cafe.link?.includes("europeancoffeetrip")}
+            profile={profile}
+            canSeeRevenue={canSeeRevenue}
+            onClose={onClose}
+        />
+    );
 }
 
 // Build a Google Maps URL that works reliably on mobile + desktop.
@@ -1283,842 +860,58 @@ function rehydratePropertyData(raw: any): PropertyData {
     return p as PropertyData;
 }
 
-function getPriceChange(property: PropertyData): { direction: "up" | "down"; percent: number } | null {
-    if (!property.priceHistory?.length || !property.price) return null;
-    const lastOldPrice = property.priceHistory[property.priceHistory.length - 1].price;
-    if (!lastOldPrice || lastOldPrice === property.price) return null;
-    const percent = Math.abs(((property.price - lastOldPrice) / lastOldPrice) * 100);
-    if (percent < 0.5) return null;
-    return {
-        direction: property.price > lastOldPrice ? "up" : "down",
-        percent,
-    };
-}
-
-function formatTimeAgo(dateStr: string): string {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const hours = Math.floor(diff / 3600000);
-    if (hours < 24) return "Today";
-    const days = Math.floor(hours / 24);
-    if (days < 14) return `${days}d`;
-    const weeks = Math.floor(days / 7);
-    if (weeks < 9) return `${weeks}w`;
-    const months = Math.floor(days / 30);
-    return `${months}mo`;
-}
-
-function freshBadgeText(dateStr: string): string {
-    const t = formatTimeAgo(dateStr);
-    return t === "Today" ? "Today" : `${t} ago`;
-}
-
-function freshTooltipText(dateStr: string): string {
-    const t = formatTimeAgo(dateStr);
-    return t === "Today" ? "Updated today" : `Updated ${t} ago`;
-}
-
-function PropertyActionsFooter({
-    property, placeId, cityId, mapsUrl, canAccessDashboard, accessResolved, checkCanPitch, pitchStatus,
-    assignableUsers, assignProperty, preRejectProperty, removeAssignment,
-    assignment, createTrip, updateTrip, showToast, onClose,
-    hasPendingRequest, wasRejectedForMe, requestProperty,
-}: {
-    property: PropertyData;
-    placeId: string;
-    cityId: string;
-    mapsUrl: string;
-    canAccessDashboard: boolean;
-    /** False until the server has confirmed this session's role. */
-    accessResolved: boolean;
-    checkCanPitch: (placeId: string) => { allowed: boolean; reason: string | null };
-    pitchStatus: ScoutingTripStatus | null;
-    assignableUsers: { id: string; display_name: string | null; email: string | null; role: string }[];
-    assignProperty: (placeId: string, assignedTo: string | null, options?: { teamId?: string; notes?: string }) => Promise<any>;
-    preRejectProperty: (placeId: string, reason: string, notes?: string) => Promise<any>;
-    removeAssignment: (placeId: string) => Promise<void>;
-    assignment: PropertyAssignment | null;
-    createTrip: (cityId: string) => any;
-    updateTrip: (tripId: string, updates: any) => void;
-    showToast: (msg: string, type?: string) => void;
-    onClose?: () => void;
-    /**
-     * Request state comes from the popup above rather than a second
-     * usePropertyRequests instance, so opening a popup costs one fetch.
-     */
-    hasPendingRequest: (placeId: string) => boolean;
-    wasRejectedForMe: (placeId: string) => boolean;
-    requestProperty: (placeId: string, snapshot?: RequestSnapshot) => Promise<unknown>;
-}) {
-    const [menuOpen, setMenuOpen] = React.useState(false);
-    const [subMenu, setSubMenu] = React.useState<"assign" | "reject" | "addToList" | null>(null);
-    const [rejectReason, setRejectReason] = React.useState("");
-    const [newListName, setNewListName] = React.useState("");
-    // One server action at a time. Without this a double-click on Request sent
-    // two requests: "Request sent", then an error toast for the duplicate.
-    const [busy, setBusy] = React.useState(false);
-    const busyRef = React.useRef(false);
-    const runExclusive = async (action: () => Promise<void>) => {
-        if (busyRef.current) return;
-        busyRef.current = true;
-        setBusy(true);
-        try {
-            await action();
-        } finally {
-            busyRef.current = false;
-            setBusy(false);
-        }
-    };
-    const menuRef = React.useRef<HTMLDivElement>(null);
-    // writableLists, not lists: this menu offers save targets, and somebody
-    // else's read-only list must never be one.
-    const { writableLists: lists, toggleInList, isPlaceInList, createList } = useListsContext();
-    const { teams } = useTeamsContext();
-    const { isAssignedToMe } = usePropertyAssignmentContext();
-
-    React.useEffect(() => {
-        if (!menuOpen) return;
-        const close = (e: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-                setMenuOpen(false);
-                setSubMenu(null);
-            }
-        };
-        setTimeout(() => document.addEventListener("click", close), 0);
-        return () => document.removeEventListener("click", close);
-    }, [menuOpen]);
-
-    const alreadyRequested = hasPendingRequest(placeId);
-    const preRejected = assignment?.status === "pre_rejected";
-    const assignee = assignment?.assigned_to
-        ? assignableUsers.find(u => u.id === assignment.assigned_to)
-        : null;
-
-    // One decision for the whole menu. See src/lib/property-actions.ts for why
-    // this is a single function rather than a condition per button.
-    const actions = accessResolved ? evaluatePropertyActions({
-        isAdmin: canAccessDashboard,
-        isPreRejected: preRejected,
-        rejectionReason: assignment?.rejection_reason ?? null,
-        hasAssignment: !!assignment && !preRejected,
-        isAssignedToMe: isAssignedToMe(placeId),
-        assigneeLabel: assignee?.display_name || assignee?.email || null,
-        pitchStatus,
-        hasPendingRequest: alreadyRequested,
-        wasRejectedForMe: wasRejectedForMe(placeId),
-    }) : pendingPropertyActions();
-
-    const handleRequest = () => runExclusive(async () => {
-        try {
-            await requestProperty(placeId, {
-                property_name: property.title,
-                property_address: property.address,
-                property_url: property.url,
-            });
-            showToast("Request sent for approval");
-            logActivity("requested_property", propertyMeta);
-        } catch (err) {
-            showToast(err instanceof Error ? err.message : "Could not send request", 'error');
-        }
-        setMenuOpen(false);
-    });
-
-    // Shared metadata for all property activity log entries
-    const propertyMeta = {
-        placeName: property.title,
-        placeAddress: property.address,
-        placeId,
-        lat: property.latitude,
-        lon: property.longitude,
-    };
-
-    const handleCreateTrip = () => {
-        if (!actions.showCreateTrip) {
-            showToast(actions.caption || "You can't scout this property", 'error');
-            return;
-        }
-        onClose?.();
-        const trip = createTrip(cityId);
-        const linkedItem = { type: 'place' as const, id: placeId, name: property.title, address: property.address, data: property };
-        updateTrip(trip.id, { name: property.title, property: linkedItem });
-        window.dispatchEvent(new CustomEvent('create-trip-from-property', { detail: { trip: { ...trip, name: property.title, property: linkedItem } } }));
-        setMenuOpen(false);
-    };
-
-    const handleAssign = (userId: string) => runExclusive(async () => {
-        try {
-            await assignProperty(placeId, userId);
-            const user = assignableUsers.find(u => u.id === userId);
-            showToast(`Assigned to ${user?.display_name || user?.email || "user"}`);
-            logActivity("assigned_property", {
-                ...propertyMeta,
-                assigned_to: userId,
-                assigneeName: user?.display_name || user?.email || null,
-            });
-            // Tell the assignee. Assigning to a team already emailed; assigning
-            // to one person used to send nothing at all.
-            notifyTeam({
-                userId,
-                kind: "assigned",
-                placeId,
-                placeName: property.title,
-                placeAddress: property.address,
-            });
-        } catch {
-            showToast("Failed to assign", 'error');
-        }
-        setSubMenu(null);
-        setMenuOpen(false);
-    });
-
-    const handleAssignToTeam = (teamId: string) => runExclusive(async () => {
-        try {
-            await assignProperty(placeId, null, { teamId });
-            const team = teams.find(t => t.id === teamId);
-            showToast(`Assigned to ${team?.name || "team"}`);
-            // Tag with team_id so every member sees it in their activity feed.
-            logActivity("assigned_property", {
-                ...propertyMeta,
-                team_id: teamId,
-                teamName: team?.name || null,
-            });
-            // Email the team (skips the actor; only delivers once the Resend
-            // domain is verified). Never blocks the assignment.
-            notifyTeam({
-                teamId,
-                placeId,
-                kind: "assigned",
-                placeName: property.title,
-                placeAddress: property.address,
-            });
-        } catch {
-            showToast("Failed to assign to team", 'error');
-        }
-        setSubMenu(null);
-        setMenuOpen(false);
-    });
-
-    const handlePreReject = () => runExclusive(async () => {
-        if (!rejectReason.trim()) {
-            showToast("Enter a reason", 'error');
-            return;
-        }
-        try {
-            await preRejectProperty(placeId, rejectReason.trim());
-            showToast("Pre-rejected");
-            logActivity("pre_rejected_property", {
-                ...propertyMeta,
-                rejectionReason: rejectReason.trim(),
-            });
-        } catch {
-            showToast("Failed to pre-reject", 'error');
-        }
-        setRejectReason("");
-        setSubMenu(null);
-        setMenuOpen(false);
-    });
-
-    const handleRemoveAssignment = () => runExclusive(async () => {
-        try {
-            await removeAssignment(placeId);
-            showToast("Assignment removed");
-            logActivity("removed_assignment", propertyMeta);
-        } catch {
-            showToast("Failed to remove", 'error');
-        }
-        setMenuOpen(false);
-    });
-
-    const franchisees = assignableUsers.filter(u => u.role === "franchisee");
-
-    const placeInfo = {
-        placeId,
-        placeType: 'property' as const,
-        placeName: property.title,
-        placeAddress: property.address,
-        lat: property.latitude,
-        lon: property.longitude,
-    };
-
-    return (
-        <div className="popup-footer" style={{ position: "relative" }}>
-            <div className="popup-buttons">
-                <a href={property.url} target="_blank" rel="noopener noreferrer" className="popup-btn-icon logo-fill">
-                    <img
-                        src={property.source === "sreality" ? "/assets/sreality-logo.png" : "/assets/idealista-logo.png"}
-                        alt={property.source === "sreality" ? "Sreality" : "Idealista"}
-                    />
-                </a>
-                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="popup-btn-icon has-bg">
-                    <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
-                </a>
-            </div>
-            <div ref={menuRef} style={{ position: "relative" }}>
-                <button
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); setSubMenu(null); }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 h-10 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                    <span>Actions</span>
-                </button>
-                {menuOpen && !subMenu && (
-                    <div className="actions-dropdown" style={{ right: 0, left: "auto" }} onClick={(e) => e.stopPropagation()}>
-                        {/* Entries are hidden rather than greyed out, so this
-                            line carries the reason they are missing. */}
-                        {actions.caption && (
-                            <div className="actions-caption">{actions.caption}</div>
-                        )}
-                        {actions.showRequest && (
-                            <button
-                                className="actions-item"
-                                onClick={handleRequest}
-                                disabled={alreadyRequested || busy}
-                                title={alreadyRequested ? "Waiting for a reviewer" : "Ask an admin for this property"}
-                            >
-                                {alreadyRequested ? <Check size={14} /> : <Hand size={14} />}
-                                <span>{alreadyRequested ? "Requested" : "Request this property"}</span>
-                            </button>
-                        )}
-                        {actions.showCreateTrip && (
-                            <button className="actions-item" onClick={handleCreateTrip}>
-                                <Route size={14} />
-                                <span>Create trip</span>
-                            </button>
-                        )}
-                        {/* Always available: a list is a private bookmark. */}
-                        <button className="actions-item" onClick={() => setSubMenu("addToList")}>
-                            <ListPlus size={14} />
-                            <span>Add to list</span>
-                        </button>
-                        {actions.showAssign && (
-                            <button className="actions-item" onClick={() => setSubMenu("assign")}>
-                                <UserPlus size={14} />
-                                <span>Assign to...</span>
-                            </button>
-                        )}
-                        {actions.showPreReject && (
-                            <button className="actions-item actions-danger" onClick={() => setSubMenu("reject")}>
-                                <Ban size={14} />
-                                <span>Pre-reject</span>
-                            </button>
-                        )}
-                        {actions.showRemoveAssignment && (
-                            <button className="actions-item actions-danger" onClick={handleRemoveAssignment} disabled={busy}>
-                                <Trash2 size={14} />
-                                <span>Remove assignment</span>
-                            </button>
-                        )}
-                        {actions.showUndoPreReject && (
-                            <button className="actions-item actions-danger" onClick={handleRemoveAssignment} disabled={busy}>
-                                <Trash2 size={14} />
-                                <span>Undo pre-reject</span>
-                            </button>
-                        )}
-                    </div>
-                )}
-                {menuOpen && subMenu === "assign" && (
-                    <div className="actions-dropdown" style={{ right: 0, left: "auto", maxHeight: "300px", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-                        <div className="actions-header">
-                            <button className="actions-back" onClick={() => setSubMenu(null)}>&larr;</button>
-                            Assign to
-                        </div>
-                        {teams.length > 0 && (
-                            <>
-                                <div className="actions-section-label" style={{ padding: "4px 12px", fontSize: "11px", fontWeight: 600, color: "#71717a", textTransform: "uppercase" }}>Teams</div>
-                                {teams.map(t => (
-                                    <button key={t.id} className="actions-item" onClick={() => handleAssignToTeam(t.id)} disabled={busy}>
-                                        <span>{t.name}</span>
-                                        <span style={{ fontSize: "11px", color: "#a1a1aa", marginLeft: "auto" }}>{t.team_members.length} members</span>
-                                    </button>
-                                ))}
-                                <div className="actions-section-label" style={{ padding: "4px 12px", fontSize: "11px", fontWeight: 600, color: "#71717a", textTransform: "uppercase" }}>People</div>
-                            </>
-                        )}
-                        {franchisees.length === 0 && teams.length === 0 && (
-                            <div className="actions-empty">No franchisees or teams found</div>
-                        )}
-                        {franchisees.map(u => (
-                            <button key={u.id} className="actions-item" onClick={() => handleAssign(u.id)} disabled={busy}>
-                                <span>{u.display_name || u.email || u.id.slice(0, 8)}</span>
-                            </button>
-                        ))}
-                    </div>
-                )}
-                {menuOpen && subMenu === "reject" && (
-                    <div className="actions-dropdown" style={{ right: 0, left: "auto" }} onClick={(e) => e.stopPropagation()}>
-                        <div className="actions-header">
-                            <button className="actions-back" onClick={() => setSubMenu(null)}>&larr;</button>
-                            Pre-reject
-                        </div>
-                        <div style={{ padding: "8px 12px" }}>
-                            <input
-                                type="text"
-                                placeholder="Reason for rejection"
-                                value={rejectReason}
-                                onChange={(e) => setRejectReason(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === "Enter") handlePreReject(); }}
-                                className="actions-input"
-                                autoFocus
-                            />
-                            <button
-                                className="actions-submit"
-                                onClick={handlePreReject}
-                                disabled={!rejectReason.trim() || busy}
-                            >
-                                Confirm
-                            </button>
-                        </div>
-                    </div>
-                )}
-                {menuOpen && subMenu === "addToList" && (
-                    <div className="actions-dropdown" style={{ right: 0, left: "auto" }} onClick={(e) => e.stopPropagation()}>
-                        <div className="actions-header">
-                            <button className="actions-back" onClick={() => setSubMenu(null)}>&larr;</button>
-                            Add to list
-                        </div>
-                        {lists.length === 0 && (
-                            <div className="actions-empty">No lists yet</div>
-                        )}
-                        {lists.map(list => {
-                            const inList = isPlaceInList(placeId, list.id);
-                            return (
-                                <button
-                                    key={list.id}
-                                    className="actions-item"
-                                    onClick={() => toggleInList(list.id, placeInfo)}
-                                >
-                                    <span style={{ width: 16, textAlign: "center", fontSize: 14 }}>{inList ? "✓" : ""}</span>
-                                    <span>{list.name}</span>
-                                </button>
-                            );
-                        })}
-                        <div className="actions-divider" />
-                        <div style={{ padding: "6px 12px", display: "flex", gap: 6 }}>
-                            <input
-                                type="text"
-                                placeholder="New list name"
-                                value={newListName}
-                                onChange={(e) => setNewListName(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" && newListName.trim()) {
-                                        const newList = createList(newListName.trim());
-                                        toggleInList(newList.id, placeInfo);
-                                        setNewListName("");
-                                    }
-                                }}
-                                className="actions-input"
-                                style={{ marginBottom: 0 }}
-                            />
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-// Pitch status visual config - shared between popup badges and map marker rings/glow
+// Pitch status visuals for the map marker rings and glow
 const PITCH_STATUS_STYLES: Record<string, {
-    dotColor: string;
-    label: string;
     ringClass: string;
     glowStyle: React.CSSProperties;
 }> = {
     submitted: {
-        dotColor: "#60a5fa",
-        label: "Submitted",
         ringClass: "ring-2 ring-blue-400",
         glowStyle: { boxShadow: "0 0 14px 6px rgba(96,165,250,0.65)" },
     },
     approved: {
-        dotColor: "#34d399",
-        label: "Approved",
         ringClass: "ring-2 ring-green-500",
         glowStyle: { boxShadow: "0 0 14px 6px rgba(34,197,94,0.65)" },
     },
     rejected: {
-        dotColor: "#f87171",
-        label: "Rejected",
         ringClass: "ring-2 ring-red-400",
         glowStyle: { boxShadow: "0 0 14px 6px rgba(248,113,113,0.65)" },
     },
     returned: {
-        dotColor: "#fbbf24",
-        label: "Returned",
         ringClass: "ring-2 ring-amber-400",
         glowStyle: { boxShadow: "0 0 14px 6px rgba(251,191,36,0.65)" },
     },
 };
 
-/**
- * The score badge on a property popup: tier dot, tier word, BETA marker and
- * the score tooltip.
- *
- * Two surfaces render it and they differ only by class name, the dark glass
- * chip over a photo and the light chip above the title when there is none.
- * Keeping it in one place means the tooltip wording and the BETA marker have
- * a single edit site, which matters most on the day the score leaves beta.
- *
- * The tooltip deliberately does not repeat BETA. The marker is already on the
- * badge you just tapped to open the tooltip, so saying it twice in one small
- * popup reads as shouting.
- */
-function PropertyScoreBadge({
-    score,
-    className,
-    tooltipVisible,
-    onToggle,
-}: {
-    score: number;
-    className: string;
-    tooltipVisible: boolean;
-    onToggle: (e: React.MouseEvent) => void;
-}) {
-    const tier = scoreTier(score);
-    return (
-        <span className={`${className} tier-badge`} onClick={onToggle}>
-            <span className="dot" style={{ background: SCORE_TIER_COLORS[tier] }} />
-            {SCORE_TIER_LABELS[tier]}
-            <span className="beta-mark">BETA</span>
-            <span className={`badge-tooltip ${tooltipVisible ? "visible" : ""}`}>
-                Location score: {score}/100
-            </span>
-        </span>
-    );
-}
-
+// The listing card. Access and request state are fetched here, above the key, so they
+// survive switching pins; everything else lives in ListingCard, keyed by
+// place so tooltips, steps and drafts never carry over to the next pin.
 const PropertyPopupContent = React.memo(function PropertyPopupContent({ property, cityId, onClose }: { property: PropertyData; cityId: string; onClose?: () => void }) {
-    const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address, true);
     const placeId = generatePropertyPlaceId(property);
-    const title = capitalizeFirst(property.title);
-    const { getPitchStatus, getPitchDate, getPitchRejectionReason, getPitchReturnReason } = usePitchStatusContext();
-    const { getAssignment, canPitch: checkCanPitch, users: assignableUsers, assignProperty, preRejectProperty, removeAssignment } = usePropertyAssignmentContext();
+    const mapsUrl = buildGoogleMapsUrl(property.title, undefined, property.latitude, property.longitude, property.address, true);
     const { canAccessDashboard, accessResolved } = useUserProfiles();
-    const { createTrip, updateTrip } = useScoutingTrips();
-    const { showToast } = useToast();
     // Admins assign directly and never request, so skip the fetch for them.
-    // The footer below reuses this one instance instead of opening its own.
-    // Wait for accessResolved: canAccessDashboard is false until the profile
-    // lands, so without it every admin popup still fired one request fetch
-    // before the flag flipped.
-    const { hasPendingRequest, wasRejectedForMe, requestProperty, approvalNoteFor } =
-        usePropertyRequests(accessResolved && !canAccessDashboard);
-    const approvalNote = approvalNoteFor(placeId);
-    const pitchStatus = getPitchStatus(placeId);
-    const pitchDate = getPitchDate(placeId);
-    const pitchRejectionReason = getPitchRejectionReason(placeId);
-    const assignment = getAssignment(placeId);
-    const isPreRejected = assignment?.status === "pre_rejected";
-
-    const effectiveStatus = isPreRejected ? "rejected" : pitchStatus;
-    const pitchStyle = effectiveStatus ? PITCH_STATUS_STYLES[effectiveStatus] : null;
-
-    const pitchReturnReason = getPitchReturnReason(placeId);
-
-    const buildPitchTooltip = () => {
-        if (isPreRejected) {
-            const reason = assignment.rejection_reason;
-            return reason ? `Pre-rejected: ${reason}` : "Pre-rejected";
-        }
-        if (!pitchStyle || !pitchDate) return pitchStyle?.label ?? null;
-        const dateStr = new Date(pitchDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-        if (pitchStatus === "rejected" && pitchRejectionReason) {
-            return `${pitchStyle.label} on ${dateStr}: ${pitchRejectionReason}`;
-        }
-        if (pitchStatus === "returned" && pitchReturnReason) {
-            return `${pitchStyle.label} on ${dateStr}: ${pitchReturnReason}`;
-        }
-        return `${pitchStyle.label} on ${dateStr}`;
-    };
-    const pitchTooltip = buildPitchTooltip();
-
-    // Build features array
-    const features: string[] = [];
-    if (property.size > 0) features.push(`${property.size} m²`);
-    if (property.hasAirConditioning) features.push('A/C');
-    if (property.hasBathroom) features.push('Bathroom');
-    if (property.hasStorefront) features.push('Storefront');
-
-    const priceChange = getPriceChange(property);
-
-    const photos = React.useMemo(() => property.photos || (property.image_url ? [property.image_url] : []), [property.photos, property.image_url]);
-    const hasMultiplePhotos = photos.length > 1;
-    const [photoIndex, setPhotoIndex] = React.useState(0);
-    const safeIndex = Math.min(photoIndex, Math.max(0, photos.length - 1));
-
-    React.useEffect(() => { setPhotoIndex(0); }, [property.latitude, property.longitude]);
-
-    const [imgError, setImgError] = React.useState(false);
-    React.useEffect(() => { setImgError(false); }, [safeIndex, property.latitude, property.longitude]);
-
-    const [activeTooltip, setActiveTooltip] = React.useState<string | null>(null);
-    React.useEffect(() => {
-        if (!activeTooltip) return;
-        const close = () => setActiveTooltip(null);
-        document.addEventListener("click", close);
-        return () => document.removeEventListener("click", close);
-    }, [activeTooltip]);
-
-    React.useEffect(() => {
-        if (!hasMultiplePhotos) return;
-        const next = (safeIndex + 1) % photos.length;
-        const prev = (safeIndex - 1 + photos.length) % photos.length;
-        [photos[next], photos[prev]].forEach(url => { if (url) new Image().src = url; });
-    }, [safeIndex, photos, hasMultiplePhotos]);
-
+    const requests = usePropertyRequests(accessResolved && !canAccessDashboard);
     return (
-        <div className="popup-base">
-            {/* Image section with carousel */}
-            {photos.length > 0 && (
-                <div className="popup-image medium">
-                    {imgError ? (
-                        <div className="popup-image-placeholder">No photo available</div>
-                    ) : (
-                        <img src={photos[safeIndex]} alt={property.title} onError={() => setImgError(true)} />
-                    )}
-                    <div className="image-badges">
-                        {typeof property.score === "number" && (
-                            <PropertyScoreBadge
-                                score={property.score}
-                                className="score-badge"
-                                tooltipVisible={activeTooltip === "score"}
-                                onToggle={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "score" ? null : "score"); }}
-                            />
-                        )}
-                        {property.updatedAt && (
-                            <span className="freshness-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "freshness" ? null : "freshness"); }}>
-                                {formatTimeAgo(property.updatedAt)}
-                                <span className={`badge-tooltip ${activeTooltip === "freshness" ? "visible" : ""}`}>{freshTooltipText(property.updatedAt)}</span>
-                            </span>
-                        )}
-                        {pitchStyle && (
-                            <span className="score-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "pitch" ? null : "pitch"); }}>
-                                <span className="dot" style={{ background: pitchStyle.dotColor }} />
-                                {pitchStyle.label}
-                                {pitchTooltip && <span className={`badge-tooltip badge-tooltip-wrap ${activeTooltip === "pitch" ? "visible" : ""}`}>{pitchTooltip}</span>}
-                            </span>
-                        )}
-                    </div>
-                    {hasMultiplePhotos && (
-                        <>
-                            <button className="carousel-arrow left" onClick={(e) => { e.stopPropagation(); setPhotoIndex((safeIndex - 1 + photos.length) % photos.length); }}>
-                                <ChevronLeft size={18} />
-                            </button>
-                            <button className="carousel-arrow right" onClick={(e) => { e.stopPropagation(); setPhotoIndex((safeIndex + 1) % photos.length); }}>
-                                <ChevronRight size={18} />
-                            </button>
-                            <div className="carousel-dots">
-                                {photos.slice(0, 7).map((_, i) => (
-                                    <span key={i} className={`carousel-dot ${i === safeIndex ? "active" : ""}`} />
-                                ))}
-                                {photos.length > 7 && <span className="carousel-dot-more">+{photos.length - 7}</span>}
-                            </div>
-                        </>
-                    )}
-                    <PopupActionBar position="image" placeId={placeId} onClose={onClose} />
-                </div>
-            )}
-
-            {/* No-photo fallback: badges above the title, hide/close on the right */}
-            {!property.image_url && (
-                <div className="header-badges">
-                    {typeof property.score === "number" ? (
-                        <PropertyScoreBadge
-                            score={property.score}
-                            className="header-score-badge"
-                            tooltipVisible={activeTooltip === "score"}
-                            onToggle={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "score" ? null : "score"); }}
-                        />
-                    ) : (
-                        <span className="header-score-badge" style={{ opacity: 0.5 }}>
-                            <span className="dot" style={{ background: '#d4d4d4' }} />
-                            Not rated
-                        </span>
-                    )}
-                    {property.updatedAt && (
-                        <span className="header-freshness">{freshBadgeText(property.updatedAt)}</span>
-                    )}
-                    {pitchStyle && (
-                        <span className="header-score-badge" onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "pitch" ? null : "pitch"); }}>
-                            <span className="dot" style={{ background: pitchStyle.dotColor }} />
-                            {pitchStyle.label}
-                            {pitchTooltip && <span className={`badge-tooltip badge-tooltip-wrap ${activeTooltip === "pitch" ? "visible" : ""}`}>{pitchTooltip}</span>}
-                        </span>
-                    )}
-                    {/* The badges are not focusable, so MapLibre's focus-on-open lands on Hide */}
-                    <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
-                </div>
-            )}
-
-            <div className="popup-header">
-                <div className="popup-title-row">
-                    <span className="popup-name">{title}</span>
-                    <ShareButton
-                        placeId={placeId}
-                        placeType="property"
-                        title={title}
-                        address={capitalizeFirst(property.address)}
-                        photoUrl={property.image_url}
-                        listingUrl={property.url}
-                    />
-                </div>
-            </div>
-
-            {/* Address */}
-            <div className="popup-address">{capitalizeFirst(property.address)}</div>
-
-            {/* Price card with optional change badge and transfer chip */}
-            <div className="popup-price-card">
-                <div className="popup-price-top-row">
-                    <div className="popup-price-main">
-                        {property.price > 0 ? (
-                            <>
-                                <span className="price-amount">{property.source === "sreality" ? `${Math.round(property.price).toLocaleString("en-US")} Kč` : `€${Math.round(property.price).toLocaleString("en-US")}`}</span>
-                                <span className="price-period">/month</span>
-                            </>
-                        ) : (
-                            <span className="price-amount" style={{ fontSize: 18 }}>On request</span>
-                        )}
-                    </div>
-                    {priceChange && (
-                        <span className={`popup-price-change ${priceChange.direction}`} onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === "priceChange" ? null : "priceChange"); }}>
-                            {priceChange.direction === "down" ? <TrendingDown size={13} /> : <TrendingUp size={13} />}
-                            {priceChange.percent >= 10 ? Math.round(priceChange.percent) : priceChange.percent.toFixed(1)}%
-                            <span className={`badge-tooltip badge-tooltip-right ${activeTooltip === "priceChange" ? "visible" : ""}`}>Price changed since last data refresh</span>
-                        </span>
-                    )}
-                    {property.transfer && (
-                        <span className="popup-transfer-chip">
-                            {property.source === "sreality" ? "" : "€"}{property.transfer >= 1000 ? `${Math.round(property.transfer / 1000)}k` : property.transfer}{property.source === "sreality" ? " Kč" : ""} transfer
-                        </span>
-                    )}
-                </div>
-            </div>
-
-            {/* Property details */}
-            {features.length > 0 && (
-                <div className="popup-details-row">
-                    {features.map((feature) => (
-                        <span key={feature} className="popup-feature-pill">
-                            {feature}
-                        </span>
-                    ))}
-                </div>
-            )}
-
-            {/* Attachments section */}
-            <PopupAttachmentsSection placeId={placeId} placeName={property.title} placeType="property" lat={property.latitude} lon={property.longitude} />
-
-            {/* Comments section */}
-            <PopupCommentsSection placeId={placeId} placeName={property.title} />
-
-            {/* Assignment info line */}
-            {assignment && (() => {
-                const assignee = assignableUsers.find(u => u.id === assignment.assigned_to);
-                const assigneeName = assignee?.display_name || assignee?.email || "someone";
-                return (
-                    <div className="popup-assignment-line text-xs" style={{ color: isPreRejected ? "#f87171" : "#60a5fa" }}>
-                        {isPreRejected
-                            ? `Pre-rejected${assignment.rejection_reason ? `: ${assignment.rejection_reason}` : ""}`
-                            : `Assigned to ${assigneeName}`
-                        }
-                    </div>
-                );
-            })()}
-
-            {/* The reviewer's optional note when this person's request was
-                approved. Only the requester ever sees it. */}
-            {approvalNote && (
-                <div className="popup-assignment-line text-xs" style={{ color: "#34d399" }}>
-                    Approval note: {approvalNote}
-                </div>
-            )}
-
-            {/* Footer with Actions */}
-            <PropertyActionsFooter
-                property={property}
-                placeId={placeId}
-                cityId={cityId}
-                mapsUrl={mapsUrl}
-                canAccessDashboard={canAccessDashboard}
-                accessResolved={accessResolved}
-                checkCanPitch={checkCanPitch}
-                pitchStatus={pitchStatus}
-                assignableUsers={assignableUsers}
-                assignProperty={assignProperty}
-                preRejectProperty={preRejectProperty}
-                removeAssignment={removeAssignment}
-                hasPendingRequest={hasPendingRequest}
-                wasRejectedForMe={wasRejectedForMe}
-                requestProperty={requestProperty}
-                assignment={assignment}
-                createTrip={createTrip}
-                updateTrip={updateTrip}
-                showToast={showToast}
-                onClose={onClose}
-            />
-        </div>
+        <ListingCard
+            key={placeId}
+            property={property}
+            placeId={placeId}
+            mapsUrl={mapsUrl}
+            cityId={cityId}
+            onClose={onClose}
+            requests={requests}
+            isAdmin={canAccessDashboard}
+            accessResolved={accessResolved}
+        />
     );
 });
 
-// Other POI popup content - Uses universal popup base - memoized
+// The card for metro stations, gyms, offices and other places.
 const OtherPoiPopupContent = React.memo(function OtherPoiPopupContent({ poi, onClose }: { poi: OtherPoiData; onClose?: () => void }) {
-    const mapsUrl = buildGoogleMapsUrl(poi.name, poi.mapsUrl || undefined, poi.lat, poi.lon, poi.address);
-    const commentCount = 0; // TODO: Get from data when available
     const placeId = `${poi.type}-${poi.lat.toFixed(5)}-${poi.lon.toFixed(5)}`;
-
-    return (
-        <div className="popup-base">
-            {/* Type chip on the left, hide/close on the right. The chip is not
-                focusable, so MapLibre's focus-on-open lands on Hide. */}
-            <div className="header-badges">
-                <span className="popup-chip type">{poi.category}</span>
-                <PopupActionBar position="header" placeId={placeId} onClose={onClose} />
-            </div>
-
-            <div className="popup-header">
-                <div className="popup-title-row">
-                    <span className="popup-name">{poi.name}</span>
-                    <ShareButton placeId={placeId} placeType={poi.type} title={poi.name} address={poi.address} />
-                </div>
-                {commentCount > 0 && (
-                    <button className="popup-comments">
-                        <MessageSquare size={14} />
-                        {commentCount}
-                    </button>
-                )}
-            </div>
-
-            {/* Address */}
-            <div className="popup-address">{poi.address}</div>
-
-            {/* Attachments section */}
-            <PopupAttachmentsSection placeId={placeId} placeName={poi.name} placeType={poi.type} lat={poi.lat} lon={poi.lon} />
-
-            {/* Comments section */}
-            <PopupCommentsSection placeId={placeId} placeName={poi.name} />
-
-            {/* Footer */}
-            <div className="popup-footer">
-                <div className="popup-buttons">
-                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="popup-btn-icon has-bg">
-                        <img src="/assets/google-maps-logo-bare.png" alt="Maps" />
-                    </a>
-                    {poi.website && (
-                        <a href={poi.website} target="_blank" rel="noopener noreferrer" className="popup-btn-icon social">
-                            <Globe />
-                        </a>
-                    )}
-                </div>
-                <AddToListButton place={{
-                    placeId: placeId,
-                    placeType: poi.type as PlaceInfo['placeType'],
-                    placeName: poi.name,
-                    placeAddress: poi.address,
-                    lat: poi.lat,
-                    lon: poi.lon,
-                }} />
-            </div>
-        </div>
-    );
+    const mapsUrl = buildGoogleMapsUrl(poi.name, poi.mapsUrl || undefined, poi.lat, poi.lon, poi.address);
+    return <PlaceCard key={placeId} poi={poi} placeId={placeId} mapsUrl={mapsUrl} onClose={onClose} />;
 });
 
 // Internal component that manages overlay layers (must be inside Map component)
@@ -2731,7 +1524,7 @@ export function EnhancedMapContainer({
     // Pitch status context for property markers
     const { getPitchStatus } = usePitchStatusContext();
     // Assignment context for "mine" filter and pitch blocking
-    const { isAssignedToMe, getAssignment: getPropertyAssignment, canPitch, isLoaded: assignmentsLoaded } = usePropertyAssignmentContext();
+    const { isAssignedToMe, getAssignment: getPropertyAssignment, isLoaded: assignmentsLoaded } = usePropertyAssignmentContext();
 
     // Handler for marker click in linking mode
     const handleLinkingClick = React.useCallback((item: {
@@ -3759,6 +2552,7 @@ export function EnhancedMapContainer({
                     onClose={handleDetailPopupClose}
                     snapPoint="partial"
                     showCloseButton={false}
+                    bleedTop
                 >
                     <CafePopupContent cafe={selectedCafe.cafe} onClose={handleDetailPopupClose} />
                 </BottomSheet>
@@ -3770,6 +2564,7 @@ export function EnhancedMapContainer({
                     onClose={handleDetailPopupClose}
                     snapPoint="partial"
                     showCloseButton={false}
+                    bleedTop
                 >
                     <PropertyPopupContent property={selectedProperty.property} cityId={selectedCity?.id || ''} onClose={handleDetailPopupClose} />
                 </BottomSheet>
@@ -3781,6 +2576,7 @@ export function EnhancedMapContainer({
                     onClose={handleDetailPopupClose}
                     snapPoint="partial"
                     showCloseButton={false}
+                    bleedTop
                 >
                     <OtherPoiPopupContent poi={selectedPoi.poi} onClose={handleDetailPopupClose} />
                 </BottomSheet>

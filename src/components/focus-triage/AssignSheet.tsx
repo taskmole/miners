@@ -1,9 +1,7 @@
 "use client";
 
 import React from "react";
-import { Users, UserPlus } from "lucide-react";
-import { useTeamsContext } from "@/contexts/TeamsContext";
-import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
+import { AssignList } from "@/components/AssignList";
 import { DETAILS_SHEET } from "./layout";
 
 interface AssignSheetProps {
@@ -12,10 +10,6 @@ interface AssignSheetProps {
 }
 
 export function AssignSheet({ onAssign, onClose }: AssignSheetProps) {
-  const { teams } = useTeamsContext();
-  const { users: assignableUsers } = usePropertyAssignmentContext();
-  const franchisees = assignableUsers.filter((u) => u.role === "franchisee");
-
   return (
     <>
       {/* Backdrop */}
@@ -41,70 +35,7 @@ export function AssignSheet({ onAssign, onClose }: AssignSheetProps) {
         {/* Options scroll on their own so Cancel below always stays reachable,
             even with three teams and a long list of franchisees on a phone. */}
         <div className="px-6 flex-1 min-h-0 max-h-[60vh] overflow-y-auto">
-          {/* Teams */}
-          {teams.length > 0 && (
-            <>
-              <p className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-2">
-                Teams
-              </p>
-              <div className="space-y-0.5 mb-4">
-                {teams.map((team) => (
-                  <button
-                    key={team.id}
-                    onClick={() => onAssign(team.id, team.name, "team")}
-                    className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-zinc-50 transition-colors"
-                  >
-                    <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center">
-                      <Users className="w-3 h-3 text-blue-600" />
-                    </div>
-                    <span className="text-sm text-zinc-700 flex-1 text-left">
-                      {team.name}
-                    </span>
-                    <span className="text-xs text-zinc-400">
-                      {team.team_members.length} members
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* People */}
-          {franchisees.length > 0 && (
-            <>
-              <p className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-2">
-                People
-              </p>
-              <div className="space-y-0.5">
-                {franchisees.map((person) => (
-                  <button
-                    key={person.id}
-                    onClick={() =>
-                      onAssign(
-                        person.id,
-                        person.display_name || person.email || person.id.slice(0, 8),
-                        "user",
-                      )
-                    }
-                    className="w-full flex items-center gap-3 py-3 rounded-lg hover:bg-zinc-50 transition-colors"
-                  >
-                    <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <UserPlus className="w-3 h-3 text-emerald-600" />
-                    </div>
-                    <span className="text-sm text-zinc-700 flex-1 text-left">
-                      {person.display_name || person.email || person.id.slice(0, 8)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {teams.length === 0 && franchisees.length === 0 && (
-            <p className="text-sm text-zinc-400 text-center py-4">
-              No teams or franchisees found
-            </p>
-          )}
+          <AssignList onAssign={onAssign} />
         </div>
 
         {/* Cancel sits outside the scroll area, so backing out never means
