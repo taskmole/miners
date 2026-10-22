@@ -204,8 +204,9 @@ npm run refresh:google -- --dry-run       # fetch and report, write nothing
   (that one is the same cafe under a new id and keeps the old pin). Temporarily
   closed cafes stay.
 - **New results:** a hit matching a coffee-trip cafe by name (50 m, or 100 m with
-  a very close name) only lends that pin its Google details. Supermarkets,
-  petrol stations, hotels and malls are skipped.
+  a very close name) only lends that pin its Google details. Only Google types coffee_shop, cafe, cafeteria, coffee_roastery and
+  coffee_stand become new pins (the search also returns supermarkets, donut
+  chains, bars, bakeries); existing pins are never filtered.
 - **Safety stops:** a city's files are left untouched if a search square fails
   after retries, Google returns nothing, or over 15% of its cafes would go.
 - **Automation:** second step of `.github/workflows/euct-refresh.yml` (runs even
