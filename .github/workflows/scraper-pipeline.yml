@@ -67,6 +67,8 @@ jobs:
           SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          # Haiku checks new rental descriptions for hidden transfer fees.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC }}
         run: |
           npx ts-node --project scripts/data-pipeline/tsconfig.json \
             scripts/data-pipeline/fetch-idealista.ts \

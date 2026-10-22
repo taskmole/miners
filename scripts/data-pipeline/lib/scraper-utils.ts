@@ -37,6 +37,8 @@ export interface ValidatedListing {
   price: number | null;
   photos: string[];
   metadata: Record<string, unknown>;
+  // Metadata keys that keep their stored value when this scrape has none.
+  keepKeys?: string[];
 }
 
 export interface PublishStats {
@@ -144,11 +146,14 @@ export async function publishListings(
     const { priceChanged, priceHistory } = detectPriceChange(existingMeta, listing.price);
     if (priceChanged) priceChanges++;
 
-    const metadata = {
+    const metadata: Record<string, unknown> = {
       ...listing.metadata,
       price_history: priceHistory,
       price_changed: priceChanged,
     };
+    for (const key of listing.keepKeys ?? []) {
+      if (metadata[key] == null && existingMeta?.[key] != null) metadata[key] = existingMeta[key];
+    }
 
     try {
       if (existing) {
