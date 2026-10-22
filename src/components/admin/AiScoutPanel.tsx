@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, AlertTriangle, Clock, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Clock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,20 +17,26 @@ import { ToastProvider, useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api-client";
 import { UNLOCK_RATINGS } from "@/lib/ai-scout-unlock";
 import { cn } from "@/lib/utils";
-import { EmptyRow, ListCard, SectionHeader } from "@/components/admin/admin-ui";
+import { Chips, EmptyRow, ListCard, PageIntro, StatusBadge, formatShortDate } from "@/components/admin/admin-ui";
 import type {
   AiScoutOverview,
+  AiScoutPoint,
   AiScoutSuggestion,
   AiScoutVersion,
 } from "@/app/api/db/ai-scout/route";
 
 /**
- * Admin "AI scout" tab: head office reviews what the weekly learner
- * suggests, adds their own rules, sees how the score is weighted, and can
- * switch back to an earlier version.
+ * Admin "AI scout" tab: head office reads and adds the rules the AI follows,
+ * reviews what the weekly learner suggests, sees how the score is weighted,
+ * and can switch back to an earlier version. One of the four at a time.
  *
  * The admin page has no ToastProvider of its own, so this panel brings one.
  */
+
+type View = "rules" | "suggestions" | "score" | "history";
+
+/** Your own rule, still being tested: shown under Rules, not Suggestions. */
+const isPendingRule = (s: AiScoutSuggestion) => s.source === "user" && s.status === "testing";
 
 const RULE_MIN = 5;
 const RULE_MAX = 300;
@@ -52,16 +59,11 @@ function friendlyError(err: unknown, fallback: string): string {
   return fallback;
 }
 
+/** "listing" for 1, "listings" otherwise. */
+const listingWord = (n: number) => (n === 1 ? "listing" : "listings");
+
 function pct(v: number | null): string {
   return v === null ? "-" : `${Math.round(v * 100)}%`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 export function AiScoutPanel() {
@@ -82,12 +84,17 @@ function AiScoutPanelInner() {
   const [ruleText, setRuleText] = useState("");
   const [proposing, setProposing] = useState(false);
   const [confirmVersion, setConfirmVersion] = useState<AiScoutVersion | null>(null);
+  /** Which of the four views is open. Picked by the first load, then by chips. */
+  const [view, setView] = useState<View | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
     try {
       const next = await apiFetch<AiScoutOverview>("/api/db/ai-scout");
       setData(next);
+      // First load picks the view: Suggestions when one is ready to keep
+      // (the weekly email links here), otherwise Rules. Later loads keep it.
+      setView((v) => v ?? (next.suggestions.some((s) => s.status === "ready") ? "suggestions" : "rules"));
     } catch (err) {
       setLoadError(friendlyError(err, "Could not load the AI scout. Please try again."));
     } finally {
@@ -123,7 +130,7 @@ function AiScoutPanelInner() {
         await load();
         return;
       }
-      showToast(accept ? "Accepted. The AI uses it from now on." : "Skipped");
+      showToast(accept ? "Kept. The AI uses it from now on." : isPendingRule(suggestion) ? "Removed" : "Skipped");
       // Accepting writes a new version with new weights, so re-read it.
       if (accept) await load();
     } catch (err) {
@@ -190,47 +197,130 @@ function AiScoutPanelInner() {
     );
   }
 
-  // The newest tested suggestion says how many listings the scoreboard used.
-  // Before any test has run, fall back to how many ratings exist at all.
-  const testedOn = data.suggestions.find((s) => s.status !== "testing" && s.sample)?.sample ?? 0;
+  // Your own rules wait under Rules, marked "Testing", until they are
+  // tested; everything else needing a decision sits under Suggestions.
+  const pendingRules = data.suggestions.filter(isPendingRule);
+  const toReview = data.suggestions.filter((s) => !isPendingRule(s));
+  const shown: View = view ?? "rules";
+  const rules = data.profile?.rules ?? [];
   const ruleLength = ruleText.replace(/\s+/g, " ").trim().length;
-  const ratingsLeft = Math.max(UNLOCK_RATINGS - data.ratedSinceSuggestions, 0);
+  const rated = Math.min(data.ratedSinceSuggestions, UNLOCK_RATINGS);
+  const ratingsLeft = UNLOCK_RATINGS - rated;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <section className="bg-white rounded-xl border border-zinc-200 p-4">
-        <h2 className="text-lg font-semibold text-zinc-900">Improve your AI scout</h2>
-        <p className="text-sm text-zinc-500">
-          {testedOn > 0
-            ? `Tested on the ${testedOn} ${testedOn === 1 ? "listing" : "listings"} you've rated`
-            : data.ratingsSaved > 0
-              ? `${data.ratingsSaved} ${data.ratingsSaved === 1 ? "rating" : "ratings"} saved so far`
-              : "No listings rated yet"}
-        </p>
-        {data.week.listingsRated > 0 && (
-          <p className="text-sm text-zinc-500 mt-2">
-            This week: {data.week.listingsRated}{" "}
-            {data.week.listingsRated === 1 ? "listing" : "listings"} rated
-            {data.week.agreement !== null &&
-              `, you agreed with the AI ${pct(data.week.agreement)} of the time`}
-            .
+      <PageIntro title="AI scout" description="Scores every new listing. Rate listings on the map to teach it." />
+
+      {/* Progress towards the next suggestions */}
+      <section className="bg-white rounded-xl border border-zinc-200 px-4 py-3 flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-zinc-900">
+            {ratingsLeft > 0
+              ? `Rate ${ratingsLeft} more ${listingWord(ratingsLeft)} to get new suggestions`
+              : "Enough ratings. New suggestions arrive after the Wednesday night check."}
           </p>
-        )}
+          <div className="mt-2 h-1.5 rounded-full bg-zinc-100 overflow-hidden">
+            <div className="h-full rounded-full bg-zinc-900" style={{ width: `${(rated / UNLOCK_RATINGS) * 100}%` }} />
+          </div>
+          {data.week.listingsRated > 0 && (
+            <p className="text-xs text-zinc-500 mt-2">
+              This week: {data.week.listingsRated} {listingWord(data.week.listingsRated)} rated
+              {data.week.agreement !== null && `, you agreed with the AI ${pct(data.week.agreement)} of the time`}.
+            </p>
+          )}
+        </div>
+        <Button asChild variant="outline" size="action" className="shrink-0">
+          <Link href="/">Open map</Link>
+        </Button>
       </section>
 
-      {/* Suggestions */}
-      <section>
-        <SectionHeader title="Suggestions" />
-        {data.suggestions.length === 0 ? (
-          <EmptyRow>
-            {ratingsLeft > 0
-              ? `No suggestions yet. Rate ${ratingsLeft} more ${ratingsLeft === 1 ? "listing" : "listings"} to unlock them.`
-              : "Enough new ratings. Suggestions arrive after the next Wednesday-night check."}
-          </EmptyRow>
-        ) : (
-          <div className="space-y-3">
-            {data.suggestions.map((s) => (
+      <Chips
+        label="Show"
+        value={shown}
+        onChange={setView}
+        options={[
+          { id: "rules", label: "Rules", count: rules.length },
+          { id: "suggestions", label: "Suggestions", count: toReview.length },
+          { id: "score", label: "Score" },
+          { id: "history", label: "History" },
+        ]}
+      />
+
+      {shown === "rules" && (
+        <section className="space-y-3">
+          <p className="text-sm text-zinc-500">The AI always follows these when it scores a listing.</p>
+          {rules.length + pendingRules.length === 0 ? (
+            <EmptyRow>No rules yet. Add the first one below.</EmptyRow>
+          ) : (
+            <ListCard>
+              {rules.map((rule, i) => (
+                <div key={i} className="px-4 py-3 flex gap-3 text-sm">
+                  <span className="shrink-0 w-5 text-zinc-400 tabular-nums">{i + 1}</span>
+                  <span className="min-w-0 break-words text-zinc-900">{rule}</span>
+                </div>
+              ))}
+              {pendingRules.map((s) => (
+                <div key={s.id} className="px-4 py-3 flex items-start gap-3 text-sm">
+                  <span className="shrink-0 w-5" />
+                  <span className="flex-1 min-w-0 break-words text-zinc-500">{s.title}</span>
+                  {/* Stacked on phones so the rule text keeps its width */}
+                  <div className="shrink-0 flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
+                    <StatusBadge status="testing" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => decide(s, false)}
+                      disabled={busyId !== null}
+                      className="-my-1 -mr-2 text-zinc-500"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </ListCard>
+          )}
+          <form
+            className="flex flex-col sm:flex-row gap-2 pt-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              propose();
+            }}
+          >
+            <Input
+              value={ruleText}
+              onChange={(e) => setRuleText(e.target.value)}
+              placeholder="Add a rule, e.g. Never above the 2nd floor"
+              maxLength={RULE_MAX}
+              aria-label="New rule"
+              className="h-11 md:h-11 text-base sm:text-sm sm:flex-1 bg-white"
+            />
+            <Button
+              type="submit"
+              disabled={ruleLength < RULE_MIN || proposing}
+              className="h-11 sm:w-32"
+            >
+              {proposing ? "Adding..." : "Add rule"}
+            </Button>
+          </form>
+          <p className="text-xs text-zinc-500">
+            New rules are first tested on listings you already rated, which takes a few hours. If one helps, it
+            shows up under Suggestions for you to keep.
+          </p>
+        </section>
+      )}
+
+      {shown === "suggestions" && (
+        <section className="space-y-3">
+          <p className="text-sm text-zinc-500">Changes the AI wants to make, based on your ratings. Keep the ones that help.</p>
+          {toReview.length === 0 ? (
+            <EmptyRow>
+              {ratingsLeft > 0
+                ? `Nothing to review. Rate ${ratingsLeft} more ${listingWord(ratingsLeft)} on the map to get suggestions.`
+                : "Nothing to review. New suggestions arrive after the Wednesday night check."}
+            </EmptyRow>
+          ) : (
+            toReview.map((s) => (
               <SuggestionCard
                 key={s.id}
                 suggestion={s}
@@ -238,115 +328,58 @@ function AiScoutPanelInner() {
                 disabled={busyId !== null}
                 onDecide={(accept) => decide(s, accept)}
               />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Add your own rule */}
-      <section className="bg-white rounded-xl border border-dashed border-zinc-300 p-4 space-y-3">
-        <div>
-          <h3 className="font-medium text-zinc-900">Add your own rule</h3>
-          <p className="text-sm text-zinc-500">
-            We test it on the listings you&apos;ve rated. Results show up here within a few hours.
-          </p>
-        </div>
-        <form
-          className="flex flex-col sm:flex-row gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            propose();
-          }}
-        >
-          <Input
-            value={ruleText}
-            onChange={(e) => setRuleText(e.target.value)}
-            placeholder="e.g. Never above the 2nd floor"
-            maxLength={RULE_MAX}
-            aria-label="Your rule"
-            className="h-11 md:h-11 text-base sm:text-sm flex-1"
-          />
-          <Button
-            type="submit"
-            disabled={ruleLength < RULE_MIN || proposing}
-            className="h-11 sm:w-32 bg-zinc-900 hover:bg-zinc-800 text-white"
-          >
-            {proposing ? "Adding..." : "Test it"}
-          </Button>
-        </form>
-      </section>
-
-      {/* Weights */}
-      {data.profile && (
-        <section>
-          <SectionHeader title="How the score is weighted" />
-          <ListCard>
-            {data.profile.points.map((p) => (
-              <div key={p.id} className="px-4 py-3 flex items-center gap-3">
-                <span className="flex-1 min-w-0 text-sm text-zinc-900 break-words">{p.label}</span>
-                <span
-                  className={cn(
-                    "shrink-0 w-12 text-center text-xs font-medium py-0.5 rounded-full",
-                    p.kind === "ai" ? "bg-violet-50 text-violet-700" : "bg-zinc-100 text-zinc-600",
-                  )}
-                >
-                  {p.kind === "ai" ? "AI" : "Facts"}
-                </span>
-                <span className="shrink-0 w-12 text-right text-sm font-semibold text-zinc-900 tabular-nums">
-                  {p.weight}%
-                </span>
-              </div>
-            ))}
-          </ListCard>
-          {data.profile.rules.length > 0 && (
-            <details className="mt-3 bg-white rounded-xl border border-zinc-200 px-4 text-sm">
-              <summary className="cursor-pointer text-zinc-700 font-medium py-3">
-                Rules it follows ({data.profile.rules.length})
-              </summary>
-              <ul className="pb-3 space-y-1.5 list-disc pl-5 text-zinc-600">
-                {data.profile.rules.map((rule, i) => (
-                  <li key={i} className="break-words">
-                    {rule}
-                  </li>
-                ))}
-              </ul>
-            </details>
+            ))
           )}
         </section>
       )}
 
-      {/* Versions */}
-      {data.versions.length > 0 && (
-        <section>
-          <SectionHeader title="Versions" />
-          <ListCard>
-            {data.versions.map((v) => (
-              <div key={v.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-zinc-900">Version {v.version}</span>
-                    {v.isActive && (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
-                        In use
-                      </span>
-                    )}
+      {shown === "score" && (
+        <section className="space-y-3">
+          <p className="text-sm text-zinc-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>How much each thing adds to the score.</span>
+            <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-500" />Judged by AI</span>
+            <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-zinc-400" />From data</span>
+          </p>
+          {!data.profile || data.profile.points.length === 0 ? (
+            <EmptyRow>The score is not set up yet.</EmptyRow>
+          ) : (
+            <ScoreBars points={data.profile.points} />
+          )}
+        </section>
+      )}
+
+      {shown === "history" && (
+        <section className="space-y-3">
+          <p className="text-sm text-zinc-500">Every change makes a new version. You can switch back to an earlier one.</p>
+          {data.versions.length === 0 ? (
+            <EmptyRow>No versions yet.</EmptyRow>
+          ) : (
+            <ListCard>
+              {data.versions.map((v) => (
+                <div key={v.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-zinc-900">Version {v.version}</span>
+                      {v.isActive && <StatusBadge status="in-use" />}
+                    </div>
+                    {v.note && <p className="text-sm text-zinc-500 break-words">{v.note}</p>}
+                    <p className="text-xs text-zinc-400">{formatShortDate(v.createdAt)}</p>
                   </div>
-                  {v.note && <p className="text-sm text-zinc-500 break-words">{v.note}</p>}
-                  <p className="text-xs text-zinc-400">{formatDate(v.createdAt)}</p>
+                  {!v.isActive && (
+                    <Button
+                      variant="outline"
+                      size="action"
+                      onClick={() => setConfirmVersion(v)}
+                      disabled={busyId !== null}
+                      className="sm:w-32 shrink-0"
+                    >
+                      {busyId === v.id ? "Switching..." : "Switch back"}
+                    </Button>
+                  )}
                 </div>
-                {!v.isActive && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setConfirmVersion(v)}
-                    disabled={busyId !== null}
-                    className="h-11 sm:w-32 shrink-0"
-                  >
-                    {busyId === v.id ? "Switching..." : "Switch back"}
-                  </Button>
-                )}
-              </div>
-            ))}
-          </ListCard>
+              ))}
+            </ListCard>
+          )}
         </section>
       )}
 
@@ -376,6 +409,36 @@ function AiScoutPanelInner() {
   );
 }
 
+const KIND_LABELS: Record<AiScoutSuggestion["kind"], string> = {
+  rule: "New rule",
+  point: "New thing to score",
+  weight: "Weight change",
+};
+
+/** Each scored point as a bar, scaled so the biggest weight fills the row. */
+function ScoreBars({ points }: { points: AiScoutPoint[] }) {
+  const max = Math.max(...points.map((p) => p.weight), 1);
+  return (
+    <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-2.5">
+      {points.map((p) => (
+        <div key={p.id} className="flex items-center gap-3 text-sm">
+          <span className="w-28 sm:w-40 shrink-0 break-words text-zinc-900">
+            {p.label}
+            <span className="sr-only">{p.kind === "ai" ? ", judged by AI" : ", from data"}</span>
+          </span>
+          <div className="flex-1 h-2 rounded-full bg-zinc-100 overflow-hidden">
+            <div
+              className={cn("h-full rounded-full", p.kind === "ai" ? "bg-violet-500" : "bg-zinc-400")}
+              style={{ width: `${(Math.max(p.weight, 0) / max) * 100}%` }}
+            />
+          </div>
+          <span className="w-10 shrink-0 text-right font-medium text-zinc-900 tabular-nums">{p.weight}%</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SuggestionCard({
   suggestion: s,
   busy,
@@ -398,6 +461,9 @@ function SuggestionCard({
         held ? "bg-zinc-50 border-zinc-200" : "bg-white border-zinc-200",
       )}
     >
+      <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-md bg-violet-50 text-violet-700">
+        {KIND_LABELS[s.kind]}
+      </span>
       <p className={cn("font-medium break-words", held ? "text-zinc-500" : "text-zinc-900")}>
         {s.title}
       </p>
@@ -424,12 +490,11 @@ function SuggestionCard({
       )}
 
       {!testing && !held && hasScores && (
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-zinc-500">Matches you:</span>
-          <b className="text-zinc-900">{pct(s.scoreBefore)}</b>
-          <ArrowRight className="w-3.5 h-3.5 text-zinc-400" aria-label="to" />
-          <b className="text-emerald-600">{pct(s.scoreAfter)}</b>
-        </div>
+        <p className="text-sm text-zinc-700">
+          Agrees with you <b className="text-zinc-900">{pct(s.scoreBefore)}</b> of the time now,{" "}
+          <b className="text-emerald-600">{pct(s.scoreAfter)}</b> with this change
+          {s.sample ? ` (tested on ${s.sample} ${listingWord(s.sample)})` : ""}.
+        </p>
       )}
 
       <div className="flex gap-2 pt-1 sm:justify-end">
@@ -445,9 +510,9 @@ function SuggestionCard({
           <Button
             onClick={() => onDecide(true)}
             disabled={disabled}
-            className="flex-1 sm:flex-none sm:w-32 h-11 bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="flex-1 sm:flex-none sm:w-32 h-11"
           >
-            Accept
+            Keep
           </Button>
         )}
       </div>

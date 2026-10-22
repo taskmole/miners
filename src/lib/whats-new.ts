@@ -144,6 +144,18 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       alt: "A property request with small Reject and Approve buttons next to it",
     },
   },
+  {
+    id: 7,
+    date: "2026-10-22",
+    title: "The dashboard got a tidy up",
+    body: "Requests now come first, every tab is laid out the same way, and the AI scout tab explains what each part does.",
+    audience: "approvers",
+    visual: {
+      kind: "image",
+      src: "/assets/whats-new/admin-tidy-v1.jpg",
+      alt: "The admin dashboard's Cafes tab with city buttons and one tidy row per cafe",
+    },
+  },
 ];
 
 /** The newest id that exists. Closing the popup marks everything up to here seen. */
