@@ -83,7 +83,7 @@ describe("mergeGoogleCity", () => {
 
   it("adds new cafes with a first-seen date", () => {
     const { rows, stats } = merge({ found: [place("B", "Brand New", 40.3, -3.3)] });
-    expect(stats.added).toEqual(["Brand New"]);
+    expect(stats.added).toEqual(["Brand New (coffee_shop)"]);
     expect(rows[0]).toMatchObject({ source_id: "B", lat: "40.3", lon: "-3.3", fetchedAt: NOW, refreshedAt: NOW });
   });
 
@@ -155,15 +155,20 @@ describe("mergeGoogleCity", () => {
     expect(rows.map((r) => r.source_id)).toEqual(["FRESH"]);
   });
 
-  it("skips obvious non-cafes among new results only", () => {
+  it("only adds new hits Google calls a cafe (never a Miners), and never filters existing pins", () => {
     const existing = [row("SUPER", "Old Supermarket", "40.1", "-3.1", { primaryType: "supermarket" })];
     const found = [
       place("SUPER", "Old Supermarket", 40.1, -3.1, { primaryType: "supermarket" }),
       place("MART", "Mercadona", 40.2, -3.2, { primaryType: "supermarket" }),
+      place("DONUT", "Dunkin", 40.3, -3.3, { primaryType: "donut_shop" }),
+      place("NOTYPE", "Mystery", 40.4, -3.4, { primaryType: undefined }),
+      place("CAFE", "Real Cafe", 40.5, -3.5, { primaryType: "cafe" }),
+      place("OURS", "The Miners Coffee San Bernardo", 40.6, -3.6),
     ];
     const { rows, stats } = merge({ existing, found });
-    expect(rows.map((r) => r.source_id)).toEqual(["SUPER"]);
-    expect(stats.skippedNonCafe).toBe(1);
+    expect(rows.map((r) => r.source_id)).toEqual(["SUPER", "CAFE"]);
+    expect(stats.added).toEqual(["Real Cafe (cafe)"]);
+    expect(stats.skippedTypes).toEqual({ supermarket: 1, donut_shop: 1, unknown: 1 });
   });
 
   it("turns a new hit matching a coffee-trip cafe by name into that cafe's details, not a pin", () => {

@@ -1,0 +1,1999 @@
+{
+  "stamp": "39847039049-1",
+  "createdAt": "2026-10-22T20:16:13.813Z",
+  "cities": {
+    "madrid": {
+      "added": [
+        {
+          "name": "Keyko Specialty Coffee Argüelles",
+          "kind": "regular",
+          "placeId": "cafe-40.43137--3.71736"
+        },
+        {
+          "name": "Ohana Açai",
+          "kind": "regular",
+          "placeId": "cafe-40.30181--3.75175"
+        },
+        {
+          "name": "Chouquette Madrid",
+          "kind": "regular",
+          "placeId": "cafe-40.43313--3.71487"
+        },
+        {
+          "name": "Luna & Latte - Specialty Coffee & Brunch",
+          "kind": "regular",
+          "placeId": "cafe-40.45110--3.64973"
+        },
+        {
+          "name": "Amore Café Brunch",
+          "kind": "regular",
+          "placeId": "cafe-40.43726--3.64206"
+        },
+        {
+          "name": "Delbrin Specialty Coffee",
+          "kind": "regular",
+          "placeId": "cafe-40.40714--3.67699"
+        },
+        {
+          "name": "PAI - Cafetería de especialidad",
+          "kind": "regular",
+          "placeId": "cafe-40.39212--3.71226"
+        },
+        {
+          "name": "Syra Coffee - Espíritu Santo",
+          "kind": "regular",
+          "placeId": "cafe-40.42514--3.70302"
+        },
+        {
+          "name": "MATEMATICO. Café (Cafetería de Especialidad)",
+          "kind": "regular",
+          "placeId": "cafe-40.43518--3.69525"
+        },
+        {
+          "name": "Verde desayunos y plantas",
+          "kind": "regular",
+          "placeId": "cafe-40.42536--3.55315"
+        },
+        {
+          "name": "Concreto",
+          "kind": "regular",
+          "placeId": "cafe-40.43669--3.71644"
+        },
+        {
+          "name": "ALCHEMY Specialty Coffee 4.0",
+          "kind": "regular",
+          "placeId": "cafe-40.44115--3.69789"
+        },
+        {
+          "name": "MOLLY COFFEE",
+          "kind": "regular",
+          "placeId": "cafe-40.32920--3.73079"
+        },
+        {
+          "name": "Cafetería, Panadería, Pastelería Angie",
+          "kind": "regular",
+          "placeId": "cafe-40.38162--3.65604"
+        },
+        {
+          "name": "Nela Cafeteria. Honest food, Specialty Coffee, Menú & Afterwork",
+          "kind": "regular",
+          "placeId": "cafe-40.43795--3.62638"
+        },
+        {
+          "name": "Casto - Bakery and Specialty Coffee",
+          "kind": "regular",
+          "placeId": "cafe-40.42037--3.69822"
+        },
+        {
+          "name": "ALCHEMY Specialty Coffee",
+          "kind": "regular",
+          "placeId": "cafe-40.41149--3.70775"
+        },
+        {
+          "name": "Sinfonía Specialty Coffee",
+          "kind": "regular",
+          "placeId": "cafe-40.42934--3.67385"
+        },
+        {
+          "name": "Casa Minut",
+          "kind": "regular",
+          "placeId": "cafe-40.41493--3.70833"
+        },
+        {
+          "name": "Sesimbra & coffee",
+          "kind": "regular",
+          "placeId": "cafe-40.42016--3.56860"
+        },
+        {
+          "name": "Sole Mio | Specialty Coffee",
+          "kind": "regular",
+          "placeId": "cafe-40.42671--3.69826"
+        },
+        {
+          "name": "The Sippers Coffee - Specialty Coffee & Brunch",
+          "kind": "regular",
+          "placeId": "cafe-40.43511--3.61983"
+        },
+        {
+          "name": "Kon Kafé - Specialty Coffee and Cookies",
+          "kind": "regular",
+          "placeId": "cafe-40.41726--3.70543"
+        },
+        {
+          "name": "Perrisimo Dog Cafe & Bar",
+          "kind": "regular",
+          "placeId": "cafe-40.41895--3.67878"
+        },
+        {
+          "name": "Veda Organic - Specialty Coffee & Brunch - Arturo Soria",
+          "kind": "regular",
+          "placeId": "cafe-40.45106--3.65014"
+        },
+        {
+          "name": "95 Café",
+          "kind": "regular",
+          "placeId": "cafe-40.40364--3.71475"
+        },
+        {
+          "name": "Agora Specialty Coffee",
+          "kind": "regular",
+          "placeId": "cafe-40.42345--3.67902"
+        },
+        {
+          "name": "Kora Café · Café de especialidad & Brunch",
+          "kind": "regular",
+          "placeId": "cafe-40.44770--3.79832"
+        },
+        {
+          "name": "Risto Coffee & Bakery",
+          "kind": "regular",
+          "placeId": "cafe-40.34115--3.67722"
+        },
+        {
+          "name": "TO BE Coffee",
+          "kind": "regular",
+          "placeId": "cafe-40.43011--3.67656"
+        },
+        {
+          "name": "Religion Coffee RITUAL",
+          "kind": "regular",
+          "placeId": "cafe-40.44563--3.68494"
+        },
+        {
+          "name": "Unforgiven - Specialty Coffee Lab & Roastery",
+          "kind": "regular",
+          "placeId": "cafe-40.40202--3.67908"
+        },
+        {
+          "name": "ZÉFIR coffee · matcha",
+          "kind": "regular",
+          "placeId": "cafe-40.42509--3.70248"
+        },
+        {
+          "name": "lahuevería11",
+          "kind": "regular",
+          "placeId": "cafe-40.42052--3.67807"
+        },
+        {
+          "name": "Luna & Wanda - Ibiza | Specialty Coffee & Cheesecake",
+          "kind": "regular",
+          "placeId": "cafe-40.41727--3.67813"
+        },
+        {
+          "name": "Cafe Colmena",
+          "kind": "regular",
+          "placeId": "cafe-40.36218--3.74955"
+        },
+        {
+          "name": "Syra Coffee - Quevedo",
+          "kind": "regular",
+          "placeId": "cafe-40.43397--3.70464"
+        },
+        {
+          "name": "Manolo Bakes",
+          "kind": "regular",
+          "placeId": "cafe-40.46957--3.64106"
+        },
+        {
+          "name": "Viena Capellanes",
+          "kind": "regular",
+          "placeId": "cafe-40.46746--3.68842"
+        },
+        {
+          "name": "Casa Neutrale® Plaza",
+          "kind": "regular",
+          "placeId": "cafe-40.44911--3.67835"
+        },
+        {
+          "name": "Wolføx Madrid Speciality Coffee Roasters",
+          "kind": "regular",
+          "placeId": "cafe-40.42248--3.70065"
+        },
+        {
+          "name": "Maceta Café",
+          "kind": "regular",
+          "placeId": "cafe-40.44874--3.67522"
+        },
+        {
+          "name": "GoodNews Cafeteria Alberto Aguilera",
+          "kind": "regular",
+          "placeId": "cafe-40.43053--3.71240"
+        },
+        {
+          "name": "Bar - El Chupete",
+          "kind": "regular",
+          "placeId": "cafe-40.44406--3.61191"
+        },
+        {
+          "name": "Frustük",
+          "kind": "regular",
+          "placeId": "cafe-40.34699--3.81328"
+        },
+        {
+          "name": "Cafetería El Abuelo",
+          "kind": "regular",
+          "placeId": "cafe-40.37699--3.74923"
+        },
+        {
+          "name": "Santagloria Coffee & Bakery",
+          "kind": "regular",
+          "placeId": "cafe-40.41245--3.66799"
+        },
+        {
+          "name": "La Suerte*",
+          "kind": "regular",
+          "placeId": "cafe-40.38323--3.70312"
+        },
+        {
+          "name": "Cafetería Karrara ...donde Javi",
+          "kind": "regular",
+          "placeId": "cafe-40.43969--3.62517"
+        },
+        {
+          "name": "Infinito Specialty Coffee & Brunch Bistro",
+          "kind": "regular",
+          "placeId": "cafe-40.45093--3.69880"
+        },
+        {
+          "name": "The Bear and the Madroño",
+          "kind": "regular",
+          "placeId": "cafe-40.41569--3.67596"
+        },
+        {
+          "name": "Hnos.velasco coffee bar",
+          "kind": "regular",
+          "placeId": "cafe-40.44695--3.60866"
+        },
+        {
+          "name": "Santagloria Coffee & Bakery",
+          "kind": "regular",
+          "placeId": "cafe-40.43519--3.71293"
+        },
+        {
+          "name": "Café Ajenjo",
+          "kind": "regular",
+          "placeId": "cafe-40.42821--3.70417"
+        },
+        {
+          "name": "Santagloria Coffee & Bakery",
+          "kind": "regular",
+          "placeId": "cafe-40.43329--3.64848"
+        },
+        {
+          "name": "Martín Tostador (Café de especialidad)",
+          "kind": "regular",
+          "placeId": "cafe-40.40238--3.70387"
+        },
+        {
+          "name": "Al Grano Specialty Coffee",
+          "kind": "regular",
+          "placeId": "cafe-40.31254--3.72662"
+        },
+        {
+          "name": "El Galgo Coffee Studio",
+          "kind": "regular",
+          "placeId": "cafe-40.44581--3.68140"
+        },
+        {
+          "name": "Bar Zahara Cafetería",
+          "kind": "regular",
+          "placeId": "cafe-40.35068--3.82545"
+        },
+        {
+          "name": "Cafetería Cancún",
+          "kind": "regular",
+          "placeId": "cafe-40.47992--3.72277"
+        },
+        {
+          "name": "Panaria",
+          "kind": "regular",
+          "placeId": "cafe-40.43460--3.60826"
+        },
+        {
+          "name": "Syra Coffee - Alberto Aguilera",
+          "kind": "regular",
+          "placeId": "cafe-40.42961--3.70743"
+        },
+        {
+          "name": "La Quinta Cocina",
+          "kind": "regular",
+          "placeId": "cafe-40.44757--3.62923"
+        },
+        {
+          "name": "Santagloria Coffee & Bakery",
+          "kind": "regular",
+          "placeId": "cafe-40.41685--3.67174"
+        },
+        {
+          "name": "Santagloria Coffee & Bakery",
+          "kind": "regular",
+          "placeId": "cafe-40.52721--3.65071"
+        },
+        {
+          "name": "Café Bar DILU",
+          "kind": "regular",
+          "placeId": "cafe-40.43269--3.71584"
+        },
+        {
+          "name": "Cafetería Creperie Karinas",
+          "kind": "regular",
+          "placeId": "cafe-40.44530--3.61309"
+        },
+        {
+          "name": "Café Venezzia",
+          "kind": "regular",
+          "placeId": "cafe-40.39257--3.76487"
+        },
+        {
+          "name": "Katay Specialty Coffee",
+          "kind": "regular",
+          "placeId": "cafe-40.40998--3.70648"
+        },
+        {
+          "name": "Tim Hortons",
+          "kind": "regular",
+          "placeId": "cafe-40.44150--3.78473"
+        },
+        {
+          "name": "Santagloria Coffee & Bakery",
+          "kind": "regular",
+          "placeId": "cafe-40.48913--3.61209"
+        },
+        {
+          "name": "Cafeteria Colibri",
+          "kind": "regular",
+          "placeId": "cafe-40.38582--3.75270"
+        },
+        {
+          "name": "DUNKIN´",
+          "kind": "regular",
+          "placeId": "cafe-40.36773--3.59900"
+        },
+        {
+          "name": "Bar cafeteria salamanca",
+          "kind": "regular",
+          "placeId": "cafe-40.42870--3.64009"
+        },
+        {
+          "name": "Bar cafetería París",
+          "kind": "regular",
+          "placeId": "cafe-40.38342--3.76801"
+        },
+        {
+          "name": "Cafetería El Obrador de Severiano",
+          "kind": "regular",
+          "placeId": "cafe-40.36647--3.68744"
+        },
+        {
+          "name": "Cafe Brujas",
+          "kind": "regular",
+          "placeId": "cafe-40.35011--3.70396"
+        },
+        {
+          "name": "Toma Café 3 / Proper Sound",
+          "kind": "regular",
+          "placeId": "cafe-40.43271--3.69872"
+        },
+        {
+          "name": "La Rollerie",
+          "kind": "regular",
+          "placeId": "cafe-40.41649--3.69954"
+        },
+        {
+          "name": "Granier",
+          "kind": "regular",
+          "placeId": "cafe-40.44842--3.60918"
+        },
+        {
+          "name": "Noviciado CoffeeShop",
+          "kind": "regular",
+          "placeId": "cafe-40.42564--3.70881"
+        },
+        {
+          "name": "Tim Hortons",
+          "kind": "regular",
+          "placeId": "cafe-40.46647--3.61659"
+        },
+        {
+          "name": "Santagloria",
+          "kind": "regular",
+          "placeId": "cafe-40.46306--3.68654"
+        },
+        {
+          "name": "Santa Gloria",
+          "kind": "regular",
+          "placeId": "cafe-40.42237--3.68287"
+        },
+        {
+          "name": "Veo Café antes Menta y Chocolate",
+          "kind": "regular",
+          "placeId": "cafe-40.48259--3.70478"
+        },
+        {
+          "name": "DUNKIN´",
+          "kind": "regular",
+          "placeId": "cafe-40.30331--3.83214"
+        },
+        {
+          "name": "Panaria",
+          "kind": "regular",
+          "placeId": "cafe-40.43872--3.71013"
+        },
+        {
+          "name": "El Horno",
+          "kind": "regular",
+          "placeId": "cafe-40.43448--3.62928"
+        },
+        {
+          "name": "Pastelería CalaMillor - Leopoldo Alas Clarín",
+          "kind": "regular",
+          "placeId": "cafe-40.48016--3.73371"
+        },
+        {
+          "name": "R´SPIRO",
+          "kind": "regular",
+          "placeId": "cafe-40.46069--3.68820"
+        },
+        {
+          "name": "All Day Brunch by Café & Té",
+          "kind": "regular",
+          "placeId": "cafe-40.36365--3.73744"
+        },
+        {
+          "name": "Open25 Coffee Market",
+          "kind": "regular",
+          "placeId": "cafe-40.39384--3.70776"
+        },
+        {
+          "name": "Santagloria Coffee & Bakery",
+          "kind": "regular",
+          "placeId": "cafe-40.47732--3.68909"
+        },
+        {
+          "name": "Cafetería Montecarlo",
+          "kind": "regular",
+          "placeId": "cafe-40.50990--3.69348"
+        },
+        {
+          "name": "Defia Cafeteria",
+          "kind": "regular",
+          "placeId": "cafe-40.47439--3.63978"
+        },
+        {
+          "name": "El Obrador De Goya Alcorcón",
+          "kind": "regular",
+          "placeId": "cafe-40.34662--3.82734"
+        },
+        {
+          "name": "Cervecería Jamón Y Pan Cafe",
+          "kind": "regular",
+          "placeId": "cafe-40.39752--3.76813"
+        },
+        {
+          "name": "Panaria",
+          "kind": "regular",
+          "placeId": "cafe-40.44593--3.58775"
+        },
+        {
+          "name": "All Day Brunch by Café & Té",
+          "kind": "regular",
+          "placeId": "cafe-40.47984--3.70699"
+        },
+        {
+          "name": "DUNKIN´",
+          "kind": "regular",
+          "placeId": "cafe-40.35853--3.82960"
+        },
+        {
+          "name": "Santa Teresa Shop Aravaca",
+          "kind": "regular",
+          "placeId": "cafe-40.45929--3.78500"
+        },
+        {
+          "name": "Taruffi",
+          "kind": "regular",
+          "placeId": "cafe-40.47964--3.70759"
+        },
+        {
+          "name": "Juan Valdez Café Caleido",
+          "kind": "regular",
+          "placeId": "cafe-40.47791--3.68895"
+        },
+        {
+          "name": "La Cafetería",
+          "kind": "regular",
+          "placeId": "cafe-40.46319--3.64949"
+        },
+        {
+          "name": "Bombon Boss",
+          "kind": "regular",
+          "placeId": "cafe-40.47973--3.70616"
+        },
+        {
+          "name": "Starbucks Coffee",
+          "kind": "regular",
+          "placeId": "cafe-40.46372--3.57010"
+        },
+        {
+          "name": "Restaurante Cafetería Acuarela",
+          "kind": "regular",
+          "placeId": "cafe-40.37474--3.62673"
+        },
+        {
+          "name": "La Hermosita Valdebebas",
+          "kind": "regular",
+          "placeId": "cafe-40.48993--3.60874"
+        },
+        {
+          "name": "Panaria",
+          "kind": "regular",
+          "placeId": "cafe-40.41870--3.62096"
+        },
+        {
+          "name": "DUNKIN´",
+          "kind": "regular",
+          "placeId": "cafe-40.36373--3.73748"
+        },
+        {
+          "name": "Espacio 12 de Octubre",
+          "kind": "regular",
+          "placeId": "cafe-40.37528--3.69772"
+        },
+        {
+          "name": "DUNKIN'",
+          "kind": "regular",
+          "placeId": "cafe-40.44755--3.58719"
+        },
+        {
+          "name": "Vivari",
+          "kind": "regular",
+          "placeId": "cafe-40.43444--3.63592"
+        },
+        {
+          "name": "Jamaica Coffee Experience",
+          "kind": "regular",
+          "placeId": "cafe-40.54096--3.61486"
+        },
+        {
+          "name": "Terracota Green Café",
+          "kind": "regular",
+          "placeId": "cafe-40.42321--3.70912"
+        },
+        {
+          "name": "GOD LEVEL",
+          "kind": "regular",
+          "placeId": "cafe-40.40750--3.61517"
+        },
+        {
+          "name": "GALERIA de Late",
+          "kind": "regular",
+          "placeId": "cafe-40.41097--3.70517"
+        },
+        {
+          "name": "Muma specialty coffee",
+          "kind": "regular",
+          "placeId": "cafe-40.48202--3.73269"
+        },
+        {
+          "name": "MUTO Ática - Coffee & Studio",
+          "kind": "regular",
+          "placeId": "cafe-40.44046--3.78516"
+        },
+        {
+          "name": "The Little Big Cafe Tetuán",
+          "kind": "regular",
+          "placeId": "cafe-40.45712--3.69913"
+        },
+        {
+          "name": "HERO BAR",
+          "kind": "regular",
+          "placeId": "cafe-40.33787--3.67930"
+        },
+        {
+          "name": "Sely | Specialty coffee & matcha",
+          "kind": "regular",
+          "placeId": "cafe-40.51160--3.66969"
+        },
+        {
+          "name": "El Nido Café",
+          "kind": "regular",
+          "placeId": "cafe-40.49388--3.72350"
+        },
+        {
+          "name": "Cafes Kaldia",
+          "kind": "regular",
+          "placeId": "cafe-40.52650--3.65162"
+        },
+        {
+          "name": "Cafetería Narnia",
+          "kind": "regular",
+          "placeId": "cafe-40.37281--3.74524"
+        },
+        {
+          "name": "Starbucks On The Go",
+          "kind": "regular",
+          "placeId": "cafe-40.44108--3.62530"
+        },
+        {
+          "name": "Sanymar",
+          "kind": "regular",
+          "placeId": "cafe-40.45862--3.62624"
+        },
+        {
+          "name": "Cafetería Carrefour",
+          "kind": "regular",
+          "placeId": "cafe-40.46926--3.64036"
+        },
+        {
+          "name": "MOSPRESSO Specialty Coffee Roaster",
+          "kind": "regular",
+          "placeId": "cafe-40.40425--3.74579"
+        }
+      ],
+      "removed": [
+        {
+          "name": "EPOCA Cafetería & Panadería",
+          "kind": "regular"
+        },
+        {
+          "name": "Unide Market Supermercados",
+          "kind": "regular"
+        },
+        {
+          "name": "Panem Brunch and Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "Bar Al Grano",
+          "kind": "regular"
+        },
+        {
+          "name": "HAT COFFEE - Speciality Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "Kraleva Specialty Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "N&P Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "Le petit cafe de Cryss",
+          "kind": "regular"
+        },
+        {
+          "name": "Syra Coffee | Cafeteria Chamberi",
+          "kind": "regular"
+        },
+        {
+          "name": "Braco Specialty Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "Hammonds Specialty Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "Yasemin&Tuncel Ice Cream & Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "Heladería Choffins",
+          "kind": "regular"
+        },
+        {
+          "name": "Masa Mamma",
+          "kind": "regular"
+        },
+        {
+          "name": "DeBAGEL",
+          "kind": "regular"
+        }
+      ],
+      "changed": []
+    },
+    "prague": {
+      "added": [
+        {
+          "name": "Cafe BANHADA(카페반하다)",
+          "kind": "regular",
+          "placeId": "cafe-50.09001-14.42690"
+        },
+        {
+          "name": "Kavárna Kavalír",
+          "kind": "regular",
+          "placeId": "cafe-50.12689-14.43200"
+        },
+        {
+          "name": "Biskvit kavárna",
+          "kind": "regular",
+          "placeId": "cafe-50.06745-14.39672"
+        },
+        {
+          "name": "Nerudova 211 Café",
+          "kind": "regular",
+          "placeId": "cafe-50.08863-14.40111"
+        },
+        {
+          "name": "hues kafe · bistro",
+          "kind": "regular",
+          "placeId": "cafe-50.08392-14.41433"
+        },
+        {
+          "name": "SMPL project - Coffee & Cuts",
+          "kind": "regular",
+          "placeId": "cafe-50.07390-14.41410"
+        },
+        {
+          "name": "kavárna Stará škola",
+          "kind": "regular",
+          "placeId": "cafe-50.07171-14.40569"
+        },
+        {
+          "name": "café wattle",
+          "kind": "regular",
+          "placeId": "cafe-50.07019-14.43323"
+        },
+        {
+          "name": "Cukrárna - Kavárna Adélka",
+          "kind": "regular",
+          "placeId": "cafe-50.03749-14.51547"
+        },
+        {
+          "name": "Kavárnička Biograf",
+          "kind": "regular",
+          "placeId": "cafe-50.08232-14.45309"
+        },
+        {
+          "name": "Underdogs' Café",
+          "kind": "regular",
+          "placeId": "cafe-50.07396-14.41612"
+        },
+        {
+          "name": "ŠLIKR studio",
+          "kind": "regular",
+          "placeId": "cafe-50.07143-14.41083"
+        },
+        {
+          "name": "Stonecake",
+          "kind": "regular",
+          "placeId": "cafe-50.07349-14.43322"
+        },
+        {
+          "name": "Kavárna 400 ASA",
+          "kind": "regular",
+          "placeId": "cafe-50.07112-14.39961"
+        },
+        {
+          "name": "Kafky kafé",
+          "kind": "regular",
+          "placeId": "cafe-50.05175-14.42688"
+        },
+        {
+          "name": "Good Reason",
+          "kind": "regular",
+          "placeId": "cafe-50.06586-14.43173"
+        },
+        {
+          "name": "Boží kavárna",
+          "kind": "regular",
+          "placeId": "cafe-50.07586-14.32175"
+        },
+        {
+          "name": "Kavárna Vavruška",
+          "kind": "regular",
+          "placeId": "cafe-50.07437-14.41853"
+        },
+        {
+          "name": "LAb",
+          "kind": "regular",
+          "placeId": "cafe-50.07192-14.41385"
+        },
+        {
+          "name": "Lžička café",
+          "kind": "regular",
+          "placeId": "cafe-50.08729-14.40279"
+        },
+        {
+          "name": "Kumbál",
+          "kind": "regular",
+          "placeId": "cafe-50.10063-14.43442"
+        },
+        {
+          "name": "Café v zahradě",
+          "kind": "regular",
+          "placeId": "cafe-50.06397-14.43996"
+        },
+        {
+          "name": "Šťastná Kavárna",
+          "kind": "regular",
+          "placeId": "cafe-50.06997-14.41571"
+        },
+        {
+          "name": "Dark Velvet Cafe Bar",
+          "kind": "regular",
+          "placeId": "cafe-50.08692-14.44639"
+        },
+        {
+          "name": "Kavárnička",
+          "kind": "regular",
+          "placeId": "cafe-50.14372-14.32305"
+        },
+        {
+          "name": "Café K",
+          "kind": "regular",
+          "placeId": "cafe-50.07738-14.42737"
+        },
+        {
+          "name": "CAFE TONE Tylovo náměstí",
+          "kind": "regular",
+          "placeId": "cafe-50.07486-14.43182"
+        },
+        {
+          "name": "Dílna",
+          "kind": "regular",
+          "placeId": "cafe-50.06959-14.41118"
+        },
+        {
+          "name": "ANIMA_DECOR_CAFE",
+          "kind": "regular",
+          "placeId": "cafe-50.10989-14.44699"
+        },
+        {
+          "name": "Kafe Stánek",
+          "kind": "regular",
+          "placeId": "cafe-50.11028-14.43989"
+        },
+        {
+          "name": "vemsi cafe",
+          "kind": "regular",
+          "placeId": "cafe-50.11221-14.47570"
+        },
+        {
+          "name": "Claudia coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.08120-14.40809"
+        },
+        {
+          "name": "Tu Kafe",
+          "kind": "regular",
+          "placeId": "cafe-50.09717-14.34653"
+        },
+        {
+          "name": "Happy Pops Café",
+          "kind": "regular",
+          "placeId": "cafe-50.10719-14.39542"
+        },
+        {
+          "name": "Espressone CZ",
+          "kind": "regular",
+          "placeId": "cafe-50.10743-14.45334"
+        },
+        {
+          "name": "Café Minská",
+          "kind": "regular",
+          "placeId": "cafe-50.06734-14.45799"
+        },
+        {
+          "name": "LINK COFFEE",
+          "kind": "regular",
+          "placeId": "cafe-50.08267-14.44698"
+        },
+        {
+          "name": "Collage cafe bar",
+          "kind": "regular",
+          "placeId": "cafe-50.07153-14.40544"
+        },
+        {
+          "name": "Bond Cafe",
+          "kind": "regular",
+          "placeId": "cafe-50.08780-14.42473"
+        },
+        {
+          "name": "Cafe No. 3",
+          "kind": "regular",
+          "placeId": "cafe-50.08836-14.42599"
+        },
+        {
+          "name": "MONDIEU",
+          "kind": "regular",
+          "placeId": "cafe-50.08634-14.40489"
+        },
+        {
+          "name": "Českavárna Portheimka",
+          "kind": "regular",
+          "placeId": "cafe-50.07372-14.40414"
+        },
+        {
+          "name": "VinCaffé",
+          "kind": "regular",
+          "placeId": "cafe-50.08513-14.44730"
+        },
+        {
+          "name": "Tichá kavárna",
+          "kind": "regular",
+          "placeId": "cafe-50.12985-14.46870"
+        },
+        {
+          "name": "MATOKA Georgian, Brunch & Coffee Namesti Miru",
+          "kind": "regular",
+          "placeId": "cafe-50.07605-14.43790"
+        },
+        {
+          "name": "Kaviár Prague - Shisha Lounge Bar",
+          "kind": "regular",
+          "placeId": "cafe-50.07322-14.42783"
+        },
+        {
+          "name": "Kunsthalle Praha Café",
+          "kind": "regular",
+          "placeId": "cafe-50.09226-14.40958"
+        },
+        {
+          "name": "Boomerang coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.07246-14.39653"
+        },
+        {
+          "name": "Café Parkofka",
+          "kind": "regular",
+          "placeId": "cafe-50.00448-14.40499"
+        },
+        {
+          "name": "Kavárna Jen Tak",
+          "kind": "regular",
+          "placeId": "cafe-50.09641-14.36069"
+        },
+        {
+          "name": "medium 43",
+          "kind": "regular",
+          "placeId": "cafe-50.08701-14.45000"
+        },
+        {
+          "name": "Káva Růžová",
+          "kind": "regular",
+          "placeId": "cafe-50.08394-14.43010"
+        },
+        {
+          "name": "Press Cafe s.r.o.",
+          "kind": "regular",
+          "placeId": "cafe-50.13648-14.51093"
+        },
+        {
+          "name": "Dorado Coffee Kinský",
+          "kind": "regular",
+          "placeId": "cafe-50.07712-14.39841"
+        },
+        {
+          "name": "SHELTER cafe",
+          "kind": "regular",
+          "placeId": "cafe-50.10901-14.42507"
+        },
+        {
+          "name": "Bistrotéka",
+          "kind": "regular",
+          "placeId": "cafe-50.01808-14.52335"
+        },
+        {
+          "name": "Hedgehog café",
+          "kind": "regular",
+          "placeId": "cafe-50.10678-14.52779"
+        },
+        {
+          "name": "Kavárna V Sedmém Nebi",
+          "kind": "regular",
+          "placeId": "cafe-50.08076-14.40724"
+        },
+        {
+          "name": "STANDARD CAFE",
+          "kind": "regular",
+          "placeId": "cafe-50.08320-14.41435"
+        },
+        {
+          "name": "Bystro Cafe",
+          "kind": "regular",
+          "placeId": "cafe-50.06409-14.42111"
+        },
+        {
+          "name": "GoFrancin",
+          "kind": "regular",
+          "placeId": "cafe-50.06773-14.40670"
+        },
+        {
+          "name": "Kontejner",
+          "kind": "regular",
+          "placeId": "cafe-50.10784-14.44861"
+        },
+        {
+          "name": "club V.kolona",
+          "kind": "regular",
+          "placeId": "cafe-50.13443-14.41875"
+        },
+        {
+          "name": "LOCÁL café & bar",
+          "kind": "regular",
+          "placeId": "cafe-50.07385-14.41520"
+        },
+        {
+          "name": "kavárna a pekárna 6,33",
+          "kind": "regular",
+          "placeId": "cafe-50.12651-14.45675"
+        },
+        {
+          "name": "Děravý Kotlík",
+          "kind": "regular",
+          "placeId": "cafe-50.08617-14.34496"
+        },
+        {
+          "name": "Elvíra café / Specialty Coffee - Brunch - Desserts",
+          "kind": "regular",
+          "placeId": "cafe-50.09094-14.42208"
+        },
+        {
+          "name": "Park Cafe",
+          "kind": "regular",
+          "placeId": "cafe-50.12484-14.48607"
+        },
+        {
+          "name": "Coffee corner bakery",
+          "kind": "regular",
+          "placeId": "cafe-50.07227-14.44286"
+        },
+        {
+          "name": "Coffee Break & Cake",
+          "kind": "regular",
+          "placeId": "cafe-50.08525-14.44438"
+        },
+        {
+          "name": "COFFEE BREAK AND CAKE - Albertov",
+          "kind": "regular",
+          "placeId": "cafe-50.06753-14.42115"
+        },
+        {
+          "name": "Cafe Mosaic",
+          "kind": "regular",
+          "placeId": "cafe-50.07751-14.41810"
+        },
+        {
+          "name": "Starbucks",
+          "kind": "regular",
+          "placeId": "cafe-50.05654-14.37307"
+        },
+        {
+          "name": "Cafe Kristy",
+          "kind": "regular",
+          "placeId": "cafe-50.10859-14.52604"
+        },
+        {
+          "name": "Café Cobolis",
+          "kind": "regular",
+          "placeId": "cafe-50.12711-14.47005"
+        },
+        {
+          "name": "Oliver's Cafe",
+          "kind": "regular",
+          "placeId": "cafe-50.08541-14.44896"
+        },
+        {
+          "name": "Square Café",
+          "kind": "regular",
+          "placeId": "cafe-50.06847-14.42018"
+        },
+        {
+          "name": "Little Eden community center and a café",
+          "kind": "regular",
+          "placeId": "cafe-50.07350-14.47372"
+        },
+        {
+          "name": "Florista Café",
+          "kind": "regular",
+          "placeId": "cafe-50.06701-14.42142"
+        },
+        {
+          "name": "Botticelli café",
+          "kind": "regular",
+          "placeId": "cafe-50.06557-14.43765"
+        },
+        {
+          "name": "Umámy - Štrúdl & Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.08876-14.39568"
+        },
+        {
+          "name": "La Macarons",
+          "kind": "regular",
+          "placeId": "cafe-50.10166-14.39922"
+        },
+        {
+          "name": "Chè Sài Gòn",
+          "kind": "regular",
+          "placeId": "cafe-50.00185-14.47495"
+        },
+        {
+          "name": "Kafé Brána",
+          "kind": "regular",
+          "placeId": "cafe-50.07131-14.38573"
+        },
+        {
+          "name": "Polo Cafe Komunardů",
+          "kind": "regular",
+          "placeId": "cafe-50.10568-14.44957"
+        },
+        {
+          "name": "Port 76",
+          "kind": "regular",
+          "placeId": "cafe-50.02218-14.45184"
+        },
+        {
+          "name": "Happy Tea",
+          "kind": "regular",
+          "placeId": "cafe-50.13501-14.50111"
+        },
+        {
+          "name": "Palatino Café Guru",
+          "kind": "regular",
+          "placeId": "cafe-50.05707-14.43258"
+        },
+        {
+          "name": "Chléb & Kafe",
+          "kind": "regular",
+          "placeId": "cafe-50.12949-14.54289"
+        },
+        {
+          "name": "IPPA Café Jungmannova",
+          "kind": "regular",
+          "placeId": "cafe-50.08125-14.42226"
+        },
+        {
+          "name": "Cafe Sofa",
+          "kind": "regular",
+          "placeId": "cafe-50.09996-14.38870"
+        },
+        {
+          "name": "Cafe DECADA",
+          "kind": "regular",
+          "placeId": "cafe-50.10454-14.47721"
+        },
+        {
+          "name": "Café & Bistro Minimum Waste",
+          "kind": "regular",
+          "placeId": "cafe-50.09103-14.43193"
+        },
+        {
+          "name": "Starbucks",
+          "kind": "regular",
+          "placeId": "cafe-50.09569-14.34824"
+        },
+        {
+          "name": "Sweetbar Café",
+          "kind": "regular",
+          "placeId": "cafe-50.10648-14.47287"
+        },
+        {
+          "name": "be cafe Máj",
+          "kind": "regular",
+          "placeId": "cafe-50.08200-14.41948"
+        },
+        {
+          "name": "Bistro Nekonečná",
+          "kind": "regular",
+          "placeId": "cafe-50.08169-14.34308"
+        },
+        {
+          "name": "Komunitní centrum a kavárna MEZI DOMY",
+          "kind": "regular",
+          "placeId": "cafe-50.02721-14.51586"
+        },
+        {
+          "name": "Okénko Vyšehrad",
+          "kind": "regular",
+          "placeId": "cafe-50.06215-14.42340"
+        },
+        {
+          "name": "Zámecká cukrárna",
+          "kind": "regular",
+          "placeId": "cafe-50.04117-14.39410"
+        },
+        {
+          "name": "Týnská 9",
+          "kind": "regular",
+          "placeId": "cafe-50.08839-14.42295"
+        },
+        {
+          "name": "Starbucks",
+          "kind": "regular",
+          "placeId": "cafe-50.07232-14.54292"
+        },
+        {
+          "name": "Kosta Gym & Kavárna",
+          "kind": "regular",
+          "placeId": "cafe-50.05336-14.52366"
+        },
+        {
+          "name": "Starbucks Reserve",
+          "kind": "regular",
+          "placeId": "cafe-50.08273-14.42246"
+        },
+        {
+          "name": "Kafe Damu",
+          "kind": "regular",
+          "placeId": "cafe-50.08590-14.41721"
+        },
+        {
+          "name": "Kavárna Zanzibar",
+          "kind": "regular",
+          "placeId": "cafe-50.07217-14.43824"
+        },
+        {
+          "name": "Starbucks",
+          "kind": "regular",
+          "placeId": "cafe-50.13561-14.50253"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.07450-14.54141"
+        },
+        {
+          "name": "Ron Bar",
+          "kind": "regular",
+          "placeId": "cafe-50.07224-14.43801"
+        },
+        {
+          "name": "our cafe",
+          "kind": "regular",
+          "placeId": "cafe-50.03045-14.45661"
+        },
+        {
+          "name": "Starbucks",
+          "kind": "regular",
+          "placeId": "cafe-50.10404-14.49152"
+        },
+        {
+          "name": "Café Bar Carolina",
+          "kind": "regular",
+          "placeId": "cafe-50.13906-14.51294"
+        },
+        {
+          "name": "Momento Café",
+          "kind": "regular",
+          "placeId": "cafe-50.06487-14.44751"
+        },
+        {
+          "name": "café 11",
+          "kind": "regular",
+          "placeId": "cafe-50.08686-14.41835"
+        },
+        {
+          "name": "Costa Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.07485-14.41865"
+        },
+        {
+          "name": "Kavárna Nová hra",
+          "kind": "regular",
+          "placeId": "cafe-50.04380-14.42323"
+        },
+        {
+          "name": "Starbucks",
+          "kind": "regular",
+          "placeId": "cafe-50.07381-14.40219"
+        },
+        {
+          "name": "Café Park Zahrádky",
+          "kind": "regular",
+          "placeId": "cafe-50.10669-14.51932"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.04394-14.44899"
+        },
+        {
+          "name": "Café Golem",
+          "kind": "regular",
+          "placeId": "cafe-50.08959-14.41817"
+        },
+        {
+          "name": "COFICO espresso bar",
+          "kind": "regular",
+          "placeId": "cafe-50.08711-14.46320"
+        },
+        {
+          "name": "MM Cafe",
+          "kind": "regular",
+          "placeId": "cafe-50.12727-14.46761"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.13807-14.50198"
+        },
+        {
+          "name": "Starbucks",
+          "kind": "regular",
+          "placeId": "cafe-50.07216-14.40311"
+        },
+        {
+          "name": "Starbucks",
+          "kind": "regular",
+          "placeId": "cafe-50.03185-14.49194"
+        },
+        {
+          "name": "Starbucks",
+          "kind": "regular",
+          "placeId": "cafe-50.03101-14.49014"
+        },
+        {
+          "name": "IPPA Café Břevnov",
+          "kind": "regular",
+          "placeId": "cafe-50.08391-14.36340"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.03186-14.49194"
+        },
+        {
+          "name": "Costa Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.03884-14.47600"
+        },
+        {
+          "name": "Coffeenek espresso bar, Terasy Harfa",
+          "kind": "regular",
+          "placeId": "cafe-50.10436-14.49082"
+        },
+        {
+          "name": "Momento Café",
+          "kind": "regular",
+          "placeId": "cafe-50.08971-14.36224"
+        },
+        {
+          "name": "Cafe Creperie",
+          "kind": "regular",
+          "placeId": "cafe-50.07290-14.40233"
+        },
+        {
+          "name": "Costa Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.03215-14.49151"
+        },
+        {
+          "name": "Starbucks",
+          "kind": "regular",
+          "placeId": "cafe-50.07414-14.53994"
+        },
+        {
+          "name": "Costa Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.04371-14.44948"
+        },
+        {
+          "name": "Monkey Coffee House",
+          "kind": "regular",
+          "placeId": "cafe-50.10419-14.50951"
+        },
+        {
+          "name": "Costa Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.04784-14.45582"
+        },
+        {
+          "name": "Costa Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.07603-14.54066"
+        },
+        {
+          "name": "Costa Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.10999-14.50116"
+        },
+        {
+          "name": "Evento Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.12760-14.41762"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.10390-14.49083"
+        },
+        {
+          "name": "Costa Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.07291-14.40207"
+        },
+        {
+          "name": "Costa Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.04776-14.35386"
+        },
+        {
+          "name": "Costa Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.10405-14.49024"
+        },
+        {
+          "name": "Costa Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.13811-14.50159"
+        },
+        {
+          "name": "Café Lounge Gaviota DBK",
+          "kind": "regular",
+          "placeId": "cafe-50.04368-14.44931"
+        },
+        {
+          "name": "Chè Tuyết Béo",
+          "kind": "regular",
+          "placeId": "cafe-50.00154-14.47018"
+        },
+        {
+          "name": "Starbucks",
+          "kind": "regular",
+          "placeId": "cafe-50.02668-14.43294"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.02668-14.43294"
+        },
+        {
+          "name": "Café Collection - NC EDEN",
+          "kind": "regular",
+          "placeId": "cafe-50.06777-14.46808"
+        },
+        {
+          "name": "Coffeeshop Company",
+          "kind": "regular",
+          "placeId": "cafe-50.10476-14.49166"
+        },
+        {
+          "name": "Marina Gallery",
+          "kind": "regular",
+          "placeId": "cafe-50.06935-14.41137"
+        },
+        {
+          "name": "Kavárna Santoška",
+          "kind": "regular",
+          "placeId": "cafe-50.06586-14.39955"
+        },
+        {
+          "name": "Cukrárna Volavka",
+          "kind": "regular",
+          "placeId": "cafe-50.13162-14.42418"
+        },
+        {
+          "name": "PORT Café Praha",
+          "kind": "regular",
+          "placeId": "cafe-50.07467-14.43342"
+        },
+        {
+          "name": "Bellčafe",
+          "kind": "regular",
+          "placeId": "cafe-50.08745-14.37557"
+        },
+        {
+          "name": "ÔLa desserts & cafe",
+          "kind": "regular",
+          "placeId": "cafe-50.00199-14.47208"
+        },
+        {
+          "name": "Vlašák coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.08722-14.40000"
+        },
+        {
+          "name": "Zrno Zrnko",
+          "kind": "regular",
+          "placeId": "cafe-50.06579-14.43762"
+        },
+        {
+          "name": "Druhá máma",
+          "kind": "regular",
+          "placeId": "cafe-50.07075-14.45836"
+        },
+        {
+          "name": "Caffè Pascucci Shop – Arkády",
+          "kind": "regular",
+          "placeId": "cafe-50.05090-14.43828"
+        },
+        {
+          "name": "Asia shop",
+          "kind": "regular",
+          "placeId": "cafe-50.11187-14.47474"
+        },
+        {
+          "name": "Caudat Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.00389-14.47440"
+        },
+        {
+          "name": "DSZ Caffé-Bar",
+          "kind": "regular",
+          "placeId": "cafe-50.07452-14.44502"
+        },
+        {
+          "name": "Cervena kalina",
+          "kind": "regular",
+          "placeId": "cafe-50.11035-14.50246"
+        },
+        {
+          "name": "Recepce Sokol Michle",
+          "kind": "regular",
+          "placeId": "cafe-50.05723-14.45138"
+        },
+        {
+          "name": "Občerstvení",
+          "kind": "regular",
+          "placeId": "cafe-50.12804-14.42952"
+        },
+        {
+          "name": "Archery Café",
+          "kind": "regular",
+          "placeId": "cafe-50.00438-14.45822"
+        },
+        {
+          "name": "Barušák mňamušák",
+          "kind": "regular",
+          "placeId": "cafe-50.04578-14.42107"
+        },
+        {
+          "name": "Bar v Tančírně",
+          "kind": "regular",
+          "placeId": "cafe-50.04894-14.52236"
+        },
+        {
+          "name": "Elseverin Cayxanasi",
+          "kind": "regular",
+          "placeId": "cafe-50.05433-14.42773"
+        },
+        {
+          "name": "Neridé Café",
+          "kind": "regular",
+          "placeId": "cafe-50.05595-14.53407"
+        },
+        {
+          "name": "Le Cafe",
+          "kind": "regular",
+          "placeId": "cafe-50.09853-14.36585"
+        },
+        {
+          "name": "Kafe Stánek corner",
+          "kind": "regular",
+          "placeId": "cafe-50.06453-14.46562"
+        },
+        {
+          "name": "Jana Želivského",
+          "kind": "regular",
+          "placeId": "cafe-50.08652-14.48313"
+        },
+        {
+          "name": "Vespresso club",
+          "kind": "regular",
+          "placeId": "cafe-50.10252-14.43660"
+        },
+        {
+          "name": "Oryza",
+          "kind": "regular",
+          "placeId": "cafe-50.05280-14.40973"
+        },
+        {
+          "name": "Divadelní kavárna & bar Dobeška",
+          "kind": "regular",
+          "placeId": "cafe-50.04067-14.41531"
+        },
+        {
+          "name": "Hoga - Bistro Cafe",
+          "kind": "regular",
+          "placeId": "cafe-50.06338-14.44250"
+        },
+        {
+          "name": "ÜND Café",
+          "kind": "regular",
+          "placeId": "cafe-50.10084-14.42524"
+        },
+        {
+          "name": "Candycane coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.07981-14.53544"
+        },
+        {
+          "name": "Coffee Psycho Therapy",
+          "kind": "regular",
+          "placeId": "cafe-50.07412-14.43878"
+        },
+        {
+          "name": "Na Konci Ulice - Kavarnicka Sasva",
+          "kind": "regular",
+          "placeId": "cafe-50.00153-14.41574"
+        },
+        {
+          "name": "Café BARETTA",
+          "kind": "regular",
+          "placeId": "cafe-50.06501-14.44032"
+        },
+        {
+          "name": "Café Om",
+          "kind": "regular",
+          "placeId": "cafe-50.10661-14.39437"
+        },
+        {
+          "name": "NUMI kafé",
+          "kind": "regular",
+          "placeId": "cafe-50.05462-14.45242"
+        },
+        {
+          "name": "Kavárna Sen",
+          "kind": "regular",
+          "placeId": "cafe-50.08529-14.38220"
+        },
+        {
+          "name": "Namleto",
+          "kind": "regular",
+          "placeId": "cafe-50.10697-14.48995"
+        },
+        {
+          "name": "kavárna",
+          "kind": "regular",
+          "placeId": "cafe-50.05515-14.45560"
+        },
+        {
+          "name": "Caffe divadlo Archa",
+          "kind": "regular",
+          "placeId": "cafe-50.08970-14.43359"
+        },
+        {
+          "name": "U vafle bakery & coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.14521-14.48518"
+        },
+        {
+          "name": "Kavárna K8",
+          "kind": "regular",
+          "placeId": "cafe-50.01208-14.38522"
+        },
+        {
+          "name": "Caffetteria da Enrico",
+          "kind": "regular",
+          "placeId": "cafe-50.08103-14.49993"
+        },
+        {
+          "name": "Kofyka café",
+          "kind": "regular",
+          "placeId": "cafe-50.04693-14.41474"
+        },
+        {
+          "name": "Pauza Caffe",
+          "kind": "regular",
+          "placeId": "cafe-50.06928-14.46377"
+        },
+        {
+          "name": "Šmeralka",
+          "kind": "regular",
+          "placeId": "cafe-50.10164-14.42190"
+        },
+        {
+          "name": "Smysloves",
+          "kind": "regular",
+          "placeId": "cafe-50.04403-14.33722"
+        },
+        {
+          "name": "Birdsong Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.06133-14.40026"
+        },
+        {
+          "name": "Lupínek BAKERY & COFFEE",
+          "kind": "regular",
+          "placeId": "cafe-50.07772-14.46274"
+        },
+        {
+          "name": "Merjea- Ahoj",
+          "kind": "regular",
+          "placeId": "cafe-50.00153-14.47004"
+        },
+        {
+          "name": "Caffè del Borgo Malešice",
+          "kind": "regular",
+          "placeId": "cafe-50.08576-14.50186"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.05363-14.51797"
+        },
+        {
+          "name": "George Caffe",
+          "kind": "regular",
+          "placeId": "cafe-50.04418-14.44806"
+        },
+        {
+          "name": "AMORE COFFEE",
+          "kind": "regular",
+          "placeId": "cafe-50.08821-14.41807"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.12766-14.41759"
+        },
+        {
+          "name": "Zelenkova Cukrárna",
+          "kind": "regular",
+          "placeId": "cafe-50.07306-14.44126"
+        },
+        {
+          "name": "Café Globus",
+          "kind": "regular",
+          "placeId": "cafe-50.07255-14.54185"
+        },
+        {
+          "name": "CAFÉ VRATISLAV",
+          "kind": "regular",
+          "placeId": "cafe-50.06282-14.42274"
+        },
+        {
+          "name": "KING PALACE PRAGUE",
+          "kind": "regular",
+          "placeId": "cafe-50.06159-14.40140"
+        },
+        {
+          "name": "Beauty Coworking Time Kavárna Café",
+          "kind": "regular",
+          "placeId": "cafe-50.10469-14.47026"
+        },
+        {
+          "name": "CAFÉ PODĚBRADSKÁ",
+          "kind": "regular",
+          "placeId": "cafe-50.10236-14.51233"
+        },
+        {
+          "name": "KOLIBRI s.r.o.",
+          "kind": "regular",
+          "placeId": "cafe-50.02907-14.53679"
+        },
+        {
+          "name": "Kávy čas",
+          "kind": "regular",
+          "placeId": "cafe-50.05299-14.51717"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.11029-14.50144"
+        },
+        {
+          "name": "Lococafe",
+          "kind": "regular",
+          "placeId": "cafe-50.13818-14.50213"
+        },
+        {
+          "name": "Café Papilon",
+          "kind": "regular",
+          "placeId": "cafe-50.04727-14.44599"
+        },
+        {
+          "name": "Coffe&Wine Collection",
+          "kind": "regular",
+          "placeId": "cafe-50.05131-14.34928"
+        },
+        {
+          "name": "CoffeeMat #6 ČZU Menza",
+          "kind": "regular",
+          "placeId": "cafe-50.13067-14.37547"
+        },
+        {
+          "name": "CLARA Bistro",
+          "kind": "regular",
+          "placeId": "cafe-50.11467-14.46765"
+        },
+        {
+          "name": "Bublina café",
+          "kind": "regular",
+          "placeId": "cafe-50.02883-14.49270"
+        },
+        {
+          "name": "CAFE & WINE SMÍCHOV",
+          "kind": "regular",
+          "placeId": "cafe-50.07129-14.40477"
+        },
+        {
+          "name": "Kavárna Háčko",
+          "kind": "regular",
+          "placeId": "cafe-50.10386-14.53456"
+        },
+        {
+          "name": "ZÓNA kafe",
+          "kind": "regular",
+          "placeId": "cafe-50.12991-14.54271"
+        },
+        {
+          "name": "BLUE MOUNTAINS TRADE s.r.o.",
+          "kind": "regular",
+          "placeId": "cafe-50.06731-14.40869"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.06787-14.46863"
+        },
+        {
+          "name": "Perfect Canteen Plaza Cafe",
+          "kind": "regular",
+          "placeId": "cafe-50.03808-14.47747"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.07206-14.40204"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.04761-14.35375"
+        },
+        {
+          "name": "Fine Life",
+          "kind": "regular",
+          "placeId": "cafe-50.13683-14.50222"
+        },
+        {
+          "name": "Tchibo",
+          "kind": "regular",
+          "placeId": "cafe-50.07230-14.54248"
+        },
+        {
+          "name": "CoffeeMat #4 VŠE",
+          "kind": "regular",
+          "placeId": "cafe-50.02071-14.49275"
+        },
+        {
+          "name": "DinoCafé",
+          "kind": "regular",
+          "placeId": "cafe-50.10369-14.49100"
+        },
+        {
+          "name": "La Panna",
+          "kind": "regular",
+          "placeId": "cafe-50.04869-14.41440"
+        },
+        {
+          "name": "SIC café",
+          "kind": "regular",
+          "placeId": "cafe-50.12864-14.37292"
+        },
+        {
+          "name": "Illy Café Bar",
+          "kind": "regular",
+          "placeId": "cafe-50.13505-14.50127"
+        },
+        {
+          "name": "kavárna",
+          "kind": "regular",
+          "placeId": "cafe-50.06355-14.47556"
+        },
+        {
+          "name": "Valmont GLO Café",
+          "kind": "regular",
+          "placeId": "cafe-50.07259-14.54217"
+        },
+        {
+          "name": "Home Cafe - Mộc Trà",
+          "kind": "regular",
+          "placeId": "cafe-50.00230-14.47290"
+        },
+        {
+          "name": "CoffeeMat #23",
+          "kind": "regular",
+          "placeId": "cafe-50.10192-14.42986"
+        },
+        {
+          "name": "Kavárna sport hala Kbely",
+          "kind": "regular",
+          "placeId": "cafe-50.13457-14.54317"
+        },
+        {
+          "name": "ProTeInn",
+          "kind": "regular",
+          "placeId": "cafe-50.04398-14.33692"
+        },
+        {
+          "name": "Tao Coffee",
+          "kind": "regular",
+          "placeId": "cafe-50.04001-14.42535"
+        },
+        {
+          "name": "Robaal",
+          "kind": "regular",
+          "placeId": "cafe-50.02745-14.43317"
+        },
+        {
+          "name": "Domu",
+          "kind": "regular",
+          "placeId": "cafe-50.03207-14.49100"
+        },
+        {
+          "name": "Kavárna Pauza - Jižní město",
+          "kind": "regular",
+          "placeId": "cafe-50.02883-14.53425"
+        },
+        {
+          "name": "Praha",
+          "kind": "regular",
+          "placeId": "cafe-50.05232-14.36527"
+        },
+        {
+          "name": "GOURMAND'S DELI & CAFÉ",
+          "kind": "regular",
+          "placeId": "cafe-50.07321-14.40224"
+        },
+        {
+          "name": "KamaCoffee",
+          "kind": "regular",
+          "placeId": "cafe-50.06846-14.42308"
+        },
+        {
+          "name": "CoffeeMat #20",
+          "kind": "regular",
+          "placeId": "cafe-50.07277-14.54325"
+        },
+        {
+          "name": "Kavárna",
+          "kind": "regular",
+          "placeId": "cafe-50.08341-14.50850"
+        },
+        {
+          "name": "CoffeeMat #10",
+          "kind": "regular",
+          "placeId": "cafe-50.10227-14.38708"
+        },
+        {
+          "name": "Mudr",
+          "kind": "regular",
+          "placeId": "cafe-50.10528-14.44906"
+        },
+        {
+          "name": "HS Cafe Sparta",
+          "kind": "regular",
+          "placeId": "cafe-50.10842-14.48689"
+        },
+        {
+          "name": "Klic",
+          "kind": "regular",
+          "placeId": "cafe-50.12310-14.49214"
+        },
+        {
+          "name": "CoffeeMat #22",
+          "kind": "regular",
+          "placeId": "cafe-50.13780-14.50189"
+        }
+      ],
+      "removed": [],
+      "changed": []
+    }
+  }
+}

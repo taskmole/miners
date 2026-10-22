@@ -97,17 +97,16 @@ export interface CoffeeTripCafe {
   longitude: string;
 }
 
-/** Search hits that are clearly not cafes. Only applied to new additions. */
-const NON_CAFE_TYPES = new Set([
-  "supermarket",
-  "grocery_store",
-  "convenience_store",
-  "gas_station",
-  "department_store",
-  "shopping_mall",
-  "hotel",
-  "lodging",
-]);
+/**
+ * Google types a new search hit must have to become a pin. The "specialty
+ * coffee" search also returns supermarkets, donut chains, bars, bakeries and
+ * ice-cream shops, which would bury the real competitors. Cafes already on
+ * the map are never filtered.
+ */
+export const CAFE_TYPES = new Set(["coffee_shop", "cafe", "cafeteria", "coffee_roastery", "coffee_stand"]);
+
+/** Miners cafes come from the database; a Google copy would put a second pin on them. */
+const MINERS_NAME = /\bminers\b/i;
 
 /** A cafe Google lost under its old id, found again this close by, is the same cafe. */
 export const RELINK_MAX_METRES = 30;
@@ -223,7 +222,8 @@ export interface GoogleMergeStats {
   relinked: string[];
   coffeeTripUpdated: number;
   coffeeTripAdded: string[];
-  skippedNonCafe: number;
+  /** New hits left out for not being a cafe, counted by Google type. */
+  skippedTypes: Record<string, number>;
 }
 
 export interface GoogleMergeInput {
@@ -259,7 +259,7 @@ export function mergeGoogleCity(input: GoogleMergeInput): {
     relinked: [],
     coffeeTripUpdated: 0,
     coffeeTripAdded: [],
-    skippedNonCafe: 0,
+    skippedTypes: {},
   };
 
   const foundById = new Map(found.map((p) => [p.id, p]));
@@ -357,12 +357,14 @@ export function mergeGoogleCity(input: GoogleMergeInput): {
       continue;
     }
 
-    if (NON_CAFE_TYPES.has(place.primaryType ?? "")) {
-      stats.skippedNonCafe++;
+    if (MINERS_NAME.test(name)) continue;
+    const type = place.primaryType ?? "unknown";
+    if (!CAFE_TYPES.has(type)) {
+      stats.skippedTypes[type] = (stats.skippedTypes[type] ?? 0) + 1;
       continue;
     }
     added.push(newRow(place, now));
-    stats.added.push(name);
+    stats.added.push(`${name} (${type})`);
   }
 
   return {

@@ -1,11 +1,8 @@
 import React from "react";
 import { Link, Section, Text } from "@react-email/components";
-import { EmailShell, buttonStyle, headingStyle, propertyUrl, textStyle } from "./_shell";
-import {
-  MAX_LISTED,
-  SAMPLE_CAFE_UPDATE_CITIES,
-  type CafeUpdateCity,
-} from "../lib/cafe-update-email";
+import { EmailShell, buttonStyle, headingStyle } from "./_shell";
+import { COLOR, Flag, StatBar } from "./weekly-summary";
+import { SAMPLE_CAFE_UPDATE_CITIES, type CafeUpdateCity } from "../lib/cafe-update-email";
 import type { ReportCafe } from "../../scripts/data-pipeline/lib/cafe-report";
 
 interface CafeUpdateProps {
@@ -13,46 +10,40 @@ interface CafeUpdateProps {
   appUrl?: string;
 }
 
-/** "12 new, 3 gone, 5 changed", leaving out the zeros. */
-function summary(city: CafeUpdateCity): string {
-  return [
-    city.added.length && `${city.added.length} new`,
-    city.removed.length && `${city.removed.length} gone`,
-    city.changed.length && `${city.changed.length} changed`,
-  ]
-    .filter(Boolean)
-    .join(", ");
+/**
+ * Monthly cafe update, laid out like the weekly summary but shorter: big
+ * totals and one card per city with bars. The cafes themselves are on the map.
+ */
+
+const MOBILE_CSS = `
+  @media only screen and (max-width: 480px) {
+    .wk-big { font-size: 30px !important; line-height: 34px !important; }
+    .wk-row-label, .wk-row-value { font-size: 15px !important; }
+  }
+`;
+
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
 }
 
-const KIND_LABEL: Record<ReportCafe["kind"], string> = {
-  "coffee-trip": "European Coffee Trip",
-  regular: "Google",
-};
-
-function CafeList({ title, cafes, appUrl }: { title: string; cafes: ReportCafe[]; appUrl: string }) {
-  if (cafes.length === 0) return null;
-  const shown = cafes.slice(0, MAX_LISTED);
-  const more = cafes.length - shown.length;
+/** `max` is the biggest number across all cities, so bars compare between cards. */
+function CityCard({ city, max }: { city: CafeUpdateCity; max: number }) {
+  // Zero rows are dropped, like the weekly summary: a bare track reads as noise.
+  const rows = [
+    { label: "New cafes", value: city.added.length, color: COLOR.green },
+    { label: "Updated", value: city.changed.length, color: COLOR.blue },
+    { label: "Closed", value: city.removed.length, color: COLOR.red },
+  ].filter((r) => r.value > 0);
 
   return (
-    <Section style={{ margin: "12px 0 0" }}>
-      <Text style={listTitleStyle}>{title}</Text>
-      {shown.map((cafe, i) => (
-        <Text key={`${cafe.name}-${i}`} style={itemStyle}>
-          {cafe.placeId ? (
-            <Link href={propertyUrl(appUrl, cafe.placeId)} style={linkStyle}>
-              {cafe.name}
-            </Link>
-          ) : (
-            cafe.name
-          )}
-          <span style={metaStyle}>
-            {" · "}
-            {cafe.changes?.length ? cafe.changes.join(", ") : KIND_LABEL[cafe.kind]}
-          </span>
-        </Text>
+    <Section style={cardStyle}>
+      <Text style={cardTitleStyle}>
+        <Flag cityId={city.cityId} />
+        {city.cityName}
+      </Text>
+      {rows.map((r) => (
+        <StatBar key={r.label} label={r.label} value={r.value} max={max} color={r.color} />
       ))}
-      {more > 0 && <Text style={itemStyle}>{`and ${more} more`}</Text>}
     </Section>
   );
 }
@@ -61,72 +52,95 @@ export function CafeUpdate({
   cities = SAMPLE_CAFE_UPDATE_CITIES,
   appUrl = "https://theminers.vercel.app",
 }: CafeUpdateProps) {
-  const heading = "The cafe map was refreshed";
+  const total = (pick: (c: CafeUpdateCity) => ReportCafe[]) => cities.reduce((n, c) => n + pick(c).length, 0);
+  const totals = [
+    { value: total((c) => c.added), label: "New cafes" },
+    { value: total((c) => c.changed), label: "Updated" },
+    { value: total((c) => c.removed), label: "Closed" },
+  ];
+  const barMax = Math.max(0, ...cities.flatMap((c) => [c.added.length, c.changed.length, c.removed.length]));
+  const heading = totals[0].value > 0 ? `${plural(totals[0].value, "new cafe", "new cafes")} on your map` : "Your cafe map was updated";
 
   return (
-    <EmailShell preview={cities.map((c) => `${c.cityName}: ${summary(c)}`).join(" · ")}>
-      <Text style={headingStyle}>{heading}</Text>
-      <Text style={textStyle}>Here is what changed among the cafes on your map since last month.</Text>
+    <EmailShell
+      preview={cities.map((c) => `${c.cityName}: ${c.added.length} new`).join(" · ")}
+      headStyles={MOBILE_CSS}
+      maxWidth={600}
+    >
+      <Text style={{ ...headingStyle, marginBottom: "2px", textAlign: "center" }}>{heading}</Text>
+      <Text style={subtitleStyle}>Monthly cafe refresh</Text>
+
+      <table cellPadding={0} cellSpacing={0} border={0} width="100%" style={stripStyle}>
+        <tbody>
+          <tr>
+            {totals.map((t) => (
+              <td key={t.label} style={{ width: "33.33%", textAlign: "center", padding: "8px 4px" }}>
+                <div className="wk-big" style={bigNumberStyle}>
+                  {t.value}
+                </div>
+                <div style={bigLabelStyle}>{t.label}</div>
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
 
       {cities.map((city) => (
-        <Section key={city.cityId} style={citySectionStyle}>
-          <Text style={cityTitleStyle}>{city.cityName}</Text>
-          <Text style={summaryStyle}>{summary(city)}</Text>
-          <CafeList title="New" cafes={city.added} appUrl={appUrl} />
-          <CafeList title="Changed" cafes={city.changed} appUrl={appUrl} />
-          <CafeList title="Gone" cafes={city.removed} appUrl={appUrl} />
-        </Section>
+        <CityCard key={city.cityId} city={city} max={barMax} />
       ))}
 
-      <Link href={appUrl} style={buttonStyle}>
-        Open the map
-      </Link>
+      <Section style={{ textAlign: "center", marginTop: "8px" }}>
+        <Link href={appUrl} style={buttonStyle}>
+          Open app
+        </Link>
+      </Section>
     </EmailShell>
   );
 }
 
 export default CafeUpdate;
 
-const citySectionStyle: React.CSSProperties = {
-  borderTop: "1px solid #e4e4e7",
-  margin: "20px 0 0",
-  padding: "16px 0 0",
-};
-
-const cityTitleStyle: React.CSSProperties = {
-  fontSize: "16px",
-  fontWeight: 700,
-  color: "#18181b",
-  margin: "0",
-};
-
-const summaryStyle: React.CSSProperties = {
-  ...textStyle,
-  margin: "2px 0 0",
-};
-
-const listTitleStyle: React.CSSProperties = {
-  fontSize: "12px",
-  fontWeight: 600,
-  color: "#71717a",
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
+const subtitleStyle: React.CSSProperties = {
+  fontSize: "13px",
+  color: COLOR.faint,
   margin: "0 0 4px",
+  textAlign: "center",
 };
 
-const itemStyle: React.CSSProperties = {
-  fontSize: "14px",
-  color: "#3f3f46",
-  lineHeight: "1.5",
-  margin: "2px 0",
+const stripStyle: React.CSSProperties = {
+  width: "100%",
+  borderCollapse: "collapse",
+  tableLayout: "fixed",
+  margin: "20px 0 4px",
 };
 
-const linkStyle: React.CSSProperties = {
-  color: "#18181b",
-  fontWeight: 600,
-  textDecoration: "underline",
+const bigNumberStyle: React.CSSProperties = {
+  fontSize: "30px",
+  fontWeight: 700,
+  color: COLOR.ink,
+  lineHeight: "34px",
+  letterSpacing: "-0.02em",
 };
 
-const metaStyle: React.CSSProperties = {
-  color: "#71717a",
+const bigLabelStyle: React.CSSProperties = {
+  fontSize: "11px",
+  color: COLOR.muted,
+  lineHeight: "15px",
+  marginTop: "2px",
 };
+
+const cardStyle: React.CSSProperties = {
+  backgroundColor: "#f9fafb",
+  border: `1px solid ${COLOR.line}`,
+  borderRadius: "10px",
+  padding: "16px",
+  margin: "16px 0 0",
+};
+
+const cardTitleStyle: React.CSSProperties = {
+  fontSize: "15px",
+  fontWeight: 700,
+  color: COLOR.ink,
+  margin: "0 0 8px",
+};
+

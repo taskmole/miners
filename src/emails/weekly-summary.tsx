@@ -17,7 +17,7 @@ import { cityById, cityNames } from "@/lib/cities";
 const FLAG_BASE = "https://raw.githubusercontent.com/taskmole/miners/main/public/assets/flags";
 const FLAG_COUNTRIES = new Set(["ES", "CZ"]);
 
-function Flag({ cityId }: { cityId: string | null }) {
+export function Flag({ cityId }: { cityId: string | null }) {
   const code = cityId ? cityById(cityId)?.countryCode : undefined;
   if (!code || !FLAG_COUNTRIES.has(code)) return null;
   return (
@@ -49,7 +49,7 @@ function Flag({ cityId }: { cityId: string | null }) {
  * technique that survives Outlook.
  */
 
-const COLOR = {
+export const COLOR = {
   ink: "#18181b",
   body: "#52525b",
   muted: "#71717a",
@@ -112,7 +112,7 @@ function plural(count: number, one: string, many: string): string {
  * numbers is still readable. A non-zero value never renders thinner than 4%,
  * otherwise a 1 beside a 40 disappears and reads as nothing happened.
  */
-function StatBar({
+export function StatBar({
   label,
   value,
   max,

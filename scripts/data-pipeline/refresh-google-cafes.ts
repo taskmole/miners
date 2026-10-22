@@ -228,7 +228,12 @@ async function refreshCity(city: string): Promise<boolean> {
 
   console.log(
     `  Refreshed ${stats.refreshed}, kept unseen ${stats.keptUnseen}, added ${stats.added.length}, ` +
-      `removed ${stats.removed.length}, relinked ${stats.relinked.length}, skipped non-cafes ${stats.skippedNonCafe}`
+      `removed ${stats.removed.length}, relinked ${stats.relinked.length}`
+  );
+  const skipped = Object.entries(stats.skippedTypes).sort((a, b) => b[1] - a[1]);
+  console.log(
+    `  Skipped ${skipped.reduce((n, [, c]) => n + c, 0)} new non-cafes: ` +
+      skipped.map(([type, count]) => `${type} ${count}`).join(", ")
   );
   console.log(`  Coffee-trip details: updated ${stats.coffeeTripUpdated}, added ${stats.coffeeTripAdded.length}`);
   for (const [label, names] of Object.entries({
