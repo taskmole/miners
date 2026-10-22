@@ -10,7 +10,6 @@ import {
   type CafeReport,
 } from "../../../scripts/data-pipeline/lib/cafe-report";
 import {
-  MAX_LISTED,
   buildCafeUpdateEmails,
   cafeUpdateSubject,
   citiesWithChanges,
@@ -113,24 +112,20 @@ describe("cafe update email", () => {
   });
 
   it("names the cities in the subject", () => {
-    expect(cafeUpdateSubject(citiesWithChanges(report()))).toBe("Cafe map update: Madrid and Prague");
+    expect(cafeUpdateSubject(citiesWithChanges(report()))).toBe("1 new cafe in Madrid and Prague");
+    expect(cafeUpdateSubject(citiesWithChanges(report({ cities: { prague: report().cities.prague } })))).toBe(
+      "Cafe map update: Prague"
+    );
   });
 
-  it("renders links for new cafes, plain names for gone ones, and caps long lists", async () => {
-    const many = Array.from({ length: MAX_LISTED + 3 }, (_, i) => ({
-      name: `Cafe ${i}`,
-      kind: "regular" as const,
-      placeId: `cafe-40.4000${i}--3.70000`,
-    }));
-    const cities = citiesWithChanges(
-      report({ cities: { madrid: { added: many, removed: [{ name: "Gone Cafe", kind: "regular" }], changed: [] } } })
-    );
-    const html = await render(React.createElement(CafeUpdate, { cities, appUrl: "https://app.test" }));
-    expect(html).toContain("https://app.test/?focus=cafe-40.40000--3.70000");
-    expect(html).toContain("13 new");
-    expect(html).toContain("and 3 more");
-    expect(html).toContain("Gone Cafe");
-    expect(html).not.toContain("Cafe 12");
+  it("renders totals and a card per city, with an Open app button", async () => {
+    const html = await render(React.createElement(CafeUpdate, { cities: citiesWithChanges(report()), appUrl: "https://app.test" }));
+    expect(html).toContain("1 new cafe on your map");
+    expect(html).toContain("Madrid");
+    expect(html).toContain("Prague");
+    expect(html).toContain("Closed");
+    expect(html).toContain('href="https://app.test"');
+    expect(html).toContain("Open app");
   });
 });
 
