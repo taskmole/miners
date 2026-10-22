@@ -746,9 +746,10 @@ export function buildListingText(listing: Listing, facts: PointValues, profile: 
   let rent = price ? `${Math.round(price)} ${money} per month` : "not listed";
   if (price && perSqm) rent += ` (${perSqm.toFixed(1)} ${money} per m2)`;
 
+  // Some rentals are really transfers: the fee was found in their description.
   let deal = "rental";
-  if (listing.source === "idealista_transfer") {
-    const fee = positiveNumber(meta.transfer);
+  const fee = positiveNumber(meta.transfer);
+  if (listing.source === "idealista_transfer" || fee) {
     deal = `transfer of an existing business${fee ? `, one-off fee ${Math.round(fee)} ${money}` : ""}`;
   }
 

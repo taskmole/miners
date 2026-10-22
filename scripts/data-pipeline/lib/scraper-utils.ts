@@ -110,7 +110,9 @@ export async function publishListings(
   cityId: string,
   categoryId: string,
   source: string,
-  envName: string
+  envName: string,
+  // Metadata keys that keep their stored value when this scrape has none.
+  keepKeys: string[] = []
 ): Promise<PublishStats> {
   let inserted = 0;
   let updated = 0;
@@ -144,11 +146,14 @@ export async function publishListings(
     const { priceChanged, priceHistory } = detectPriceChange(existingMeta, listing.price);
     if (priceChanged) priceChanges++;
 
-    const metadata = {
+    const metadata: Record<string, unknown> = {
       ...listing.metadata,
       price_history: priceHistory,
       price_changed: priceChanged,
     };
+    for (const key of keepKeys) {
+      if (metadata[key] == null && existingMeta?.[key] != null) metadata[key] = existingMeta[key];
+    }
 
     try {
       if (existing) {
