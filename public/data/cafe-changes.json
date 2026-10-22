@@ -1,8 +1,74 @@
 {
-  "stamp": "39846275814-1",
-  "createdAt": "2026-10-22T20:11:02.423Z",
+  "stamp": "39847039049-1",
+  "createdAt": "2026-10-22T20:16:13.813Z",
   "cities": {
     "madrid": {
+      "added": [],
+      "removed": [
+        {
+          "name": "EPOCA Cafetería & Panadería",
+          "kind": "regular"
+        },
+        {
+          "name": "Unide Market Supermercados",
+          "kind": "regular"
+        },
+        {
+          "name": "Panem Brunch and Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "Bar Al Grano",
+          "kind": "regular"
+        },
+        {
+          "name": "HAT COFFEE - Speciality Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "Kraleva Specialty Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "N&P Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "Le petit cafe de Cryss",
+          "kind": "regular"
+        },
+        {
+          "name": "Syra Coffee | Cafeteria Chamberi",
+          "kind": "regular"
+        },
+        {
+          "name": "Braco Specialty Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "Hammonds Specialty Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "Yasemin&Tuncel Ice Cream & Coffee",
+          "kind": "regular"
+        },
+        {
+          "name": "Heladería Choffins",
+          "kind": "regular"
+        },
+        {
+          "name": "Masa Mamma",
+          "kind": "regular"
+        },
+        {
+          "name": "DeBAGEL",
+          "kind": "regular"
+        }
+      ],
+      "changed": []
+    },
+    "prague": {
       "added": [],
       "removed": [],
       "changed": []
