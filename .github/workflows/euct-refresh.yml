@@ -1,8 +1,12 @@
-name: EUCT Cafe Refresh
+name: Cafe Refresh
 
-# Refreshes the European Coffee Trip cafes for Madrid and Prague and commits
-# the changed CSVs to main, which makes Vercel redeploy with the new cafes.
-# Barcelona is left frozen on purpose.
+# Refreshes the European Coffee Trip cafes, then the Google regular cafes, for
+# Madrid and Prague, and commits the changed CSVs to main, which makes Vercel
+# redeploy with the new cafes. Barcelona is left frozen on purpose.
+#
+# The scripts also write public/data/cafe-changes.json (only when
+# CAFE_REPORT_STAMP is set, so never on a dry run). It ships in the same
+# deploy, and the daily /api/send-cafe-update-email cron emails it once.
 
 on:
   schedule:
@@ -43,9 +47,23 @@ jobs:
           BRIGHTDATA_CUSTOMER_ID: ${{ secrets.BRIGHTDATA_CUSTOMER_ID }}
           BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
           BRIGHTDATA_PASSWORD: ${{ secrets.BRIGHTDATA_PASSWORD }}
+          CAFE_REPORT_STAMP: ${{ github.event.inputs.dry_run != 'true' && format('{0}-{1}', github.run_id, github.run_attempt) || '' }}
         run: |
           npx ts-node --project scripts/data-pipeline/tsconfig.json \
             scripts/data-pipeline/fetch-euct.ts \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      # Runs after the coffee-trip step so new Google hits are checked against
+      # this month's coffee-trip cafes, and still runs if that step hit a
+      # safety stop. Skips itself (with a warning) while the key is missing.
+      - name: Refresh Google cafes
+        if: ${{ !cancelled() }}
+        env:
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          CAFE_REPORT_STAMP: ${{ github.event.inputs.dry_run != 'true' && format('{0}-{1}', github.run_id, github.run_attempt) || '' }}
+        run: |
+          npx ts-node --project scripts/data-pipeline/tsconfig.json \
+            scripts/data-pipeline/refresh-google-cafes.ts \
             ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
 
       # Only ever commits from main, so a run started on another branch can't
@@ -55,11 +73,16 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/data/cafe_info.csv public/data/prague_cafe_info.csv
+          git add public/data/cafe_info.csv public/data/prague_cafe_info.csv \
+            public/data/google_places_madrid.csv public/data/google_places_prague.csv \
+            public/data/google_places_enrichment.csv public/data/google_places_enrichment_prague.csv
+          # The change report only travels with real cafe changes: on its own it
+          # would trigger a deploy (and an email) about nothing.
           if git diff --cached --quiet; then
             echo "No cafe changes this month."
             exit 0
           fi
-          git commit -m "Refresh European Coffee Trip cafes"
+          if [ -f public/data/cafe-changes.json ]; then git add public/data/cafe-changes.json; fi
+          git commit -m "Refresh cafes"
           git pull --rebase origin main
           git push origin HEAD:main

@@ -5,6 +5,7 @@
     { "path": "/api/send-weekly-summary", "schedule": "0 15 * * 5" },
     { "path": "/api/send-ai-scout-email", "schedule": "0 6 * * 5" },
     { "path": "/api/send-ai-scout-email", "schedule": "0 7 * * 5" },
-    { "path": "/api/send-request-reminder", "schedule": "0 7 * * *" }
+    { "path": "/api/send-request-reminder", "schedule": "0 7 * * *" },
+    { "path": "/api/send-cafe-update-email", "schedule": "0 8 * * *" }
   ]
 }

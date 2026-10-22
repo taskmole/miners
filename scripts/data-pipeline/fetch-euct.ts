@@ -21,6 +21,7 @@ import * as fs from "fs";
 import Papa from "papaparse";
 import { ProxyAgent } from "undici";
 import { buildProxyUri, PROXY_CONFIG } from "./config/idealista";
+import { cafePlaceId, diffCafes, saveToReportFile, type ComparableCafe } from "./lib/cafe-report";
 import {
   EUCT_BASE_URL,
   EUCT_COLUMNS,
@@ -38,6 +39,8 @@ const CITY_FILES: Record<string, string> = {
   madrid: "cafe_info.csv",
   prague: "prague_cafe_info.csv",
 };
+
+const REPORT_FILE = path.join(__dirname, "../../public/data/cafe-changes.json");
 
 const CONCURRENCY = 4;
 // ~360 pages per run; the cap leaves room for retries but stops a runaway loop.
@@ -141,6 +144,15 @@ async function refreshCity(city: string, fileName: string): Promise<boolean> {
   } else {
     fs.writeFileSync(filePath, csv);
     console.log(`  Wrote ${rows.length} cafes`);
+
+    // Kept and relinked cafes keep their position, so position is the match key.
+    const asComparable = (r: EuctRow): ComparableCafe => ({
+      placeId: cafePlaceId(r.latitude, r.longitude),
+      name: r.name,
+      premium: r.premium,
+    });
+    const usable = (list: EuctRow[]) => list.filter((r) => r.latitude && r.longitude).map(asComparable);
+    saveToReportFile(REPORT_FILE, city, diffCafes("coffee-trip", usable(existing), usable(rows)));
   }
   return true;
 }
