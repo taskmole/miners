@@ -105,6 +105,9 @@ export interface CoffeeTripCafe {
  */
 export const CAFE_TYPES = new Set(["coffee_shop", "cafe", "cafeteria", "coffee_roastery", "coffee_stand"]);
 
+/** Miners cafes come from the database; a Google copy would put a second pin on them. */
+const MINERS_NAME = /\bminers\b/i;
+
 /** A cafe Google lost under its old id, found again this close by, is the same cafe. */
 export const RELINK_MAX_METRES = 30;
 const RELINK_MIN_NAME_SIMILARITY = 0.5;
@@ -354,6 +357,7 @@ export function mergeGoogleCity(input: GoogleMergeInput): {
       continue;
     }
 
+    if (MINERS_NAME.test(name)) continue;
     const type = place.primaryType ?? "unknown";
     if (!CAFE_TYPES.has(type)) {
       stats.skippedTypes[type] = (stats.skippedTypes[type] ?? 0) + 1;

@@ -155,7 +155,7 @@ describe("mergeGoogleCity", () => {
     expect(rows.map((r) => r.source_id)).toEqual(["FRESH"]);
   });
 
-  it("only adds new hits Google calls a cafe, and never filters existing pins", () => {
+  it("only adds new hits Google calls a cafe (never a Miners), and never filters existing pins", () => {
     const existing = [row("SUPER", "Old Supermarket", "40.1", "-3.1", { primaryType: "supermarket" })];
     const found = [
       place("SUPER", "Old Supermarket", 40.1, -3.1, { primaryType: "supermarket" }),
@@ -163,6 +163,7 @@ describe("mergeGoogleCity", () => {
       place("DONUT", "Dunkin", 40.3, -3.3, { primaryType: "donut_shop" }),
       place("NOTYPE", "Mystery", 40.4, -3.4, { primaryType: undefined }),
       place("CAFE", "Real Cafe", 40.5, -3.5, { primaryType: "cafe" }),
+      place("OURS", "The Miners Coffee San Bernardo", 40.6, -3.6),
     ];
     const { rows, stats } = merge({ existing, found });
     expect(rows.map((r) => r.source_id)).toEqual(["SUPER", "CAFE"]);
