@@ -7,6 +7,7 @@
  */
 
 import { useState, type ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -22,24 +23,117 @@ export function formatShortDate(iso: string | null | undefined): string {
   });
 }
 
-/** Sentence-case section title with a quiet count next to it. */
-export function SectionHeader({
+/**
+ * The top of every tab: a title, one sentence on what the tab is for, and
+ * its main button on the right.
+ */
+export function PageIntro({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  /** The tab's main action, e.g. an "Add cafe" button. */
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <h2 className="text-xl font-semibold text-zinc-900 font-[family-name:var(--font-heading)]">{title}</h2>
+        <p className="text-sm text-zinc-500 mt-1">{description}</p>
+      </div>
+      {children && <div className="shrink-0">{children}</div>}
+    </div>
+  );
+}
+
+/**
+ * A row of pill buttons that picks one of a few views or filters. Scrolls
+ * sideways when it does not fit, so nothing is hidden on small phones.
+ */
+export function Chips<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: { id: T; label: string; count?: number }[];
+  value: T;
+  onChange: (id: T) => void;
+  /** Read out by screen readers, e.g. "City". */
+  label: string;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 py-1">
+      {options.map((o) => {
+        const active = o.id === value;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(o.id)}
+            className={cn(
+              "shrink-0 h-9 px-3.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400",
+              active
+                ? "bg-zinc-900 text-white"
+                : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50",
+            )}
+          >
+            {o.label}
+            {o.count !== undefined && (
+              // The leading space keeps screen readers from reading "All23".
+              <span className={cn("tabular-nums", active ? "text-zinc-300" : "text-zinc-400")}>
+                {` ${o.count}`}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A section that starts folded, e.g. past decisions under the open queue. */
+export function FoldedSection({
   title,
   count,
   children,
 }: {
   title: string;
   count?: number;
-  /** Optional controls on the right, e.g. an "Add" button. */
-  children?: ReactNode;
+  children: ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section>
+      {/* A heading, like SectionHeader, so screen readers can jump to it */}
+      <h2 className="mb-3">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          className="flex items-center gap-2 min-h-9 -ml-1 px-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+        >
+          <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform", open && "rotate-90")} />
+          <span className="text-sm font-semibold text-zinc-900">{title}</span>
+          {count !== undefined && <span className="text-sm text-zinc-400 tabular-nums">{count}</span>}
+        </button>
+      </h2>
+      {open && children}
+    </section>
+  );
+}
+
+/** Sentence-case section title with a quiet count next to it. */
+export function SectionHeader({ title, count }: { title: string; count?: number }) {
   return (
     <div className="flex items-center gap-2 mb-3 min-h-9">
       <h2 className="text-sm font-semibold text-zinc-900">{title}</h2>
       {count !== undefined && (
         <span className="text-sm text-zinc-400 tabular-nums">{count}</span>
       )}
-      {children && <div className="ml-auto flex items-center gap-2">{children}</div>}
     </div>
   );
 }
@@ -66,6 +160,8 @@ const STATUS_STYLES: Record<string, { label: string; className: string }> = {
   approved: { label: "Approved", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   rejected: { label: "Rejected", className: "bg-red-50 text-red-700 border-red-200" },
   returned: { label: "Returned", className: "bg-amber-50 text-amber-800 border-amber-200" },
+  testing: { label: "Testing", className: "bg-amber-50 text-amber-800 border-amber-200" },
+  "in-use": { label: "In use", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
 };
 
 export function StatusBadge({ status }: { status: string }) {
