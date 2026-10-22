@@ -19,6 +19,12 @@ on:
         required: false
         default: false
         type: boolean
+      only:
+        description: 'Run only one part'
+        required: false
+        default: 'both'
+        type: choice
+        options: ['both', 'google', 'coffee-trip']
 
 jobs:
   refresh:
@@ -42,7 +48,9 @@ jobs:
 
       # Exits non-zero if a city hit a safety stop. That city's file is left
       # untouched; the commit step below still saves the other city.
+      # Scheduled runs have no inputs, so they always run both parts.
       - name: Scrape European Coffee Trip
+        if: ${{ github.event.inputs.only != 'google' }}
         env:
           BRIGHTDATA_CUSTOMER_ID: ${{ secrets.BRIGHTDATA_CUSTOMER_ID }}
           BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
@@ -57,7 +65,7 @@ jobs:
       # this month's coffee-trip cafes, and still runs if that step hit a
       # safety stop. Skips itself (with a warning) while the key is missing.
       - name: Refresh Google cafes
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.event.inputs.only != 'coffee-trip' }}
         env:
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
           CAFE_REPORT_STAMP: ${{ github.event.inputs.dry_run != 'true' && format('{0}-{1}', github.run_id, github.run_attempt) || '' }}
