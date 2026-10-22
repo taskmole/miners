@@ -143,3 +143,34 @@ The scraper runs automatically via `.github/workflows/scraper-pipeline.yml`:
 - Can also be triggered manually via GitHub Actions UI
 - Writes directly to PROD in headless mode
 - Required secrets: `BRIGHTDATA_CUSTOMER_ID`, `BRIGHTDATA_ZONE`, `BRIGHTDATA_PASSWORD`, `SUPABASE_PROD_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+
+---
+
+# European Coffee Trip Scraper
+
+`fetch-euct.ts` refreshes the EUCT cafes in `public/data/cafe_info.csv` (Madrid)
+and `public/data/prague_cafe_info.csv` (Prague). Barcelona is frozen on purpose.
+
+```bash
+npm run fetch:euct                    # Madrid + Prague
+npm run fetch:euct -- --city prague   # one city
+npm run fetch:euct -- --dry-run       # fetch and report, write nothing
+```
+
+- **How:** reads the cafe list embedded in each city page (`cafesToMap`), then
+  each cafe's own page for website, socials and dates. The site blocks plain
+  requests (Cloudflare), so every page goes through the same Bright Data zone as
+  Idealista.
+- **Coordinates never move:** pins, comments, lists, hidden pins and share links
+  are keyed by a cafe's coordinates. A cafe already in the file keeps its old
+  latitude/longitude; only new cafes get the site's. Madrid's map additionally
+  takes coordinates from the older `data.csv` wherever a cafe is in both files.
+- **Removed cafes** (no longer on the site) are dropped. A cafe page that fails
+  keeps its previous details. "Miners" entries are skipped (they come from the DB).
+- **Safety stops:** a city's file is left untouched if its page has no cafe
+  list, returns under 80% of the current cafes, or under 70% of current cafes
+  match a link (format change).
+- **Automation:** `.github/workflows/euct-refresh.yml` runs on the 1st of each
+  month at 04:00 UTC and commits changed files to `main`, which redeploys Vercel.
+  It can be run manually with a dry-run switch.
+- **Cost:** ~360 requests per run (~$0.55), about 20-30 minutes.
