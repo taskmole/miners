@@ -13,7 +13,7 @@ import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { FootfallTimePicker } from "@/components/FootfallTimePicker";
 import { FeedbackButton } from "@/components/FeedbackButton";
 import { ProfileMenu } from "@/components/ProfileMenu";
-import { NewListingsModal } from "@/components/NewListingsModal";
+import { NewListingsModal, INBOX_READS_SAVED } from "@/components/NewListingsModal";
 import { WhatsNewPopup } from "@/components/WhatsNewPopup";
 import { LocationSearch } from "@/components/LocationSearch";
 import { EnhancedMapContainer } from "@/components/EnhancedMapContainer";
@@ -195,7 +195,14 @@ function HomeContent() {
     }
     fetchCount();
     const interval = setInterval(fetchCount, 60_000);
-    return () => { cancelled = true; clearInterval(interval); };
+    // The listings popup saves its last "seen" ticks as it closes. Recount
+    // once they land, or the red dot can linger until the next minute.
+    window.addEventListener(INBOX_READS_SAVED, fetchCount);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener(INBOX_READS_SAVED, fetchCount);
+    };
   }, [user, savedCityApplied, showCityPicker, selectedCity.id, isNewListingsOpen]);
 
   // The NEW glow waits until someone is likely looking: map loaded for a

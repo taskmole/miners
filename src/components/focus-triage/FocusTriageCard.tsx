@@ -1,8 +1,10 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Snowflake, Bath, Store, Sparkles } from "lucide-react";
 import { ImageCarousel } from "./ImageCarousel";
 import { AiBreakdown } from "./AiBreakdown";
+import { PHOTO_COLUMN } from "./layout";
 import { BreatheGlow } from "@/components/BeamGlow";
 import { formatPrice } from "@/types/inbox";
 import type { InboxProperty } from "@/types/inbox";
@@ -10,9 +12,13 @@ import type { InboxProperty } from "@/types/inbox";
 interface FocusTriageCardProps {
   property: InboxProperty;
   isDesktop: boolean;
+  /** Wide screen (lg): photo left, details right, "Why" open by default. */
+  isWide: boolean;
+  /** Already ticked off this session, so the button just moves on. */
+  isSeen: boolean;
   /** Opens the actions menu, which holds every role-specific choice. */
   onActions: () => void;
-  /** Moves to the next property without doing anything. */
+  /** Ticks this property off as seen and moves to the next new one. */
   onNext: () => void;
 }
 
@@ -44,9 +50,37 @@ interface FocusTriageCardProps {
 //   return `${months} months`;
 // }
 
+/** One figure in the stats row: a small caps label over a bold number. */
+function Stat({
+  label,
+  className,
+  muted = false,
+  children,
+}: {
+  label: string;
+  className: string;
+  /** Grey value, for a figure worked out from the others. */
+  muted?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <p className="text-[11px] text-zinc-400 uppercase tracking-wide">{label}</p>
+      <p
+        className={`text-xl font-bold ${muted ? "text-zinc-500" : "text-zinc-900"}`}
+        style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}
+      >
+        {children}
+      </p>
+    </div>
+  );
+}
+
 export function FocusTriageCard({
   property,
   isDesktop,
+  isWide,
+  isSeen,
   onActions,
   onNext,
 }: FocusTriageCardProps) {
@@ -67,215 +101,233 @@ export function FocusTriageCard({
   const hasFeatures =
     property.hasStorefront || property.hasAirConditioning || property.hasBathroom;
 
+  // Rent per square metre, worked out here rather than trusting priceByArea,
+  // so it always matches the rent and size shown next to it.
+  const pricePerM2 =
+    property.price > 0 && property.size > 0 ? property.price / property.size : null;
+
   return (
     <>
+      {/* Two layouts from one tree. Phones and narrow windows stack photo,
+          details and buttons in one scrolling column. Wide screens (lg) put
+          the photo in a left column and the details in a right column that
+          scrolls on its own, with the buttons pinned at its foot. */}
+
       {/* Photo with district overlay */}
-      <div className="relative">
+      <div className={`shrink-0 lg:min-h-0 ${PHOTO_COLUMN}`}>
         <ImageCarousel
           photos={photos}
           score={property.aiScore}
           showArrows={isDesktop}
-        />
-        <div
-          className="absolute bottom-0 left-0 right-0 px-4 pb-3 pt-10"
-          style={{
-            background:
-              "linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%)",
-          }}
-        >
-          <p
-            className="text-white text-base font-medium"
-            style={{ fontFamily: "var(--font-outfit)" }}
-          >
-            {property.district} &middot; {property.size} m&sup2;
-          </p>
-        </div>
-      </div>
-
-      {/* Card content */}
-      <div className="px-5 pt-8 pb-4 space-y-8">
-        {/* Stats row: Rent, link buttons */}
-        <div className="flex items-center">
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] text-zinc-400 uppercase tracking-wide">
-              Rent
-            </p>
-            <p
-              className="text-xl font-bold text-zinc-900"
+          caption={
+            <div
+              className="absolute bottom-0 left-0 right-0 px-4 pb-3 pt-10"
               style={{
-                fontVariantNumeric: "tabular-nums",
-                letterSpacing: "-0.02em",
+                background:
+                  "linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%)",
               }}
             >
+              <p
+                className="text-white text-base font-medium"
+                style={{ fontFamily: "var(--font-outfit)" }}
+              >
+                {property.district} &middot; {property.size} m&sup2;
+              </p>
+            </div>
+          }
+        />
+      </div>
+
+      {/* Details column. On narrow screens it is just the rest of the card. */}
+      <div className="flex-1 flex flex-col lg:min-h-0 lg:min-w-0">
+        <div className="px-5 pt-8 pb-4 space-y-8 lg:flex-1 lg:overflow-y-auto lg:px-6 lg:pt-5 lg:space-y-5">
+          {/* Stats row: Rent, link buttons */}
+          <div className="flex items-center">
+            <Stat label="Rent" className="flex-1 min-w-0 lg:flex-none">
               {property.price > 0
                 ? formatPrice(property.price, property.source)
                 : "N/A"}
-            </p>
-          </div>
-          {/* off: see header. Rent keeps flex-1, so it sits on the left and
-              the link buttons stay on the right. */}
-          {/*
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] text-zinc-400 uppercase tracking-wide">
-              Est. payback
-            </p>
-            <p
-              className="text-xl font-bold"
-              style={{
-                color: paybackColor(result?.paybackMonths),
-                fontVariantNumeric: "tabular-nums",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              {paybackLabel(result?.paybackMonths)}
-            </p>
-          </div>
-          */}
-          <div className="flex gap-2 shrink-0">
-            {property.url && (
+            </Stat>
+            {/* Size and rent per m2: wide screens only. On a phone the size is
+                already in the photo caption and the row has no room. Rent keeps
+                flex-1 on narrow screens; on wide ones the three sit together. */}
+            {property.size > 0 && (
+              <Stat label="Size" className="hidden lg:block shrink-0 ml-6">
+                {property.size} m&sup2;
+              </Stat>
+            )}
+            {pricePerM2 != null && (
+              <Stat label="Per m²" className="hidden lg:block shrink-0 ml-6" muted>
+                {formatPrice(pricePerM2, property.source)}
+              </Stat>
+            )}
+            {/* off: see header. Rent keeps flex-1, so it sits on the left and
+                the link buttons stay on the right. */}
+            {/*
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-zinc-400 uppercase tracking-wide">
+                Est. payback
+              </p>
+              <p
+                className="text-xl font-bold"
+                style={{
+                  color: paybackColor(result?.paybackMonths),
+                  fontVariantNumeric: "tabular-nums",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {paybackLabel(result?.paybackMonths)}
+              </p>
+            </div>
+            */}
+            <div className="flex gap-2 shrink-0 lg:ml-auto">
+              {property.url && (
+                <a
+                  href={property.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-lg overflow-hidden"
+                  style={{
+                    border: "1px solid rgba(0,0,0,0.08)",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                  }}
+                >
+                  <img
+                    src={property.source === "sreality" ? "/assets/sreality-logo.png" : "/assets/idealista-logo.png"}
+                    alt={property.source === "sreality" ? "Sreality" : "Idealista"}
+                    className="w-full h-full object-cover"
+                  />
+                </a>
+              )}
               <a
-                href={property.url}
+                href={`https://www.google.com/maps/search/?api=1&query=${property.latitude},${property.longitude}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-lg overflow-hidden"
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
                 style={{
+                  background: "#F5F5F5",
                   border: "1px solid rgba(0,0,0,0.08)",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
                 }}
               >
                 <img
-                  src={property.source === "sreality" ? "/assets/sreality-logo.png" : "/assets/idealista-logo.png"}
-                  alt={property.source === "sreality" ? "Sreality" : "Idealista"}
-                  className="w-full h-full object-cover"
+                  src="/assets/google-maps-logo-bare.png"
+                  alt="Google Maps"
+                  className="w-6 h-6 object-contain"
                 />
               </a>
-            )}
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${property.latitude},${property.longitude}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-10 h-10 rounded-lg flex items-center justify-center"
+            </div>
+          </div>
+
+          {/* AI Summary */}
+          {property.aiReason && (
+            // The box is its own glow holder: two soft breaths when the card
+            // appears. The card remounts per listing, so it breathes once each.
+            <BreatheGlow
+              playKey={property.id}
+              borderRadius={14} // rounded-xl with this theme's --radius
+              className="rounded-xl px-4 py-3"
               style={{
-                background: "#F5F5F5",
-                border: "1px solid rgba(0,0,0,0.08)",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                backgroundColor: "rgba(236, 253, 245, 0.6)",
+                boxShadow:
+                  "0 1px 3px rgba(0,0,0,0.04), inset 0 0 0 1px rgba(16,185,129,0.12)",
               }}
             >
-              <img
-                src="/assets/google-maps-logo-bare.png"
-                alt="Google Maps"
-                className="w-6 h-6 object-contain"
-              />
-            </a>
-          </div>
-        </div>
-
-        {/* AI Summary */}
-        {property.aiReason && (
-          // The box is its own glow holder: two soft breaths when the card
-          // appears. The card remounts per listing, so it breathes once each.
-          <BreatheGlow
-            playKey={property.id}
-            borderRadius={14} // rounded-xl with this theme's --radius
-            className="rounded-xl px-4 py-3"
-            style={{
-              backgroundColor: "rgba(236, 253, 245, 0.6)",
-              boxShadow:
-                "0 1px 3px rgba(0,0,0,0.04), inset 0 0 0 1px rgba(16,185,129,0.12)",
-            }}
-          >
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wide">
-                AI Summary
-              </span>
-            </div>
-            <p className="text-[13px] text-zinc-700 leading-relaxed">
-              {property.aiReason}
-            </p>
-          </BreatheGlow>
-        )}
-
-        {/* AI scout breakdown: "worth a second look" plus the collapsible
-            "Why {score}?" reasons. Only listings the scout has rated carry
-            one; the rest render exactly as before. Keyed by rating so a
-            re-scored listing starts with fresh local state. */}
-        {property.aiBreakdown && (
-          <AiBreakdown
-            key={property.aiBreakdown.ratingId}
-            placeId={property.id}
-            breakdown={property.aiBreakdown}
-          />
-        )}
-
-        {/* Features. Only rendered when there is at least one chip: an empty
-            row still takes its slot in the space-y-8 stack, which would leave
-            a gap of dead white space above the buttons. */}
-        {hasFeatures && (
-          <div className="flex flex-wrap gap-2">
-            {property.hasStorefront && (
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50">
-                <Store className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="text-xs text-zinc-500">Storefront</span>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wide">
+                  AI Summary
+                </span>
               </div>
-            )}
-            {property.hasAirConditioning && (
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50">
-                <Snowflake className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="text-xs text-zinc-500">AC</span>
-              </div>
-            )}
-            {property.hasBathroom && (
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50">
-                <Bath className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="text-xs text-zinc-500">Bathroom</span>
-              </div>
-            )}
-          </div>
-        )}
+              <p className="text-[13px] text-zinc-700 leading-relaxed">
+                {property.aiReason}
+              </p>
+            </BreatheGlow>
+          )}
 
-        {/* Revenue simulation toggle. off: see header. */}
-        {/*
-        <div>
-          <button
-            onClick={() => setShowRevenue(!showRevenue)}
-            className="flex items-center gap-1 text-[13px] text-zinc-400"
-          >
-            <ChevronDown
-              className={`w-3.5 h-3.5 transition-transform ${
-                showRevenue ? "rotate-180" : ""
-              }`}
+          {/* AI scout breakdown: "worth a second look" plus the collapsible
+              "Why {score}?" reasons. Only listings the scout has rated carry
+              one; the rest render exactly as before. Keyed by rating so a
+              re-scored listing starts with fresh local state. */}
+          {property.aiBreakdown && (
+            <AiBreakdown
+              key={property.aiBreakdown.ratingId}
+              placeId={property.id}
+              breakdown={property.aiBreakdown}
+              openByDefault={isWide}
             />
-            Simulate revenue
-          </button>
+          )}
 
-          {showRevenue && (
-            <div className="mt-4">
-              <RevenueSimulator property={property} />
+          {/* Features. Only rendered when there is at least one chip: an empty
+              row still takes its slot in the space-y-8 stack, which would leave
+              a gap of dead white space above the buttons. */}
+          {hasFeatures && (
+            <div className="flex flex-wrap gap-2">
+              {property.hasStorefront && (
+                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50">
+                  <Store className="w-3.5 h-3.5 text-zinc-400" />
+                  <span className="text-xs text-zinc-500">Storefront</span>
+                </div>
+              )}
+              {property.hasAirConditioning && (
+                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50">
+                  <Snowflake className="w-3.5 h-3.5 text-zinc-400" />
+                  <span className="text-xs text-zinc-500">AC</span>
+                </div>
+              )}
+              {property.hasBathroom && (
+                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50">
+                  <Bath className="w-3.5 h-3.5 text-zinc-400" />
+                  <span className="text-xs text-zinc-500">Bathroom</span>
+                </div>
+              )}
             </div>
           )}
-        </div>
-        */}
-      </div>
 
-      {/* Sticky action buttons */}
-      <div className="sticky bottom-0 mt-auto px-5 pt-3 pb-8 bg-white">
-        {/* Everything a person can do lives behind Action, so the row stays
-            the same whoever is looking at it. Skip sits on the right, under
-            the thumb, since it is the one pressed most often. */}
-        <div className="flex gap-3 items-center">
-          <button
-            onClick={onActions}
-            className="flex-[3] py-3.5 rounded-full bg-zinc-900 text-sm font-medium text-white"
-          >
-            Action
-          </button>
-          <button
-            onClick={onNext}
-            className="flex-[2] py-3.5 rounded-full bg-zinc-100 text-sm font-medium text-zinc-600"
-          >
-            Skip
-          </button>
+          {/* Revenue simulation toggle. off: see header. */}
+          {/*
+          <div>
+            <button
+              onClick={() => setShowRevenue(!showRevenue)}
+              className="flex items-center gap-1 text-[13px] text-zinc-400"
+            >
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform ${
+                  showRevenue ? "rotate-180" : ""
+                }`}
+              />
+              Simulate revenue
+            </button>
+
+            {showRevenue && (
+              <div className="mt-4">
+                <RevenueSimulator property={property} />
+              </div>
+            )}
+          </div>
+          */}
+        </div>
+
+        {/* Sticky action buttons. On wide screens the details column scrolls by
+            itself, so these simply sit at its foot. */}
+        <div className="sticky bottom-0 mt-auto px-5 pt-3 pb-8 bg-white lg:static lg:shrink-0 lg:px-6 lg:pb-5 lg:border-t lg:border-zinc-100">
+          {/* Everything a person can do lives behind Action, so the row stays
+              the same whoever is looking at it. "Seen, next" sits on the
+              right, under the thumb, since it is the one pressed most often. */}
+          <div className="flex gap-3 items-center">
+            <button
+              onClick={onActions}
+              className="flex-[3] py-3.5 rounded-full bg-zinc-900 text-sm font-medium text-white"
+            >
+              Action
+            </button>
+            <button
+              onClick={onNext}
+              className="flex-[2] py-3.5 rounded-full bg-zinc-100 text-sm font-medium text-zinc-600"
+            >
+              {isSeen ? "Next" : "Seen, next"}
+            </button>
+          </div>
         </div>
       </div>
     </>

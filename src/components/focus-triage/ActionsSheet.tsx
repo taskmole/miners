@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Route, ListPlus, UserPlus, UserMinus, Ban, Hand, Check, Undo2 } from "lucide-react";
 import type { PropertyActionState } from "@/lib/property-actions";
+import { DETAILS_SHEET } from "./layout";
 
 interface ActionsSheetProps {
   /**
@@ -47,9 +48,9 @@ export function ActionsSheet({
         onClick={onClose}
       />
 
-      {/* Sheet */}
+      {/* Sheet. On wide screens it rises over the details column only. */}
       <div
-        className="absolute bottom-0 left-0 right-0 max-h-full bg-white rounded-t-2xl z-50 flex flex-col"
+        className={`absolute bottom-0 left-0 right-0 ${DETAILS_SHEET} max-h-full bg-white rounded-t-2xl z-50 flex flex-col`}
         style={{ animation: "triage-sheet-up 250ms ease-out" }}
       >
         {/* Pill handle */}

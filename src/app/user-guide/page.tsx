@@ -153,8 +153,8 @@ export default function UserGuidePage() {
                 a: "Photos. The AI score (top-left). Rent. A short AI note about the location. Links to the listing and Google Maps.",
               },
               {
-                q: "What do Skip and Skip all do?",
-                a: '"Skip" moves to the next property. "Skip all" closes the whole batch. Nothing is deleted. The properties stay on the map.',
+                q: "What do Seen, next and Mark all seen do?",
+                a: '"Seen, next" ticks the property off and moves to the next new one. Changed your mind? Press "Undo" right away, or use the arrows at the top to go back to it until you close the window. "Mark all seen" ticks off the whole batch. Nothing is deleted. The properties stay on the map.',
               },
               {
                 q: "What is the Action button?",

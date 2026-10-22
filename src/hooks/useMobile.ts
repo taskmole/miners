@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 
 // Mobile breakpoint - 640px so narrow desktop windows still get side buttons
 const MOBILE_BREAKPOINT = 640;
@@ -24,6 +24,30 @@ export function useMobile(): boolean {
   }, []);
 
   return isMobile;
+}
+
+// Matches Tailwind's lg breakpoint, so JS and the lg: classes agree on what
+// counts as a wide screen.
+const WIDE_QUERY = "(min-width: 1024px)";
+
+// One shared query list, made on first use (window does not exist on the server).
+let wideMql: MediaQueryList | null = null;
+const wideQuery = () => (wideMql ??= window.matchMedia(WIDE_QUERY));
+
+function subscribeWide(onChange: () => void) {
+  const mql = wideQuery();
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+}
+
+// True on laptop-sized screens and up. False on the server and on first
+// hydration, then corrects itself, so it is safe in server-rendered trees.
+export function useWideScreen(): boolean {
+  return useSyncExternalStore(
+    subscribeWide,
+    () => wideQuery().matches,
+    () => false,
+  );
 }
 
 // Hook to detect landscape orientation on mobile
