@@ -156,6 +156,18 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       alt: "The admin dashboard's Cafes tab with city buttons and one tidy row per cafe",
     },
   },
+  {
+    id: 8,
+    date: "2026-10-22",
+    title: "More room to review listings",
+    body: "On a laptop, the photo now sits next to the details, so the AI summary shows right away. \"Seen, next\" ticks a listing off, and Undo or the arrows bring it back.",
+    audience: "everyone",
+    visual: {
+      kind: "image",
+      src: "/assets/whats-new/triage-side-by-side-v1.jpg",
+      alt: "A new listing with its photo on the left and rent, size and AI summary on the right",
+    },
+  },
 ];
 
 /** The newest id that exists. Closing the popup marks everything up to here seen. */
