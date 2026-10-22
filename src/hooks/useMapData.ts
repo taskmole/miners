@@ -231,44 +231,32 @@ async function loadCafes(cityId: string): Promise<CafeData[]> {
 }
 
 async function loadMadridCafes(): Promise<CafeData[]> {
-    const [cafesRaw, cafeInfoRaw, googleMadridRaw, googleEnrichmentRaw] = await Promise.all([
+    const [dataRaw, cafeInfoRaw, googleMadridRaw, googleEnrichmentRaw] = await Promise.all([
         fetchArray("/api/data?type=data"),
         fetchArray("/api/data?type=cafes"),
         fetchArray("/api/data?type=google_madrid"),
         fetchArray("/api/data?type=google_enrichment"),
     ]);
 
-    const cafeInfoMap = new Map<string, any>();
-    cafeInfoRaw.forEach((info: any) => {
-        if (info.link) cafeInfoMap.set(info.link, info);
+    // cafe_info.csv (refreshed monthly by fetch-euct.ts) decides which cafes
+    // exist and where. data.csv is an older Google Maps export of the same
+    // cafes; it only adds Google ratings.
+    const linkKey = (link: string) => link.toLowerCase().replace(/\/+$/, "");
+    const dataByLink = new Map<string, any>();
+    dataRaw.forEach((c: any) => {
+        if (c.link) dataByLink.set(linkKey(c.link), c);
     });
 
-    const madridCafes: CafeData[] = cafesRaw
-        .filter((c: any) => c.lat && c.lon && c.link?.includes("europeancoffeetrip"))
-        .map((c: any) => {
-            const info = c.link ? cafeInfoMap.get(c.link) : null;
-            return {
-                type: "cafe" as const,
-                name: c.name || "Unknown Cafe",
-                link: c.link || undefined,
-                address: c.address || "",
-                lat: parseFloat(c.lat),
-                lon: parseFloat(c.lon),
-                categoryName: c.categoryName || "Café",
-                rating: c.rating ? parseFloat(c.rating) : undefined,
-                reviewCount: c.reviewCount ? parseInt(c.reviewCount) : undefined,
-                franchisePartner: c.franchisePartner === "TRUE",
-                openingHours: c["openingHours/0/hours"] || undefined,
-                image: undefined,
-                website: info?.website || undefined,
-                instagram: info?.instagram || undefined,
-                facebook: info?.facebook || undefined,
-                premium: info?.premium === 'True' || info?.premium === true,
-                datePublished: info?.date_published || undefined,
-                fetchedAt: info?.date_modified || undefined,
-                city: "madrid" as const,
-            };
-        });
+    const euctRows = cafeInfoRaw.filter((c: any) => c.link?.includes("europeancoffeetrip"));
+    const madridCafes: CafeData[] = mapEuctCsvCafes(euctRows, "madrid").map((cafe) => {
+        const google = dataByLink.get(linkKey(cafe.link!));
+        if (!google?.rating) return cafe;
+        return {
+            ...cafe,
+            rating: parseFloat(google.rating),
+            reviewCount: google.reviewCount ? parseInt(google.reviewCount) : undefined,
+        };
+    });
 
     applyGoogleEnrichment(madridCafes, googleEnrichmentRaw);
 

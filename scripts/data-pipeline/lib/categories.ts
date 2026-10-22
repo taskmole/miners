@@ -69,6 +69,8 @@ export const SOURCES = {
   GOOGLE_PLACES: "google_places",
   EU_COFFEE_TRIP: "eu_coffee_trip",
   IDEALISTA: "idealista",
+  // Source = which Idealista search found a listing, not the deal type. A
+  // rental can still be a transfer: check metadata.transfer for that.
   IDEALISTA_TRANSFER: "idealista_transfer",
   SREALITY: "sreality",
   OSM: "osm",

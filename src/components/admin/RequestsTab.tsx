@@ -9,7 +9,9 @@ import {
   DecisionPanel,
   EmptyRow,
   ErrorBar,
+  FoldedSection,
   ListCard,
+  PageIntro,
   SectionHeader,
   StatusBadge,
   formatShortDate,
@@ -90,13 +92,18 @@ export function RequestsTab({
     <div className="space-y-8">
       <ErrorBar message={error} onDismiss={() => setError(null)} />
 
+      <PageIntro
+        title="Requests"
+        description="Franchisees asking for a property. Approving gives it to them."
+      />
+
       {loading && (
         <div className="text-center py-8 text-sm text-zinc-500">Loading requests...</div>
       )}
 
       {/* Awaiting a decision */}
       <section>
-        <SectionHeader title="Awaiting review" count={pending.length} />
+        <SectionHeader title="Waiting for a decision" count={pending.length} />
         {pending.length === 0 ? (
           <EmptyRow>No requests waiting for review</EmptyRow>
         ) : (
@@ -176,11 +183,10 @@ export function RequestsTab({
         )}
       </section>
 
-      {/* Already decided */}
-      <section>
-        <SectionHeader title="Processed" count={processed.length} />
+      {/* Already decided, folded so the open queue is what you see */}
+      <FoldedSection title="Decided" count={processed.length}>
         {processed.length === 0 ? (
-          <EmptyRow>No processed requests yet</EmptyRow>
+          <EmptyRow>No decided requests yet</EmptyRow>
         ) : (
           <ListCard>
             {processed.map((request) => (
@@ -205,7 +211,7 @@ export function RequestsTab({
             ))}
           </ListCard>
         )}
-      </section>
+      </FoldedSection>
     </div>
   );
 }

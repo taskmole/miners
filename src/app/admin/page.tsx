@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, Component, ErrorInfo, ReactNode, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Users, FileText, Check, X, ChevronDown, ChevronUp, ChevronRight, Download, RefreshCw, Coffee, UtensilsCrossed, Plus, Filter, SlidersHorizontal, Info, Search, Users2, UserPlus, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, X, ChevronDown, ChevronUp, ChevronRight, Download, RefreshCw, Plus, Info, Search, Users2 } from 'lucide-react';
 import { useUserProfiles } from '@/hooks/useUserProfiles';
 import { useTeams, type Team, type TeamMember } from '@/hooks/useTeams';
 import { useAdminSubmissions, AdminPitch } from '@/hooks/useAdminSubmissions';
@@ -30,9 +30,10 @@ import { trainsAiAnywhere } from '@/lib/permissions';
 import { cityNames, cityOptions } from '@/lib/cities';
 import { accessSummary } from '@/components/admin/CityAccessEditor';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DecisionPanel, EmptyRow, ErrorBar, InlineError, ListCard, SectionHeader, StatusBadge, formatShortDate } from '@/components/admin/admin-ui';
+import { Chips, DecisionPanel, EmptyRow, ErrorBar, FoldedSection, InlineError, ListCard, PageIntro, SectionHeader, StatusBadge, formatShortDate } from '@/components/admin/admin-ui';
 
 type Tab = 'submissions' | 'requests' | 'users' | 'settings' | 'cafe-profiles' | 'teams' | 'ai-scout';
+const DEFAULT_TAB: Tab = 'requests';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -378,6 +379,11 @@ const CATEGORY_COLORS: Record<CafeCategory, string> = {
 // real one. It had no Barcelona and no Seville, so the users tab's city
 // filter simply could not find anybody working there.
 const CITY_LABELS: Record<string, string> = cityNames;
+
+/** "The Miners Gran Via" reads as "Gran Via": every cafe here is a Miners cafe. */
+function cafeDisplayName(name: string): string {
+  return name.replace(/^the miners\s+/i, '') || name;
+}
 
 // Inline edit form for a cafe profile
 function CafeProfileForm({
@@ -913,8 +919,7 @@ function PitchLinks({ pitch, expanded, onToggle }: { pitch: AdminPitch; expanded
 function AdminContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialTab = (searchParams.get('tab') as Tab) || 'submissions';
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+  const [activeTab, setActiveTab] = useState<Tab>((searchParams.get('tab') as Tab) || DEFAULT_TAB);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // The pitch whose reject/return note box is open, and the pitch a decision
   // is being saved for. Every pitch's buttons are disabled while one saves,
@@ -927,7 +932,6 @@ function AdminContent() {
 
   // Users tab state
   const [usersSearch, setUsersSearch] = useState('');
-  const [usersCityFilter, setUsersCityFilter] = useState<string>('all');
   const [showAddUser, setShowAddUser] = useState(false);
 
   const {
@@ -941,7 +945,6 @@ function AdminContent() {
     grantsFor,
     loading: usersLoading,
     error: usersError,
-    toggleActive,
   } = useUserProfiles();
 
   // Use admin submissions hook for full data from Supabase
@@ -976,14 +979,38 @@ function AdminContent() {
   // approvers with the "Can train AI" switch in at least one city.
   const canTrainAi = trainsAiAnywhere(access);
 
+  // Who sees which tab. An unknown or not-allowed ?tab= shows Requests
+  // instead of a blank page. Worked out here, not written back to state, so
+  // an ?tab=ai-scout link still opens AI scout once permissions arrive.
+  const canSee: Record<Tab, boolean> = {
+    requests: true,
+    'ai-scout': canTrainAi,
+    submissions: true,
+    settings: isSuperAdmin,
+    'cafe-profiles': true,
+    users: isSuperAdmin,
+    teams: isSuperAdmin,
+  };
+  // === true, not truthy: ?tab=constructor would otherwise match Object's own keys.
+  const tab: Tab = canSee[activeTab] === true ? activeTab : DEFAULT_TAB;
+
   // Sync tab to URL
-  const handleTabChange = (tab: Tab) => {
-    setActiveTab(tab);
+  const handleTabChange = (next: Tab) => {
+    setActiveTab(next);
     setActionError(null);
     const url = new URL(window.location.href);
-    url.searchParams.set('tab', tab);
+    url.searchParams.set('tab', next);
     window.history.replaceState({}, '', url.toString());
   };
+
+  // On phones the tab bar scrolls sideways: bring the open tab into view when
+  // it changes, e.g. after a ?tab=users link from a user's page. Only then,
+  // so a sideways swipe is not snapped back on every re-render.
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    navRef.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // The nav only exists once loading is done and access is known.
+  }, [tab, usersLoading, canAccessDashboard]);
 
   // Auth check - redirect users without dashboard access. Keyed on
   // accessResolved rather than on a role string: "we do not know yet" and
@@ -994,14 +1021,6 @@ function AdminContent() {
       router.replace('/');
     }
   }, [usersLoading, accessResolved, canAccessDashboard, router]);
-
-  const handleToggleActive = async (userId: string, currentActive: boolean) => {
-    setActionError(null);
-    const success = await toggleActive(userId, !currentActive);
-    if (!success) {
-      setActionError('Failed to update status');
-    }
-  };
 
   /**
    * Approve, reject or return a pitch. Reject and return carry the note the
@@ -1128,15 +1147,15 @@ function AdminContent() {
     );
   }
 
-  // Tabs in display order. `show` keeps each tab to the people it is for.
-  const tabs: { id: Tab; label: string; icon: typeof FileText; count?: number; show: boolean }[] = [
-    { id: 'submissions', label: 'Pitches', icon: FileText, count: pendingSubmissions.length, show: true },
-    { id: 'requests', label: 'Requests', icon: UserPlus, count: pendingRequests.length, show: true },
-    { id: 'cafe-profiles', label: 'Cafes', icon: Coffee, show: true },
-    { id: 'ai-scout', label: 'AI scout', icon: Sparkles, show: canTrainAi },
-    { id: 'settings', label: 'Inputs', icon: SlidersHorizontal, show: isSuperAdmin },
-    { id: 'users', label: 'Users', icon: Users, show: isSuperAdmin },
-    { id: 'teams', label: 'Teams', icon: Users2, show: isSuperAdmin },
+  // Tabs in display order. Users and Teams share one tab: the Users button
+  // also lights up for ?tab=teams, and chips inside switch between them.
+  const tabs: { id: Tab; label: string; count?: number }[] = [
+    { id: 'requests', label: 'Requests', count: pendingRequests.length },
+    { id: 'ai-scout', label: 'AI scout' },
+    { id: 'submissions', label: 'Pitches', count: pendingSubmissions.length },
+    { id: 'settings', label: 'Inputs' },
+    { id: 'cafe-profiles', label: 'Cafes' },
+    { id: 'users', label: 'Users & teams' },
   ];
 
   return (
@@ -1156,13 +1175,14 @@ function AdminContent() {
           <h1 className="text-lg font-semibold text-zinc-900 font-[family-name:var(--font-heading)]">Admin Dashboard</h1>
         </div>
 
-        <nav className="max-w-4xl mx-auto px-4 flex gap-1 overflow-x-auto scrollbar-hide">
-          {tabs.filter(t => t.show).map(({ id, label, icon: Icon, count }) => {
-            const active = activeTab === id;
+        <nav ref={navRef} aria-label="Admin sections" className="max-w-4xl mx-auto px-4 flex gap-1 overflow-x-auto scrollbar-hide">
+          {tabs.filter(t => canSee[t.id]).map(({ id, label, count }) => {
+            const active = tab === id || (id === 'users' && tab === 'teams');
             return (
               <button
                 key={id}
-                onClick={() => handleTabChange(id)}
+                // Tapping the open tab does nothing (on Teams it would jump to Users).
+                onClick={() => !active && handleTabChange(id)}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400 rounded-t-md",
@@ -1171,7 +1191,6 @@ function AdminContent() {
                     : "border-transparent text-zinc-500 hover:text-zinc-900"
                 )}
               >
-                <Icon className="w-4 h-4" />
                 {label}
                 {!!count && (
                   <span className={cn(
@@ -1192,8 +1211,13 @@ function AdminContent() {
 
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 py-6">
-        {activeTab === 'submissions' && (
+        {tab === 'submissions' && (
           <div className="space-y-8">
+            <PageIntro
+              title="Pitches"
+              description="Locations scouts put forward. Approve them, send them back for edits, or reject them."
+            />
+
             {submissionsError && <InlineError>{submissionsError}</InlineError>}
 
             {/* First load only: a refetch after a decision keeps the list in place. */}
@@ -1203,7 +1227,7 @@ function AdminContent() {
 
             {/* Waiting for a decision */}
             <section>
-              <SectionHeader title="Awaiting review" count={pendingSubmissions.length} />
+              <SectionHeader title="Waiting for a decision" count={pendingSubmissions.length} />
               {pendingSubmissions.length === 0 ? (
                 <EmptyRow>No pitches waiting for review</EmptyRow>
               ) : (
@@ -1275,11 +1299,10 @@ function AdminContent() {
               )}
             </section>
 
-            {/* Already decided */}
-            <section>
-              <SectionHeader title="Processed" count={processedSubmissions.length} />
+            {/* Already decided, folded so the open queue is what you see */}
+            <FoldedSection title="Decided" count={processedSubmissions.length}>
               {processedSubmissions.length === 0 ? (
-                <EmptyRow>No processed pitches yet</EmptyRow>
+                <EmptyRow>No decided pitches yet</EmptyRow>
               ) : (
                 <ListCard>
                   {processedSubmissions.map((pitch) => {
@@ -1307,11 +1330,11 @@ function AdminContent() {
                   })}
                 </ListCard>
               )}
-            </section>
+            </FoldedSection>
           </div>
         )}
 
-        {activeTab === 'requests' && (
+        {tab === 'requests' && (
           <RequestsTab
             pending={pendingRequests}
             processed={processedRequests}
@@ -1341,277 +1364,252 @@ function AdminContent() {
           />
         )}
 
-        {activeTab === 'cafe-profiles' && (
-          <div className="space-y-6">
-            {cafesError && <InlineError>{cafesError}</InlineError>}
-
-            {/* Toolbar: city filter + add cafe */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                <select
-                  value={cafesCityFilter}
-                  onChange={(e) => setCafesCityFilter(e.target.value)}
-                  className="w-full h-9 pl-9 pr-4 bg-white border border-zinc-200 rounded-md shadow-xs text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-zinc-400"
-                >
-                  <option value="all">All cities ({cafeProfiles.length})</option>
-                  {Object.entries(CITY_LABELS).map(([id, label]) => {
-                    const count = cafeProfiles.filter(c => c.cityId === id).length;
-                    if (count === 0) return null;
-                    return (
-                      <option key={id} value={id}>{label} ({count})</option>
-                    );
-                  })}
-                </select>
-              </div>
-              <Button onClick={() => setShowAddCafe(!showAddCafe)}>
-                <Plus />
-                Add cafe
-              </Button>
-            </div>
-
-            {/* Add Cafe form */}
-            {showAddCafe && (
-              <AddCafeForm
-                onSave={async () => {
-                  setShowAddCafe(false);
-                  await refetchCafes();
-                }}
-                onCancel={() => setShowAddCafe(false)}
-              />
-            )}
-
-            {cafesLoading && (
-              <div className="text-center py-8 text-sm text-zinc-500">Loading cafes...</div>
-            )}
-
-            {!cafesLoading && !showAddCafe && cafeProfiles.length === 0 && (
-              <EmptyRow>No Miners cafes yet</EmptyRow>
-            )}
-
-            {/* Cafe list - grouped by city when showing all, flat when filtered */}
-            {!cafesLoading && !showAddCafe && (() => {
-              const filtered = cafesCityFilter === 'all'
-                ? cafeProfiles
-                : cafeProfiles.filter(c => c.cityId === cafesCityFilter);
-
-              const grouped = filtered.reduce<Record<string, CafeProfile[]>>((acc, cafe) => {
-                const city = cafe.cityId || 'unknown';
-                if (!acc[city]) acc[city] = [];
-                acc[city].push(cafe);
-                return acc;
-              }, {});
-
-              return Object.entries(grouped).map(([cityId, cityCafes]) => (
-                <section key={cityId}>
-                  {cafesCityFilter === 'all' && (
-                    <SectionHeader title={CITY_LABELS[cityId] || cityId} count={cityCafes.length} />
-                  )}
-                  <ListCard>
-                    {cityCafes.map((cafe) => (
-                      <div
-                        key={cafe.placeId}
-                        className="p-4"
-                      >
-                        <button
-                          type="button"
-                          className="w-full text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
-                          onClick={() => toggleExpand(cafe.placeId)}
-                          aria-expanded={expandedId === cafe.placeId}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-zinc-900 truncate">
-                                {cafe.name}
-                              </div>
-                              <div className="text-sm text-zinc-500 truncate">
-                                {cafe.address}
-                              </div>
-                              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                {cafe.category && (
-                                  <span className={cn(
-                                    "px-2 py-0.5 text-xs font-medium rounded-md",
-                                    CATEGORY_COLORS[cafe.category]
-                                  )}>
-                                    {CATEGORY_LABELS[cafe.category]}
-                                  </span>
-                                )}
-                                {(cafe.interiorSeats || cafe.exteriorSeats) ? (
-                                  <span className="text-xs text-zinc-500">
-                                    {(cafe.interiorSeats || 0) + (cafe.exteriorSeats || 0)} seats
-                                  </span>
-                                ) : null}
-                                {cafe.areaSqm ? (
-                                  <span className="text-xs text-zinc-500">{cafe.areaSqm} sqm</span>
-                                ) : null}
-                                {cafe.hasKitchen && (
-                                  <span className="text-xs text-zinc-500 flex items-center gap-0.5">
-                                    <UtensilsCrossed className="w-3 h-3" /> Kitchen
-                                  </span>
-                                )}
-                                {canSeeRevenue && cafe.monthlyRevenue ? (
-                                  <span className="text-xs text-green-600 font-medium">
-                                    €{cafe.monthlyRevenue.toLocaleString()}/mo
-                                  </span>
-                                ) : null}
-                                {!cafe.category && (
-                                  <span className="text-xs text-zinc-400 italic">No profile yet</span>
-                                )}
-                              </div>
-                            </div>
-                            <span className="p-1 text-zinc-400 ml-2">
-                              {expandedId === cafe.placeId ? (
-                                <ChevronUp className="w-5 h-5" />
-                              ) : (
-                                <ChevronDown className="w-5 h-5" />
-                              )}
-                            </span>
-                          </div>
-                        </button>
-
-                        {expandedId === cafe.placeId && (
-                          <CafeProfileForm
-                            cafe={cafe}
-                            canSeeRevenue={canSeeRevenue}
-                            onSave={async (data) => {
-                              setActionError(null);
-                              try {
-                                await saveCafeProfile(data as Parameters<typeof saveCafeProfile>[0]);
-                              } catch {
-                                setActionError('Failed to save cafe profile');
-                              }
-                            }}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </ListCard>
-                </section>
-              ));
-            })()}
-          </div>
-        )}
-
-        {activeTab === 'users' && canAccessDashboard && (() => {
-          const searchLower = usersSearch.toLowerCase();
-          const filteredUsers = users.filter(user => {
-            if (!searchLower) return true;
-            return (user.display_name || '').toLowerCase().includes(searchLower) ||
-              (user.email || '').toLowerCase().includes(searchLower);
-          });
+        {tab === 'cafe-profiles' && (() => {
+          // Fall back to all cities if the picked one has no cafes (any more).
+          const cityFilter = cafeProfiles.some(c => c.cityId === cafesCityFilter) ? cafesCityFilter : 'all';
+          // Cities A to Z, and the grouped list below in the same order.
+          const cities = Object.entries(CITY_LABELS)
+            .map(([id, label]) => ({ id, label, cafes: cafeProfiles.filter(c => c.cityId === id) }))
+            .filter(c => c.cafes.length > 0)
+            .sort((a, b) => a.label.localeCompare(b.label));
+          const cityChips = [
+            { id: 'all', label: 'All', count: cafeProfiles.length },
+            ...cities.map(c => ({ id: c.id, label: c.label, count: c.cafes.length })),
+          ];
+          const groups = cityFilter === 'all' ? [...cities] : cities.filter(c => c.id === cityFilter);
+          // Cafes in a city we have no name for still show, under "Other".
+          const other = cityFilter === 'all' ? cafeProfiles.filter(c => !c.cityId || !CITY_LABELS[c.cityId]) : [];
+          if (other.length) groups.push({ id: 'other', label: 'Other', cafes: other });
 
           return (
-            <div className="space-y-4">
-              {usersError && <InlineError>{usersError}</InlineError>}
-
-              {/* Toolbar */}
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                  <Input
-                    type="search"
-                    value={usersSearch}
-                    onChange={(e) => setUsersSearch(e.target.value)}
-                    placeholder="Search users..."
-                    aria-label="Search users"
-                    className="pl-9 bg-white"
-                  />
-                </div>
-                <Button onClick={() => setShowAddUser(!showAddUser)}>
+            <div className="space-y-6">
+              <PageIntro title="Cafes" description="Your open Miners cafes. New listings get compared to these.">
+                <Button onClick={() => setShowAddCafe(!showAddCafe)}>
                   <Plus />
-                  Add user
+                  Add cafe
                 </Button>
-              </div>
+              </PageIntro>
 
-              {/* Add User form */}
-              {showAddUser && (
-                <AddUserForm
-                  teams={teams}
+              {cafesError && <InlineError>{cafesError}</InlineError>}
+
+              {showAddCafe && (
+                <AddCafeForm
                   onSave={async () => {
-                    setShowAddUser(false);
+                    setShowAddCafe(false);
+                    await refetchCafes();
                   }}
-                  onCancel={() => setShowAddUser(false)}
+                  onCancel={() => setShowAddCafe(false)}
                 />
               )}
 
-              {/* User list */}
-              {!showAddUser && filteredUsers.length === 0 ? (
-                <EmptyRow>{usersSearch ? 'No users match your search' : 'No users yet'}</EmptyRow>
-              ) : !showAddUser && (
-                <ListCard>
-                  {filteredUsers.map((user) => {
-                    const teamName = teams.find(t => t.id === user.team_id)?.name;
-                    return (
-                      <button
-                        type="button"
-                        key={user.id}
-                        className="block w-full text-left p-4 hover:bg-zinc-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400"
-                        onClick={() => router.push(`/admin/users/${user.id}`)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "w-2 h-2 rounded-full shrink-0",
-                            user.is_active ? "bg-green-500" : "bg-zinc-300"
-                          )} />
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-zinc-900 truncate">
-                              {user.display_name || 'No name'}
-                            </div>
-                            <div className="text-sm text-zinc-500 truncate">
-                              {user.email || 'No email'}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {teamName && (
-                              <span className="hidden sm:inline px-2 py-0.5 text-xs font-medium rounded-md border border-zinc-200 text-zinc-600">
-                                {teamName}
-                              </span>
-                            )}
-                            {/* The strongest thing they can do and how widely.
-                                Four separate pills would not fit at 375px, and
-                                "No access" in amber makes a half-configured
-                                person visible at a glance instead of looking
-                                like everybody else. */}
-                            {(() => {
-                              const summary = accessSummary(
-                                user.is_super_admin === true,
-                                grantsFor(user.id),
-                              );
-                              return (
-                                <span
-                                  className={cn(
-                                    'px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap',
-                                    summary.tone === 'dark' && 'bg-zinc-900 text-white',
-                                    summary.tone === 'green' && 'bg-emerald-50 text-emerald-700',
-                                    summary.tone === 'blue' && 'bg-blue-50 text-blue-700',
-                                    summary.tone === 'grey' && 'bg-zinc-100 text-zinc-600',
-                                    summary.tone === 'amber' && 'bg-amber-100 text-amber-800',
+              {cafesLoading && (
+                <div className="text-center py-8 text-sm text-zinc-500">Loading cafes...</div>
+              )}
+
+              {!cafesLoading && !showAddCafe && cafeProfiles.length === 0 && (
+                <EmptyRow>No Miners cafes yet</EmptyRow>
+              )}
+
+              {!cafesLoading && !showAddCafe && cafeProfiles.length > 0 && (
+                <>
+                  <Chips label="City" options={cityChips} value={cityFilter} onChange={setCafesCityFilter} />
+
+                  {/* Grouped by city when showing all, flat when filtered */}
+                  {groups.map((group) => (
+                    <section key={group.id}>
+                      {cityFilter === 'all' && <SectionHeader title={group.label} count={group.cafes.length} />}
+                      <ListCard>
+                        {group.cafes.map((cafe) => {
+                          const expanded = expandedId === cafe.placeId;
+                          const seats = (cafe.interiorSeats || 0) + (cafe.exteriorSeats || 0);
+                          const facts = [
+                            seats ? `${seats} seats` : null,
+                            cafe.areaSqm ? `${cafe.areaSqm} m²` : null,
+                            cafe.hasKitchen ? 'Kitchen' : null,
+                          ].filter(Boolean).join(' · ');
+                          const revenue = canSeeRevenue && cafe.monthlyRevenue ? `€${cafe.monthlyRevenue.toLocaleString()}/mo` : null;
+                          return (
+                            <div key={cafe.placeId}>
+                              <button
+                                type="button"
+                                className="w-full text-left px-4 py-3 flex items-start sm:items-center gap-3 hover:bg-zinc-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400"
+                                onClick={() => toggleExpand(cafe.placeId)}
+                                aria-expanded={expanded}
+                              >
+                                <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-zinc-900 truncate">{cafeDisplayName(cafe.name)}</div>
+                                    <div className="text-sm text-zinc-500 truncate">{cafe.address}</div>
+                                  </div>
+                                  {(facts || revenue) && (
+                                    <div className="text-sm text-zinc-500 mt-1 sm:mt-0 sm:whitespace-nowrap">
+                                      {facts}
+                                      {facts && revenue && ' · '}
+                                      {revenue && <span className="text-emerald-600 font-medium">{revenue}</span>}
+                                    </div>
                                   )}
-                                >
-                                  {summary.label}
+                                </div>
+                                <span className={cn(
+                                  "shrink-0 sm:w-24 text-center px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap",
+                                  cafe.category ? CATEGORY_COLORS[cafe.category] : "bg-zinc-100 text-zinc-500"
+                                )}>
+                                  {cafe.category ? CATEGORY_LABELS[cafe.category] : 'No profile'}
                                 </span>
-                              );
-                            })()}
-                            <ChevronRight className="w-4 h-4 text-zinc-400" />
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </ListCard>
+                                <ChevronDown className={cn("shrink-0 w-5 h-5 text-zinc-400 transition-transform", expanded && "rotate-180")} />
+                              </button>
+
+                              {expanded && (
+                                <div className="px-4 pb-4">
+                                  <CafeProfileForm
+                                    cafe={cafe}
+                                    canSeeRevenue={canSeeRevenue}
+                                    onSave={async (data) => {
+                                      setActionError(null);
+                                      try {
+                                        await saveCafeProfile(data as Parameters<typeof saveCafeProfile>[0]);
+                                      } catch {
+                                        setActionError('Failed to save cafe profile');
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </ListCard>
+                    </section>
+                  ))}
+                </>
               )}
             </div>
           );
         })()}
-        {activeTab === 'teams' && (
-          <TeamsPanel users={users} />
+
+        {(tab === 'users' || tab === 'teams') && (
+          <div className="space-y-6">
+            <PageIntro title="Users & teams" description="Who can sign in, what they can do, and which team they belong to." />
+            <Chips
+              label="Show"
+              options={[{ id: 'users' as const, label: 'Users' }, { id: 'teams' as const, label: 'Teams' }]}
+              value={tab}
+              onChange={handleTabChange}
+            />
+            {tab === 'teams' ? <TeamsPanel users={users} /> : (() => {
+              const searchLower = usersSearch.toLowerCase();
+              const filteredUsers = users.filter(user => {
+                if (!searchLower) return true;
+                return (user.display_name || '').toLowerCase().includes(searchLower) ||
+                  (user.email || '').toLowerCase().includes(searchLower);
+              });
+
+              return (
+                <>
+                  {usersError && <InlineError>{usersError}</InlineError>}
+
+                  {/* Toolbar */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                      <Input
+                        type="search"
+                        value={usersSearch}
+                        onChange={(e) => setUsersSearch(e.target.value)}
+                        placeholder="Search users..."
+                        aria-label="Search users"
+                        className="pl-9 bg-white"
+                      />
+                    </div>
+                    <Button onClick={() => setShowAddUser(!showAddUser)}>
+                      <Plus />
+                      Add user
+                    </Button>
+                  </div>
+
+                  {/* Add User form */}
+                  {showAddUser && (
+                    <AddUserForm
+                      teams={teams}
+                      onSave={async () => {
+                        setShowAddUser(false);
+                      }}
+                      onCancel={() => setShowAddUser(false)}
+                    />
+                  )}
+
+                  {/* User list */}
+                  {!showAddUser && filteredUsers.length === 0 ? (
+                    <EmptyRow>{usersSearch ? 'No users match your search' : 'No users yet'}</EmptyRow>
+                  ) : !showAddUser && (
+                    <ListCard>
+                      {filteredUsers.map((user) => {
+                        const teamName = teams.find(t => t.id === user.team_id)?.name;
+                        return (
+                          <button
+                            type="button"
+                            key={user.id}
+                            className="block w-full text-left p-4 hover:bg-zinc-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400"
+                            onClick={() => router.push(`/admin/users/${user.id}`)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "w-2 h-2 rounded-full shrink-0",
+                                user.is_active ? "bg-green-500" : "bg-zinc-300"
+                              )} />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-zinc-900 truncate">
+                                  {user.display_name || 'No name'}
+                                </div>
+                                <div className="text-sm text-zinc-500 truncate">
+                                  {user.email || 'No email'}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {teamName && (
+                                  <span className="hidden sm:inline px-2 py-0.5 text-xs font-medium rounded-md border border-zinc-200 text-zinc-600">
+                                    {teamName}
+                                  </span>
+                                )}
+                                {/* The strongest thing they can do and how widely.
+                                    Four separate pills would not fit at 375px, and
+                                    "No access" in amber makes a half-configured
+                                    person visible at a glance instead of looking
+                                    like everybody else. */}
+                                {(() => {
+                                  const summary = accessSummary(
+                                    user.is_super_admin === true,
+                                    grantsFor(user.id),
+                                  );
+                                  return (
+                                    <span
+                                      className={cn(
+                                        'px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap',
+                                        summary.tone === 'dark' && 'bg-zinc-900 text-white',
+                                        summary.tone === 'green' && 'bg-emerald-50 text-emerald-700',
+                                        summary.tone === 'blue' && 'bg-blue-50 text-blue-700',
+                                        summary.tone === 'grey' && 'bg-zinc-100 text-zinc-600',
+                                        summary.tone === 'amber' && 'bg-amber-100 text-amber-800',
+                                      )}
+                                    >
+                                      {summary.label}
+                                    </span>
+                                  );
+                                })()}
+                                <ChevronRight className="w-4 h-4 text-zinc-400" />
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </ListCard>
+                  )}
+                </>
+              );
+            })()}
+          </div>
         )}
-        {activeTab === 'settings' && isSuperAdmin && (
-          <ScoutingSettingsPanel />
-        )}
-        {activeTab === 'ai-scout' && canTrainAi && (
-          <AiScoutPanel />
-        )}
+        {tab === 'settings' && <ScoutingSettingsPanel />}
+        {tab === 'ai-scout' && <AiScoutPanel />}
       </main>
     </div>
   );
@@ -1657,26 +1655,18 @@ function ScoutingSettingsPanel() {
   };
 
   return (
-    <div className="max-w-lg">
-      <SectionHeader title="Scouting inputs" />
-      <div className="bg-white rounded-xl border border-zinc-200 p-5 space-y-5">
-        <div className="flex rounded-lg bg-zinc-100 p-1">
-          {(Object.keys(MARKET_LABELS) as CurrencyCode[]).map((code) => (
-            <button
-              key={code}
-              type="button"
-              onClick={() => setActiveMarket(code)}
-              className={cn(
-                "flex-1 text-sm font-medium py-2 rounded-[7px] transition-all",
-                activeMarket === code
-                  ? "bg-white text-zinc-900 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-700"
-              )}
-            >
-              {MARKET_LABELS[code]}
-            </button>
-          ))}
-        </div>
+    <div className="space-y-6">
+      <PageIntro
+        title="Inputs"
+        description="The numbers used to estimate a location's revenue, per market."
+      />
+      <Chips
+        label="Market"
+        options={(Object.keys(MARKET_LABELS) as CurrencyCode[]).map((code) => ({ id: code, label: MARKET_LABELS[code] }))}
+        value={activeMarket}
+        onChange={setActiveMarket}
+      />
+      <div className="max-w-lg bg-white rounded-xl border border-zinc-200 p-5 space-y-5">
 
         <div className="space-y-3">
           {SCOUTING_FIELDS.map(({ key, label, tooltip, step, isMoney }) => (
@@ -1840,12 +1830,12 @@ function TeamsPanel({ users }: TeamsPanelProps) {
 
   return (
     <div className="space-y-4">
-      <SectionHeader title="Teams" count={teams.length}>
+      <div className="flex justify-end">
         <Button onClick={() => setShowCreate(!showCreate)}>
           <Plus />
           New team
         </Button>
-      </SectionHeader>
+      </div>
 
       {/* Error */}
       {error && (

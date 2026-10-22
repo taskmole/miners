@@ -151,10 +151,37 @@ describe("loadProperties", () => {
 });
 
 describe("loadCafes", () => {
+    afterEach(() => {
+        global.fetch = originalFetch;
+    });
+
     it("returns empty array for unsupported city", async () => {
         const { __test } = await import("@/hooks/useMapData");
         const result = await __test.loadCafes("vienna");
         expect(result).toEqual([]);
+    });
+
+    it("builds Madrid from cafe_info.csv and adds data.csv ratings", async () => {
+        const files: Record<string, unknown[]> = {
+            data: [{ name: "Known", link: "https://europeancoffeetrip.com/cafe/Known-madrid/", lat: "1", lon: "2", rating: "4.5" }],
+            cafes: [
+                { name: "Known", link: "https://europeancoffeetrip.com/cafe/known-madrid/", latitude: "40.4350995", longitude: "-3.7071314", premium: "True" },
+                { name: "Fresh", link: "https://europeancoffeetrip.com/cafe/fresh-madrid/", latitude: "40.42", longitude: "-3.70", premium: "False" },
+                { name: "No link", link: "", latitude: "40.43", longitude: "-3.69" },
+            ],
+        };
+        global.fetch = vi.fn((url: string) => {
+            const type = new URL(url, "http://x").searchParams.get("type") ?? "";
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(files[type] ?? []) });
+        }) as unknown as typeof fetch;
+
+        const { __test } = await import("@/hooks/useMapData");
+        const cafes = await __test.loadCafes("madrid");
+
+        expect(cafes.map((c) => c.name)).toEqual(["Known", "Fresh"]);
+        // Position always comes from cafe_info.csv; the rating matches despite the link's capital K.
+        expect(cafes[0]).toMatchObject({ lat: 40.4350995, lon: -3.7071314, rating: 4.5, premium: true });
+        expect(cafes[1]).toMatchObject({ lat: 40.42, lon: -3.7, premium: false, rating: undefined });
     });
 });
 

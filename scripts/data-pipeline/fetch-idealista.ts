@@ -73,6 +73,13 @@ import {
   PROXY_CONFIG,
   buildProxyUri,
 } from "./config/idealista";
+import Anthropic from "@anthropic-ai/sdk";
+import {
+  acceptFee,
+  findTransferFee,
+  keepsStoredFee,
+  mentionsTransfer,
+} from "./lib/description-transfer";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -94,6 +101,8 @@ interface IdealistaListing {
   hasStorefront: boolean | null;
   datePosted: string | null;
   photos: string[];
+  // Free-text description. Only read to spot transfer fees, never saved.
+  description: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -425,6 +434,7 @@ function scrapeDetailHtml(html: string): {
   hasAirConditioning: boolean;
   hasStorefront: boolean;
   photos: string[];
+  description: string | null;
 } {
   // Coordinates
   let latitude: number | null = null;
@@ -460,7 +470,13 @@ function scrapeDetailHtml(html: string): {
   // Gallery photos
   const photos = extractGalleryPhotos(html);
 
-  return { latitude, longitude, bathrooms, hasAirConditioning, hasStorefront, photos };
+  // Description. No fallback on purpose: if the block ever disappears, null
+  // keeps stored fees and trips the "no descriptions" warning instead of
+  // judging a shorter text and wiping them.
+  const description =
+    cheerio.load(html)(".comment").first().text().replace(/\s+/g, " ").trim() || null;
+
+  return { latitude, longitude, bathrooms, hasAirConditioning, hasStorefront, photos, description };
 }
 
 async function enrichWithDetailPage(
@@ -482,6 +498,7 @@ async function enrichWithDetailPage(
     hasStorefront: null,
     datePosted: listing.datePosted ?? null,
     photos: listing.photos || [],
+    description: null,
   };
 
   if (!listing.url) return { listing: result, fetchFailed: false };
@@ -495,6 +512,7 @@ async function enrichWithDetailPage(
   result.bathrooms = detail.bathrooms;
   result.hasAirConditioning = detail.hasAirConditioning;
   result.hasStorefront = detail.hasStorefront;
+  result.description = detail.description;
 
   // Use gallery photos if found, otherwise keep thumbnail from search page
   if (detail.photos.length > 0) {
@@ -569,6 +587,8 @@ async function publishListings(
         hasStorefront: listing.hasStorefront,
         datePosted: listing.datePosted,
       },
+      // Rentals keep a fee found by an earlier description check.
+      keepKeys: !isTransfer && keepsStoredFee(listing.description) ? ["transfer"] : undefined,
     });
   }
 
@@ -581,6 +601,64 @@ async function publishListings(
   }
 
   return { ...stats, skippedValidation };
+}
+
+// ---------------------------------------------------------------------------
+// Transfer fees hidden in rental descriptions
+// ---------------------------------------------------------------------------
+
+/**
+ * Rentals only. Asks Haiku about NEW listings whose description mentions a
+ * traspaso; listings already stored are never rescanned. A fee found here
+ * survives later runs because publishing keeps the stored "transfer" key.
+ */
+async function applyDescriptionTransfers(
+  client: SupabaseClient,
+  listings: IdealistaListing[],
+  cityId: string
+): Promise<void> {
+  console.log("\nChecking rental descriptions for transfer fees...");
+
+  const withIds = listings.flatMap((l) => {
+    const sid = generateSourceId(l.url);
+    return sid ? [{ listing: l, sid }] : [];
+  });
+  const { data, error } = await client
+    .from("places")
+    .select("source_id")
+    .eq("source", SOURCES.IDEALISTA)
+    .eq("city_id", cityId)
+    .in("source_id", withIds.map((x) => x.sid));
+  if (error) {
+    // Without knowing which listings are new, skip rather than rescan them all.
+    console.error(`  WARNING: could not read stored listings, skipping the check: ${error.message}`);
+    return;
+  }
+  const stored = new Set((data ?? []).map((r) => r.source_id));
+
+  const withDescription = listings.filter((l) => l.description).length;
+  console.log(`  Descriptions read: ${withDescription} of ${listings.length}`);
+  if (listings.length > 0 && withDescription === 0) {
+    console.error("  WARNING: no descriptions found. Idealista may have changed its page layout.");
+  }
+
+  const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ maxRetries: 3 }) : null;
+  if (!anthropic) console.error("  WARNING: ANTHROPIC_API_KEY not set, new listings are not checked.");
+
+  let checked = 0;
+  let found = 0;
+  for (const { listing, sid } of withIds) {
+    if (stored.has(sid) || !anthropic || !mentionsTransfer(listing.description)) continue;
+
+    checked++;
+    const fee = acceptFee(await findTransferFee(anthropic, listing.description!));
+    if (fee) {
+      listing.transfer = fee;
+      found++;
+      console.log(`    Transfer fee ${fee} EUR: ${listing.title.slice(0, 60)}`);
+    }
+  }
+  console.log(`  New listings checked with AI: ${checked}, transfer fees found: ${found}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -800,6 +878,13 @@ async function main() {
   const finalListings = Array.from(deduped.values());
   const totalPhotos = finalListings.reduce((sum, l) => sum + l.photos.length, 0);
   console.log(`  Total gallery photos: ${totalPhotos}`);
+
+  // Runs before the dry-run exit so a dry run proves it works. It only reads
+  // from the database.
+  if (MODE === "rental") {
+    const readClient = HEADLESS ? getProdClient() : getDevClient();
+    await applyDescriptionTransfers(readClient, finalListings, selectedCityId);
+  }
 
   // Phase 3: Publish to Supabase
   if (DRY_RUN) {

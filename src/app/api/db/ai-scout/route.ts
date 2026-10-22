@@ -76,12 +76,6 @@ export interface AiScoutOverview {
   } | null;
   versions: AiScoutVersion[];
   suggestions: AiScoutSuggestion[];
-  /**
-   * Ratings head office has ever saved (point fixes and overall verdicts, as
-   * far as RLS lets this person see). Rows, not distinct listings: a count
-   * query cannot do DISTINCT, and reading every row would hit the 1000-row cap.
-   */
-  ratingsSaved: number;
   /** Distinct listings with feedback since the learner last asked the model: what unlocks the next suggestions. */
   ratedSinceSuggestions: number;
   week: {
@@ -221,7 +215,7 @@ export async function GET(request: NextRequest) {
   const since = new Date(Date.now() - 7 * DAY_MS).toISOString();
 
   try {
-    const [versionsRes, activeRes, suggestionsRes, feedbackRes, totalRes, ratedSinceSuggestions] = await Promise.all([
+    const [versionsRes, activeRes, suggestionsRes, feedbackRes, ratedSinceSuggestions] = await Promise.all([
       db(supabase)
         .from("ai_profiles")
         .select("id, version, is_active, note, scoreboard, created_at")
@@ -253,18 +247,12 @@ export async function GET(request: NextRequest) {
         .in("kind", ["point", "overall"])
         .gte("updated_at", since)
         .order("updated_at", { ascending: false }),
-      // All-time total, as a count only.
-      db(supabase)
-        .from("ai_feedback")
-        .select("place_id", { count: "exact", head: true })
-        .eq("customer_id", CUSTOMER_ID)
-        .in("kind", ["point", "overall"]),
       // Service role, so the count matches the learner's across every city
       // (only trainers get this far). Throws on a failed read, caught below.
       serviceCount(),
     ]);
 
-    const failed = [versionsRes, activeRes, suggestionsRes, feedbackRes, totalRes].find(
+    const failed = [versionsRes, activeRes, suggestionsRes, feedbackRes].find(
       (r) => r.error,
     );
     if (failed?.error) {
@@ -296,7 +284,6 @@ export async function GET(request: NextRequest) {
         scoreboard: v.scoreboard ?? null,
       })),
       suggestions: ((suggestionsRes.data as SuggestionRow[]) || []).map(toSuggestion),
-      ratingsSaved: totalRes.count ?? 0,
       ratedSinceSuggestions,
       week: {
         listingsRated: new Set(thisWeek.map((f) => f.place_id)).size,
