@@ -470,12 +470,11 @@ function scrapeDetailHtml(html: string): {
   // Gallery photos
   const photos = extractGalleryPhotos(html);
 
-  // Description: the full text block, or the (shorter) meta description.
-  const $ = cheerio.load(html);
+  // Description. No fallback on purpose: if the block ever disappears, null
+  // keeps stored fees and trips the "no descriptions" warning instead of
+  // judging a shorter text and wiping them.
   const description =
-    $(".comment").first().text().replace(/\s+/g, " ").trim() ||
-    $('meta[name="description"]').attr("content")?.trim() ||
-    null;
+    cheerio.load(html)(".comment").first().text().replace(/\s+/g, " ").trim() || null;
 
   return { latitude, longitude, bathrooms, hasAirConditioning, hasStorefront, photos, description };
 }
