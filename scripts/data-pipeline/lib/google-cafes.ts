@@ -121,6 +121,12 @@ const RELINK_MIN_NAME_SIMILARITY = 0.5;
 /** Safety stop: never remove more than this share of a city's cafes in one run. */
 export const MAX_REMOVED_RATIO = 0.15;
 
+/**
+ * More new cafes than this share of a city in one run is the search catching up
+ * (like the first run with split squares), not new openings.
+ */
+const CATCH_UP_RATIO = 0.25;
+
 const PRICE_LEVEL_WORDS: Record<string, string> = {
   PRICE_LEVEL_INEXPENSIVE: "Cheap",
   PRICE_LEVEL_MODERATE: "Moderate",
@@ -401,6 +407,11 @@ export function gridCells(bounds: CityBounds, size: number): CityBounds[] {
     }
   }
   return cells;
+}
+
+/** True when a run's new cafes are a catch-up batch: shown on the map, not emailed as new. */
+export function isCatchUp(existingCount: number, addedCount: number): boolean {
+  return addedCount > existingCount * CATCH_UP_RATIO;
 }
 
 /** Reason to leave a city's files untouched, or null when the run looks healthy. */

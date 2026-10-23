@@ -5,6 +5,7 @@ import {
   checkGoogleSafety,
   formatPrice,
   gridCells,
+  isCatchUp,
   mergeGoogleCity,
   type EnrichmentRow,
   type GoogleMergeInput,
@@ -232,6 +233,15 @@ describe("gridCells", () => {
     expect(Math.min(...parts.map((b) => b.west))).toBe(-4);
     expect(Math.max(...parts.map((b) => b.east))).toBe(-3);
     expect(new Set(parts.map((b) => `${b.south},${b.west}`)).size).toBe(4);
+  });
+});
+
+describe("isCatchUp", () => {
+  it("treats a batch over a quarter of the city as a catch-up, not new openings", () => {
+    expect(isCatchUp(417, 353)).toBe(true);
+    expect(isCatchUp(417, 104)).toBe(false);
+    expect(isCatchUp(417, 105)).toBe(true);
+    expect(isCatchUp(400, 12)).toBe(false);
   });
 });
 
