@@ -4,6 +4,7 @@ import {
   ENRICHMENT_COLUMNS,
   checkGoogleSafety,
   formatPrice,
+  gridCells,
   mergeGoogleCity,
   type EnrichmentRow,
   type GoogleMergeInput,
@@ -106,6 +107,22 @@ describe("mergeGoogleCity", () => {
     expect(stats.removed).toEqual([]);
   });
 
+  it("refreshes a cafe the search missed from its lookup, without moving it", () => {
+    const existing = [row("A", "Old name", "40.1", "-3.1")];
+    const lookup = place("A", "New name", 40.5, -3.5, { rating: 4.9 });
+    const checks = new Map<string, PlaceCheck>([["A", { status: "open", place: lookup }]]);
+    const { rows, stats } = merge({ existing, checks });
+    expect(rows[0]).toMatchObject({
+      name: "New name",
+      rating: "4.9",
+      lat: "40.1",
+      lon: "-3.1",
+      fetchedAt: "2026-02-02T00:00:00.000Z",
+      refreshedAt: NOW,
+    });
+    expect(stats.refreshedByLookup).toBe(1);
+  });
+
   it("keeps a cafe whose check failed, and removes one Google confirms closed", () => {
     const existing = [row("A", "Unknown", "40.1", "-3.1"), row("B", "Closed", "40.2", "-3.2")];
     const checks = new Map<string, PlaceCheck>([
@@ -119,8 +136,8 @@ describe("mergeGoogleCity", () => {
 
   it("adopts a new Google id on the old pin and does not add it twice", () => {
     const existing = [row("OLD", "Renamed Id Cafe", "40.1", "-3.1")];
-    const checks = new Map<string, PlaceCheck>([["OLD", { status: "open", newId: "NEW" }]]);
     const found = [place("NEW", "Renamed Id Cafe", 40.5, -3.5)];
+    const checks = new Map<string, PlaceCheck>([["OLD", { status: "open", place: found[0] }]]);
     const { rows, stats } = merge({ existing, found, checks });
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ source_id: "NEW", lat: "40.1", lon: "-3.1" });
@@ -129,9 +146,11 @@ describe("mergeGoogleCity", () => {
 
   it("does not adopt a new id that another pin already holds", () => {
     const existing = [row("OLD", "First", "40.1", "-3.1"), row("NEW", "Second", "40.2", "-3.2")];
-    const checks = new Map<string, PlaceCheck>([["OLD", { status: "open", newId: "NEW" }]]);
-    const { rows } = merge({ existing, found: [place("NEW", "Second", 40.2, -3.2)], checks });
+    const lookup = place("NEW", "Second", 40.2, -3.2);
+    const checks = new Map<string, PlaceCheck>([["OLD", { status: "open", place: lookup }]]);
+    const { rows } = merge({ existing, found: [lookup], checks });
     expect(rows.map((r) => r.source_id)).toEqual(["OLD", "NEW"]);
+    expect(rows[0]).toEqual(existing[0]);
   });
 
   it("relinks a 'no longer exists' cafe to a nearby result with a similar name, keeping its position", () => {
@@ -198,6 +217,21 @@ describe("mergeGoogleCity", () => {
     expect(e[0].gp_rating).toBe("4.8");
     expect(stats.coffeeTripUpdated).toBe(1);
     expect(rows).toEqual([]);
+  });
+});
+
+describe("gridCells", () => {
+  it("cuts a square into quarters that cover it exactly", () => {
+    const square = { south: 40, north: 41, west: -4, east: -3 };
+    const parts = gridCells(square, 2);
+    expect(parts).toHaveLength(4);
+    const area = (b: typeof square) => (b.north - b.south) * (b.east - b.west);
+    expect(parts.reduce((sum, b) => sum + area(b), 0)).toBeCloseTo(area(square));
+    expect(Math.min(...parts.map((b) => b.south))).toBe(40);
+    expect(Math.max(...parts.map((b) => b.north))).toBe(41);
+    expect(Math.min(...parts.map((b) => b.west))).toBe(-4);
+    expect(Math.max(...parts.map((b) => b.east))).toBe(-3);
+    expect(new Set(parts.map((b) => `${b.south},${b.west}`)).size).toBe(4);
   });
 });
 

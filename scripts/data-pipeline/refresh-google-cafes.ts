@@ -25,11 +25,13 @@ import Papa from "papaparse";
 import { CITIES, type CityBounds } from "./config/cities";
 import { cafePlaceId, diffCafes, saveToReportFile, type ComparableCafe } from "./lib/cafe-report";
 import {
+  DETAILS_FIELD_MASK,
   ENRICHMENT_COLUMNS,
   GOOGLE_COLUMNS,
   SEARCH_FIELD_MASK,
   checkGoogleSafety,
   coffeeTripKey,
+  gridCells,
   mergeGoogleCity,
   type CoffeeTripCafe,
   type EnrichmentRow,
@@ -59,9 +61,17 @@ const SEARCH_URL = "https://places.googleapis.com/v1/places:searchText";
 const SEARCH_QUERY = "specialty coffee";
 const GRID_SIZE = 6;
 const PAGE_SIZE = 20;
-// A 6x6 grid needs at most 108 searches (3 pages per square). The caps stop a runaway loop.
+/** Google's limit for one search, across all its pages. A square that hits it is split. */
+const MAX_RESULTS_PER_SEARCH = 60;
+// A 6x6 grid needs at most 108 searches (3 pages per square). Quarters of full
+// squares only start below SPLIT_BUDGET, so splitting never reaches the hard cap,
+// which only stops a runaway loop.
+const SPLIT_BUDGET = 200;
 const MAX_SEARCHES_PER_CITY = 300;
 const MAX_CHECKS_PER_CITY = 300;
+const CHECK_PAUSE_MS = 200;
+// After this many failed checks in a row Google is down or throttling us: skip the rest.
+const MAX_FAILED_CHECKS_IN_A_ROW = 5;
 const TIMEOUT_MS = 30_000;
 const BACKOFF_MS = [2_000, 5_000];
 
@@ -95,29 +105,28 @@ async function googleRequest(url: string, init: RequestInit, fieldMask: string):
   throw new Error(lastError);
 }
 
-function gridCells(bounds: CityBounds): CityBounds[] {
-  const latStep = (bounds.north - bounds.south) / GRID_SIZE;
-  const lonStep = (bounds.east - bounds.west) / GRID_SIZE;
-  const cells: CityBounds[] = [];
-  for (let row = 0; row < GRID_SIZE; row++) {
-    for (let col = 0; col < GRID_SIZE; col++) {
-      cells.push({
-        south: bounds.south + row * latStep,
-        north: bounds.south + (row + 1) * latStep,
-        west: bounds.west + col * lonStep,
-        east: bounds.west + (col + 1) * lonStep,
-      });
-    }
-  }
-  return cells;
-}
-
-/** Search every grid square (up to 60 results each). Throws if a square still fails after retries. */
-async function searchCity(bounds: CityBounds): Promise<{ places: GooglePlace[]; searches: number }> {
+/**
+ * Search every grid square (up to 60 results each). A square that comes back
+ * full is searched again as four quarters, while the split budget lasts.
+ * Throws if a square still fails after retries.
+ */
+async function searchCity(
+  bounds: CityBounds
+): Promise<{ places: GooglePlace[]; searches: number; split: number; skipped: number }> {
   const byId = new Map<string, GooglePlace>();
   let searches = 0;
+  let split = 0;
+  let skipped = 0;
 
-  for (const cell of gridCells(bounds)) {
+  const queue = gridCells(bounds, GRID_SIZE);
+  const gridSize = queue.length;
+  for (let i = 0; i < queue.length; i++) {
+    if (i >= gridSize && searches >= SPLIT_BUDGET) {
+      skipped = queue.length - i;
+      break;
+    }
+    const cell = queue[i];
+    let results = 0;
     let pageToken: string | undefined;
     do {
       if (searches >= MAX_SEARCHES_PER_CITY) throw new Error(`spend cap of ${MAX_SEARCHES_PER_CITY} searches reached`);
@@ -143,25 +152,35 @@ async function searchCity(bounds: CityBounds): Promise<{ places: GooglePlace[]; 
       )) as { places?: GooglePlace[]; nextPageToken?: string } | null;
 
       for (const place of data?.places ?? []) byId.set(place.id, place);
+      results += data?.places?.length ?? 0;
       pageToken = data?.nextPageToken;
       if (pageToken) await sleep(300);
     } while (pageToken);
+
+    if (results >= MAX_RESULTS_PER_SEARCH) {
+      split++;
+      queue.push(...gridCells(cell, 2));
+    }
   }
-  return { places: [...byId.values()], searches };
+  return { places: [...byId.values()], searches, split, skipped };
 }
 
-/** Ask Google about one place the search missed. Any error counts as "failed": the cafe is kept. */
-async function checkPlace(id: string): Promise<PlaceCheck> {
+/**
+ * Ask Google about one place the search missed, with the same details the
+ * search returns. Any error counts as "failed": the cafe is kept as it was.
+ */
+async function checkPlace(id: string, name: string): Promise<PlaceCheck> {
   try {
     const data = (await googleRequest(
       `https://places.googleapis.com/v1/places/${encodeURIComponent(id)}`,
       { method: "GET" },
-      "id,businessStatus"
-    )) as { id?: string; businessStatus?: string } | null;
+      DETAILS_FIELD_MASK
+    )) as GooglePlace | null;
     if (!data) return { status: "gone" };
     if (data.businessStatus === "CLOSED_PERMANENTLY") return { status: "closed" };
-    return { status: "open", newId: data.id && data.id !== id ? data.id : undefined };
-  } catch {
+    return { status: "open", place: data };
+  } catch (err) {
+    console.log(`  Check failed for ${name}: ${err instanceof Error ? err.message : err}`);
     return { status: "failed" };
   }
 }
@@ -191,7 +210,10 @@ async function refreshCity(city: string): Promise<boolean> {
   try {
     const result = await searchCity(CITIES[city].bounds);
     found = result.places;
-    console.log(`  ${result.searches} searches, ${found.length} places (file has ${google.rows.length})`);
+    console.log(
+      `  ${result.searches} searches, ${found.length} places (file has ${google.rows.length}); ` +
+        `${result.split} full squares split, ${result.skipped} quarters skipped over budget`
+    );
   } catch (err) {
     console.error(`  STOPPED, files left untouched: search failed: ${err instanceof Error ? err.message : err}`);
     return false;
@@ -199,16 +221,28 @@ async function refreshCity(city: string): Promise<boolean> {
 
   // Cafes the search missed: ask Google about each one before removing anything.
   const foundIds = new Set(found.map((p) => p.id));
-  const missing = google.rows.map((r) => r.source_id).filter((id) => id && !foundIds.has(id));
+  const missing = google.rows.filter((r) => r.source_id && !foundIds.has(r.source_id));
   const checks = new Map<string, PlaceCheck>();
-  for (const id of missing) {
-    checks.set(id, checks.size < MAX_CHECKS_PER_CITY ? await checkPlace(id) : { status: "failed" });
+  let failedInARow = 0;
+  for (const row of missing) {
+    if (checks.size >= MAX_CHECKS_PER_CITY || failedInARow >= MAX_FAILED_CHECKS_IN_A_ROW) {
+      checks.set(row.source_id, { status: "failed" });
+      continue;
+    }
+    const check = await checkPlace(row.source_id, row.name);
+    failedInARow = check.status === "failed" ? failedInARow + 1 : 0;
+    checks.set(row.source_id, check);
+    await sleep(CHECK_PAUSE_MS);
   }
   const tally = (s: PlaceCheck["status"]) => [...checks.values()].filter((c) => c.status === s).length;
   console.log(
     `  Missed by search: ${missing.length} (still open ${tally("open")}, closed ${tally("closed")}, ` +
       `gone ${tally("gone")}, check failed ${tally("failed")})`
   );
+  if (tally("failed")) {
+    // ::warning:: shows on the GitHub run page without failing the run.
+    console.log(`::warning::${city}: ${tally("failed")} cafe checks failed, those cafes keep their old details`);
+  }
 
   const now = new Date().toISOString();
   const { rows, enrichment: nextEnrichment, stats } = mergeGoogleCity({
@@ -227,7 +261,8 @@ async function refreshCity(city: string): Promise<boolean> {
   }
 
   console.log(
-    `  Refreshed ${stats.refreshed}, kept unseen ${stats.keptUnseen}, added ${stats.added.length}, ` +
+    `  Refreshed ${stats.refreshed} from search and ${stats.refreshedByLookup} by lookup, ` +
+      `kept unseen ${stats.keptUnseen}, added ${stats.added.length}, ` +
       `removed ${stats.removed.length}, relinked ${stats.relinked.length}`
   );
   const skipped = Object.entries(stats.skippedTypes).sort((a, b) => b[1] - a[1]);
