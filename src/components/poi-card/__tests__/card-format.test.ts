@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  isShown, listingPhotos, formatPrice, priceChange, shortAddress, listingFacts,
+  isShown, listingPhotos, formatPrice, priceChange, shortAddress, listingFacts, transferLabel,
   listingShareTitle, ageShort, ageLong, todayHours, statusPill, type StatusPillInput,
 } from "../card-format";
 import type { PropertyData } from "@/hooks/useMapData";
@@ -68,24 +68,39 @@ describe("address", () => {
   it("moves a transfer listing's business type out of the address", () => {
     const a = "Bar, restaurant in Calle de Raimundo Fernández Villaverde, Madrid";
     expect(shortAddress(a)).toBe("Calle de Raimundo Fernández Villaverde");
-    expect(listingFacts(listing({ address: a, transfer: 169000 }))).toEqual(["Bar, restaurant", "95 m²", "€169k transfer"]);
+    expect(listingFacts(listing({ address: a, transfer: 169000 }))).toEqual(["Bar, restaurant", "95 m²"]);
   });
 });
 
 describe("facts", () => {
   it("keeps the four most useful real facts in order", () => {
     const p = listing({ transfer: 12000, hasStorefront: true, hasAirConditioning: true, hasBathroom: true });
-    expect(listingFacts(p)).toEqual(["95 m²", "€12k transfer", "Storefront", "A/C"]);
+    expect(listingFacts(p)).toEqual(["95 m²", "Storefront", "A/C", "Bathroom"]);
   });
 
-  it("never shows a zero transfer or size", () => {
-    expect(listingFacts(listing({ size: 0, transfer: 0, hasBathroom: true }))).toEqual(["Bathroom"]);
+  it("never shows a zero size", () => {
+    expect(listingFacts(listing({ size: 0, hasBathroom: true }))).toEqual(["Bathroom"]);
+  });
+});
+
+describe("transfer", () => {
+  it("shortens the fee for the chip by the price", () => {
+    expect(transferLabel(listing({ transfer: 240000 }))).toBe("€240k transfer");
+    expect(transferLabel(listing({ transfer: 12400 }))).toBe("€12k transfer");
   });
 
-  it("writes koruna transfers after the number", () => {
-    expect(listingFacts(listing({ source: "sreality", transfer: 350000 }))).toEqual(["95 m²", "350k Kč transfer"]);
+  it("never shows a zero or missing fee", () => {
+    expect(transferLabel(listing({ transfer: 0 }))).toBeNull();
+    expect(transferLabel(listing({ transfer: undefined }))).toBeNull();
+    expect(transferLabel(listing({ transfer: Number.NaN }))).toBeNull();
   });
 
+  it("writes koruna after the number", () => {
+    expect(transferLabel(listing({ source: "sreality", transfer: 350000 }))).toBe("350k Kč transfer");
+  });
+});
+
+describe("share", () => {
   it("share title is price and size", () => {
     expect(listingShareTitle(listing())).toBe("€2,400/mo · 95 m²");
     expect(listingShareTitle(listing({ price: 0, size: 0 }))).toBe("On request");

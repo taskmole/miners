@@ -30,7 +30,7 @@ export function formatPrice(price: number | undefined, source: PropertyData["sou
   return isShown(price) ? formatAmount(price, source) : null;
 }
 
-/** "€12k" or "350k Kč", for the transfer fee in the facts line. */
+/** "€12k" or "350k Kč", for the transfer fee chip. */
 function formatShortMoney(amount: number, source: PropertyData["source"]): string {
   const n = amount >= 1000 ? `${Math.round(amount / 1000)}k` : String(Math.round(amount));
   return isCzk(source) ? `${n} Kč` : `€${n}`;
@@ -77,19 +77,24 @@ export function shortAddress(address: string | undefined): string {
 /**
  * Up to four real facts, most useful first, so the line never wraps.
  * Only fields the listing actually has; nothing is guessed from the text.
+ * The transfer fee is not one of them: it sits next to the price.
  */
 export function listingFacts(
-  p: Pick<PropertyData, "size" | "transfer" | "hasStorefront" | "hasAirConditioning" | "hasBathroom" | "source" | "address">,
+  p: Pick<PropertyData, "size" | "hasStorefront" | "hasAirConditioning" | "hasBathroom" | "address">,
 ): string[] {
   const facts: string[] = [];
   const kind = businessKind(p.address);
   if (kind) facts.push(kind);
   if (isShown(p.size)) facts.push(`${Math.round(p.size)} m²`);
-  if (isShown(p.transfer)) facts.push(`${formatShortMoney(p.transfer, p.source)} transfer`);
   if (p.hasStorefront) facts.push("Storefront");
   if (p.hasAirConditioning) facts.push("A/C");
   if (p.hasBathroom) facts.push("Bathroom");
   return facts.slice(0, 4);
+}
+
+/** "€240k transfer" for the chip next to the price, or null without a fee. */
+export function transferLabel(p: Pick<PropertyData, "transfer" | "source">): string | null {
+  return isShown(p.transfer) ? `${formatShortMoney(p.transfer, p.source)} transfer` : null;
 }
 
 /** "€2,400/mo", or "On request" without a price. */

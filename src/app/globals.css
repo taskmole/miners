@@ -557,6 +557,10 @@
 
 .poi-card {
   --poi-pad: 24px;
+  /* How far the controls sit from the card's edge: the chips and X on the
+     photo, the X on a white header and the bottom row all use it, so the
+     top and bottom corners line up. */
+  --poi-edge: 16px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -585,7 +589,20 @@
   background: #e4e4e7;
   overflow: hidden;
 }
-.poi-top:not(:has(.poi-strip)) { height: 150px; }
+/* No photos: a grey block that grows when the price line wraps and the
+   address takes two lines, so they never run up into the chips. Padding:
+   the chips (--poi-edge down, 28px tall) plus an 8px gap above, the
+   headline's 18px below. */
+.poi-top:not(:has(.poi-strip)) {
+  height: auto;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: calc(var(--poi-edge) + 36px) 0 18px;
+}
+.poi-top > .poi-photo-missing { position: absolute; inset: 0; }
+.poi-top:not(:has(.poi-strip)) .poi-headline { position: relative; bottom: auto; }
 .poi-strip {
   display: flex;
   height: 100%;
@@ -595,6 +612,7 @@
 }
 .poi-strip::-webkit-scrollbar { display: none; }
 .poi-strip-cell { flex: 0 0 100%; height: 100%; scroll-snap-align: start; scroll-snap-stop: always; }
+.poi-strip-cell.is-loading { background: #e4e4e7; }
 .poi-strip-cell img { width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; }
 .poi-photo-missing {
   width: 100%;
@@ -611,9 +629,9 @@
 }
 .poi-overlay {
   position: absolute;
-  top: 14px;
-  left: 14px;
-  right: 14px;
+  top: var(--poi-edge);
+  left: var(--poi-edge);
+  right: var(--poi-edge);
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -625,8 +643,8 @@
    long chip on the left never runs into it. */
 .poi-count {
   position: absolute;
-  top: 14px;
-  right: 50px;
+  top: var(--poi-edge);
+  right: calc(var(--poi-edge) + 36px);
   height: 28px;
   display: inline-flex;
   align-items: center;
@@ -697,7 +715,8 @@
   font: 700 10.5px var(--font-inter), sans-serif;
   font-variant-numeric: tabular-nums;
 }
-.poi-tag {
+/* .poi-pchip: the transfer fee chip beside the price. */
+.poi-tag, .poi-pchip {
   height: 28px;
   display: inline-flex;
   align-items: center;
@@ -756,6 +775,9 @@
 }
 .poi-tip.is-below { top: calc(100% + 6px); }
 .poi-tip.is-above { bottom: calc(100% + 6px); }
+/* The status pill sits in the right half of the bottom row: its tip grows
+   leftwards, and 240px wide at most so it stays on a 320px phone. */
+.poi-pill .poi-tip { left: auto; right: 0; max-width: 240px; }
 
 /* ── Headline: on the photo in white, else dark under the header ── */
 .poi-headline { padding: 4px var(--poi-pad) 0; }
@@ -772,21 +794,28 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 16px 16px 0 var(--poi-pad);
+  padding: var(--poi-edge) var(--poi-edge) 0 var(--poi-pad);
 }
 .poi-head .poi-gchip, .poi-head .poi-tag { background: #f4f4f5; color: #3f3f46; backdrop-filter: none; }
 .poi-head .poi-tag.is-sales { color: #15803d; background: #f0fdf4; }
 .poi-head .poi-x, .poi-card.is-step .poi-x { background: #f4f4f5; color: #52525b; backdrop-filter: none; }
-.poi-priceline { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.poi-priceline { display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; }
 .poi-price { font: 700 26px/1.15 var(--font-outfit), sans-serif; letter-spacing: -0.01em; }
 .poi-price small { font: 400 13px var(--font-inter), sans-serif; opacity: 0.75; margin-left: 2px; }
 .poi-price.is-request { font-size: 18px; }
+/* Transfer fee: a cost the buyer pays on top, so it stands out in light
+   orange with a soft glow. Listings always have a photo or grey block, so
+   the chip only ever sits on it. Plain CSS, so it looks the same on phone
+   and desktop and never animates. */
+.poi-pchip.is-transfer {
+  background: rgba(234,88,12,0.42);
+  color: #fff7ed;
+  box-shadow: inset 0 0 0 1px rgba(253,186,116,0.75), 0 0 10px rgba(251,146,60,0.55);
+}
 .poi-change { display: inline-flex; align-items: center; gap: 2px; font: 600 12px var(--font-inter), sans-serif; pointer-events: auto; }
 .poi-change svg { width: 12px; height: 12px; }
-.poi-change.is-down { color: #15803d; }
-.poi-change.is-up { color: #b91c1c; }
-.is-on-photo .poi-change.is-down { color: #86efac; }
-.is-on-photo .poi-change.is-up { color: #fca5a5; }
+.poi-change.is-down { color: #86efac; }
+.poi-change.is-up { color: #fca5a5; }
 .poi-where {
   font: 500 14px/1.35 var(--font-inter), sans-serif;
   padding-top: 4px;
@@ -866,7 +895,7 @@
 .poi-approval { padding: 8px var(--poi-pad) 0; font: 500 13px var(--font-inter), sans-serif; color: #15803d; }
 
 /* ── Bottom row ── */
-.poi-bar { display: flex; align-items: center; gap: 8px; padding: 18px var(--poi-pad) 20px; }
+.poi-bar { display: flex; align-items: center; gap: 8px; padding: 18px var(--poi-edge) var(--poi-edge); }
 /* Main button, pill, More and the link tiles: one height, one corner. */
 .poi-main, .poi-pill, .poi-main-slot {
   flex: 1;
@@ -946,9 +975,6 @@
   cursor: pointer;
 }
 .poi-more-item svg { width: 17px; height: 17px; color: #71717a; }
-.poi-more-item.is-share { background: rgba(236,253,245,0.75); box-shadow: inset 0 0 0 1px rgba(16,185,129,0.18); color: #065f46; font-weight: 600; }
-.poi-more-item.is-share svg { color: #059669; }
-.poi-more-item.is-share[data-highlighted] { background: rgba(209,250,229,0.9); }
 .poi-more-item.is-danger { color: #dc2626; }
 .poi-more-item.is-danger svg { color: #dc2626; }
 .poi-more-count { margin-left: auto; font: 600 11px var(--font-inter), sans-serif; color: #71717a; background: #f4f4f5; border-radius: 99px; padding: 2px 7px; }
@@ -1081,6 +1107,22 @@
   .poi-strip { scroll-behavior: auto; }
 }
 
+/* ── Desktop: the bottom row and photo arrows a size down, closer to the
+   28px chips. Phones keep 44px tap targets. ── */
+@media (min-width: 640px) {
+  .poi-main, .poi-pill, .poi-main-slot { height: 40px; min-width: 100px; border-radius: 11px; }
+  .poi-main { font-size: 14px; }
+  .poi-pill { font-size: 13px; }
+  /* Only the bottom row's ⋯: the notes composer's paperclip stays 44px
+     beside its 44px field. */
+  .poi-bar .poi-ib, .poi-tile { width: 40px; height: 40px; border-radius: 11px; }
+  .poi-bar .poi-ib svg { width: 17px; height: 17px; }
+  .poi-tile.is-bg img { width: 23px; height: 23px; }
+  .poi-tile.is-glyph svg { width: 18px; height: 18px; }
+  .poi-arrow { width: 30px; height: 30px; }
+  .poi-arrow svg { width: 16px; height: 16px; }
+}
+
 /* ── Phone: the card fills the bottom sheet ── */
 @media (max-width: 639.98px) {
   .poi-card {
@@ -1094,17 +1136,35 @@
   /* The sheet scrolls; nothing scrolls inside the card. */
   .poi-scroll { overflow: visible; flex: none; }
   /* The sheet (bleedTop) leaves the top to the card: the photo runs to the
-     edge, and the card draws the grab bar over the sheet's touch area. */
+     edge, and the card draws the grab bar over the sheet's touch area. The
+     sheet is partial, so its top edge never reaches the status bar: nothing
+     here adds room for it. */
   .poi-top {
-    height: calc(min(280px, 38dvh) + env(safe-area-inset-top, 0px));
+    height: min(280px, 38dvh);
     border-radius: 24px 24px 0 0;
+    /* Grey only behind a photo still loading (.poi-strip-cell.is-loading). */
+    background: transparent;
   }
-  .poi-top:not(:has(.poi-strip)) { height: calc(170px + env(safe-area-inset-top, 0px)); }
+  /* Chips start 28px down here: 28 + 28 + 8px gap. */
+  .poi-top:not(:has(.poi-strip)) { min-height: 170px; padding-top: 64px; }
+  /* White everywhere except just inside the two rounded top corners and the
+     top 2px between them. A white layer under the photo's curve leaks a
+     white hairline round it (each curve is smoothed on its own), so the
+     photo is the only thing painted there. The white corners sit 3px inside
+     the curve, so a pull-down bounce still shows a rounded white top. Used
+     by the sheet too (.sheet-bleed-top). */
+  .sheet-bleed-top, .poi-card:not(.no-top):not(.is-step) {
+    background:
+      radial-gradient(circle at 100% 100%, #fff 21px, transparent 21.5px) 0 0 / 24px 24px no-repeat,
+      radial-gradient(circle at 0 100%, #fff 21px, transparent 21.5px) 100% 0 / 24px 24px no-repeat,
+      linear-gradient(#fff, #fff) 24px 2px / calc(100% - 48px) 22px no-repeat,
+      linear-gradient(#fff, #fff) 0 24px / 100% calc(100% - 24px) no-repeat;
+  }
   .poi-grab {
     display: block;
     position: absolute;
     z-index: 3;
-    top: calc(12px + env(safe-area-inset-top, 0px));
+    top: 12px;
     left: 50%;
     width: 40px;
     height: 4px;
@@ -1114,14 +1174,14 @@
     pointer-events: none;
   }
   .poi-grab.is-on-photo { background: rgba(255,255,255,0.85); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-  /* Below the drag handle, so taps reach the chips and X. */
-  .poi-overlay { top: calc(28px + env(safe-area-inset-top, 0px)); left: 16px; right: 16px; }
-  .poi-count { top: calc(28px + env(safe-area-inset-top, 0px)); right: 52px; }
+  /* Below the sheet's 24px drag handle, so taps reach the chips and X. */
+  .poi-overlay { top: 28px; }
+  .poi-count { top: 28px; }
   /* White tops leave room for the grab bar. */
-  .poi-head { padding-top: calc(44px + env(safe-area-inset-top, 0px)); }
-  .poi-step-head { padding-top: calc(40px + env(safe-area-inset-top, 0px)); }
+  .poi-head { padding-top: 44px; }
+  .poi-step-head { padding-top: 40px; }
   /* iPhone home bar. */
-  .poi-bar { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+  .poi-bar { padding-bottom: calc(var(--poi-edge) + env(safe-area-inset-bottom, 0px)); }
   .poi-step-foot {
     position: sticky;
     bottom: 0;
@@ -1187,7 +1247,7 @@
 }
 
 /* ===========================================
-   BOTTOM SHEET HEIGHT — dvh with vh fallback
+   BOTTOM SHEET HEIGHT: dvh with vh fallback
    dvh = actual visible viewport (accounts for iOS Safari browser chrome)
    vh = largest possible viewport (fallback for older browsers)
    =========================================== */

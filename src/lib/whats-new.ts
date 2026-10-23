@@ -14,13 +14,14 @@
  * Adding an update:
  *   1. Append it at the bottom with the next `id` (ids only ever go up; the
  *      popup remembers "seen up to id N", so reusing or reordering ids would
- *      hide updates from people or show them twice).
+ *      hide updates from people or show them twice). Removed entries leave a
+ *      gap (3 and 5 are gone): never fill it.
  *   2. Screenshots go in public/assets/whats-new/ under a NEW filename every
  *      time. The service worker caches images forever, so overwriting a file
  *      leaves everybody on the old picture.
  */
 
-import { Link as LinkIcon, Zap, type LucideIcon } from "lucide-react";
+import { Zap, type LucideIcon } from "lucide-react";
 import {
   canApprove,
   canContribute,
@@ -94,18 +95,6 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     },
   },
   {
-    id: 3,
-    date: "2026-10-18",
-    title: "The UI got a glow up",
-    body: "Buttons now light up when something new lands, so fresh listings are hard to miss.",
-    audience: "everyone",
-    visual: {
-      kind: "image",
-      src: "/assets/whats-new/new-button-glow-v1.jpg",
-      alt: "The NEW listings button with a green glow running around its edge",
-    },
-  },
-  {
     id: 4,
     date: "2026-10-18",
     title: "Meet the AI scout",
@@ -115,21 +104,6 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       kind: "image",
       src: "/assets/whats-new/ai-scout-v3.jpg",
       alt: "A listing's AI summary and Why 86? score, next to the Can train the AI scout switch set to On",
-    },
-  },
-  {
-    id: 5,
-    date: "2026-10-19",
-    title: "Shared links open in a flash",
-    body: "A link to a place now opens it in about a second instead of ten, and extra tabs no longer get stuck loading.",
-    audience: "everyone",
-    visual: {
-      kind: "card",
-      tone: "mint",
-      icon: LinkIcon,
-      headline: "1 sec",
-      subline: "to open a link",
-      speedBackdrop: "/assets/whats-new/map-strip-v1.jpg",
     },
   },
   {
