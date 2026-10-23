@@ -8,6 +8,7 @@
 import { haversineDistance } from "./geo-utils";
 import { nameSimilarity } from "./address-utils";
 import { getCategoryForGooglePlace } from "./categories";
+import type { CityBounds } from "../config/cities";
 
 /** Column order of public/data/google_places_<city>.csv. The map reads these names. */
 export const GOOGLE_COLUMNS = [
@@ -46,22 +47,27 @@ export const ENRICHMENT_COLUMNS = [
 ] as const;
 export type EnrichmentRow = Record<(typeof ENRICHMENT_COLUMNS)[number], string>;
 
-/** Fields asked of Text Search. All in the same price tier as rating and hours. */
-export const SEARCH_FIELD_MASK = [
-  "places.id",
-  "places.displayName",
-  "places.formattedAddress",
-  "places.location",
-  "places.rating",
-  "places.userRatingCount",
-  "places.primaryType",
-  "places.websiteUri",
-  "places.regularOpeningHours",
-  "places.businessStatus",
-  "places.priceLevel",
-  "places.priceRange",
-  "nextPageToken",
-].join(",");
+/** Fields asked of Google, all in the same price tier as rating and hours. */
+const PLACE_FIELDS = [
+  "id",
+  "displayName",
+  "formattedAddress",
+  "location",
+  "rating",
+  "userRatingCount",
+  "primaryType",
+  "websiteUri",
+  "regularOpeningHours",
+  "businessStatus",
+  "priceLevel",
+  "priceRange",
+];
+
+/** Text Search field mask. */
+export const SEARCH_FIELD_MASK = [...PLACE_FIELDS.map((f) => `places.${f}`), "nextPageToken"].join(",");
+
+/** The same fields for a one-place lookup, which takes them without the "places." prefix. */
+export const DETAILS_FIELD_MASK = PLACE_FIELDS.join(",");
 
 interface Money {
   currencyCode?: string;
@@ -86,8 +92,8 @@ export interface GooglePlace {
 /** Answer to "does this one place still exist?" for a cafe the search missed. */
 export interface PlaceCheck {
   status: "open" | "closed" | "gone" | "failed";
-  /** Google's current id when it differs from the one we stored. */
-  newId?: string;
+  /** Google's current details (its id may differ from the one we stored). */
+  place?: GooglePlace;
 }
 
 /** A coffee-trip pin, with its coordinates exactly as written in its file. */
@@ -114,6 +120,12 @@ const RELINK_MIN_NAME_SIMILARITY = 0.5;
 
 /** Safety stop: never remove more than this share of a city's cafes in one run. */
 export const MAX_REMOVED_RATIO = 0.15;
+
+/**
+ * More new cafes than this share of a city in one run is the search catching up
+ * (like the first run with split squares), not new openings.
+ */
+const CATCH_UP_RATIO = 0.25;
 
 const PRICE_LEVEL_WORDS: Record<string, string> = {
   PRICE_LEVEL_INEXPENSIVE: "Cheap",
@@ -215,6 +227,8 @@ export function findCoffeeTripMatch(
 
 export interface GoogleMergeStats {
   refreshed: number;
+  /** Missed by the search, refreshed from the one-place lookup instead. */
+  refreshedByLookup: number;
   /** Missed by the search, but Google says they're still there. */
   keptUnseen: number;
   added: string[];
@@ -253,6 +267,7 @@ export function mergeGoogleCity(input: GoogleMergeInput): {
   const { existing, found, checks, coffeeTrip, enrichment, now } = input;
   const stats: GoogleMergeStats = {
     refreshed: 0,
+    refreshedByLookup: 0,
     keptUnseen: 0,
     added: [],
     removed: [],
@@ -284,15 +299,17 @@ export function mergeGoogleCity(input: GoogleMergeInput): {
       return row;
     }
 
-    // Still there, or the check failed: keep. Adopt a new id unless another pin has it.
+    // Still there, or the check failed: keep. Refresh from the lookup, adopting
+    // Google's new id unless another pin has it.
     stats.keptUnseen++;
-    const newId = check?.newId;
-    if (newId && newId !== row.source_id && !claimed.has(newId)) {
-      claimed.add(newId);
-      const place = foundById.get(newId);
-      return place ? refreshRow(row, place, now) : { ...row, source_id: newId, googleMapsUrl: googleMapsUrl(newId) };
+    const place = check?.place;
+    if (!place?.id) return row;
+    if (place.id !== row.source_id) {
+      if (claimed.has(place.id)) return row;
+      claimed.add(place.id);
     }
-    return row;
+    stats.refreshedByLookup++;
+    return refreshRow(row, place, now);
   });
 
   // Unclaimed, open search hits: candidates for relinks and additions.
@@ -372,6 +389,29 @@ export function mergeGoogleCity(input: GoogleMergeInput): {
     enrichment: nextEnrichment,
     stats,
   };
+}
+
+/** An area cut into a size x size grid of equal search squares. */
+export function gridCells(bounds: CityBounds, size: number): CityBounds[] {
+  const latStep = (bounds.north - bounds.south) / size;
+  const lonStep = (bounds.east - bounds.west) / size;
+  const cells: CityBounds[] = [];
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      cells.push({
+        south: bounds.south + row * latStep,
+        north: bounds.south + (row + 1) * latStep,
+        west: bounds.west + col * lonStep,
+        east: bounds.west + (col + 1) * lonStep,
+      });
+    }
+  }
+  return cells;
+}
+
+/** True when a run's new cafes are a catch-up batch: shown on the map, not emailed as new. */
+export function isCatchUp(existingCount: number, addedCount: number): boolean {
+  return addedCount > existingCount * CATCH_UP_RATIO;
 }
 
 /** Reason to leave a city's files untouched, or null when the run looks healthy. */

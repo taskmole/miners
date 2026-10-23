@@ -1190,8 +1190,14 @@ interface PinArea {
     north: number;
 }
 
-/** How far past each screen edge pins are drawn, as a share of the screen. */
-const PIN_AREA_MARGIN = 0.25;
+/**
+ * How far past each screen edge pins are drawn, as a share of the screen.
+ * Busy areas get a smaller margin: every DOM pin is moved on every frame of a
+ * pan, so past about 300 pins per million screen pixels (about 100 on a phone)
+ * a slow phone starts dropping frames.
+ */
+const PIN_AREA_MARGINS = [0.25, 0.1, 0];
+const PINS_PER_MEGAPIXEL = 300;
 
 /**
  * Report where street-level pins should be drawn: the screen plus a margin,
@@ -1200,8 +1206,15 @@ const PIN_AREA_MARGIN = 0.25;
  * moveend only means nothing new is drawn mid-flight. A new area is reported
  * only when the old one stops fitting, so small pans don't re-render the map.
  */
-function PinAreaTracker({ onChange }: { onChange: (area: PinArea | null) => void }) {
+function PinAreaTracker({ onChange, countPins }: {
+    onChange: (area: PinArea | null) => void;
+    /** How many pins an area would draw. */
+    countPins: (area: PinArea) => number;
+}) {
     const { map, isLoaded } = useMap();
+    // A ref, so new data doesn't re-subscribe the listener; it applies on the next move.
+    const countPinsRef = React.useRef(countPins);
+    useEffect(() => { countPinsRef.current = countPins; }, [countPins]);
 
     useEffect(() => {
         if (!map || !isLoaded) return;
@@ -1222,9 +1235,14 @@ function PinAreaTracker({ onChange }: { onChange: (area: PinArea | null) => void
                 && Math.abs(last.zoom - zoom) < 1
                 && west >= last.west && east <= last.east && south >= last.south && north <= last.north;
             if (stillFits) return;
-            const dx = (east - west) * PIN_AREA_MARGIN;
-            const dy = (north - south) * PIN_AREA_MARGIN;
-            last = { zoom, west: west - dx, south: south - dy, east: east + dx, north: north + dy };
+            const canvas = map.getCanvas();
+            const budget = PINS_PER_MEGAPIXEL * (canvas.clientWidth * canvas.clientHeight) / 1e6;
+            for (const margin of PIN_AREA_MARGINS) {
+                const dx = (east - west) * margin;
+                const dy = (north - south) * margin;
+                last = { zoom, west: west - dx, south: south - dy, east: east + dx, north: north + dy };
+                if (countPinsRef.current(last) <= budget) break;
+            }
             onChange(last);
         };
 
@@ -1822,6 +1840,13 @@ export function EnhancedMapContainer({
     // Clusters stay up until the pin area is known, so crossing into street
     // level mid-gesture (a pinch, a fly-in) never leaves the map empty.
     const showPins = showIcons && pinArea !== null;
+    const countPins = React.useCallback((a: PinArea) => {
+        const inside = (lat: number, lon: number) =>
+            lat >= a.south && lat <= a.north && lon >= a.west && lon <= a.east;
+        return visibleCafes.filter((c) => inside(c.lat, c.lon)).length
+            + visibleProperties.filter((p) => inside(p.latitude, p.longitude)).length
+            + visibleOtherPois.filter((p) => inside(p.lat, p.lon)).length;
+    }, [visibleCafes, visibleProperties, visibleOtherPois]);
     const shouldDrawPin = React.useCallback((markerKey: string, lat: number, lon: number) =>
         markerKey === activeMarkerKey || (!!pinArea
             && lat >= pinArea.south && lat <= pinArea.north
@@ -2112,7 +2137,7 @@ export function EnhancedMapContainer({
 
                 {/* Zoom tracker for hybrid rendering */}
                 <ZoomTracker onShowIconsChange={handleShowIconsChange} />
-                <PinAreaTracker onChange={setPinArea} />
+                <PinAreaTracker onChange={setPinArea} countPins={countPins} />
 
                 {/* City navigator - flies to selected city */}
                 <CityNavigator city={selectedCity} />

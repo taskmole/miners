@@ -168,6 +168,9 @@ npm run fetch:euct -- --dry-run       # fetch and report, write nothing
   old coordinates. Madrid's `data.csv` (older Google export) now only adds ratings.
 - **Removed cafes** (no longer on the site) are dropped. A cafe page that fails
   keeps its previous details. "Miners" entries are skipped (they come from the DB).
+- **Catch-ups stay quiet:** when one run adds more than 25% of a city's cafes
+  (like the first run with split squares), they go on the map but the cafe email
+  doesn't list them as new.
 - **Safety stops:** a city's file is left untouched if its page has no cafe
   list, returns under 80% of the current cafes, or under 70% of current cafes
   match a link (format change).
@@ -193,13 +196,20 @@ npm run refresh:google -- --dry-run       # fetch and report, write nothing
 ```
 
 - **How:** Google Places Text Search for "specialty coffee" over a 6x6 grid of
-  each city's bounds (`config/cities.ts`). Needs `GOOGLE_PLACES_API_KEY`; without
+  each city's bounds (`config/cities.ts`). Google returns at most 60 places per
+  search, so a square that comes back full is searched again as four quarters
+  (and so on), until the city has used 200 searches. Remaining quarters are
+  skipped and counted in the log. Needs `GOOGLE_PLACES_API_KEY`; without
   it the step is skipped with a warning, never failed.
 - **Coordinates never move**, same rule as the coffee-trip cafes. `fetchedAt` is
   "first seen" (drives the map's 30-day new count); `refreshedAt` is the last
   refresh (drives the popup's "Updated X ago").
-- **Missed by the search is not closed:** Google shuffles results, so each cafe
-  the search missed gets a single-place check. Removed only when Google says
+- **Missed by the search is not closed:** Google ranks by relevance and shuffles
+  results, so each cafe the search missed gets a single-place lookup with the same
+  details the search returns. A cafe still open is refreshed from it (fresh
+  rating, hours and "Updated" date). A failed lookup is logged with Google's error,
+  shows as a warning on the run page, and leaves the cafe as it was. After 5
+  failures in a row the remaining lookups are skipped the same way. Removed only when Google says
   permanently closed, or "no longer exists" with no similar cafe within 30 m
   (that one is the same cafe under a new id and keeps the old pin). Temporarily
   closed cafes stay.
@@ -211,8 +221,9 @@ npm run refresh:google -- --dry-run       # fetch and report, write nothing
   after retries, Google returns nothing, or over 15% of its cafes would go.
 - **Automation:** second step of `.github/workflows/euct-refresh.yml` (runs even
   if the coffee-trip step stopped).
-- **Cost:** at most ~216 searches a month for both cities plus a few checks,
-  inside Google's free monthly allowance.
+- **Cost:** a typical run is ~150–280 searches and ~120 lookups for both cities,
+  inside Google's free monthly allowance (1,000 of each). Worst case ~400 searches
+  and 600 lookups (the 300-a-city lookup cap).
 
 # Cafe Change Email
 
