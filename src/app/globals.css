@@ -1138,9 +1138,11 @@
   /* The sheet (bleedTop) leaves the top to the card: the photo runs to the
      edge, and the card draws the grab bar over the sheet's touch area. The
      sheet is partial, so its top edge never reaches the status bar: nothing
-     here adds room for it. */
+     here adds room for it. At least 170px (like the no-photo block) so a
+     short screen, e.g. a small phone on its side, still fits the chips
+     above the price; upright phones are tall enough to never hit it. */
   .poi-top {
-    height: min(280px, 38dvh);
+    height: max(170px, min(280px, 38dvh));
     border-radius: 24px 24px 0 0;
     /* Grey only behind a photo still loading (.poi-strip-cell.is-loading). */
     background: transparent;
