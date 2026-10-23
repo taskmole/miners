@@ -230,7 +230,7 @@ export function ListingCard({ property, placeId, mapsUrl, cityId, onClose, reque
   const facts = listingFacts(property);
   const score = isShown(property.score) ? Math.round(property.score) : null;
 
-  const chips = <AgeChip date={property.updatedAt} hidden={hidden} score={score} />;
+  const chips = <AgeChip date={property.updatedAt} hidden={hidden} score={score} reason={property.scoreReason} />;
 
   const headline = (
     <>

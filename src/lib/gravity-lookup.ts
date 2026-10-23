@@ -1,6 +1,6 @@
-// Tier classification for score badges/chips. Shared so map pin, popup badge,
-// and mobile sheet header all agree on color. The scores themselves are
-// computed on the server (see gravity-server.ts).
+// Tier classification for score badges/chips. Shared so the map card, the
+// "pick one" list and the New listings deck all agree on colour for the same
+// number. The number is the AI scout's score (places.image_analysis).
 export type ScoreTier = "prime" | "strong" | "moderate" | "weak";
 
 export function scoreTier(score: number): ScoreTier {
@@ -23,12 +23,4 @@ export const SCORE_TIER_LABELS: Record<ScoreTier, string> = {
     strong: "Strong",
     moderate: "Moderate",
     weak: "Weak",
-};
-
-// Tailwind background color classes per tier. Used on the filled circle/chip.
-export const SCORE_TIER_BG: Record<ScoreTier, string> = {
-    prime: "bg-green-600",
-    strong: "bg-amber-500",
-    moderate: "bg-zinc-500",
-    weak: "bg-red-600",
 };

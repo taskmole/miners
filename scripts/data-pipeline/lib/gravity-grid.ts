@@ -1,12 +1,11 @@
-// Copy of src/lib/gravity-grid.ts. Keep in sync with src/lib/gravity-grid.ts.
-// The scripts tsconfig has rootDir ".", so it cannot import from src/; the
-// AI scorer needs the same nearest-cell lookup the places route uses so its
-// footfall rating matches the score people see on the map.
-//
 // Gravity score grid: pre-computed 100m cells with a 0-1 normalizedScore.
+// The AI scorer looks up each listing's cell for its "Footfall" point.
 //
-// Pure functions only, so the same lookup runs on the server (where the
-// places route attaches a score to each property) and in tests.
+// The app used to carry a copy of this file to put the location score on the
+// map card. That score was replaced by the AI score in October 2026, so this
+// is now the only copy.
+//
+// Pure functions only, so the lookup can be tested on its own.
 //
 // Strategy: ~1km bucket index. Each query scans a 3x3 bucket window so the
 // nearest cell is found even when the target sits near a bucket boundary.

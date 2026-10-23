@@ -60,7 +60,6 @@ import { cn } from "@/lib/utils";
 import { ListingCard } from "@/components/poi-card/ListingCard";
 import { CafeCard, PlaceCard } from "@/components/poi-card/PlaceCards";
 import { formatCompactNumber } from "@/lib/format-numbers";
-import { scoreTier, SCORE_TIER_BG } from "@/lib/gravity-lookup";
 
 // Context for sharing cafe profile data with popup components
 const CafeProfilesContext = React.createContext<{
@@ -1290,41 +1289,6 @@ function CityNavigator({ city }: { city?: City }) {
 }
 
 // Simple icon marker component (mapcn style) - memoized to prevent re-renders
-// Small circular score badge used on the map pin, popup header, and bottom sheet.
-// `variant="chip"` is the small pill (22px) sitting next to the pin icon.
-// `variant="badge"` is the larger circle (36px) shown inside the property popup.
-function ScoreBadge({ score, variant = "chip" }: { score: number; variant?: "chip" | "badge" }) {
-    const bg = SCORE_TIER_BG[scoreTier(score)];
-    if (variant === "badge") {
-        return (
-            <div
-                className={cn(
-                    "flex items-center justify-center h-9 w-9 rounded-full",
-                    "text-[13px] font-bold text-white",
-                    "shadow-md ring-[2px] ring-white",
-                    bg,
-                )}
-                aria-label={`Location score ${score} of 100`}
-            >
-                {score}
-            </div>
-        );
-    }
-    return (
-        <div
-            className={cn(
-                "flex items-center justify-center h-[22px] min-w-[22px] px-1.5 rounded-full",
-                "text-[10px] font-bold text-white leading-none",
-                "shadow-md ring-2 ring-white",
-                bg,
-            )}
-            aria-label={`Location score ${score} of 100`}
-        >
-            {score}
-        </div>
-    );
-}
-
 const IconMarker = React.memo(function IconMarker({
     color,
     icon: Icon,

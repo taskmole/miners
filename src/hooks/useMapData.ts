@@ -50,7 +50,10 @@ export interface PropertyData {
     transfer?: number;
     hasBathroom?: boolean;
     hasStorefront?: boolean;
+    /** The AI scout's 0-100 score; absent until the listing is rated. */
     score?: number;
+    /** The AI scout's one-line reason for that score. */
+    scoreReason?: string;
     image_url?: string;
     priceHistory?: { price: number; date: string }[];
     createdAt?: string;
@@ -312,8 +315,9 @@ async function loadProperties(cityId: string): Promise<PropertyData[]> {
         transfer: p.transfer,
         hasBathroom: p.hasBathroom,
         hasStorefront: p.hasStorefront,
-        // Scored on the server, which holds the gravity grid (see gravity-server.ts).
+        // The AI scout's score, read from the database by the places route.
         score: typeof p.score === "number" ? p.score : undefined,
+        scoreReason: typeof p.scoreReason === "string" ? p.scoreReason : undefined,
         image_url: p.image_url,
         priceHistory: p.priceHistory,
         createdAt: p.createdAt,
