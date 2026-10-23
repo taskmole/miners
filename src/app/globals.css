@@ -556,7 +556,6 @@
    =========================================== */
 
 .poi-card {
-  --poi-pad: 24px;
   /* How far the controls sit from the card's edge: the chips and X on the
      photo, the X on a white header and the bottom row all use it, so the
      top and bottom corners line up. */
@@ -780,7 +779,7 @@
 .poi-pill .poi-tip { left: auto; right: 0; max-width: 240px; }
 
 /* ── Headline: on the photo in white, else dark under the header ── */
-.poi-headline { padding: 4px var(--poi-pad) 0; }
+.poi-headline { padding: 4px var(--poi-edge) 0; }
 .poi-headline.is-on-photo {
   position: absolute;
   left: 0;
@@ -794,7 +793,7 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: var(--poi-edge) var(--poi-edge) 0 var(--poi-pad);
+  padding: var(--poi-edge) var(--poi-edge) 0 var(--poi-edge);
 }
 .poi-head .poi-gchip, .poi-head .poi-tag { background: #f4f4f5; color: #3f3f46; backdrop-filter: none; }
 .poi-head .poi-tag.is-sales { color: #15803d; background: #f0fdf4; }
@@ -847,7 +846,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px var(--poi-pad) 0;
+  padding: 14px var(--poi-edge) 0;
   min-height: 42px;
 }
 .poi-facts {
@@ -892,7 +891,7 @@
 .no-top .poi-factrow.is-address { padding-top: 4px; }
 .poi-factrow.is-tight { padding-top: 2px; min-height: 0; }
 .poi-tiles { display: flex; gap: 8px; flex: none; }
-.poi-approval { padding: 8px var(--poi-pad) 0; font: 500 13px var(--font-inter), sans-serif; color: #15803d; }
+.poi-approval { padding: 8px var(--poi-edge) 0; font: 500 13px var(--font-inter), sans-serif; color: #15803d; }
 
 /* ── Bottom row ── */
 .poi-bar { display: flex; align-items: center; gap: 8px; padding: 18px var(--poi-edge) var(--poi-edge); }
@@ -1126,7 +1125,6 @@
 /* ── Phone: the card fills the bottom sheet ── */
 @media (max-width: 639.98px) {
   .poi-card {
-    --poi-pad: 20px;
     width: 100%;
     max-width: 100%;
     border-radius: 24px 24px 0 0;
