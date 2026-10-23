@@ -175,7 +175,8 @@ async function searchCity(
 async function checkPlace(id: string, name: string): Promise<PlaceCheck> {
   try {
     const data = (await googleRequest(
-      `https://places.googleapis.com/v1/places/${encodeURIComponent(id)}`,
+      // English, like the search, so names and addresses don't switch language.
+      `https://places.googleapis.com/v1/places/${encodeURIComponent(id)}?languageCode=en`,
       { method: "GET" },
       DETAILS_FIELD_MASK
     )) as GooglePlace | null;
