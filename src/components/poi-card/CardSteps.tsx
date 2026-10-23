@@ -73,16 +73,21 @@ export function usePlaceCard({ place, notesType, share, subtitle }: {
 
 /**
  * The chip top left: "82 BETA · 3d ago", just "3d ago" without a score, plus
- * "· Hidden" when hidden. Its tooltip spells it out.
+ * "· Hidden" when hidden. The score is the AI scout's. Its tooltip spells it
+ * out, with the AI's one-line reason on a line of its own.
  */
-export function AgeChip({ date, hidden, score = null }: { date?: string; hidden: boolean; score?: number | null }) {
+export function AgeChip({ date, hidden, score = null, reason }: {
+  date?: string;
+  hidden: boolean;
+  score?: number | null;
+  reason?: string;
+}) {
   const text = [ageShort(date), hidden ? "Hidden" : null].filter(Boolean).join(" · ");
   if (score === null && !text) return null;
   const tip = [
-    score !== null ? `Location score ${score}/100` : null,
-    ageLong(date),
-    score !== null ? "Still in beta." : null,
-  ].filter(Boolean).join(" · ") || null;
+    [score !== null ? `AI score ${score}/100, still in beta` : null, ageLong(date)].filter(Boolean).join(" · "),
+    score !== null ? reason : null,
+  ].filter(Boolean).join("\n") || null;
   return (
     <Tip text={tip} className="poi-gchip">
       {score !== null && (

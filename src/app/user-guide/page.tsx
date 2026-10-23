@@ -90,6 +90,10 @@ export default function UserGuidePage() {
                 q: "What is the Location Score?",
                 a: "A number from 0 to 100. It shows how good a location is. Higher is better. It is still in testing.",
               },
+              {
+                q: "What is the number on a property card?",
+                a: "The AI score, from 0 to 100. Higher is a better fit. Hover over it (or tap it on a phone) to read why. It is still in testing.",
+              },
             ]}
           />
         </GuideSection>

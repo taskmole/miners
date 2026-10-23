@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
-import { buildGravityIndex, scoreAt } from "@/lib/gravity-grid";
+import { buildGravityIndex, scoreAt } from "../../../scripts/data-pipeline/lib/gravity-grid";
 
 function point(lon: number, lat: number, normalizedScore: number) {
     return { type: "Feature", properties: { normalizedScore }, geometry: { type: "Point", coordinates: [lon, lat] } };

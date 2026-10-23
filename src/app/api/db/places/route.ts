@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/supabase-server";
 import { parseWkbPoint } from "@/lib/wkb";
-import { getGravityIndex } from "@/lib/gravity-server";
-import { scoreAt } from "@/lib/gravity-grid";
 import { PROPERTY_SOURCES } from "@/lib/place-id";
 
 export const dynamic = "force-dynamic";
@@ -31,17 +29,16 @@ export async function GET(request: NextRequest) {
 
     try {
         const { supabase } = auth;
-        // The score grid loads alongside the query, not after it. It is read
-        // once per server instance and cached; null for cities without one.
-        const [{ data, error }, gravity] = await Promise.all([
-            supabase
-                .from("places")
-                .select("name, address, location, source, metadata, photos, updated_at, created_at")
-                .eq("city_id", cityId)
-                .in("source", PROPERTY_SOURCES)
-                .eq("status", "active"),
-            getGravityIndex(cityId),
-        ]);
+        // The AI score and its one-line reason are picked out of the
+        // image_analysis JSON by the database, so the rest of that JSON (the
+        // full photo analysis) never leaves it. Both are absent until the AI
+        // scout has rated the listing.
+        const { data, error } = await supabase
+            .from("places")
+            .select("name, address, location, source, metadata, photos, updated_at, created_at, ai_score:image_analysis->text->qualitative_score, ai_reason:image_analysis->text->>reason")
+            .eq("city_id", cityId)
+            .in("source", PROPERTY_SOURCES)
+            .eq("status", "active");
 
         if (error) {
             console.error("[api/db/places] query error:", error);
@@ -73,7 +70,8 @@ export async function GET(request: NextRequest) {
                     createdAt: p.created_at || undefined,
                     updatedAt: p.updated_at || undefined,
                     photos: p.photos?.length ? p.photos : undefined,
-                    score: gravity ? scoreAt(gravity, coords.lat, coords.lon) : undefined,
+                    score: typeof p.ai_score === "number" ? p.ai_score : undefined,
+                    scoreReason: p.ai_reason || undefined,
                 };
             })
             .filter(Boolean);

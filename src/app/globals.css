@@ -628,6 +628,9 @@
 }
 .poi-overlay {
   position: absolute;
+  /* Above the headline, which comes later in the page and would otherwise
+     paint over a chip's tooltip where the two meet. */
+  z-index: 1;
   top: var(--poi-edge);
   left: var(--poi-edge);
   right: var(--poi-edge);
@@ -768,7 +771,8 @@
   -webkit-backdrop-filter: blur(12px);
   color: #fff;
   font: 500 12px/1.45 var(--font-inter), sans-serif;
-  white-space: normal;
+  /* pre-line: a tip can put a longer note on its own line ("\n"). */
+  white-space: pre-line;
   box-shadow: 0 6px 20px rgba(0,0,0,0.2);
   pointer-events: none;
 }
@@ -777,6 +781,10 @@
 /* The status pill sits in the right half of the bottom row: its tip grows
    leftwards, and 240px wide at most so it stays on a 320px phone. */
 .poi-pill .poi-tip { left: auto; right: 0; max-width: 240px; }
+/* On the photo a tip may use the card's width (411px, or 90vw when narrower,
+   minus both edges), so the AI score's reason stays short enough not to run
+   off the bottom of a short photo. */
+.poi-overlay .poi-tip { max-width: min(379px, calc(90vw - 2 * var(--poi-edge))); }
 
 /* ── Headline: on the photo in white, else dark under the header ── */
 .poi-headline { padding: 4px var(--poi-edge) 0; }

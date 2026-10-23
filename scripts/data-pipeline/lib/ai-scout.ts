@@ -714,7 +714,8 @@ How to rate:
 - Rents are in the listing's own currency (for example EUR or CZK). Judge them against that city's market, never as if they were euros.
 - gut_score is your overall 0-100 judgement of the premises for this client, formed independently of the point weights.
 - If your gut score disagrees with what the points add up to, say why in disagreement_reason. Otherwise leave it as an empty string.
-- Be concise: each reason is a short phrase, the summary is one sentence.`;
+- Be concise: each reason is a short phrase.
+- The summary is what a busy person reads on the map, so keep it to one short sentence, two at most, under 25 words. Use plain everyday words a 15-year-old would understand, with no jargon. Lead with the biggest plus, then the biggest minus. Skip figures unless one really matters: "near the metro", not "140 m to the metro". Example: "Big shop near the metro with fair rent, but the ceiling is low."`;
 
 export function buildSystemPrompt(profile: AiProfile): string {
   const aiPoints = profile.points.filter((p) => p.kind === "ai");
