@@ -51,8 +51,8 @@ export interface MoreItem {
   onSelect: (card: PoiCardApi) => void;
   /** Small grey count on the right, e.g. "3" notes or "2 lists". */
   count?: string | null;
-  /** "share" gets the soft green tint, "danger" is red. */
-  tone?: "share" | "danger";
+  /** "danger" is red. */
+  tone?: "danger";
   /** Draw a thin line above this item. */
   separatorBefore?: boolean;
   /** Opens a second step, which takes focus for its own field. */

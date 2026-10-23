@@ -4,8 +4,8 @@
  * The map card for a property listing.
  *
  * Photo first: price and address on the photo, one line of facts, then one
- * bottom row: the main button (or the status that replaces it), More, and
- * the listing's own links. Which button or status shows comes from
+ * bottom row: the listing's own links, the main button (or the status that
+ * replaces it), then More on the far right. Which button or status shows comes from
  * evaluatePropertyActions, the same rules the New listings deck uses.
  */
 import React from "react";
@@ -30,7 +30,7 @@ import { PoiCard, MoreMenu, MainButton, LinkTile, MapsTile, Tip, type MoreItem, 
 import { usePlaceCard, PreRejectForm, FactList, AgeChip, NotesCount } from "./CardSteps";
 import {
   formatPrice, isShown, listingFacts, listingPhotos, listingShareTitle,
-  priceChange, priceLabel, shortAddress, statusPill,
+  priceChange, priceLabel, shortAddress, statusPill, transferLabel,
 } from "./card-format";
 
 /** Request state comes from the popup wrapper: one fetch per opened pin, kept across re-renders. */
@@ -226,6 +226,7 @@ export function ListingCard({ property, placeId, mapsUrl, cityId, onClose, reque
   // ── Pieces ──────────────────────────────────────────────────────────
   const price = formatPrice(property.price, property.source);
   const change = priceChange(property);
+  const transfer = transferLabel(property);
   const facts = listingFacts(property);
   const score = isShown(property.score) ? Math.round(property.score) : null;
 
@@ -239,6 +240,9 @@ export function ListingCard({ property, placeId, mapsUrl, cityId, onClose, reque
         ) : (
           <span className="poi-price is-request">On request</span>
         )}
+        {/* The fee as an orange chip (same shape as the photo's top chips),
+            then the price change as plain text. */}
+        {transfer && <span className="poi-pchip is-transfer">{transfer}</span>}
         {change && (
           <span className={cn("poi-change", `is-${change.direction}`)} title="Price changed since last data refresh">
             {change.direction === "down" ? <TrendingDown aria-hidden /> : <TrendingUp aria-hidden />}
@@ -249,7 +253,6 @@ export function ListingCard({ property, placeId, mapsUrl, cityId, onClose, reque
       {where && <div className="poi-where">{where}</div>}
     </>
   );
-
 
   const body = (
     <>
@@ -298,14 +301,16 @@ export function ListingCard({ property, placeId, mapsUrl, cityId, onClose, reque
   }
 
   const sreality = property.source === "sreality";
+  // Links on the left and ⋯ on the far right, like the cafe and place
+  // cards; the main button fills the space between.
   const actionsRow = (
     <>
-      {main}
-      <MoreMenu items={moreItems} />
+      <MapsTile href={mapsUrl} />
       <LinkTile href={property.url} label={sreality ? "Open on Sreality" : "Open on Idealista"} kind="fill">
         <img src={sreality ? "/assets/sreality-logo.png" : "/assets/idealista-logo.png"} alt="" />
       </LinkTile>
-      <MapsTile href={mapsUrl} />
+      {main}
+      <MoreMenu items={moreItems} />
     </>
   );
 

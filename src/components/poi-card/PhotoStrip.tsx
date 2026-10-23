@@ -2,13 +2,16 @@
 
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * Swipeable photos with a "3/11" counter, the same scroll-snap approach as
  * the New listings deck. Swiping is the browser's own scrolling, so a
  * vertical swipe that starts on the photo still scrolls the phone sheet.
  * Arrows show with a mouse or keyboard focus (CSS). Next and previous photos are fetched
- * ahead; a photo that fails becomes a plain grey frame.
+ * ahead; a photo that fails becomes a plain grey frame. A photo shows grey
+ * only until it arrives: grey left under a loaded photo leaks round its
+ * rounded corners on phones.
  */
 export function PhotoStrip({ photos, alt, index, onIndex }: {
   photos: string[];
@@ -27,7 +30,10 @@ export function PhotoStrip({ photos, alt, index, onIndex }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [failed, setFailed] = React.useState<ReadonlySet<number>>(() => new Set());
+  // By photo URL, not position, so a changed photo list never inherits
+  // another photo's state.
+  const [failed, setFailed] = React.useState<ReadonlySet<string>>(() => new Set());
+  const [loaded, setLoaded] = React.useState<ReadonlySet<string>>(() => new Set());
   const many = photos.length > 1;
 
   const onScroll = () => {
@@ -57,8 +63,8 @@ export function PhotoStrip({ photos, alt, index, onIndex }: {
     <>
       <div ref={ref} className="poi-strip" onScroll={onScroll}>
         {photos.map((src, i) => (
-          <div key={`${i}-${src}`} className="poi-strip-cell">
-            {failed.has(i) ? (
+          <div key={`${i}-${src}`} className={cn("poi-strip-cell", !loaded.has(src) && !failed.has(src) && "is-loading")}>
+            {failed.has(src) ? (
               <div className="poi-photo-missing" aria-label="Photo not available" />
             ) : (
               <img
@@ -66,7 +72,8 @@ export function PhotoStrip({ photos, alt, index, onIndex }: {
                 alt={i === 0 ? alt : ""}
                 loading={i < 2 ? "eager" : "lazy"}
                 draggable={false}
-                onError={() => setFailed((s) => new Set(s).add(i))}
+                onLoad={() => setLoaded((s) => new Set(s).add(src))}
+                onError={() => setFailed((s) => new Set(s).add(src))}
               />
             )}
           </div>

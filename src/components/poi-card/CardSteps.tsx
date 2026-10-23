@@ -40,7 +40,7 @@ export function usePlaceCard({ place, notesType, share, subtitle }: {
 
   const items = {
     share: {
-      key: "share", label: "Share", icon: <Share aria-hidden />, tone: "share", onSelect: () => sharePlace(share, showToast),
+      key: "share", label: "Share", icon: <Share aria-hidden />, onSelect: () => sharePlace(share, showToast),
     },
     // "Save", or "Saved" with "2 lists" beside it.
     save: {

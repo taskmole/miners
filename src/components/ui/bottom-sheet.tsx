@@ -27,7 +27,8 @@ interface BottomSheetProps {
   headerButtons?: React.ReactNode;
   // Content runs to the very top and draws its own grab bar (map cards put a
   // photo there): no top padding, no white fade, and the drag handle stays
-  // as an invisible touch area.
+  // as an invisible touch area. Only for partial or auto sheets: their top
+  // edge never reaches the status bar, so it adds no room for it.
   bleedTop?: boolean;
 }
 
@@ -150,7 +151,7 @@ export function BottomSheet({
   // Don't render on server or before mount
   if (!mounted) return null;
 
-  // Sheet height class — uses dvh (dynamic viewport height) with vh fallback.
+  // Sheet height class: uses dvh (dynamic viewport height) with vh fallback.
   // dvh accounts for iOS Safari browser chrome so the sheet always fits the visible area.
   const sheetHeightClass = snapPoint === "full" ? "sheet-height-full" : snapPoint === "auto" ? "sheet-height-auto" : "sheet-height-partial";
 
@@ -180,7 +181,10 @@ export function BottomSheet({
       <div
         ref={sheetRef}
         className={cn(
-          "relative z-10 flex flex-col bg-white rounded-t-3xl shadow-2xl",
+          "relative z-10 flex flex-col rounded-t-3xl shadow-2xl",
+          // A photo at the top: no white under its rounded corners (see
+          // .sheet-bleed-top in globals.css).
+          bleedTop && !isLandscapeMode ? "sheet-bleed-top" : "bg-white",
           "transition-transform duration-200 ease-out",
           isLandscapeMode
             ? "rounded-t-none rounded-r-3xl h-full w-[80vw] max-w-md"
@@ -226,7 +230,8 @@ export function BottomSheet({
         <div
           className="absolute left-0 right-0 flex justify-center pb-2 z-40 rounded-t-3xl"
           style={{
-            paddingTop: "calc(12px + env(safe-area-inset-top, 0px))",
+            // 24px tall with bleedTop, so the card's chips and X at 28px get their taps.
+            paddingTop: bleedTop ? "12px" : "calc(12px + env(safe-area-inset-top, 0px))",
             background: bleedTop
               ? undefined
               : "linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 70%, transparent 100%)"
@@ -238,7 +243,7 @@ export function BottomSheet({
           <div className={cn("w-10 h-1 rounded-full", bleedTop ? "invisible" : "bg-zinc-400 shadow-sm")} />
         </div>
 
-        {/* Scrollable content — full sheets use absolute for explicit height,
+        {/* Scrollable content: full sheets use absolute for explicit height,
             partial sheets use flex so the sheet can shrink to fit content. */}
         <div
           className={cn(
