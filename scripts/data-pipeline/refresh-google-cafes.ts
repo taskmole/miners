@@ -70,6 +70,9 @@ const SPLIT_BUDGET = 200;
 const MAX_SEARCHES_PER_CITY = 300;
 const MAX_CHECKS_PER_CITY = 300;
 const CHECK_PAUSE_MS = 200;
+// More new cafes than this share of the city in one run is the search catching
+// up (like the first run with split squares), not new openings: not emailed as new.
+const CATCH_UP_RATIO = 0.25;
 // After this many failed checks in a row Google is down or throttling us: skip the rest.
 const MAX_FAILED_CHECKS_IN_A_ROW = 5;
 const TIMEOUT_MS = 30_000;
@@ -297,8 +300,10 @@ async function refreshCity(city: string): Promise<boolean> {
     price: r.priceRange,
   });
   const firstRefresh = !google.columns.includes("priceRange");
+  const catchUp = stats.added.length > google.rows.length * CATCH_UP_RATIO;
+  if (catchUp) console.log(`  ${stats.added.length} new cafes is a catch-up: not reported as new`);
   const changes = diffCafes("regular", google.rows.map(asComparable), rows.map(asComparable), {
-    reportAdded: !firstRefresh,
+    reportAdded: !firstRefresh && !catchUp,
     reportChanged: !firstRefresh,
   });
 

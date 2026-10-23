@@ -168,6 +168,9 @@ npm run fetch:euct -- --dry-run       # fetch and report, write nothing
   old coordinates. Madrid's `data.csv` (older Google export) now only adds ratings.
 - **Removed cafes** (no longer on the site) are dropped. A cafe page that fails
   keeps its previous details. "Miners" entries are skipped (they come from the DB).
+- **Catch-ups stay quiet:** when one run adds more than 25% of a city's cafes
+  (like the first run with split squares), they go on the map but the cafe email
+  doesn't list them as new.
 - **Safety stops:** a city's file is left untouched if its page has no cafe
   list, returns under 80% of the current cafes, or under 70% of current cafes
   match a link (format change).
