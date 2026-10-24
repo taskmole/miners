@@ -41,6 +41,16 @@ export function usePoiCard(): PoiCardApi {
   return ctx;
 }
 
+/**
+ * Lends the card's building blocks (More, MainButton, Tip) to a screen that
+ * is not a PoiCard, such as the New listings window, so both show the same
+ * buttons. `close` is what "close the card" means there.
+ */
+export function PoiCardScope({ close, children }: { close: () => void; children: React.ReactNode }) {
+  const api = React.useMemo<PoiCardApi>(() => ({ close, photoIndex: 0 }), [close]);
+  return <PoiCardContext.Provider value={api}>{children}</PoiCardContext.Provider>;
+}
+
 // ── Building blocks ─────────────────────────────────────────────────────
 
 export interface MoreItem {
@@ -59,12 +69,20 @@ export interface MoreItem {
   opensStep?: boolean;
 }
 
-/** The ⋯ button and its menu. Same dropdown on desktop and phone. */
-export function MoreMenu({ items }: { items: MoreItem[] }) {
+/**
+ * The ⋯ button and its menu. Same dropdown on desktop and phone.
+ *
+ * `deferSteps`: open a step only once the menu has finished closing. The map
+ * card doesn't need it (the step replaces the card, menu and all), but where
+ * the menu stays on screen under the step, its fade-out would keep the focus
+ * and the step's field would lose its cursor.
+ */
+export function MoreMenu({ items, deferSteps = false }: { items: MoreItem[]; deferSteps?: boolean }) {
   const card = usePoiCard();
   const toStep = React.useRef(false);
+  const pendingStep = React.useRef<(() => void) | null>(null);
   return (
-    <DropdownMenu modal={false} onOpenChange={(open) => { if (open) toStep.current = false; }}>
+    <DropdownMenu modal={false} onOpenChange={(open) => { if (open) { toStep.current = false; pendingStep.current = null; } }}>
       <DropdownMenuTrigger asChild>
         <button type="button" className="poi-ib" aria-label="More actions">
           <MoreHorizontal aria-hidden />
@@ -77,14 +95,22 @@ export function MoreMenu({ items }: { items: MoreItem[] }) {
         className="poi-more"
         // Focus goes back to ⋯, except when a step opened: it focuses its
         // own field, and ⋯ is no longer on screen.
-        onCloseAutoFocus={(e) => { if (toStep.current) e.preventDefault(); }}
+        onCloseAutoFocus={(e) => {
+          if (toStep.current) e.preventDefault();
+          pendingStep.current?.();
+          pendingStep.current = null;
+        }}
       >
         {items.map((item) => (
           <React.Fragment key={item.key}>
             {item.separatorBefore && <DropdownMenuSeparator className="poi-more-sep" />}
             <DropdownMenuItem
               className={cn("poi-more-item", item.tone && `is-${item.tone}`)}
-              onSelect={() => { toStep.current = !!item.opensStep; item.onSelect(card); }}
+              onSelect={() => {
+                toStep.current = !!item.opensStep;
+                if (deferSteps && item.opensStep) pendingStep.current = () => item.onSelect(card);
+                else item.onSelect(card);
+              }}
             >
               {item.icon}
               <span>{item.label}</span>
@@ -210,6 +236,27 @@ export interface PoiStep {
   footer?: React.ReactNode;
 }
 
+/** A step's head: Back, then the title over a grey subtitle, then `children`. */
+export function StepHead({ title, subtitle, onBack, children }: {
+  title: string;
+  subtitle?: string;
+  onBack: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="poi-step-head">
+      <button type="button" className="poi-back" onClick={onBack} aria-label="Back">
+        <ArrowLeft aria-hidden />
+      </button>
+      <div className="poi-step-title">
+        <div className="poi-step-name">{title}</div>
+        {subtitle && <div className="poi-step-sub">{subtitle}</div>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 // ── The shell ───────────────────────────────────────────────────────────
 
 export interface PoiCardProps {
@@ -322,16 +369,9 @@ export function PoiCard({
       <PoiCardContext.Provider value={api}>
         <div ref={rootRef} className="poi-card is-step">
           <span className="poi-grab" aria-hidden />
-          <div className="poi-step-head">
-            <button type="button" className="poi-back" onClick={back} aria-label="Back">
-              <ArrowLeft aria-hidden />
-            </button>
-            <div className="poi-step-title">
-              <div className="poi-step-name">{current.title}</div>
-              {current.subtitle && <div className="poi-step-sub">{current.subtitle}</div>}
-            </div>
+          <StepHead title={current.title} subtitle={current.subtitle} onBack={back}>
             {closeButton}
-          </div>
+          </StepHead>
           <div ref={scrollRef} className="poi-scroll poi-step-body">{current.body}</div>
           {current.footer && <div className="poi-step-foot">{current.footer}</div>}
         </div>

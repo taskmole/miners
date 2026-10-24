@@ -9,9 +9,7 @@
  * evaluatePropertyActions, the same rules the New listings deck uses.
  */
 import React from "react";
-import {
-  Ban, Route, TrendingDown, TrendingUp, Undo2, UserMinus,
-} from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
 import type { PropertyData } from "@/hooks/useMapData";
 import type { RequestSnapshot } from "@/hooks/usePropertyRequests";
 import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
@@ -26,7 +24,9 @@ import { capitalizeFirst } from "@/lib/text";
 import { AssignList } from "@/components/AssignList";
 import type { PlaceInfo } from "@/types/lists";
 import { cn } from "@/lib/utils";
-import { PoiCard, MoreMenu, MainButton, LinkTile, MapsTile, Tip, type MoreItem, type PoiCardApi } from "./PoiCard";
+import { useExclusive } from "@/hooks/useExclusive";
+import { PoiCard, MoreMenu, LinkTile, MapsTile, type PoiCardApi } from "./PoiCard";
+import { listingMainSlot, listingMoreItems } from "./listing-actions";
 import { usePlaceCard, PreRejectForm, FactList, AgeChip, NotesCount } from "./CardSteps";
 import {
   formatPrice, isShown, listingFacts, listingPhotos, listingShareTitle,
@@ -64,21 +64,7 @@ export function ListingCard({ property, placeId, mapsUrl, cityId, onClose, reque
   const { showToast } = useToast();
   const [reasonDraft, setReasonDraft] = React.useState("");
 
-  // One server action at a time. Without this a double tap on Request sent
-  // two requests: "Request sent", then an error toast for the duplicate.
-  const [busy, setBusy] = React.useState(false);
-  const busyRef = React.useRef(false);
-  const runExclusive = async (action: () => Promise<void>) => {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    setBusy(true);
-    try {
-      await action();
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
-    }
-  };
+  const [busy, runExclusive] = useExclusive();
 
   const photos = listingPhotos(property);
   const where = shortAddress(property.address);
@@ -266,39 +252,17 @@ export function ListingCard({ property, placeId, mapsUrl, cityId, onClose, reque
     </>
   );
 
-  // The main slot: a status, a button, or a grey placeholder while loading.
-  let main: React.ReactNode = <span className="poi-main-slot" aria-hidden />;
-  if (actions.stage !== "loading") {
-    if (pill) {
-      main = (
-        <Tip text={pill.detail} className={cn("poi-pill", `is-${pill.tone}`)} place="above">
-          <span className="poi-pill-text">{pill.label}</span>
-        </Tip>
-      );
-    } else if (actions.showAssign) {
-      main = <MainButton label="Assign" onPress={() => setStep("assign")} />;
-    } else if (actions.showCreateTrip) {
-      main = <MainButton label="Plan trip" onPress={handlePlanTrip} />;
-    } else if (actions.showRequest) {
-      main = <MainButton label="Request" onPress={handleRequest} disabled={busy} />;
-    }
-  }
-
-  const moreItems: MoreItem[] = [card.items.share, card.items.save, card.items.notes];
-  // Admins on a free listing: Assign is the button, so Plan trip lives here.
-  if (actions.showCreateTrip && actions.showAssign) {
-    moreItems.push({ key: "trip", label: "Plan trip", icon: <Route aria-hidden />, onSelect: handlePlanTrip });
-  }
-  moreItems.push(card.items.hide);
-  if (actions.showRemoveAssignment) {
-    moreItems.push({ key: "remove", label: "Remove assignment", icon: <UserMinus aria-hidden />, tone: "danger", onSelect: () => handleRemove(false) });
-  }
-  if (actions.showUndoPreReject) {
-    moreItems.push({ key: "undo", label: "Undo pre-reject", icon: <Undo2 aria-hidden />, tone: "danger", onSelect: () => handleRemove(true) });
-  }
-  if (actions.showPreReject) {
-    moreItems.push({ key: "prereject", label: "Pre-reject…", icon: <Ban aria-hidden />, tone: "danger", opensStep: true, onSelect: () => setStep("prereject") });
-  }
+  const main = listingMainSlot(actions, pill, busy, {
+    onAssign: () => setStep("assign"),
+    onPlanTrip: handlePlanTrip,
+    onRequest: handleRequest,
+  });
+  const moreItems = listingMoreItems(actions, card.items, {
+    onPlanTrip: handlePlanTrip,
+    onPreReject: () => setStep("prereject"),
+    onRemoveAssignment: () => handleRemove(false),
+    onUndoPreReject: () => handleRemove(true),
+  });
 
   const sreality = property.source === "sreality";
   // Links on the left and ⋯ on the far right, like the cafe and place

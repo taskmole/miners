@@ -172,11 +172,13 @@ export function ImageCarousel({ photos, score, showArrows, caption }: ImageCarou
         )}
       </div>
 
-      {/* Thumbnails: wide screens only. Scrolls sideways when there are many. */}
+      {/* Thumbnails: wide screens only. Scrolls sideways when there are many.
+          76px tall with a top line, the same band as the buttons beside it,
+          so both halves of the window end on one line. */}
       {hasMany && (
         <div
           ref={thumbsRef}
-          className="hidden lg:flex gap-1.5 p-2 bg-zinc-50 overflow-x-auto shrink-0"
+          className="hidden lg:flex items-center gap-1.5 px-2.5 h-[76px] bg-white border-t border-zinc-100 overflow-x-auto shrink-0"
           style={{ scrollbarWidth: "none" }}
         >
           {photos.map((src, i) => (
