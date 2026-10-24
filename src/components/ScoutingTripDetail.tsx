@@ -309,7 +309,7 @@ export function ScoutingTripDetail({
 
     // Places: same path as Activity and Lists (city switch, "no longer on the map")
     if (linkedItem.type === 'place') {
-      goToPlace({ placeId: linkedItem.id });
+      goToPlace({ placeId: linkedItem.id, data: linkedItem.data });
     } else {
       // For drawn areas, select the shape
       window.dispatchEvent(

@@ -25,5 +25,5 @@ export function activityDestination(item: ActivityItem): ActivityDestination {
   const placeId = item.entityId;
   const hasSpot = item.lat != null && item.lon != null;
   if (!placeId && !hasSpot) return { kind: "message", text: "Nothing to show on the map for this one" };
-  return { kind: "place", request: { placeId, lat: item.lat, lon: item.lon } };
+  return { kind: "place", request: { placeId, lat: item.lat, lon: item.lon, shapeId: item.shapeId } };
 }

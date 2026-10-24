@@ -21,6 +21,7 @@ import { DrawingIndicator } from "@/components/DrawingIndicator";
 import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
 import { generatePlaceId, generatePropertyPlaceId, parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { evaluatePropertyActions } from "@/lib/property-actions";
+import type { PendingFocus } from "@/lib/go-to-place";
 import { useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
@@ -1056,7 +1057,9 @@ function NavigationEventListener({
     setSelectedCafe,
     setSelectedProperty,
     setSelectedPoi,
+    clearSavedDisambiguation,
 }: {
+    clearSavedDisambiguation: () => void;
     setSelectedCafe: (value: { cafe: CafeData; coordinates: [number, number] } | null) => void;
     setSelectedProperty: (value: { property: PropertyData; coordinates: [number, number] } | null) => void;
     setSelectedPoi: (value: { poi: OtherPoiData; coordinates: [number, number] } | null) => void;
@@ -1074,6 +1077,8 @@ function NavigationEventListener({
             // Type from the id prefix ("type-lat-lon"); open once the flight lands
             const type = placeId.split('-')[0];
             setTimeout(() => {
+                // A card opened from elsewhere must not bring back an old stacked-pin picker
+                clearSavedDisambiguation();
                 if (type === 'cafe' || type === 'eu_coffee_trip' || type === 'regular_cafe') {
                     setSelectedCafe({ cafe: data, coordinates: [lon, lat] });
                 } else if (type === 'property') {
@@ -1086,7 +1091,7 @@ function NavigationEventListener({
 
         window.addEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
         return () => window.removeEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
-    }, [map, isLoaded, setSelectedCafe, setSelectedProperty, setSelectedPoi]);
+    }, [map, isLoaded, setSelectedCafe, setSelectedProperty, setSelectedPoi, clearSavedDisambiguation]);
 
     return null;
 }
@@ -1332,7 +1337,7 @@ function PendingFocusOpener({
     onDone,
 }: {
     /** The spot is where it is or was; page.tsx works it out once. */
-    focus: { placeId?: string; lat: number; lon: number };
+    focus: PendingFocus;
     ready: boolean;
     find: (placeId: string) => FocusTarget | null;
     /** false when the place id matched nothing loaded. */
@@ -1342,12 +1347,18 @@ function PendingFocusOpener({
 
     useEffect(() => {
         if (!map || !isLoaded || !ready) return;
-        const { placeId } = focus;
-        const target = placeId ? find(placeId) : null;
+        const { placeId, lat, lon, data, shapeId } = focus;
+        // Loaded data first; card data saved elsewhere (a trip's linked place) next
+        const target = placeId
+            ? find(placeId) ?? (data ? { lat, lon, placeType: placeId.split("-")[0], data } : null)
+            : null;
         if (target) {
             window.dispatchEvent(new CustomEvent("navigate-and-open-popup", { detail: { ...target, placeId } }));
         } else {
-            map.flyTo({ center: [focus.lon, focus.lat], zoom: 16, duration: 600 });
+            map.flyTo({ center: [lon, lat], zoom: 16, duration: 600 });
+            if (shapeId) {
+                setTimeout(() => window.dispatchEvent(new CustomEvent("select-drawn-shape", { detail: { shapeId } })), 650);
+            }
         }
         onDone(!placeId || !!target);
     }, [map, isLoaded, ready, focus, find, onDone]);
@@ -1377,7 +1388,7 @@ interface EnhancedMapContainerProps {
     propertyPitchStatusFilter?: PropertyPitchStatusFilter;
     demoMode?: boolean;
     /** A place (shared link or in-app click) to open once its city's data is in. */
-    pendingFocus?: { placeId?: string; lat: number; lon: number; cityId: string } | null;
+    pendingFocus?: PendingFocus | null;
     onPendingFocusDone?: (found: boolean) => void;
 }
 
@@ -1864,6 +1875,8 @@ export function EnhancedMapContainer({
         }
     }, [savedDisambiguationCoords, getColocatedPois]);
 
+    const clearSavedDisambiguation = React.useCallback(() => setSavedDisambiguationCoords(null), []);
+
     // Dismiss disambiguation menu and clear saved coordinates
     const handleDisambiguationClose = React.useCallback(() => {
         setDisambiguationData(null);
@@ -1871,7 +1884,7 @@ export function EnhancedMapContainer({
     }, []);
 
     /**
-     * Resolve a shared link's place id against the loaded data, or null when
+     * Resolve a place id (shared link or in-app click) against the loaded data, or null when
      * the place is gone (a listing taken down, a cafe removed).
      */
     const findFocusTarget = React.useCallback((placeId: string): FocusTarget | null => {
@@ -1955,6 +1968,7 @@ export function EnhancedMapContainer({
 
                 {/* Opens the card PendingFocusOpener found */}
                 <NavigationEventListener
+                    clearSavedDisambiguation={clearSavedDisambiguation}
                     setSelectedCafe={setSelectedCafe}
                     setSelectedProperty={setSelectedProperty}
                     setSelectedPoi={setSelectedPoi}

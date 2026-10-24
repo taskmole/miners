@@ -601,7 +601,7 @@ export function ScoutingTripForm({
     const lon = property.data.longitude ?? property.data.lon;
     if (lat == null || lon == null) return;
     handleSaveDraft();
-    goToPlace({ placeId: property.id, lat, lon });
+    goToPlace({ placeId: property.id, lat, lon, data: property.data });
   };
 
   if (!isOpen) return null;

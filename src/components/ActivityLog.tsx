@@ -9,6 +9,7 @@ import { LoadingOrb } from "@/components/LoadingOrb";
 import { useActivities, type ActivityItem } from "@/hooks/useActivities";
 import { useShapeDataContext } from "@/contexts/ShapeDataContext";
 import { useToast } from "@/contexts/ToastContext";
+import { useScoutingTripsContext } from "@/contexts/ScoutingTripsContext";
 import { goToPlace } from "@/lib/go-to-place";
 import { activityDestination } from "@/lib/activity-destination";
 
@@ -17,14 +18,14 @@ export function ActivityLog({
     onOpenTrip,
 }: {
     onUnreadCountChange?: (count: number) => void;
-    /** Opens the trip and returns true, or explains why not and returns false. */
-    onOpenTrip?: (tripId: string) => boolean;
+    onOpenTrip?: (tripId: string) => void;
 }) {
     const { isOpen: isExpanded, close } = useSheetState("activity");
     const { openSheet } = useSheet();
     const { activities, isLoading, error, refetch, unreadCount, markAllAsRead } = useActivities();
     const { allMetadata, isMetadataLoaded } = useShapeDataContext();
     const { showToast } = useToast();
+    const { getTrip } = useScoutingTripsContext();
 
     // Drives the glow on the Activity button: on while anything is unread.
     React.useEffect(() => {
@@ -46,10 +47,6 @@ export function ActivityLog({
         });
     }, [activities, allMetadata, isMetadataLoaded]);
 
-    // Rows that lead somewhere get link styling; the rest explain on click
-    const isNavigable = useCallback((item: ActivityItem): boolean =>
-        activityDestination(item).kind !== 'message', []);
-
     // Every click either goes somewhere or says why it can't
     const handleActivityClick = useCallback((item: ActivityItem) => {
         const destination = activityDestination(item);
@@ -62,13 +59,16 @@ export function ActivityLog({
                 openSheet('lists');
                 return;
             case 'trip':
-                if (onOpenTrip?.(destination.tripId)) close();
+                close();
+                // Only their own trips can open here; team and others' trips live in Scouting
+                if (getTrip(destination.tripId)) onOpenTrip?.(destination.tripId);
+                else openSheet('scouting');
                 return;
             case 'place':
                 close();
                 goToPlace(destination.request);
         }
-    }, [close, openSheet, showToast, onOpenTrip]);
+    }, [close, openSheet, showToast, getTrip, onOpenTrip]);
 
     return (
         <MobilePanel
@@ -103,7 +103,8 @@ export function ActivityLog({
                     />
                 ) : (
                     activitiesWithOrphanStatus.map((item) => {
-                        const navigable = isNavigable(item);
+                        // Rows that lead somewhere get link styling; the rest explain on click
+                        const navigable = activityDestination(item).kind !== 'message';
                         return (
                             <button
                                 key={item.id}

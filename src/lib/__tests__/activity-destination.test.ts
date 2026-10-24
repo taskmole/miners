@@ -34,9 +34,9 @@ describe("activityDestination", () => {
       .toEqual({ kind: "place", request: { placeId: PROPERTY_ID, lat: 50.0755, lon: 14.4381 } });
   });
 
-  it("sends a drawn point to its spot", () => {
+  it("sends a drawn point to its spot and selects it there", () => {
     expect(activityDestination(row({ actionType: "created_point", shapeId: "9f1c2b3a-uuid", lat: 40.4, lon: -3.7 })))
-      .toEqual({ kind: "place", request: { placeId: undefined, lat: 40.4, lon: -3.7 } });
+      .toEqual({ kind: "place", request: { placeId: undefined, lat: 40.4, lon: -3.7, shapeId: "9f1c2b3a-uuid" } });
   });
 
   it("sends a comment on a drawn shape to its spot", () => {

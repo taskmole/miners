@@ -13,7 +13,14 @@ export interface PlaceRequest {
   placeId?: string;
   lat?: number;
   lon?: number;
+  /** Card data saved elsewhere (a trip's linked place), used if the map no longer has it. */
+  data?: unknown;
+  /** A drawn shape to select once the map lands on its spot. */
+  shapeId?: string;
 }
+
+/** A request once page.tsx has worked out its spot and city, for the map. */
+export type PendingFocus = PlaceRequest & { lat: number; lon: number; cityId: string };
 
 export const GO_TO_PLACE_EVENT = "go-to-place";
 
