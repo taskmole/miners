@@ -2011,42 +2011,43 @@
 .mt-new:hover { background: #27272a; }
 .mt-new:active { transform: scale(.96); }
 
-/* "Something unread" on NEW and Activity (desktop and phone): coloured light
-   inside the button itself, no ring. A thin rainbow line drifts back and
-   forth along the bottom edge and lights the button up from below, softly
-   breathing. Both layers sit under the label (isolation + z-index -1) and
-   are clipped to the button's corners. "is-light" is for a see-through
-   button on the frosted bars (Activity), plain for the black NEW tile. With
+/* "Something unread" on NEW and Activity (desktop and phone): light inside
+   the button itself, no ring. One layer under the label (isolation +
+   z-index -1): a thin rainbow line on the bottom edge with light rising
+   from it, drifting back and forth and softly breathing. It is all
+   backgrounds, so it clips to the layer's own corners and never pokes out.
+   "is-light" is for the frosted bars (Activity): stronger colours kept low
+   by the edge, as a pale haze on white looks stuck under the frost. With
    reduced motion it holds still in the middle. */
 @property --mt-x { syntax: "<percentage>"; initial-value: 50%; inherits: false; }
-.mt-lit { isolation: isolate; overflow: hidden; }
-/* Each layer drifts on its own, so only the two layers restyle per frame. */
-.mt-lit::before, .mt-lit::after {
-  content: ""; position: absolute; z-index: -1; pointer-events: none;
-  animation: mt-drift 3.2s ease-in-out infinite alternate;
-}
-/* The light rising from the edge. */
+.mt-lit { isolation: isolate; }
 .mt-lit::before {
-  inset: 0;
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  border-radius: inherit;
   background:
-    radial-gradient(55% 95% at var(--mt-x) 100%, rgba(255,79,163,0.95), transparent 75%),
-    radial-gradient(45% 80% at calc(var(--mt-x) - 26%) 100%, rgba(62,232,181,0.85), transparent 75%),
-    radial-gradient(45% 80% at calc(var(--mt-x) + 26%) 100%, rgba(71,181,255,0.9), transparent 75%);
-  filter: blur(3px) saturate(1.3);
+    linear-gradient(90deg, transparent calc(var(--mt-x, 50%) - 34%), #3ee8b5 calc(var(--mt-x, 50%) - 18%), #ff4fa3 var(--mt-x, 50%), #47b5ff calc(var(--mt-x, 50%) + 18%), transparent calc(var(--mt-x, 50%) + 34%)) center bottom / 100% 1.5px no-repeat,
+    radial-gradient(30% 22% at var(--mt-x, 50%) 100%, rgba(255,150,205,0.9), rgba(255,79,163,0.35) 45%, transparent) no-repeat,
+    radial-gradient(36% 60% at calc(var(--mt-x, 50%) - 16%) 100%, rgba(62,232,181,0.4), rgba(62,232,181,0.1) 50%, transparent) no-repeat,
+    radial-gradient(36% 60% at calc(var(--mt-x, 50%) + 16%) 100%, rgba(71,140,255,0.45), rgba(71,140,255,0.1) 50%, transparent) no-repeat,
+    radial-gradient(50% 75% at var(--mt-x, 50%) 100%, rgba(200,90,255,0.4), rgba(160,90,255,0.1) 55%, transparent) no-repeat;
   animation: mt-drift 3.2s ease-in-out infinite alternate, mt-breathe 2.4s ease-in-out infinite;
 }
-/* The line on the edge. */
-.mt-lit::after {
-  left: 0; right: 0; bottom: 0; height: 2.5px;
-  background: linear-gradient(90deg, transparent, #3ee8b5 calc(var(--mt-x) - 26%), #ff4fa3 var(--mt-x), #47b5ff calc(var(--mt-x) + 26%), transparent);
+.mt-lit.is-light::before {
+  background:
+    linear-gradient(90deg, transparent calc(var(--mt-x, 50%) - 34%), #10c98f calc(var(--mt-x, 50%) - 18%), #ff2289 var(--mt-x, 50%), #1e90ff calc(var(--mt-x, 50%) + 18%), transparent calc(var(--mt-x, 50%) + 34%)) center bottom / 100% 2px no-repeat,
+    radial-gradient(14px 9px at var(--mt-x, 50%) 100%, rgba(255,34,137,0.85), rgba(255,34,137,0.3) 50%, transparent) no-repeat,
+    radial-gradient(11px 11px at calc(var(--mt-x, 50%) - 10px) 100%, rgba(16,201,143,0.7), rgba(16,201,143,0.2) 50%, transparent) no-repeat,
+    radial-gradient(11px 11px at calc(var(--mt-x, 50%) + 10px) 100%, rgba(30,144,255,0.7), rgba(30,144,255,0.2) 50%, transparent) no-repeat;
 }
-@keyframes mt-drift { from { --mt-x: 22%; } to { --mt-x: 78%; } }
+/* Activity is the last tool, so its light fills the end of its bar: out
+   through the bar's 4px padding to its real edge, with the bar's corners
+   (.mt-bar: 12px; .mt-tray on phones: 16px). Position and corners only. */
+.mt-bar .mt-lit:last-child::before { inset: 0 -4px -4px; border-radius: 0 0 12px 12px; }
+.mt-tray .mt-lit:last-child::before { inset: -4px; border-radius: 0 16px 16px 0; }
+@keyframes mt-drift { from { --mt-x: 38%; } to { --mt-x: 62%; } }
 @keyframes mt-breathe { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
-/* A touch softer on the light bars, where the same colours read stronger. */
-@keyframes mt-breathe-light { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.9; } }
-.mt-lit.is-light::before { animation-name: mt-drift, mt-breathe-light; }
 @media (prefers-reduced-motion: reduce) {
-  .mt-lit::before, .mt-lit::after { animation: none; }
+  .mt-lit::before { animation: none; }
 }
 
 /* Hover name to the left of the bar. */
