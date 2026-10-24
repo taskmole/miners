@@ -2192,6 +2192,8 @@ button.mt-pill:hover { background: rgba(0,0,0,0.1); }
 .mt-tool:focus-visible, .mt-seg > button:focus-visible, .mt-row:focus-visible, .mt-sec:focus-visible, .mt-act:focus-visible {
   outline: 2px solid #18181b; outline-offset: 2px;
 }
+/* Inset where a scrolling parent would clip a ring drawn outside. */
+.mt-seg > button:focus-visible, .mt-row:focus-visible, .mt-sec:focus-visible, .mt-act:focus-visible { outline-offset: -2px; }
 
 @media (prefers-reduced-motion: reduce) {
   .mt-hl, .mt-tip { transition: none; }

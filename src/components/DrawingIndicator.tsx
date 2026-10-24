@@ -27,14 +27,15 @@ export function DrawingIndicator() {
     // down). Phones: 48px tall, under the city and search tray (which moves
     // down with the notch).
     <div className="fixed top-[calc(80px+env(safe-area-inset-top,0px))] sm:top-6 left-1/2 -translate-x-1/2 z-[9998] pointer-events-none">
-      <div className="glass flex items-center gap-2 h-12 px-4 rounded-[16px] sm:h-9 sm:px-3 sm:rounded-[12px] animate-in fade-in slide-in-from-top-2 duration-200">
+      {/* On narrow desktops it stays clear of the city tray (about 180px in from each side) and cuts its words short. */}
+      <div className="glass flex items-center gap-2 h-12 px-4 rounded-[16px] sm:h-9 sm:px-3 sm:rounded-[12px] sm:max-w-[calc(100vw-372px)] animate-in fade-in slide-in-from-top-2 duration-200">
         {/* Pulsing dot */}
-        <span className="relative flex h-2 w-2">
+        <span className="relative flex h-2 w-2 shrink-0">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-500 opacity-75"></span>
           <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
         </span>
-        <Icon className="w-4 h-4 text-teal-600" />
-        <span className="mt-font text-sm font-semibold text-zinc-900 whitespace-nowrap">{label}</span>
+        <Icon className="w-4 h-4 shrink-0 text-teal-600" />
+        <span className="mt-font text-sm font-semibold text-zinc-900 truncate">{label}</span>
       </div>
     </div>
   );

@@ -82,7 +82,7 @@ export function MobilePanel({
       ref={panelRef}
       role="region"
       aria-label={title}
-      className={cn("mt-panel mt-font glass border border-white/40", className)}
+      className={cn("mt-panel mt-font glass", className)}
     >
       {children}
     </div>

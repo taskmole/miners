@@ -14,15 +14,18 @@ import { apiFetch } from '@/lib/api-client';
  * shape is ever sent. Writes go one at a time, so a quick draw-then-delete
  * can never land out of order and bring the shape back.
  *
- * Only geometry is sent here. Metadata (name, color, tags) is owned by
- * ShapeComments via RPC, and the server stamps the owner from the session.
- * Those saves still ride this same queue (enqueueMetadata), so a new shape's
- * details never reach the server before the shape itself ("No such shape"),
- * and detail saves land strictly in order: the server replaces every column
- * on each one, so a stale save landing late would erase newer details.
+ * Details (name, type, tags, address) are owned by ShapeComments via RPC,
+ * and the server stamps the owner from the session. Their saves ride this
+ * same queue (enqueueMetadata) and work the same way: only the latest per
+ * shape, kept until it succeeds, and sent only once the shape itself is on
+ * the server, so a new place's details never fail with "No such shape" and
+ * are never lost when its first save fails. They land strictly in order: the
+ * server replaces every column on each one, so a stale save landing late
+ * would erase newer details.
  */
 const unsaved = new Map<string, GeoJSON.Feature>();
 const undeleted = new Set<string>();
+const unsentDetails = new Map<string, () => Promise<unknown>>();
 let queue: Promise<void> = Promise.resolve();
 
 export function saveShapes(shapes: GeoJSON.Feature[]) {
@@ -37,6 +40,7 @@ export function removeShapes(ids: string[]) {
   for (const id of ids) {
     undeleted.add(id);
     unsaved.delete(id);
+    unsentDetails.delete(id);
   }
   return flush();
 }
@@ -46,13 +50,10 @@ function flush() {
   return queue;
 }
 
-/** Run a metadata save in turn with the shape saves. Never rejects: errors are logged. */
-export function enqueueMetadata(write: () => Promise<unknown>) {
-  queue = queue.then(write).then(
-    () => undefined,
-    (error) => { console.error('[syncMetadata] API call failed:', error); },
-  );
-  return queue;
+/** Save a shape's details in turn with the shape saves (replaces any unsent ones for it). */
+export function enqueueMetadata(id: string, write: () => Promise<unknown>) {
+  unsentDetails.set(id, write);
+  return flush();
 }
 
 async function send() {
@@ -80,6 +81,18 @@ async function send() {
       for (const id of ids) undeleted.delete(id);
     } catch (error) {
       console.error('Error deleting shapes:', error);
+    }
+  }
+
+  for (const [id, write] of [...unsentDetails]) {
+    // Its shape is not on the server yet: wait for that save to go through.
+    if (unsaved.has(id)) continue;
+    try {
+      await write();
+      // Details edited again while this was in flight stay queued.
+      if (unsentDetails.get(id) === write) unsentDetails.delete(id);
+    } catch (error) {
+      console.error('[syncMetadata] API call failed:', error);
     }
   }
 }

@@ -46,7 +46,7 @@ export function MapToolRail({
 
   return (
     <div className="mt-rail mt-font">
-      <div className="mt-bar glass" role="toolbar" aria-label="Map tools" aria-orientation="vertical">
+      <div className="mt-bar glass" role="toolbar" aria-label="Map tools" aria-orientation="vertical" onKeyDown={moveFocus}>
         {/* Hidden when nothing, or something other than a tool (a place card), is open. */}
         <div
           className="mt-hl"
@@ -98,6 +98,18 @@ export function MapToolRail({
       )}
     </div>
   );
+}
+
+/** Arrow keys, Home and End move between the bar's buttons, as a toolbar promises. */
+function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
+  const cells = [...e.currentTarget.querySelectorAll<HTMLElement>(".mt-cell")];
+  const i = cells.indexOf(document.activeElement as HTMLElement);
+  if (i < 0) return;
+  const last = cells.length - 1;
+  const next = { ArrowDown: i === last ? 0 : i + 1, ArrowUp: i === 0 ? last : i - 1, Home: 0, End: last }[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  cells[next].focus();
 }
 
 /**

@@ -103,26 +103,49 @@ describe("shape writes", () => {
         const save = (name: string) => () => { order.push(name); return apiFetch("/meta", { method: "POST", body: "{}" }); };
 
         const shapeSaved = w.saveShapes([shape("a")]);
-        const first = w.enqueueMetadata(save("stamp"));
-        const second = w.enqueueMetadata(save("address"));
+        const first = w.enqueueMetadata("a", save("stamp"));
         await Promise.resolve();
         expect(order).toEqual([]);           // details wait for the shape
         releaseShape();
-        await shapeSaved;
+        await vi.waitFor(() => expect(order).toEqual(["stamp"]));
+        const second = w.enqueueMetadata("a", save("address"));
         await Promise.resolve();
         expect(order).toEqual(["stamp"]);    // the later save waits for the first
         releaseFirst();
-        await Promise.all([first, second]);
+        await Promise.all([shapeSaved, first, second]);
         expect(order).toEqual(["stamp", "address"]);
     });
 
-    it("a failed detail save is logged and does not stop the queue", async () => {
+    it("keeps a new shape's details until its first save goes through", async () => {
+        apiFetch                                             // the shape's first two saves
+            .mockRejectedValueOnce(new Error("down"))
+            .mockRejectedValueOnce(new Error("down"));
+        const order: string[] = [];
+        await w.saveShapes([shape("a")]);
+        await w.enqueueMetadata("a", () => { order.push("details"); return apiFetch("/meta"); });
+        expect(order).toEqual([]);                           // shape not on the server yet
+        await w.saveShapes([shape("b")]);                    // next flush resends "a", then its details
+        expect(order).toEqual(["details"]);
+        expect(JSON.parse(apiFetch.mock.calls[2][1].body).rows.map((r: { id: string }) => r.id)).toEqual(["a", "b"]);
+    });
+
+    it("a failed detail save is logged, retried with the next change, and does not stop the queue", async () => {
         apiFetch.mockRejectedValueOnce(new Error("down"));
-        await w.enqueueMetadata(() => apiFetch("/meta", { method: "POST", body: "{}" }));
-        await w.saveShapes([shape("b")]);
+        let tries = 0;
+        await w.enqueueMetadata("a", () => { tries++; return apiFetch("/meta", { method: "POST", body: "{}" }); });
         expect(console.error).toHaveBeenCalled();
-        const [url, init] = apiFetch.mock.calls.at(-1)!;
+        await w.saveShapes([shape("b")]);
+        expect(tries).toBe(2);
+        const [url, init] = apiFetch.mock.calls[1];
         expect(url).toBe("/api/db/drawn-features");
         expect(JSON.parse(init.body).rows[0].id).toBe("b");
+    });
+
+    it("drops a deleted shape's unsent details", async () => {
+        apiFetch.mockRejectedValueOnce(new Error("down"));
+        let tries = 0;
+        await w.enqueueMetadata("a", () => { tries++; return apiFetch("/meta"); });
+        await w.removeShapes(["a"]);
+        expect(tries).toBe(1);
     });
 });

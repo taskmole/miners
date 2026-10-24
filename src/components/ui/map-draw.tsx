@@ -165,6 +165,9 @@ export function MapDraw({ children, onShapeCreated, onShapeUpdated }: MapDrawPro
         m.removeControl(drawInstance);
       });
       setDraw(null);
+      // The next instance starts selecting, so the drawing pill and the teal
+      // Draw button must not stay on.
+      setMode('simple_select');
     };
   }, [map, isLoaded, authReady, sessionUserId]);
 

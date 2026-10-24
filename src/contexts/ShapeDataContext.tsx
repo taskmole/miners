@@ -90,15 +90,22 @@ export function ShapeDataProvider({ children }: { children: ReactNode }) {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
 
-    async function load() {
+    // "Loaded" only once the load succeeds: a brand-new shape is spotted by
+    // having no details, so after a failed load every shape would look new
+    // and its first save would wipe its real details. Retries a few times.
+    async function load(attempt: number) {
       const sbMetadata = await loadMetadataFromApi();
-      if (sbMetadata && Object.keys(sbMetadata).length > 0) {
+      if (!sbMetadata) {
+        if (attempt < 3) setTimeout(() => load(attempt + 1), 3000 * (attempt + 1));
+        return;
+      }
+      if (Object.keys(sbMetadata).length > 0) {
         setAllMetadata(sbMetadata);
       }
       setIsMetadataLoaded(true);
     }
 
-    load();
+    load(0);
   }, []);
 
   const fetchCommentsForShape = useCallback((shapeId: string) => {

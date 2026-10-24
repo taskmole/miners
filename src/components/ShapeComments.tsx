@@ -42,7 +42,7 @@ import { LoadingOrb } from '@/components/LoadingOrb';
 function syncMetadataToApi(shapeId: string, meta: ShapeMetadata): void {
   const userId = getCurrentUserId();
 
-  void enqueueMetadata(() => apiFetch('/api/db/drawn-features', {
+  void enqueueMetadata(shapeId, () => apiFetch('/api/db/drawn-features', {
     method: 'POST',
     body: JSON.stringify({
       action: 'update_metadata',
@@ -520,10 +520,15 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
   // The latest details, for async work that finishes after more edits.
   const latestMetadata = useRef(allMetadata);
   latestMetadata.current = allMetadata;
+  // The lookup in flight ("id@lon,lat"): the effect re-runs as the new
+  // place's details are stamped, and must not look the same address up twice.
+  const addressLookup = useRef<string | null>(null);
 
   // Auto-fetch address for Points: when created OR when moved to new coordinates
   useEffect(() => {
-    if (!selectedId || !selectedFeature) return;
+    // Not before the details have loaded: the save sends every detail, so
+    // one made from an empty copy would wipe the place's real ones.
+    if (!selectedId || !selectedFeature || !isMetadataLoaded) return;
 
     // Only for Points, not Polygons
     if (selectedFeature.geometry.type !== 'Point') return;
@@ -542,6 +547,9 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     );
 
     if (!needsFetch) return;
+    const lookup = `${selectedId}@${lon},${lat}`;
+    if (addressLookup.current === lookup) return;
+    addressLookup.current = lookup;
 
     setIsFetchingAddress(true);
 
@@ -560,9 +568,10 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
         console.error('Failed to fetch address:', error);
       })
       .finally(() => {
+        if (addressLookup.current === lookup) addressLookup.current = null;
         setIsFetchingAddress(false);
       });
-  }, [selectedId, selectedFeature, allMetadata]);
+  }, [selectedId, selectedFeature, allMetadata, isMetadataLoaded]);
 
   // Handlers
   const handleSaveName = useCallback(() => {
@@ -795,9 +804,9 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
         {/* Header - Name with action buttons */}
         <div className="popup-header" style={{ padding: '16px 20px 12px' }}>
           {/* Action buttons - top right. On mobile, BottomSheet handles close + delete buttons.
-              Uses CSS hiding (hidden md:flex) to avoid hydration flash from useMobile() delay. */}
+              Uses CSS hiding (hidden sm:flex, useMobile()'s 640px) to avoid hydration flash from useMobile() delay. */}
           {!isMobile && (
-            <div className="hidden md:flex absolute top-2.5 right-3 z-20 items-center gap-1.5">
+            <div className="hidden sm:flex absolute top-2.5 right-3 z-20 items-center gap-1.5">
               {canEdit && (
                 <button
                   onClick={handleDeleteShape}
