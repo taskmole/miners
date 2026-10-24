@@ -14,8 +14,12 @@ import { apiFetch } from '@/lib/api-client';
  * shape is ever sent. Writes go one at a time, so a quick draw-then-delete
  * can never land out of order and bring the shape back.
  *
- * Only geometry is sent. Metadata (name, color, tags) is owned by
+ * Only geometry is sent here. Metadata (name, color, tags) is owned by
  * ShapeComments via RPC, and the server stamps the owner from the session.
+ * Those saves still ride this same queue (enqueueMetadata), so a new shape's
+ * details never reach the server before the shape itself ("No such shape"),
+ * and detail saves land strictly in order: the server replaces every column
+ * on each one, so a stale save landing late would erase newer details.
  */
 const unsaved = new Map<string, GeoJSON.Feature>();
 const undeleted = new Set<string>();
@@ -39,6 +43,15 @@ export function removeShapes(ids: string[]) {
 
 function flush() {
   queue = queue.then(send);
+  return queue;
+}
+
+/** Run a metadata save in turn with the shape saves. Never rejects: errors are logged. */
+export function enqueueMetadata(write: () => Promise<unknown>) {
+  queue = queue.then(write).then(
+    () => undefined,
+    (error) => { console.error('[syncMetadata] API call failed:', error); },
+  );
   return queue;
 }
 

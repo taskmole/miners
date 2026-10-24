@@ -3,15 +3,10 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useMapDraw } from '@/hooks/useMapDraw';
-import {
-  Scan,
-  MapPin,
-  Pencil,
-  X,
-} from 'lucide-react';
+import { HousePlus, VectorSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSheetState } from '@/contexts/SheetContext';
-import { MobilePanel } from '@/components/ui/mobile-panel';
+import { MobilePanel, MobilePanelHeader } from '@/components/ui/mobile-panel';
 import { useMobile } from '@/hooks/useMobile';
 import type { DrawMode } from '@/types/draw';
 
@@ -21,114 +16,52 @@ type ToolbarButton = {
   label: string;
 };
 
-// Drawing tool buttons - simplified to Area and Point only
+// Add place first: it is what people come here for most.
 const DRAW_BUTTONS: ToolbarButton[] = [
-  { mode: 'draw_polygon', icon: Scan, label: 'Area' },
-  { mode: 'draw_point', icon: MapPin, label: 'Point' },
+  { mode: 'draw_point', icon: HousePlus, label: 'Add place' },
+  { mode: 'draw_polygon', icon: VectorSquare, label: 'Draw area' },
 ];
 
 export function DrawToolbar() {
-  const { isOpen: isExpanded, open, close } = useSheetState("draw");
+  const { isOpen: isExpanded, close } = useSheetState("draw");
   const isMobile = useMobile();
-
-  const {
-    mode,
-    features,
-    changeMode,
-  } = useMapDraw();
+  const { mode, changeMode } = useMapDraw();
 
   const handleButtonClick = (button: ToolbarButton) => {
     changeMode(button.mode);
     close(); // Close the panel so the user can draw on the map
   };
 
-  const isButtonActive = (button: ToolbarButton) => {
-    return mode === button.mode;
-  };
-
-  const featureCount = features.features.length;
-  const isDrawing = mode !== 'simple_select';
-
-  // Collapsed button
-  const collapsedButton = (
-    <button
-      onClick={open}
-      className={cn(
-        "glass w-9 h-9 rounded-lg border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200",
-        isDrawing && "ring-2 ring-teal-500/50"
-      )}
-      title="Draw tools"
-    >
-      <Pencil className={cn(
-        "w-[18px] h-[18px]",
-        isDrawing ? "text-teal-600" : "text-zinc-500"
-      )} />
-    </button>
-  );
-
   // Render via portal to escape the z-0 stacking context in page.tsx
   const panel = (
     <MobilePanel
       isOpen={isExpanded}
       onClose={close}
-      desktopPosition={{ top: "156px", right: "24px" }}
-      title="Draw"
-      collapsedButton={collapsedButton}
-      desktopWidth="w-72"
-      zIndex={40}
+      title="Add to map"
       snapPoint="partial"
     >
-      {/* Header - only on desktop */}
-      {!isMobile && (
-        <div className="p-4 flex items-center justify-between border-b border-white/10">
-          <span className="text-sm font-bold text-zinc-900">Draw</span>
-          <button
-            onClick={close}
-            className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      <MobilePanelHeader title="Add to map" onClose={close} />
 
-      {/* Draw mode buttons */}
-      <div className="p-3">
-        <div className="grid grid-cols-2 gap-2">
-          {DRAW_BUTTONS.map((button) => {
-            const isActive = isButtonActive(button);
-            return (
-              <button
-                key={button.label}
-                onClick={() => handleButtonClick(button)}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl transition-colors cursor-pointer",
-                  isActive
-                    ? "bg-teal-500/20 text-teal-700"
-                    : "hover:bg-white/30 text-zinc-700"
-                )}
-              >
-                <button.icon className={cn(
-                  "w-5 h-5",
-                  isActive ? "text-teal-600" : "text-zinc-400"
-                )} />
-                <span className={cn(
-                  "text-xs font-medium",
-                  isActive ? "text-teal-700" : "text-zinc-700"
-                )}>
-                  {button.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      <div className={cn("grid grid-cols-2 gap-2", isMobile ? "px-4" : "px-2")}>
+        {DRAW_BUTTONS.map((button) => (
+          <button
+            key={button.mode}
+            type="button"
+            onClick={() => handleButtonClick(button)}
+            className={cn("mt-tool", mode === button.mode && "is-on")}
+            aria-pressed={mode === button.mode}
+          >
+            <button.icon strokeWidth={1.75} aria-hidden />
+            {button.label}
+          </button>
+        ))}
       </div>
 
-      {/* Hint text at bottom */}
-      <div className="px-4 py-2.5 text-[10px] text-zinc-500 text-center">
+      <p className="mt-hint">
         {isMobile
           ? "Tap to draw. Double-tap to finish. Long-press to adjust."
           : "Click to start drawing. Double-click to finish. Right-click to adjust."}
-      </div>
+      </p>
     </MobilePanel>
   );
 

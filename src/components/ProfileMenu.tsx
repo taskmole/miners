@@ -104,10 +104,10 @@ export function ProfileMenu({ onFeedbackOpen, onOpen, whatsNewUnread }: ProfileM
 
   return (
     <>
-      {/* Avatar button - desktop: bottom-right, 24px in like the map buttons above it; mobile: top-right */}
+      {/* Avatar button - desktop (from 640px): bottom-right, 24px in, under the tool bar and as wide; mobile: top-right */}
       <div
         ref={menuRef}
-        className="fixed z-40 right-4 md:right-6 md:bottom-6"
+        className="fixed z-40 right-4 sm:right-6 sm:bottom-6"
         style={isMobile ? { top: "calc(24px + env(safe-area-inset-top, 0px))" } : undefined}
       >
         <button
@@ -115,10 +115,10 @@ export function ProfileMenu({ onFeedbackOpen, onOpen, whatsNewUnread }: ProfileM
             if (!isOpen) onOpen?.();
             setIsOpen(!isOpen);
           }}
-          className="relative glass flex items-center justify-center p-2.5 rounded-2xl md:w-9 md:h-9 md:p-0 md:rounded-lg md:border md:border-white/40 hover:bg-white/20 active:bg-white/30 transition-all duration-200"
+          className="mt-float relative"
           aria-label={whatsNewUnread ? "Profile menu, new updates" : "Profile menu"}
         >
-          <User className="w-5 h-5 md:w-[18px] md:h-[18px] text-zinc-500" />
+          <User className="w-5 h-5 sm:w-[18px] sm:h-[18px] text-zinc-500" />
           {whatsNewUnread && (
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full" aria-hidden />
           )}
@@ -127,7 +127,7 @@ export function ProfileMenu({ onFeedbackOpen, onOpen, whatsNewUnread }: ProfileM
         {/* Desktop dropdown - opens upward */}
         {!isMobile && isOpen && (
           <div
-            className="absolute bottom-full right-0 mb-2 w-52 rounded-2xl overflow-hidden"
+            className="absolute bottom-full right-0 mb-2 w-52 rounded-[16px] overflow-hidden"
             style={{
               background: "rgba(255, 255, 255, 0.75)",
               borderColor: "rgba(255, 255, 255, 0.4)",

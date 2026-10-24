@@ -8,18 +8,14 @@ import {
   ChevronRight,
   FileText,
   MapPin,
-  MapPinned,
-  Clock,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { useCityScoutedTrips } from "@/hooks/useCityScoutedTrips";
 import { useSheetState } from "@/contexts/SheetContext";
-import { MobilePanel } from "@/components/ui/mobile-panel";
+import { MobilePanel, MobilePanelHeader, PanelEmpty } from "@/components/ui/mobile-panel";
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { SegmentedFilterRow } from "@/components/ui/segmented-filter";
-import { useMobile } from "@/hooks/useMobile";
-import { Button } from "@/components/ui/button";
 import { navigateAndOpenPopup } from "@/components/ListsPanel";
 import type { ScoutingTrip, ScoutingTripStatus } from "@/types/scouting";
 import { statusLabels, statusColors } from "@/types/scouting";
@@ -99,83 +95,54 @@ function TripCard({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={!row.canOpen}
-      className={cn(
-        "w-full text-left px-4 py-3 transition-colors border-b border-white/10 last:border-0",
-        row.canOpen ? "hover:bg-white/30" : "cursor-default"
-      )}
+      className={cn("mt-row is-top", row.canOpen ? "is-link" : "cursor-default")}
     >
-      <div className="flex items-start gap-3">
-        {/* Icon */}
-        <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-          {row.isUpload ? (
-            <FileText className="w-4 h-4 text-zinc-500" />
-          ) : (
-            <MapPin className="w-4 h-4 text-zinc-500" />
-          )}
+      <span className="mt-tile" aria-hidden>
+        {row.isUpload ? <FileText /> : <MapPin />}
+      </span>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="mt-t1 truncate">{row.title}</span>
+          <span
+            className={cn(
+              "inline-flex items-center h-[22px] px-2 rounded-full text-[11px] font-semibold flex-shrink-0",
+              statusColors[row.status]
+            )}
+          >
+            {statusLabels[row.status]}
+          </span>
         </div>
+        {row.reasonText && (
+          <p className={cn(
+            "text-[12.5px] mt-1 leading-snug",
+            row.status === 'rejected' ? 'text-red-600' : 'text-amber-700'
+          )}>
+            {row.reasonText}
+          </p>
+        )}
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-sm text-zinc-900 truncate">
-              {row.title}
-            </span>
-            <span
-              className={cn(
-                "text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0",
-                statusColors[row.status]
-              )}
-            >
-              {statusLabels[row.status]}
-            </span>
+        {/* Address or property name */}
+        {row.subtitle && <div className="mt-t2 truncate">{row.subtitle}</div>}
+
+        {/* Meta info */}
+        {(row.date || row.authorName || row.isUpload) && (
+          <div className="mt-t2 flex items-center gap-1.5">
+            {[row.date, row.authorName, row.isUpload ? "Uploaded" : null]
+              .filter(Boolean)
+              .join(" · ")}
           </div>
-          {row.reasonText && (
-            <p className={cn(
-              "text-[11px] mt-1 leading-snug",
-              row.status === 'rejected' ? 'text-red-600' : 'text-amber-600'
-            )}>
-              {row.reasonText}
-            </p>
-          )}
-
-          {/* Address or property name */}
-          {row.subtitle && (
-            <div className="text-xs text-zinc-500 truncate mt-0.5">
-              {row.subtitle}
-            </div>
-          )}
-
-          {/* Meta info */}
-          <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-400">
-            {row.date && (
-              <>
-                <Clock className="w-3 h-3" />
-                <span>{row.date}</span>
-              </>
-            )}
-            {row.authorName && (
-              <>
-                {row.date && <span className="text-zinc-300">•</span>}
-                <span className="truncate">{row.authorName}</span>
-              </>
-            )}
-            {row.isUpload && (
-              <>
-                <span className="text-zinc-300">•</span>
-                <span>Uploaded</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Arrow. Absent when there is nowhere to go, so a dead row never
-            looks tappable. */}
-        {row.canOpen && (
-          <ChevronRight className="w-4 h-4 text-zinc-300 flex-shrink-0 mt-2" />
         )}
       </div>
+
+      {/* Arrow. Absent when there is nowhere to go, so a dead row never
+          looks tappable. */}
+      {row.canOpen && (
+        <ChevronRight className="w-4 h-4 text-zinc-400 flex-shrink-0 self-center" aria-hidden />
+      )}
     </button>
   );
 }
@@ -193,27 +160,29 @@ export function ScoutingPanel({
   canSeeAll = false,
 }: ScoutingPanelProps) {
   const { getTrips, getTripCounts, isLoaded } = useScoutingTrips();
-  const { isOpen: isExpanded, open, close } = useSheetState("scouting");
-  const isMobile = useMobile();
+  const { isOpen: isExpanded, close } = useSheetState("scouting");
   const [scope, setScope] = useState<ScopeTab>("mine");
-
-  // Losing the permission (a city switch, a role change) must not strand the
-  // panel on a tab whose switch is no longer on screen.
-  const activeScope: ScopeTab = canSeeAll ? scope : "mine";
-  const showingAll = activeScope === "all";
 
   const trips = getTrips(cityId);
   const counts = getTripCounts(cityId);
 
-  // Only fetched while the panel is open AND the "All in city" tab is showing,
-  // so nobody pays for it by default. isExpanded matters: this component is
-  // mounted for the whole session and only its sheet closes, so without it one
-  // tap on "All in city" left a 60s poll running for the rest of the session.
+  // Fetched only for someone who approves here, and only while the panel is
+  // open: the switch shows only when the city actually has trips, so it has
+  // to know first. isExpanded matters: this component is mounted for the
+  // whole session and only its sheet closes, so without it the 60s poll
+  // would run for the rest of the session.
   const {
     trips: cityTrips,
     isLoaded: cityLoaded,
     canSee: canSeeCity,
-  } = useCityScoutedTrips(cityId, isExpanded && showingAll);
+  } = useCityScoutedTrips(cityId, isExpanded && canSeeAll);
+
+  // No switch when "All in city" would show nothing: two empty tabs are
+  // noise. Losing the switch (a city switch, a role change, an empty city)
+  // must not strand the panel on a tab that is no longer on screen.
+  const showScope = canSeeAll && cityLoaded && canSeeCity && cityTrips.length > 0;
+  const activeScope: ScopeTab = showScope ? scope : "mine";
+  const showingAll = activeScope === "all";
 
   const ownRows: TripRow[] = useMemo(
     () =>
@@ -322,91 +291,33 @@ export function ScoutingPanel({
     if (trip) handleSelectTrip(trip);
   };
 
-  // Collapsed button
-  const collapsedButton = (
-    <button
-      onClick={open}
-      className="glass w-9 h-9 rounded-lg border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
-      title="Scouting Trips"
-    >
-      <MapPinned className="w-[18px] h-[18px] text-zinc-500" />
-    </button>
-  );
-
   return (
     <MobilePanel
       isOpen={isExpanded}
       onClose={close}
-      desktopPosition={{ top: "112px", right: "24px" }}
-      title="Scouting Trips"
-      collapsedButton={collapsedButton}
+      title="Scouting trips"
       snapPoint="partial"
     >
-      {/* Header - only on desktop */}
-      {!isMobile && (
-        <div className="p-4 border-b border-white/10">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-bold text-zinc-900">Scouting Trips</span>
-            <button
-              onClick={close}
-              className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+      <MobilePanelHeader title="Scouting trips" onClose={close} />
 
-          {/* Desktop action buttons in header */}
-          <div className="flex gap-2">
-            <Button
-              onClick={handleCreateNew}
-              className="flex-1 h-9 text-xs gap-1.5"
-              size="sm"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Create New
-            </Button>
-            <Button
-              onClick={handleUpload}
-              variant="outline"
-              className="flex-1 h-9 text-xs gap-1.5"
-              size="sm"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Upload
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile action buttons */}
-      {isMobile && (
-        <div className="p-4">
-          <div className="flex gap-2">
-            <Button
-              onClick={handleCreateNew}
-              className="flex-1 h-11 text-sm gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Create New
-            </Button>
-            <Button
-              onClick={handleUpload}
-              variant="outline"
-              className="flex-1 h-11 text-sm gap-2"
-            >
-              <Upload className="w-4 h-4" />
-              Upload
-            </Button>
-          </div>
-        </div>
-      )}
+      <div className="flex flex-none gap-2 px-4 pb-4">
+        <button type="button" onClick={handleCreateNew} className="mt-btn mt-btn-dark flex-1">
+          <Plus aria-hidden />
+          Create new
+        </button>
+        <button type="button" onClick={handleUpload} className="mt-btn mt-btn-grey flex-1">
+          <Upload aria-hidden />
+          Upload
+        </button>
+      </div>
 
       {/* Scope switch. Hidden, not greyed out, for anyone who does not approve
-          in this city, so their panel looks exactly as it does today. */}
-      {canSeeAll && (
-        <div className="px-4 pb-3">
+          in this city, and while the city has no trips at all. */}
+      {showScope && (
+        <div className="flex-none px-4 pb-4">
           <SegmentedFilterRow<ScopeTab>
-            label="Showing"
+            label="Scouting trips to show"
+            hideLabel
             options={SCOPE_OPTIONS}
             value={activeScope}
             onChange={setScope}
@@ -416,50 +327,36 @@ export function ScoutingPanel({
 
       {/* Status summary */}
       {shownCounts.total > 0 && (
-        <div className="px-4 py-2 bg-zinc-50/50 border-b border-white/10 flex gap-3 text-[10px]">
+        <div className="flex flex-none flex-wrap gap-x-3 gap-y-1 px-4 pb-3 text-[12px] text-zinc-500">
           {shownCounts.draft > 0 && (
-            <span className="text-zinc-500">
-              <span className="font-medium text-zinc-700">{shownCounts.draft}</span> draft
-            </span>
+            <span><span className="font-semibold text-zinc-800">{shownCounts.draft}</span> draft</span>
           )}
           {shownCounts.submitted > 0 && (
-            <span className="text-blue-500">
-              <span className="font-medium">{shownCounts.submitted}</span> submitted
-            </span>
+            <span className="text-blue-700"><span className="font-semibold">{shownCounts.submitted}</span> submitted</span>
           )}
           {shownCounts.approved > 0 && (
-            <span className="text-green-500">
-              <span className="font-medium">{shownCounts.approved}</span> approved
-            </span>
+            <span className="text-green-700"><span className="font-semibold">{shownCounts.approved}</span> approved</span>
           )}
           {shownCounts.rejected > 0 && (
-            <span className="text-red-500">
-              <span className="font-medium">{shownCounts.rejected}</span> rejected
-            </span>
+            <span className="text-red-600"><span className="font-semibold">{shownCounts.rejected}</span> rejected</span>
           )}
           {shownCounts.returned > 0 && (
-            <span className="text-amber-500">
-              <span className="font-medium">{shownCounts.returned}</span> returned
-            </span>
+            <span className="text-amber-700"><span className="font-semibold">{shownCounts.returned}</span> returned</span>
           )}
         </div>
       )}
 
-      {/* Trips list. "All in city" makes this much longer, so on mobile it
-          grows with the sheet instead of floating in a 350px box. */}
-      <div className={cn("overflow-y-auto", isMobile ? "flex-1" : "max-h-[350px]")}>
+      {/* Trips list. "All in city" makes this much longer: on desktop it
+          scrolls inside the panel, on phones the sheet scrolls. */}
+      <div className="mt-body">
         {!listLoaded ? (
-          <div className="p-4 text-center text-zinc-500 text-sm">Loading...</div>
+          <LoadingSkeleton />
         ) : rows.length === 0 ? (
-          <div className="p-6 text-center">
-            <Route className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-            <p className="text-sm text-zinc-500">{emptyMessage}</p>
-            {showCreateHint && (
-              <p className="text-xs text-zinc-400 mt-1">
-                Create a new trip or upload a document
-              </p>
-            )}
-          </div>
+          <PanelEmpty
+            icon={Route}
+            title={emptyMessage}
+            hint={showCreateHint ? "Create a new trip or upload a document" : undefined}
+          />
         ) : (
           rows.map(row => (
             <TripCard
