@@ -7,9 +7,11 @@ import { useReducedMotion } from "framer-motion";
 /**
  * A short, one-off glow around an element, built on `border-beam`.
  *
- * The glow is a "look here" signal, not decoration, so it never runs for long:
- * it plays for `playMs` and then fades out by itself. While it is off, Beam
- * runs no animations; all that stays is a small per-instance <style> block.
+ * The glow is a "look here" signal, not decoration, so it normally never runs
+ * for long: it plays for `playMs` and then fades out by itself. While it is
+ * off, Beam runs no animations; all that stays is a small per-instance <style>
+ * block. Leaving `playMs` out keeps it running while `playKey` is set: only the
+ * sign-in button's light does that, on purpose.
  *
  * `playKey` decides when it plays. Empty (0, "", null) means stay still. Any
  * other value plays the glow once on mount, and again every time it changes.
@@ -19,7 +21,7 @@ import { useReducedMotion } from "framer-motion";
  */
 type BeamGlowProps = Omit<ComponentProps<typeof BorderBeam>, "active"> & {
   playKey: string | number | null | undefined;
-  playMs: number;
+  playMs?: number;
 };
 
 export function BeamGlow({ playKey, playMs, ...beamProps }: BeamGlowProps) {
@@ -29,6 +31,7 @@ export function BeamGlow({ playKey, playMs, ...beamProps }: BeamGlowProps) {
   useEffect(() => {
     if (!playKey || reduceMotion) return;
     setPlaying(true);
+    if (playMs === undefined) return;
     const timer = setTimeout(() => setPlaying(false), playMs);
     return () => clearTimeout(timer);
   }, [playKey, playMs, reduceMotion]);
@@ -87,11 +90,11 @@ export function BreatheGlow(props: Omit<BeamGlowProps, "playMs">) {
 }
 
 /**
- * A 2 px glowing ring just outside a button (sign-in, Done). The negative
- * margin hands the 2 px back, so nothing moves. `background` must match what
- * is around the button, so the ring can't be seen while idle. Flex keeps an
- * inline-flex button from sitting a pixel low. Must sit in a flex container,
- * or it would stretch to full width.
+ * A 2 px glowing ring just outside a button (the linking banner's Done). The
+ * negative margin hands the 2 px back, so nothing moves. `background` must
+ * match what is around the button, so the ring can't be seen while idle. Flex
+ * keeps an inline-flex button from sitting a pixel low. Must sit in a flex
+ * container, or it would stretch to full width.
  */
 export function RingGlow({
   radius,

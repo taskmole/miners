@@ -12,6 +12,7 @@ import { cityOptions, cityNames } from '@/lib/cities';
 import { CityAccessEditor, SuperAdminBanner, OnOffSegments } from '@/components/admin/CityAccessEditor';
 import { UserHistory, type HistoryEntry } from '@/components/admin/UserHistory';
 import { toGrants, type CityGrant, type CityGrantRow } from '@/lib/permissions';
+import { LoadingOrb } from '@/components/LoadingOrb';
 
 /**
  * One person's page. Everything true about them, on one screen.
@@ -235,7 +236,7 @@ export default function UserDetailPage() {
   if (authLoading || (userLoading && !userError)) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-        <div className="text-zinc-500">Loading...</div>
+        <LoadingOrb size={64} label="Loading" />
       </div>
     );
   }
@@ -472,8 +473,9 @@ export default function UserDetailPage() {
 
         {/* 5. History. */}
         {historyLoading ? (
-          <section className="bg-white rounded-xl border border-zinc-200 p-5 text-sm text-zinc-400">
-            Loading history...
+          <section className="bg-white rounded-xl border border-zinc-200 p-5 text-sm text-zinc-400 flex items-center gap-1.5">
+            <LoadingOrb />
+            <span>Loading history...</span>
           </section>
         ) : history ? (
           <UserHistory

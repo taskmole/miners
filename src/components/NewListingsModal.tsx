@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Loader2,
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { useMobile, useWideScreen } from "@/hooks/useMobile";
@@ -26,6 +25,7 @@ import { nextUnseenIndex } from "@/lib/triage-deck";
 import type { InboxProperty } from "@/types/inbox";
 import type { PlaceInfo } from "@/types/lists";
 import type { LinkedItem } from "@/types/scouting";
+import { LoadingOrb } from "@/components/LoadingOrb";
 
 interface NewListingsModalProps {
   isOpen: boolean;
@@ -740,7 +740,7 @@ export function NewListingsModal({
         {/* Content */}
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
+            <LoadingOrb size={32} label="Loading new listings" />
           </div>
         ) : loadFailed ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20">

@@ -30,6 +30,7 @@ import { apiFetch } from '@/lib/api-client';
 import { useShapeDataContext } from '@/contexts/ShapeDataContext';
 import { useMobile } from '@/hooks/useMobile';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { LoadingOrb } from '@/components/LoadingOrb';
 
 /**
  * Sync a single shape's metadata via the server API (fire-and-forget).
@@ -926,7 +927,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
                 <MapPin className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
                 {isFetchingAddress ? (
                   <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 border-[1.5px] border-zinc-300 border-t-zinc-500 rounded-full animate-spin" />
+                    <LoadingOrb />
                     <span className="text-sm text-zinc-400">Loading</span>
                   </div>
                 ) : metadata.address ? (

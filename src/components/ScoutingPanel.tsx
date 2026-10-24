@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { navigateAndOpenPopup } from "@/components/ListsPanel";
 import type { ScoutingTrip, ScoutingTripStatus } from "@/types/scouting";
 import { statusLabels, statusColors } from "@/types/scouting";
+import { LoadingOrb } from "@/components/LoadingOrb";
 
 // Props for the panel
 interface ScoutingPanelProps {
@@ -449,7 +450,7 @@ export function ScoutingPanel({
           grows with the sheet instead of floating in a 350px box. */}
       <div className={cn("overflow-y-auto", isMobile ? "flex-1" : "max-h-[350px]")}>
         {!listLoaded ? (
-          <div className="p-4 text-center text-zinc-500 text-sm">Loading...</div>
+          <div className="p-4 flex justify-center"><LoadingOrb label="Loading scouting trips" /></div>
         ) : rows.length === 0 ? (
           <div className="p-6 text-center">
             <Route className="w-8 h-8 text-zinc-300 mx-auto mb-2" />

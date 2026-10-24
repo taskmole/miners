@@ -26,11 +26,12 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { X, Minus, Plus, Locate, Maximize, Loader2 } from "lucide-react";
+import { X, Minus, Plus, Locate, Maximize } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { safeMapCleanup } from "@/lib/safe-map-cleanup";
 import React from "react";
+import { LoadingOrb } from "@/components/LoadingOrb";
 
 const AUTOPAN_PADDING = 20;
 const AUTOPAN_THRESHOLD = 5;
@@ -841,7 +842,7 @@ function MapControls({
             disabled={waitingForLocation}
           >
             {waitingForLocation ? (
-              <Loader2 className="size-4 animate-spin" />
+              <LoadingOrb />
             ) : (
               <Locate className="size-4" />
             )}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo } from "react";
-import { History, MapPin, Star, MessageSquare, Pencil, Plus, Eye, X, Activity, Loader2, Check, Trash2 } from "lucide-react";
+import { History, MapPin, Star, MessageSquare, Pencil, Plus, Eye, X, Activity, Check, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSheetState, useSheet } from "@/contexts/SheetContext";
 import { MobilePanel } from "@/components/ui/mobile-panel";
@@ -10,6 +10,7 @@ import { useActivities, type ActivityType, type ActivityItem } from "@/hooks/use
 import { navigateAndOpenPopup } from "@/components/ListsPanel";
 import { useShapeDataContext } from "@/contexts/ShapeDataContext";
 import { useToast } from "@/contexts/ToastContext";
+import { LoadingOrb } from "@/components/LoadingOrb";
 
 // Icon config by activity type
 const ACTIVITY_ICONS: Record<ActivityType | 'default', { icon: typeof Plus; color: string }> = {
@@ -182,8 +183,8 @@ export function ActivityLog({ onUnreadCountChange }: { onUnreadCountChange?: (co
 
             {/* Loading state */}
             {isLoading && (
-                <div className="p-8 flex flex-col items-center justify-center text-zinc-400">
-                    <Loader2 className="w-5 h-5 animate-spin mb-2" />
+                <div className="p-8 flex flex-col items-center justify-center gap-2 text-zinc-400">
+                    <LoadingOrb size={32} />
                     <span className="text-xs">Loading activities...</span>
                 </div>
             )}
