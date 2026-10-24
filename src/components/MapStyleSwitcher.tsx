@@ -16,7 +16,7 @@ const TILE_THUMBNAILS = {
     voyager: "/assets/map-style-color.png",
 };
 
-export function MapStyleSwitcher({ onStyleChange, trafficEnabled }: { onStyleChange?: () => void; trafficEnabled?: boolean }) {
+export function MapStyleSwitcher({ onStyleChange }: { onStyleChange?: () => void }) {
     const { map } = useMap();
     const [activeStyle, setActiveStyle] = useState<"positron" | "voyager">("positron");
 
@@ -36,17 +36,16 @@ export function MapStyleSwitcher({ onStyleChange, trafficEnabled }: { onStyleCha
     return (
         <div className={cn(
             "absolute left-6 z-10 transition-all duration-200",
-            "hidden md:block md:bottom-6",
-            trafficEnabled && "md:bottom-6"
+            "hidden sm:block sm:bottom-6"
         )}>
             {/* Horizontal toggle with glassmorphism */}
-            <div className="glass relative flex gap-1.5 p-1 rounded-xl border border-white/40 shadow-[0_4px_20px_rgba(0,0,0,0.22)]">
+            {/* A desktop map tray: 4px padding, 12px corners, 28px buttons */}
+            <div className="mt-tray relative flex gap-1.5">
                 {/* Sliding white pill indicator - responsive sizing */}
                 <div
                     className={cn(
-                        // Mobile: 44px (w-11 h-11), Desktop: 28px (w-7 h-7)
-                        "absolute top-1 w-11 h-11 md:w-7 md:h-7 rounded-lg bg-white/60 shadow-sm transition-all duration-200 ease-out",
-                        activeStyle === "positron" ? "left-1" : "left-[calc(4px+44px+6px)] md:left-[calc(4px+28px+6px)]"
+                        "absolute top-1 w-7 h-7 rounded-[8px] bg-white/60 shadow-sm transition-all duration-200 ease-out",
+                        activeStyle === "positron" ? "left-1" : "left-[calc(4px+28px+6px)]"
                     )}
                 />
 
@@ -55,8 +54,7 @@ export function MapStyleSwitcher({ onStyleChange, trafficEnabled }: { onStyleCha
                     onClick={() => handleStyleChange("positron")}
                     title="Black & White"
                     className={cn(
-                        // Mobile: 44px (w-11 h-11), Desktop: 28px (w-7 h-7)
-                        "relative z-10 w-11 h-11 md:w-7 md:h-7 rounded-lg transition-all duration-200 overflow-hidden shadow-[0_0_0_1.5px_rgba(0,0,0,0.3)]",
+                        "relative z-10 w-7 h-7 rounded-[8px] transition-all duration-200 overflow-hidden shadow-[0_0_0_1.5px_rgba(0,0,0,0.3)]",
                         activeStyle === "positron"
                             ? "shadow-[0_0_0_1.5px_rgba(0,0,0,0.3),0_2px_4px_rgba(0,0,0,0.15)]"
                             : "opacity-50 hover:opacity-80"
@@ -74,8 +72,7 @@ export function MapStyleSwitcher({ onStyleChange, trafficEnabled }: { onStyleCha
                     onClick={() => handleStyleChange("voyager")}
                     title="Colorful"
                     className={cn(
-                        // Mobile: 44px (w-11 h-11), Desktop: 28px (w-7 h-7)
-                        "relative z-10 w-11 h-11 md:w-7 md:h-7 rounded-lg transition-all duration-200 overflow-hidden shadow-[0_0_0_1.5px_rgba(0,0,0,0.3)]",
+                        "relative z-10 w-7 h-7 rounded-[8px] transition-all duration-200 overflow-hidden shadow-[0_0_0_1.5px_rgba(0,0,0,0.3)]",
                         activeStyle === "voyager"
                             ? "shadow-[0_0_0_1.5px_rgba(0,0,0,0.3),0_2px_4px_rgba(0,0,0,0.15)]"
                             : "opacity-60 saturate-150 hover:opacity-90"

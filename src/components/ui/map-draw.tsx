@@ -13,6 +13,7 @@ import { apiFetch } from '@/lib/api-client';
 import { saveShapes, removeShapes } from '@/lib/shape-writes';
 import { useWalkingRadius } from '@/contexts/WalkingRadiusContext';
 import { useMobile } from '@/hooks/useMobile';
+import { isDrawingMode, setDrawingNow } from '@/lib/map-tools';
 
 // Ownership map: shape ID -> owning user ID. Populated from the API on load.
 // Keyed on user_id, the column that actually decides who owns a shape, not on
@@ -50,6 +51,7 @@ type MapDrawContextValue = {
   selectedFeatureIds: string[];
   deleteFeature: (featureId: string) => void;
   clearSelection: () => void;
+  changeMode: (mode: DrawMode) => void;
 };
 
 const MapDrawContext = createContext<MapDrawContextValue | null>(null);
@@ -163,6 +165,9 @@ export function MapDraw({ children, onShapeCreated, onShapeUpdated }: MapDrawPro
         m.removeControl(drawInstance);
       });
       setDraw(null);
+      // The next instance starts selecting, so the drawing pill and the teal
+      // Draw button must not stay on.
+      setMode('simple_select');
     };
   }, [map, isLoaded, authReady, sessionUserId]);
 
@@ -351,19 +356,34 @@ export function MapDraw({ children, onShapeCreated, onShapeUpdated }: MapDrawPro
     }
   }, [draw, clearHoveredPoint]);
 
-  // Clear selection (allows hover tooltip to show again)
-  const clearSelection = useCallback(() => {
-    // First deselect in MapboxDraw (this fires selectionchange with empty array)
-    if (draw) {
-      try {
-        draw.changeMode('simple_select');
-      } catch (error) {
-        console.error('Error clearing MapboxDraw selection:', error);
-      }
+  // Switch drawing mode from code. MapboxDraw only fires draw.modechange for
+  // changes it makes itself, so the mode is set here too; without it the
+  // "drawing" pill and the Draw button's teal never showed.
+  const changeMode = useCallback((next: DrawMode) => {
+    if (!draw) return;
+    try {
+      // Cast to any because MapboxDraw types don't match our DrawMode type
+      (draw as any).changeMode(next);
+      setMode(next);
+    } catch (error) {
+      console.error('Error changing mode:', error);
     }
-    // Then explicitly clear our state (in case the event doesn't fire)
-    setSelectedFeatureIds([]);
   }, [draw]);
+
+  // Clear selection (allows hover tooltip to show again). Deselecting in
+  // MapboxDraw fires selectionchange, but our state is cleared too in case
+  // the event doesn't fire.
+  const clearSelection = useCallback(() => {
+    changeMode('simple_select');
+    setSelectedFeatureIds([]);
+  }, [changeMode]);
+
+  // Tell the tool bar, so its Draw button turns teal while drawing.
+  const drawingNow = isDrawingMode(mode);
+  useEffect(() => {
+    setDrawingNow(drawingNow);
+  }, [drawingNow]);
+  useEffect(() => () => setDrawingNow(false), []);
 
   const contextValue = useMemo(
     () => ({
@@ -373,8 +393,9 @@ export function MapDraw({ children, onShapeCreated, onShapeUpdated }: MapDrawPro
       selectedFeatureIds,
       deleteFeature,
       clearSelection,
+      changeMode,
     }),
-    [draw, mode, features, selectedFeatureIds, deleteFeature, clearSelection]
+    [draw, mode, features, selectedFeatureIds, deleteFeature, clearSelection, changeMode]
   );
 
   return (

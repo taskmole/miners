@@ -2,11 +2,11 @@
 
 import React, { useMemo, useState } from "react";
 import {
-    FolderOpen,
-    MoreVertical,
+    Bookmark,
+    MoreHorizontal,
+    Plus,
     Trash2,
     Pencil,
-    ChevronDown,
     ChevronRight,
     X,
     Calendar,
@@ -30,8 +30,7 @@ import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { evaluatePropertyActions } from "@/lib/property-actions";
 import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { cityForCoordinates } from "@/lib/notify-routing";
-import { MobilePanel } from "@/components/ui/mobile-panel";
-import { useMobile } from "@/hooks/useMobile";
+import { MobilePanel, MobilePanelHeader, PanelEmpty } from "@/components/ui/mobile-panel";
 import type { LinkedItem, ScoutingTrip } from "@/types/scouting";
 import {
     DropdownMenu,
@@ -276,8 +275,7 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
     };
 
     // Use SheetContext for coordinated open/close
-    const { isOpen: isExpanded, open, close } = useSheetState("lists");
-    const isMobile = useMobile();
+    const { isOpen: isExpanded, close } = useSheetState("lists");
 
     const [expandedLists, setExpandedLists] = useState<Set<string>>(new Set());
     const [expandedVisitPlans, setExpandedVisitPlans] = useState<Set<string>>(new Set());
@@ -507,46 +505,21 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
         setDraggedItem(null);
     };
 
-    // Collapsed button for desktop
-    const collapsedButton = (
-        <button
-            onClick={open}
-            className="glass w-9 h-9 rounded-lg border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200 relative"
-            title="My Lists"
-        >
-            <FolderOpen className="w-[18px] h-[18px] text-zinc-500" />
-        </button>
-    );
-
     // Panel content (same for mobile and desktop)
     const panelContent = (
         <>
-            {/* Header - only show on desktop (mobile uses BottomSheet title) */}
-            {!isMobile && (
-                <div className="p-4 flex items-center justify-between border-b border-white/10">
-                    <span className="text-sm font-bold text-zinc-900">Lists</span>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={close}
-                            className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    </div>
-                </div>
-            )}
-
+            <MobilePanelHeader title="Saved lists" onClose={close} />
 
             {/* Lists - scrollable */}
-            <div className={cn("overflow-y-auto", isMobile ? "flex-1" : "max-h-[400px]")}>
+            <div className="mt-body">
                 {!isLoaded ? (
                     <div className="p-4 flex justify-center"><LoadingOrb label="Loading lists" /></div>
                 ) : sortedLists.length === 0 ? (
-                    <div className="p-6 text-center">
-                        <FolderOpen className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-                        <p className="text-sm text-zinc-500">No lists yet</p>
-                        <p className="text-xs text-zinc-400 mt-1">Create one to start saving places</p>
-                    </div>
+                    <PanelEmpty
+                        icon={Bookmark}
+                        title="No lists yet"
+                        hint="Create one to start saving places"
+                    />
                 ) : (
                     sortedLists.map(list => (
                         <ListSection
@@ -588,6 +561,19 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
                         />
                     ))
                 )}
+                {isLoaded && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setNewListName("");
+                            setIsCreateDialogOpen(true);
+                        }}
+                        className="mt-btn mt-btn-grey w-full mt-2"
+                    >
+                        <Plus aria-hidden />
+                        New list
+                    </button>
+                )}
             </div>
         </>
     );
@@ -597,9 +583,7 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
             <MobilePanel
                 isOpen={isExpanded}
                 onClose={close}
-                desktopPosition={{ top: "68px", right: "24px" }}
-                title="Lists"
-                collapsedButton={collapsedButton}
+                title="Saved lists"
                 snapPoint="partial"
             >
                 {panelContent}
@@ -779,48 +763,57 @@ function ListSection({
     const hasVisitPlan = visitPlan && (visitPlan.visitDate || visitPlan.comments);
 
     return (
-        <div className="border-b border-white/10">
+        <div>
             {/* List header - restructured to separate clickable area from dropdown */}
-            <div className="p-3 flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-xl transition-colors hover:bg-black/5">
                 {/* Clickable expand/collapse area */}
-                <div
-                    className="flex-1 flex items-center gap-2 hover:bg-white/20 transition-colors cursor-pointer rounded -m-1 p-1"
+                <button
+                    type="button"
+                    className="flex-1 min-w-0 flex items-center gap-3 px-2 py-2.5 text-left rounded-xl"
                     onClick={onToggleExpanded}
+                    aria-expanded={isExpanded}
                 >
-                    {isExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-zinc-500 shrink-0" />
-                    ) : (
-                        <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0" />
-                    )}
+                    <span className="mt-tile" aria-hidden>
+                        <Bookmark />
+                    </span>
 
-                    <span className="text-sm font-semibold text-zinc-900 truncate flex-1">{list.name}</span>
-
-                    {/* Your own list gets no chip. A team list keeps the blue
-                        badge, now naming the team. Somebody else's gets a zinc
-                        chip with their name, always shown and never collapsed
-                        to an icon, because the name is the entire point of it. */}
-                    {isReadOnly && ownerLabel && (
-                        <span className="shrink-0 max-w-[45%] truncate px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 text-zinc-600 border border-zinc-200">
-                            {ownerLabel}
+                    <span className="flex-1 min-w-0">
+                        <span className="mt-t1 block truncate">{list.name}</span>
+                        {/* Your own list says only how many places. A team list
+                            names the team. Somebody else's names them, always,
+                            because the name is the entire point of it. */}
+                        <span className="mt-t2 flex items-center gap-1 min-w-0">
+                            <span className="shrink-0">{totalCount} {totalCount === 1 ? "place" : "places"}</span>
+                            {isReadOnly && ownerLabel && (
+                                <span className="truncate">· {ownerLabel}</span>
+                            )}
+                            {!isReadOnly && list.teamId && (
+                                <span className="inline-flex items-center gap-1 min-w-0 text-blue-700">
+                                    · <Users className="w-3 h-3 shrink-0" aria-hidden />
+                                    <span className="truncate">{teamLabel || "Team"}</span>
+                                </span>
+                            )}
                         </span>
-                    )}
-                    {!isReadOnly && list.teamId && (
-                        <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                            <Users className="w-3 h-3" />
-                            <span className="hidden sm:inline max-w-[90px] truncate">{teamLabel || "Team"}</span>
-                        </span>
-                    )}
+                    </span>
 
                     {hasVisitPlan && (
-                        <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" aria-label="Has a visit plan" />
                     )}
-                </div>
+                    <ChevronRight
+                        className={cn("w-4 h-4 text-zinc-400 shrink-0 transition-transform duration-200", isExpanded && "rotate-90")}
+                        aria-hidden
+                    />
+                </button>
 
                 {/* Menu - OUTSIDE the clickable area, with controlled state */}
                 <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
                     <DropdownMenuTrigger asChild>
-                        <button className="w-6 h-6 rounded hover:bg-white/30 flex items-center justify-center shrink-0">
-                            <MoreVertical className="w-4 h-4 text-zinc-500" />
+                        <button
+                            type="button"
+                            className="w-8 h-8 mr-1 rounded-full grid place-items-center shrink-0 text-zinc-500 hover:bg-black/5 hover:text-zinc-900 transition-colors focus-visible:outline-2 focus-visible:outline-zinc-900 focus-visible:outline-offset-2"
+                            aria-label={`More for ${list.name}`}
+                        >
+                            <MoreHorizontal className="w-4 h-4" />
                         </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -865,7 +858,7 @@ function ListSection({
             {/* Visit Plan form (list level). Every field writes, so a
                 read-only list never opens it. */}
             {isVisitPlanExpanded && !isReadOnly && (
-                <div className="px-3 py-3 bg-emerald-50/50 border-b border-white/10 space-y-2">
+                <div className="mx-2 my-1 px-3 py-3 rounded-xl bg-emerald-50/60 space-y-2">
                     <p className="text-[10px] font-semibold text-emerald-700 uppercase">Visit Plan</p>
                     <div className="flex gap-2">
                         <div className="flex-1">
@@ -935,7 +928,7 @@ function ListSection({
 
             {/* Expanded content */}
             {isExpanded && (
-                <div className="bg-white/10">
+                <div className="pb-1">
                     {/* POI Items with drag and drop */}
                     {items.map((item, index) => (
                         <div
@@ -946,7 +939,7 @@ function ListSection({
                             onDrop={isReadOnly ? undefined : () => onDrop(index)}
                             onDragEnd={isReadOnly ? undefined : onDragEnd}
                             className={cn(
-                                "px-3 py-2 flex items-center gap-2 hover:bg-white/20 cursor-pointer group border-b border-white/5 last:border-b-0",
+                                "pl-4 pr-2 py-2 flex items-center gap-2 rounded-xl hover:bg-black/5 cursor-pointer group transition-colors",
                                 isDragging && draggedIndex === index && "opacity-50 bg-blue-50"
                             )}
                             onClick={() => onItemClick(item)}
@@ -963,10 +956,10 @@ function ListSection({
                             />
 
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-zinc-800 truncate group-hover:text-blue-600">
+                                <p className="text-[13.5px] font-medium text-zinc-900 truncate">
                                     {item.placeName}
                                 </p>
-                                <p className="text-[10px] text-zinc-500 truncate">{item.placeAddress}</p>
+                                <p className="text-[12px] text-zinc-500 truncate">{item.placeAddress}</p>
                             </div>
 
                             {/* Remove button */}
@@ -976,9 +969,10 @@ function ListSection({
                                         e.stopPropagation();
                                         onRemoveItem(item.id);
                                     }}
-                                    className="w-5 h-5 rounded hover:bg-red-100 flex items-center justify-center shrink-0 opacity-50 hover:opacity-100"
+                                    className="w-7 h-7 rounded-full hover:bg-red-50 flex items-center justify-center shrink-0 text-zinc-500 hover:text-red-600 transition-colors"
+                                    aria-label={`Remove ${item.placeName}`}
                                 >
-                                    <X className="w-3 h-3 text-red-500" />
+                                    <X className="w-3.5 h-3.5" />
                                 </button>
                             )}
                         </div>
@@ -988,16 +982,16 @@ function ListSection({
                     {areas.map(area => (
                         <div
                             key={area.id}
-                            className="px-3 py-2 flex items-center gap-2 hover:bg-white/20 group border-b border-white/5 last:border-b-0"
+                            className="pl-4 pr-2 py-2 flex items-center gap-2 rounded-xl hover:bg-black/5 group transition-colors"
                         >
                             {/* Drag handle placeholder for alignment */}
                             <GripVertical className="w-3 h-3 text-zinc-300 shrink-0" />
 
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-zinc-800 truncate">
+                                <p className="text-[13.5px] font-medium text-zinc-900 truncate">
                                     {area.name}
                                 </p>
-                                <p className="text-[10px] text-zinc-500 truncate">
+                                <p className="text-[12px] text-zinc-500 truncate">
                                     {area.areaType === 'polygon' ? 'Custom area' : 'Custom point'}
                                 </p>
                             </div>
@@ -1005,17 +999,18 @@ function ListSection({
                             {/* Remove button */}
                             <button
                                 onClick={() => onRemoveArea(area.areaId)}
-                                className="w-5 h-5 rounded hover:bg-red-100 flex items-center justify-center shrink-0 opacity-50 hover:opacity-100"
+                                className="w-7 h-7 rounded-full hover:bg-red-50 flex items-center justify-center shrink-0 text-zinc-500 hover:text-red-600 transition-colors"
+                                aria-label={`Remove ${area.name}`}
                             >
-                                <X className="w-3 h-3 text-red-500" />
+                                <X className="w-3.5 h-3.5" />
                             </button>
                         </div>
                     ))}
 
                     {/* Empty state */}
                     {totalCount === 0 && (
-                        <div className="px-3 py-4 text-center text-xs text-zinc-400">
-                            No items in this list yet
+                        <div className="px-4 py-3 text-[12.5px] text-zinc-500">
+                            No places in this list yet
                         </div>
                     )}
                 </div>

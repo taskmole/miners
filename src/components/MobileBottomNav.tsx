@@ -1,81 +1,80 @@
 "use client";
 
 import React from "react";
-import { Funnel, Pencil, FolderOpen, MapPinned, Activity } from "lucide-react";
-import { useSheetState } from "@/contexts/SheetContext";
+import { useSheet } from "@/contexts/SheetContext";
 import { useMobile } from "@/hooks/useMobile";
 import { cn } from "@/lib/utils";
-import { NewButtonGlow } from "@/components/BeamGlow";
+import { MAP_TOOL_BY_ID, mapToolLabel, newListingsLabel, type MapToolId } from "@/lib/map-tools";
+
+// The phone bar keeps the order it has always had.
+const PHONE_ORDER: MapToolId[] = ["filters", "draw", "lists", "scouting", "activity"];
+const PHONE_TOOLS = PHONE_ORDER.map((id) => MAP_TOOL_BY_ID[id]);
 
 interface MobileBottomNavProps {
-  onNewListingsOpen?: () => void;
-  newListingsCount?: number;
-  /** Changes when new listings arrive; plays the glow on the NEW button. */
-  newListingsGlow?: number;
-  activityCount?: number;
+  onNewListingsOpen: () => void;
+  /** Something unread in Activity, until "Mark all read". */
+  activityGlow: boolean;
+  activityCount: number;
+  /** Unread listings in the latest batch, until every one is read. */
+  newGlow: boolean;
+  newCount: number;
 }
 
-export function MobileBottomNav({ onNewListingsOpen, newListingsCount = 0, newListingsGlow = 0, activityCount = 0 }: MobileBottomNavProps) {
+export function MobileBottomNav({
+  onNewListingsOpen,
+  activityGlow,
+  activityCount,
+  newGlow,
+  newCount,
+}: MobileBottomNavProps) {
   const isMobile = useMobile();
-  const filters = useSheetState("filters");
-  const draw = useSheetState("draw");
-  const lists = useSheetState("lists");
-  const scouting = useSheetState("scouting");
-  const activity = useSheetState("activity");
+  const { activeSheet, openSheet, closeSheet } = useSheet();
 
   if (!isMobile) return null;
-
-  const navItems = [
-    { id: "filters", icon: Funnel, sheet: filters, badge: 0 },
-    { id: "draw", icon: Pencil, sheet: draw, badge: 0 },
-    { id: "lists", icon: FolderOpen, sheet: lists, badge: 0 },
-    { id: "scouting", icon: MapPinned, sheet: scouting, badge: 0 },
-    { id: "activity", icon: Activity, sheet: activity, badge: activityCount },
-  ];
 
   return (
     <div className="fixed bottom-4 left-0 right-0 z-50 safe-area-pb flex justify-center px-5">
       <div className="flex items-center gap-2">
-        <div
-          className="flex items-center rounded-full px-2 py-1 gap-2"
-          style={{
-            background: "rgba(255, 255, 255, 0.68)",
-            backdropFilter: "blur(36px) saturate(180%)",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.14)",
-          }}
-        >
-          {navItems.map(({ id, icon: Icon, sheet, badge }) => (
-            <button
-              key={id}
-              onClick={sheet.toggle}
-              className={cn(
-                "relative flex items-center justify-center w-10 h-10 rounded-full transition-all active:scale-90",
-                sheet.isOpen
-                  ? "bg-black/10 text-zinc-900"
-                  : "text-zinc-700 active:text-zinc-900"
-              )}
-            >
-              <Icon className="w-[22px] h-[22px]" strokeWidth={1.5} />
-              {badge > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full" />
-              )}
-            </button>
-          ))}
+        {/* The desktop tool bar laid on its side: a tray of 40px buttons. */}
+        <div className="mt-tray flex items-center gap-2">
+          {PHONE_TOOLS.map((tool) => {
+            const { id, icon: Icon } = tool;
+            const isOpen = activeSheet === id;
+            const glow = id === "activity" && activityGlow;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => (isOpen ? closeSheet() : openSheet(id))}
+                aria-label={mapToolLabel(tool, activityCount)}
+                aria-expanded={isOpen}
+                className={cn(
+                  "relative flex items-center justify-center w-10 h-10 rounded-[12px] transition-all active:scale-90",
+                  // Open: the white tile, as on desktop.
+                  isOpen
+                    ? "bg-white text-zinc-900 shadow-[0_1px_3px_rgba(0,0,0,0.12)]"
+                    : "text-zinc-700 active:text-zinc-900",
+                  glow && "mt-lit is-light",
+                )}
+              >
+                <Icon className="w-[22px] h-[22px]" strokeWidth={1.5} aria-hidden />
+              </button>
+            );
+          })}
         </div>
-        {onNewListingsOpen && (
-          <button
-            onClick={onNewListingsOpen}
-            className="relative flex items-center justify-center w-12 h-12 rounded-[20px] bg-zinc-900 shadow-lg active:scale-95 transition-transform"
-            aria-label="New listings"
-          >
-            <NewButtonGlow playKey={newListingsGlow} borderRadius={20}>
-              <span className="text-[11px] font-extrabold text-white tracking-tight">NEW</span>
-            </NewButtonGlow>
-            {newListingsCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full" />
-            )}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onNewListingsOpen}
+          className={cn(
+            // A 48px tile, as tall as the tray beside it.
+            "relative flex items-center justify-center w-12 h-12 rounded-[16px] bg-zinc-900 shadow-lg active:scale-95 transition-transform",
+            newGlow && "mt-lit",
+          )}
+          aria-label={newListingsLabel(newCount)}
+          aria-haspopup="dialog"
+        >
+          <span className="mt-font text-[11px] font-extrabold text-white tracking-tight">NEW</span>
+        </button>
       </div>
     </div>
   );

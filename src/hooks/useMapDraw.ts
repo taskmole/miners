@@ -1,22 +1,11 @@
 import { useMapDraw as useMapDrawContext } from '@/components/ui/map-draw';
-import type { DrawMode } from '@/types/draw';
 
 /**
  * Hook for interacting with MapboxDraw functionality
  * Provides methods to change drawing modes, delete features, and export data
  */
 export function useMapDraw() {
-  const { draw, mode, features, selectedFeatureIds, deleteFeature, clearSelection } = useMapDrawContext();
-
-  const changeMode = (newMode: DrawMode) => {
-    if (!draw) return;
-    try {
-      // Cast to any because MapboxDraw types don't match our DrawMode type
-      (draw as any).changeMode(newMode);
-    } catch (error) {
-      console.error('Error changing mode:', error);
-    }
-  };
+  const { draw, mode, features, selectedFeatureIds, deleteFeature, clearSelection, changeMode } = useMapDrawContext();
 
   // Delete a specific feature by ID. Goes through the context so the delete is
   // saved: deleting straight on the draw instance fires no event and would not be.
