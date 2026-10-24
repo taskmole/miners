@@ -94,7 +94,7 @@ test.describe('Desktop Chrome viewport', () => {
     await dismissLanding(page);
     await waitForAppReady(page);
 
-    const filtersButton = page.locator('button[title="Open filters"]');
+    const filtersButton = page.getByRole('button', { name: 'Filters', exact: true });
     const isVisible = await filtersButton.isVisible().catch(() => false);
 
     await page.screenshot({
@@ -178,12 +178,12 @@ test.describe('Mobile viewport tests', () => {
     await dismissLanding(page);
     await waitForAppReady(page);
 
-    // MobileBottomNav has buttons: Filters, Draw, Lists, Trips, Activity
-    const filtersBtn = page.locator('button:has-text("Filters")');
-    const tripsBtn = page.locator('button:has-text("Trips")');
-    const listsBtn = page.locator('button:has-text("Lists")');
-    const drawBtn = page.locator('button:has-text("Draw")');
-    const activityBtn = page.locator('button:has-text("Activity")');
+    // MobileBottomNav has icon buttons named: Filters, Add to map, Saved lists, Scouting trips, Activity
+    const filtersBtn = page.getByRole('button', { name: 'Filters', exact: true });
+    const tripsBtn = page.getByRole('button', { name: 'Scouting trips', exact: true });
+    const listsBtn = page.getByRole('button', { name: 'Saved lists', exact: true });
+    const drawBtn = page.getByRole('button', { name: 'Add to map', exact: true });
+    const activityBtn = page.getByRole('button', { name: /^Activity/ });
 
     const results = {
       filters: await filtersBtn.isVisible().catch(() => false),

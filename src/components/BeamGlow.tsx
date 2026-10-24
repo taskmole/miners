@@ -42,8 +42,7 @@ export function BeamGlow({ playKey, playMs, ...beamProps }: BeamGlowProps) {
 }
 
 /**
- * The NEW listings button's glow (desktop and phone), also used on the
- * "What's new" Next button so both "look here" moments match. Goes inside the button,
+ * The "What's new" Next button's one-off glow. Goes inside the button,
  * so the button keeps its own position, shadow, red dot and tap shrink.
  * `borderRadius` must match the button's corners: Beam can't read them from
  * the text label it wraps. Green, held still, to stay on-brand; the "sm" and

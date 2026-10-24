@@ -32,6 +32,10 @@ interface BottomSheetProps {
   bleedTop?: boolean;
 }
 
+/** Round grey 40px button for a sheet's top corner (close, and extras beside it). */
+export const SHEET_ICON_BUTTON =
+  "w-10 h-10 flex items-center justify-center rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200 active:bg-zinc-200 transition-colors";
+
 // Threshold for swipe-to-dismiss (pixels)
 const SWIPE_THRESHOLD = 100;
 
@@ -181,7 +185,8 @@ export function BottomSheet({
       <div
         ref={sheetRef}
         className={cn(
-          "relative z-10 flex flex-col rounded-t-3xl shadow-2xl",
+          // Inter, like the map card (the app's base font is not loaded).
+          "mt-font relative z-10 flex flex-col rounded-t-3xl shadow-2xl",
           // A photo at the top: no white under its rounded corners (see
           // .sheet-bleed-top in globals.css).
           bleedTop && !isLandscapeMode ? "sheet-bleed-top" : "bg-white",
@@ -212,12 +217,14 @@ export function BottomSheet({
           >
             {headerButtons}
             {showCloseButton && (
+              // The map card's round grey X, kept at 40px for thumbs.
               <button
+                type="button"
                 onClick={onClose}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/90 shadow-md text-zinc-500 hover:bg-gray-100 hover:scale-105 transition-all duration-200"
+                className={SHEET_ICON_BUTTON}
                 aria-label="Close"
               >
-                <X className="w-5 h-5" />
+                <X className="w-[18px] h-[18px]" strokeWidth={2.2} />
               </button>
             )}
           </div>
@@ -260,7 +267,7 @@ export function BottomSheet({
         >
           {title && (
             <div className="px-4 pb-3 pr-16 sticky top-0 bg-white z-[5]">
-              <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
+              <h2 className="font-heading text-[20px] leading-tight font-semibold tracking-[-0.01em] text-zinc-900">{title}</h2>
             </div>
           )}
           {children}

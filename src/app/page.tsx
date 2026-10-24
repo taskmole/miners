@@ -10,6 +10,7 @@ import { ScoutingTripForm } from "@/components/ScoutingTripForm";
 import { ScoutingTripUpload } from "@/components/ScoutingTripUpload";
 import { ScoutingTripDetail } from "@/components/ScoutingTripDetail";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { MapToolRail } from "@/components/MapToolRail";
 import { FootfallTimePicker } from "@/components/FootfallTimePicker";
 import { FeedbackButton } from "@/components/FeedbackButton";
 import { ProfileMenu } from "@/components/ProfileMenu";
@@ -27,7 +28,6 @@ import {
 } from "@/lib/userPreferences";
 import { useMapData } from "@/hooks/useMapData";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
-import { useMobile } from "@/hooks/useMobile";
 import { useWhatsNew } from "@/hooks/useWhatsNew";
 import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { cityForCoordinates } from "@/lib/notify-routing";
@@ -50,7 +50,6 @@ import { PitchStatusProvider } from "@/contexts/PitchStatusContext";
 import { PropertyAssignmentProvider } from "@/contexts/PropertyAssignmentContext";
 import { TeamsProvider } from "@/contexts/TeamsContext";
 import { LinkingBanner } from "@/components/LinkingBanner";
-import { NewButtonGlow } from "@/components/BeamGlow";
 import { supabase, signOut } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api-client";
 import { setAuthUserId } from "@/lib/browser-session";
@@ -73,10 +72,9 @@ function HomeContent() {
     () => cities.find(c => c.id === "madrid") ?? cities[0]
   );
 
-  const { cafes, properties, otherPois, counts, isLoading: mapLoading } = useMapData(selectedCity.id);
+  const { cafes, properties, otherPois, counts } = useMapData(selectedCity.id);
 
   const { startLinking, isLinking } = useLinking();
-  const isMobile = useMobile();
 
   // Auth state
   const [user, setUser] = useState<User | null>(null);
@@ -141,12 +139,10 @@ function HomeContent() {
     window.addEventListener("reopen-new-listings", handleReopen);
     return () => window.removeEventListener("reopen-new-listings", handleReopen);
   }, []);
-  const [newListingsCount, setNewListingsCount] = useState(0);
-  // Plays the glow on the NEW button (desktop and mobile). Bumped in fetchCount
-  // only when the count goes UP, so it glows for fresh listings, not on every
-  // 60-second re-check or when the modal closes with listings still waiting.
-  const [newListingsGlow, setNewListingsGlow] = useState(0);
-  const lastListingsCount = useRef(0);
+  // The new-listings count with the city it was counted for. Read through
+  // newListingsCount below, which is 0 until the selected city's own count
+  // has loaded, so a city switch never shows the old city's number.
+  const [listingsCount, setListingsCount] = useState<{ cityId: string; count: number } | null>(null);
 
   // Landing page state - shows on first load (unless already logged in)
   const [showLanding, setShowLanding] = useState(true);
@@ -180,20 +176,20 @@ function HomeContent() {
   const { activeSheet } = useSheet();
 
   // Counts only once the user's own city is set (and picked, for a new user).
-  // Counting the Madrid fallback first used to bump the glow for Madrid's
-  // listings, which then played on a city that might have none.
+  // Counting the Madrid fallback first would light NEW up for Madrid's
+  // listings on a city that might have none.
   useEffect(() => {
     if (!user || !savedCityApplied || showCityPicker) return;
     let cancelled = false;
+    const cityId = selectedCity.id;
     async function fetchCount() {
       try {
-        const data = await apiFetch<{ count: number }>(`/api/db/inbox?city_id=${selectedCity.id}&mode=count`);
+        const data = await apiFetch<{ count: number }>(`/api/db/inbox?city_id=${cityId}&mode=count`);
         if (cancelled) return;
         const count = data?.count || 0;
-        if (count > lastListingsCount.current) setNewListingsGlow((n) => n + 1);
-        lastListingsCount.current = count;
-        setNewListingsCount(count);
-      } catch { /* ignore */ }
+        // Same object when unchanged, so the minute re-check does not re-render the map.
+        setListingsCount(prev => prev?.cityId === cityId && prev.count === count ? prev : { cityId, count });
+      } catch { /* a failed count keeps the last one; never reads as 0 */ }
     }
     fetchCount();
     const interval = setInterval(fetchCount, 60_000);
@@ -207,18 +203,14 @@ function HomeContent() {
     };
   }, [user, savedCityApplied, showCityPicker, selectedCity.id, isNewListingsOpen]);
 
-  // The NEW glow waits until someone is likely looking: map loaded for a
-  // second and the listings window closed. On a phone the first count usually
-  // landed while the map was still loading, so the glow was over before anyone
-  // looked at the buttons. The second also rides out the blip where loading
-  // briefly reads false while switching to the saved city.
-  const [newButtonGlow, setNewButtonGlow] = useState(0);
-  const newButtonVisible = !mapLoading && !isNewListingsOpen;
-  useEffect(() => {
-    if (!newButtonVisible) return;
-    const timer = setTimeout(() => setNewButtonGlow(newListingsGlow), 1000);
-    return () => clearTimeout(timer);
-  }, [newButtonVisible, newListingsGlow]);
+  const newListingsCount = listingsCount?.cityId === selectedCity.id ? listingsCount.count : 0;
+
+  // The glow on Activity and NEW: on while anything is unread (until "Mark
+  // all read", or until every listing in the latest batch is read), off
+  // while its own panel or window is open. The listings count is the unread
+  // ones and drops as they are read (recounted as the window closes).
+  const activityGlow = activeSheet !== "activity" && activityUnreadCount > 0;
+  const newGlow = !isNewListingsOpen && newListingsCount > 0;
 
   // Park a shared link's destination before anything else runs on mount. The
   // Google sign-in round trip comes back to a bare "/", and the auth-error
@@ -591,7 +583,8 @@ function HomeContent() {
       {/* UI Overlays - hide when in linking mode */}
       {!isLinking && (
         <>
-          <div className="fixed left-6 z-50 flex items-center gap-2" style={{ top: "calc(24px + env(safe-area-inset-top, 0px))" }}>
+          {/* City and search: one tray, like the tool bar. */}
+          <div className="mt-tray fixed left-4 sm:left-6 z-50 flex items-center gap-0.5 sm:gap-1.5" style={{ top: "calc(24px + env(safe-area-inset-top, 0px))" }}>
             <CitySelector
               selectedCity={selectedCity}
               available={grantedCities}
@@ -680,29 +673,27 @@ function HomeContent() {
             trafficHour={trafficHour}
             onTrafficHourChange={setTrafficHour}
           />
-          {/* New listings button - desktop only */}
-          {!isMobile && (
-            <button
-              onClick={() => setIsNewListingsOpen(true)}
-              className="w-9 h-9 rounded-lg items-center justify-center bg-zinc-900 hover:bg-zinc-800 active:scale-95 transition-all duration-200 relative"
-              style={{ position: "fixed", top: "244px", right: "24px", zIndex: 30, display: "flex", boxShadow: "0 4px 20px rgba(0,0,0,0.22), 0 0 0 1px rgba(255,255,255,0.15)" }}
-              aria-label="New listings"
-            >
-              {/* 10px = rounded-lg with this theme's --radius */}
-              <NewButtonGlow playKey={newButtonGlow} borderRadius={10}>
-                <span className="text-[10px] font-extrabold text-white tracking-tight leading-none">NEW</span>
-              </NewButtonGlow>
-              {newListingsCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full" />
-              )}
-            </button>
-          )}
+          {/* Map tools bar and NEW button - desktop only */}
+          <MapToolRail
+            activityGlow={activityGlow}
+            activityCount={activityUnreadCount}
+            newGlow={newGlow}
+            newCount={newListingsCount}
+            onNewListingsOpen={() => setIsNewListingsOpen(true)}
+            isNewListingsOpen={isNewListingsOpen}
+          />
           <NewListingsModal
             isOpen={isNewListingsOpen}
             onClose={() => setIsNewListingsOpen(false)}
             cityId={selectedCity.id}
           />
-          <MobileBottomNav onNewListingsOpen={() => setIsNewListingsOpen(true)} newListingsCount={newListingsCount} newListingsGlow={newButtonGlow} activityCount={activityUnreadCount} />
+          <MobileBottomNav
+            onNewListingsOpen={() => setIsNewListingsOpen(true)}
+            activityGlow={activityGlow}
+            activityCount={activityUnreadCount}
+            newGlow={newGlow}
+            newCount={newListingsCount}
+          />
           <FeedbackButton selectedCity={selectedCity} user={user} onExposeOpen={handleExposeOpen} />
           <ProfileMenu
             onFeedbackOpen={() => feedbackOpenRef.current?.()}

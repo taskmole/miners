@@ -11,8 +11,6 @@ import {
     GraduationCap,
     Home,
     ChevronRight,
-    Funnel,
-    X,
     Dumbbell,
 } from "lucide-react";
 import { useHiddenPoisContext } from "@/contexts/HiddenPoisContext";
@@ -20,7 +18,7 @@ import { useSheetState } from "@/contexts/SheetContext";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MobilePanel } from "@/components/ui/mobile-panel";
+import { MobilePanel, MobilePanelHeader } from "@/components/ui/mobile-panel";
 import { SegmentedFilterRow } from "@/components/ui/segmented-filter";
 import { useMobile } from "@/hooks/useMobile";
 import { cn } from "@/lib/utils";
@@ -153,6 +151,21 @@ const propertyPitchStatusOptions: { value: PropertyPitchStatusFilter; label: str
     { value: "scouted", label: "Scouted" },
 ];
 
+/**
+ * Desktop: a plain scrolling div that fills the panel under its header (Radix
+ * ScrollArea needs a fixed height, which a screen-capped panel has not got).
+ * Phones keep the ScrollArea sized to the sheet.
+ */
+function FiltersScroller({ isMobile, children }: { isMobile: boolean; children: React.ReactNode }) {
+    return isMobile ? (
+        <ScrollArea className="overflow-y-auto sidebar-scroll-height">
+            <div className="px-2">{children}</div>
+        </ScrollArea>
+    ) : (
+        <div className="mt-body">{children}</div>
+    );
+}
+
 export function Sidebar({
     cityId,
     counts,
@@ -212,7 +225,7 @@ export function Sidebar({
     }, [properties, isAssignedToMe, getPitchStatus]);
 
     // Use SheetContext for coordinated open/close
-    const { isOpen, open, close } = useSheetState("filters");
+    const { isOpen, close } = useSheetState("filters");
     const isMobile = useMobile();
     // Which main sections are expanded (places, traffic)
     const [expandedSections, setExpandedSections] = React.useState<Set<string>>(new Set());
@@ -473,57 +486,31 @@ export function Sidebar({
     const isPopulationExpanded = expandedSections.has('population');
     const isIncomeExpanded = expandedSections.has('income');
 
-    // Collapsed button for desktop
-    const collapsedButton = (
-        <button
-            onClick={open}
-            className="glass w-9 h-9 rounded-lg border border-white/40 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition-all duration-200"
-            title="Open filters"
-        >
-            <Funnel className="w-[18px] h-[18px] text-zinc-500" />
-        </button>
-    );
+    // Section header pill: "N active", or a layer's On/Off switch.
+    const pillClass = (on: boolean) => cn("mt-pill is-sm", on && "is-on");
 
     // Render using MobilePanel
     return (
         <MobilePanel
             isOpen={isOpen}
             onClose={close}
-            desktopPosition={{ top: "24px", right: "24px" }}
             title="Filters"
-            collapsedButton={collapsedButton}
-            zIndex={60}
             snapPoint="full"
         >
-            <ScrollArea className={cn("overflow-y-auto", isMobile ? "sidebar-scroll-height" : "max-h-[calc(100vh-48px)]")}>
-                {/* Header - only on desktop */}
-                {!isMobile && (
-                    <div className="p-4 flex items-center justify-between border-b border-white/10">
-                        <span className="text-sm font-bold text-zinc-900 font-heading">Filters</span>
-                        <button
-                            onClick={close}
-                            className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center bg-[rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.04)] hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    </div>
-                )}
-
+            <MobilePanelHeader title="Filters" onClose={close} />
+            <FiltersScroller isMobile={isMobile}>
                     {/* ===== PLACES SECTION ===== */}
-                    <div className="border-b border-white/10">
+                    <div>
                         {/* Places header row */}
                         <button
                             onClick={() => toggleSection('places')}
-                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/20 transition-colors"
+                            className="mt-sec"
                         >
-                            <div className="flex items-center gap-2">
-                                <ChevronRight className={cn(
-                                    "w-4 h-4 text-zinc-500 transition-transform duration-200 ease-out",
-                                    isPlacesExpanded && "rotate-90"
-                                )} />
-                                <span className="text-sm font-bold text-zinc-900 font-heading">Places</span>
+                            <div className="mt-sec-title">
+                                <ChevronRight className={cn(isPlacesExpanded && "is-open")} aria-hidden />
+                                Places
                             </div>
-                            <span className="px-2.5 py-1 text-[11px] md:px-2 md:py-0.5 md:text-[10px] bg-zinc-900 text-white font-bold rounded-full">
+                            <span className="mt-pill is-sm is-dark">
                                 {activeCount} active
                             </span>
                         </button>
@@ -534,29 +521,19 @@ export function Sidebar({
                             style={{ gridTemplateRows: isPlacesExpanded ? '1fr' : '0fr' }}
                         >
                             <div className="overflow-hidden">
-                                <div className="border-t border-white/10">
-                                    {/* Segmented Toggle Controls */}
-                                    <div className="px-4 py-2 border-b border-white/10">
-                                        <div className="flex bg-zinc-300/60 rounded-lg p-1">
+                                <div>
+                                    {/* Segmented Toggle Controls: clear of the header above, a beat before the list */}
+                                    <div className="px-2 pt-2 pb-3">
+                                        <div className="mt-seg">
                                             <button
                                                 onClick={handleSelectAll}
-                                                className={cn(
-                                                    "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
-                                                    isAllSelected && !showHiddenPois
-                                                        ? "bg-white text-zinc-900 shadow-sm"
-                                                        : "text-zinc-500 hover:text-zinc-700"
-                                                )}
+                                                className={cn(isAllSelected && !showHiddenPois && "is-on")}
                                             >
-                                                Show All
+                                                Show all
                                             </button>
                                             <button
                                                 onClick={handleClearAll}
-                                                className={cn(
-                                                    "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
-                                                    isNoneSelected && !showHiddenPois
-                                                        ? "bg-white text-zinc-900 shadow-sm"
-                                                        : "text-zinc-500 hover:text-zinc-700"
-                                                )}
+                                                className={cn(isNoneSelected && !showHiddenPois && "is-on")}
                                             >
                                                 Clear
                                             </button>
@@ -566,12 +543,7 @@ export function Sidebar({
                                                         onFilterChange(new Set<string>());
                                                         onShowHiddenPoisToggle?.(true);
                                                     }}
-                                                    className={cn(
-                                                        "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
-                                                        showHiddenPois
-                                                            ? "bg-white text-zinc-900 shadow-sm"
-                                                            : "text-zinc-500 hover:text-zinc-700"
-                                                    )}
+                                                    className={cn(showHiddenPois && "is-on")}
                                                 >
                                                     Hidden
                                                 </button>
@@ -580,7 +552,7 @@ export function Sidebar({
                                     </div>
 
                                     {/* Category List */}
-                                    <div className="p-3 space-y-1">
+                                    <div className="space-y-0.5 pb-2">
                                         {placeCategories.map((cat) => {
                                             const count = cat.hasSubcategories
                                                 ? getCount("cafe")
@@ -596,7 +568,7 @@ export function Sidebar({
                                             return (
                                                 <div key={cat.id}>
                                                     <div
-                                                        className="flex items-center justify-between py-2 md:py-1.5 px-2 rounded-lg hover:bg-black/10 transition-colors cursor-pointer group"
+                                                        className="flex items-center justify-between min-h-10 px-2 py-1.5 rounded-xl sm:min-h-8 sm:py-1 sm:rounded-[8px] hover:bg-black/5 transition-colors cursor-pointer group"
                                                         onClick={() => {
                                                         if (isExpandable) {
                                                             // Only expand/collapse - checkbox handles toggling
@@ -607,7 +579,7 @@ export function Sidebar({
                                                         }
                                                     }}
                                                     >
-                                                        <div className="flex items-center gap-2.5">
+                                                        <div className="flex items-center gap-3">
                                                             <Checkbox
                                                                 id={cat.id}
                                                                 checked={isActive}
@@ -641,24 +613,24 @@ export function Sidebar({
                                                                     }
                                                                 }}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                className="size-5 md:size-4 border-zinc-300 data-[state=checked]:bg-zinc-800 data-[state=checked]:border-zinc-800"
+                                                                className="size-5 sm:size-4 border-zinc-300 data-[state=checked]:bg-zinc-800 data-[state=checked]:border-zinc-800"
                                                             />
                                                             <span className={cn(
-                                                                "text-sm font-medium",
+                                                                "text-[14px] sm:text-[13.5px] font-medium",
                                                                 isActive ? "text-zinc-900" : "text-zinc-500"
                                                             )}>
                                                                 {cat.label}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-xs font-semibold text-zinc-400 bg-[rgba(0,0,0,0.04)] px-2 py-0.5 rounded-lg">
+                                                            <span className="text-[12px] font-semibold text-zinc-500 tabular-nums">
                                                                 {count}
                                                             </span>
                                                             {isExpandable && (
                                                                 <ChevronRight className={cn(
                                                                     "w-4 h-4 text-zinc-400 transition-transform duration-200 ease-out",
                                                                     isCatExpanded && "rotate-90"
-                                                                )} />
+                                                                )} aria-hidden />
                                                             )}
                                                         </div>
                                                     </div>
@@ -670,10 +642,10 @@ export function Sidebar({
                                                             style={{ gridTemplateRows: isCatExpanded ? '1fr' : '0fr' }}
                                                         >
                                                             <div className="overflow-hidden">
-                                                                <div className="ml-6 pl-3 border-l border-zinc-200/50 mt-1 mb-2 space-y-2 md:space-y-1">
+                                                                <div className="ml-[18px] pl-3 pr-2 border-l border-black/10 mt-1 mb-2 space-y-2">
                                                                     {/* Rating slider for cafes */}
-                                                                    <div className="py-2 pr-3">
-                                                                        <div className="flex justify-between text-[10px] font-medium text-zinc-500 mb-2">
+                                                                    <div className="py-2">
+                                                                        <div className="flex justify-between text-[12px] font-medium text-zinc-500 mb-2">
                                                                             <span>Min. Rating</span>
                                                                             <span>{localRating.toFixed(1)} ★</span>
                                                                         </div>
@@ -703,20 +675,20 @@ export function Sidebar({
                                                                         return (
                                                                             <React.Fragment key={sub.id}>
                                                                                 <div
-                                                                                    className="flex items-center justify-between py-1.5 md:py-1 px-2 rounded hover:bg-black/10"
+                                                                                    className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-black/5"
                                                                                 >
                                                                                     <div className="flex items-center gap-2">
                                                                                         <Checkbox
                                                                                             id={sub.id}
                                                                                             checked={subActive}
                                                                                             onCheckedChange={(checked) => handleToggle(sub.id, !!checked)}
-                                                                                            className="size-5 md:size-3.5"
+                                                                                            className="size-5 sm:size-3.5"
                                                                                         />
-                                                                                        <label htmlFor={sub.id} className="text-[11px] font-medium text-zinc-900/70 cursor-pointer">
+                                                                                        <label htmlFor={sub.id} className="text-[13px] font-medium text-zinc-700 cursor-pointer">
                                                                                             {sub.label}
                                                                                         </label>
                                                                                     </div>
-                                                                                    <span className="text-[10px] text-zinc-400">
+                                                                                    <span className="text-[12px] text-zinc-500 tabular-nums">
                                                                                         {subCount}
                                                                                     </span>
                                                                                 </div>
@@ -727,29 +699,15 @@ export function Sidebar({
                                                                                         style={{ gridTemplateRows: subActive ? '1fr' : '0fr' }}
                                                                                     >
                                                                                         <div className="overflow-hidden">
-                                                                                            <div className="flex bg-zinc-300/60 rounded-lg p-1 mr-2 my-1">
-                                                                                                {euctFilterOptions.map((opt) => (
-                                                                                                    <button
-                                                                                                        key={opt.value}
-                                                                                                        onClick={() => handleEuctChange(opt.value)}
-                                                                                                        className={cn(
-                                                                                                            "flex-1 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
-                                                                                                            euctFilter === opt.value
-                                                                                                                ? "bg-white text-zinc-900 shadow-sm"
-                                                                                                                : "text-zinc-500 hover:text-zinc-700"
-                                                                                                        )}
-                                                                                                    >
-                                                                                                        {opt.label}
-                                                                                                        <span className={cn(
-                                                                                                            "ml-1.5 text-[10px] font-medium",
-                                                                                                            euctFilter === opt.value
-                                                                                                                ? "text-zinc-400"
-                                                                                                                : "text-zinc-400/60"
-                                                                                                        )}>
-                                                                                                            {getCount(opt.countKey)}
-                                                                                                        </span>
-                                                                                                    </button>
-                                                                                                ))}
+                                                                                            <div className="my-1">
+                                                                                                <SegmentedFilterRow
+                                                                                                    label="EU Coffee Trip cafes"
+                                                                                                    hideLabel
+                                                                                                    options={euctFilterOptions}
+                                                                                                    value={euctFilter}
+                                                                                                    onChange={handleEuctChange}
+                                                                                                    counts={euctFilterOptions.map((opt) => getCount(opt.countKey))}
+                                                                                                />
                                                                                             </div>
                                                                                         </div>
                                                                                     </div>
@@ -769,9 +727,9 @@ export function Sidebar({
                                                             style={{ gridTemplateRows: isCatExpanded ? '1fr' : '0fr' }}
                                                         >
                                                             <div className="overflow-hidden">
-                                                                <div className="ml-6 pl-3 border-l border-zinc-200/50 mt-1 mb-2 space-y-2 md:space-y-1">
-                                                                    <div className="py-2 pr-3">
-                                                                        <div className="flex justify-between text-[10px] font-medium text-zinc-500 mb-2">
+                                                                <div className="ml-[18px] pl-3 pr-2 border-l border-black/10 mt-1 mb-2 space-y-2">
+                                                                    <div className="py-2">
+                                                                        <div className="flex justify-between text-[12px] font-medium text-zinc-500 mb-2">
                                                                             <span>Min. Score</span>
                                                                             <span>{localScore} / 100</span>
                                                                         </div>
@@ -834,7 +792,7 @@ export function Sidebar({
 
                     {/* ===== TRAFFIC SECTION ===== */}
                     {hasTraffic && (
-                    <div className="border-b border-white/10">
+                    <div>
                         <button
                             onClick={() => {
                                 if (!isTrafficExpanded) {
@@ -846,26 +804,18 @@ export function Sidebar({
                                     toggleSection('traffic');
                                 }
                             }}
-                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/20 transition-colors"
+                            className="mt-sec"
                         >
-                            <div className="flex items-center gap-2">
-                                <ChevronRight className={cn(
-                                    "w-4 h-4 text-zinc-500 transition-transform duration-200 ease-out",
-                                    isTrafficExpanded && "rotate-90"
-                                )} />
-                                <span className="text-sm font-bold text-zinc-900 font-heading">Traffic</span>
+                            <div className="mt-sec-title">
+                                <ChevronRight className={cn(isTrafficExpanded && "is-open")} aria-hidden />
+                                Traffic
                             </div>
                             <span
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onTrafficToggle?.(!trafficEnabled);
                                 }}
-                                className={cn(
-                                    "px-2.5 py-1 text-[11px] md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full cursor-pointer transition-colors",
-                                    trafficEnabled
-                                        ? "bg-green-100/50 text-green-700 hover:bg-green-200/50"
-                                        : "bg-zinc-200/60 text-zinc-500 hover:bg-zinc-200"
-                                )}
+                                className={cn(pillClass(trafficEnabled), "cursor-pointer")}
                             >
                                 {trafficEnabled ? "On" : "Off"}
                             </span>
@@ -877,8 +827,8 @@ export function Sidebar({
                             style={{ gridTemplateRows: isTrafficExpanded ? '1fr' : '0fr' }}
                         >
                             <div className="overflow-hidden">
-                                <div className="px-4 pb-4 pt-2 border-t border-white/10">
-                                    <div className="flex justify-between text-[10px] font-medium text-zinc-500 mb-2">
+                                <div className="px-2 pb-3 pt-1">
+                                    <div className="flex justify-between text-[12px] font-medium text-zinc-500 mb-2">
                                         <span>Hour of the day</span>
                                         <span>{localTrafficHour}:00</span>
                                     </div>
@@ -890,19 +840,23 @@ export function Sidebar({
                                         step={1}
                                     />
                                     {/* Show Values toggle */}
-                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
-                                        <span className="text-[11px] font-medium text-zinc-600">Show Values</span>
+                                    <div className="flex items-center justify-between mt-3">
+                                        <span className="text-[13px] font-medium text-zinc-700">Show values</span>
                                         <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={trafficValuesEnabled}
+                                            aria-label="Show values"
                                             onClick={() => onTrafficValuesToggle?.(!trafficValuesEnabled)}
                                             className={cn(
-                                                "relative inline-flex h-6 w-10 md:h-5 md:w-9 items-center rounded-full transition-colors",
-                                                trafficValuesEnabled ? "bg-green-500" : "bg-zinc-300"
+                                                "relative inline-flex h-6 w-10 sm:h-5 sm:w-9 items-center rounded-full transition-colors",
+                                                trafficValuesEnabled ? "bg-zinc-900" : "bg-black/15"
                                             )}
                                         >
                                             <span
                                                 className={cn(
-                                                    "inline-block h-5 w-5 md:h-4 md:w-4 transform rounded-full bg-white shadow-sm transition-transform",
-                                                    trafficValuesEnabled ? "translate-x-4 md:translate-x-4" : "translate-x-0.5"
+                                                    "inline-block h-5 w-5 sm:h-4 sm:w-4 transform rounded-full bg-white shadow-sm transition-transform",
+                                                    trafficValuesEnabled ? "translate-x-4" : "translate-x-0.5"
                                                 )}
                                             />
                                         </button>
@@ -915,7 +869,7 @@ export function Sidebar({
 
                     {/* ===== POPULATION SECTION ===== */}
                     {hasPopulation && (
-                    <div className="border-b border-white/10">
+                    <div>
                         <button
                             onClick={() => {
                                 if (!isPopulationExpanded) {
@@ -927,26 +881,18 @@ export function Sidebar({
                                     toggleSection('population');
                                 }
                             }}
-                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/20 transition-colors"
+                            className="mt-sec"
                         >
-                            <div className="flex items-center gap-2">
-                                <ChevronRight className={cn(
-                                    "w-4 h-4 text-zinc-500 transition-transform duration-200 ease-out",
-                                    isPopulationExpanded && "rotate-90"
-                                )} />
-                                <span className="text-sm font-bold text-zinc-900 font-heading">Population</span>
+                            <div className="mt-sec-title">
+                                <ChevronRight className={cn(isPopulationExpanded && "is-open")} aria-hidden />
+                                Population
                             </div>
                             <span
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onPopulationToggle?.(!populationEnabled);
                                 }}
-                                className={cn(
-                                    "px-2.5 py-1 text-[11px] md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full cursor-pointer transition-colors",
-                                    populationEnabled
-                                        ? "bg-green-100/50 text-green-700 hover:bg-green-200/50"
-                                        : "bg-zinc-200/60 text-zinc-500 hover:bg-zinc-200"
-                                )}
+                                className={cn(pillClass(populationEnabled), "cursor-pointer")}
                             >
                                 {populationEnabled ? "On" : "Off"}
                             </span>
@@ -958,8 +904,8 @@ export function Sidebar({
                             style={{ gridTemplateRows: isPopulationExpanded ? '1fr' : '0fr' }}
                         >
                             <div className="overflow-hidden">
-                                <div className="px-4 pb-4 pt-2 border-t border-white/10">
-                                    <div className="flex justify-between text-[10px] font-medium text-zinc-500 mb-2">
+                                <div className="px-2 pb-3 pt-1">
+                                    <div className="flex justify-between text-[12px] font-medium text-zinc-500 mb-2">
                                         <span>Density</span>
                                         <span>{formatDensity(localDensityFilter)} or more</span>
                                     </div>
@@ -990,14 +936,11 @@ export function Sidebar({
                                     toggleSection('income');
                                 }
                             }}
-                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/20 transition-colors"
+                            className="mt-sec"
                         >
-                            <div className="flex items-center gap-2">
-                                <ChevronRight className={cn(
-                                    "w-4 h-4 text-zinc-500 transition-transform duration-200 ease-out",
-                                    isIncomeExpanded && "rotate-90"
-                                )} />
-                                <span className="text-sm font-bold text-zinc-900 font-heading">Income</span>
+                            <div className="mt-sec-title">
+                                <ChevronRight className={cn(isIncomeExpanded && "is-open")} aria-hidden />
+                                Income
                                 {/* Info tooltip - commented out for now, uncomment to restore
                                 <div className="relative group/info" onClick={(e) => e.stopPropagation()}>
                                     <Info className="w-3.5 h-3.5 text-zinc-400 cursor-help" />
@@ -1022,12 +965,7 @@ export function Sidebar({
                                     e.stopPropagation();
                                     onIncomeToggle?.(!incomeEnabled);
                                 }}
-                                className={cn(
-                                    "px-2.5 py-1 text-[11px] md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full cursor-pointer transition-colors",
-                                    incomeEnabled
-                                        ? "bg-green-100/50 text-green-700 hover:bg-green-200/50"
-                                        : "bg-zinc-200/60 text-zinc-500 hover:bg-zinc-200"
-                                )}
+                                className={cn(pillClass(incomeEnabled), "cursor-pointer")}
                             >
                                 {incomeEnabled ? "On" : "Off"}
                             </span>
@@ -1039,8 +977,8 @@ export function Sidebar({
                             style={{ gridTemplateRows: isIncomeExpanded ? '1fr' : '0fr' }}
                         >
                             <div className="overflow-hidden">
-                                <div className="px-4 pb-4 pt-2 border-t border-white/10">
-                                    <div className="flex justify-between text-[10px] font-medium text-zinc-500 mb-2">
+                                <div className="px-2 pb-3 pt-1">
+                                    <div className="flex justify-between text-[12px] font-medium text-zinc-500 mb-2">
                                         <span>% of people making 2x average income</span>
                                         <span>{localIncomeFilter}% or more</span>
                                     </div>
@@ -1059,33 +997,35 @@ export function Sidebar({
 
                     {/* ===== LOCATION SCORE SECTION (only when city supports it) ===== */}
                     {hasLocationScore && (
-                    <div className="border-b border-white/10">
+                    <div>
                         <div
                             onClick={() => onGravityToggle?.(!gravityEnabled)}
-                            className="w-full px-4 py-3 flex items-center justify-between transition-colors hover:bg-white/20 cursor-pointer"
+                            className="mt-sec cursor-pointer"
+                            role="switch"
+                            aria-checked={gravityEnabled}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    onGravityToggle?.(!gravityEnabled);
+                                }
+                            }}
                         >
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold font-heading text-zinc-900">Location Score</span>
-                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full uppercase bg-amber-100 text-amber-700">
+                            <div className="mt-sec-title">
+                                Location Score
+                                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full uppercase bg-amber-100 text-amber-800 mt-font">
                                     Beta
                                 </span>
                             </div>
-                            <span
-                                className={cn(
-                                    "px-2.5 py-1 text-[11px] md:px-2 md:py-0.5 md:text-[10px] font-bold rounded-full transition-colors",
-                                    gravityEnabled
-                                        ? "bg-green-100/50 text-green-700"
-                                        : "bg-zinc-200/60 text-zinc-500"
-                                )}
-                            >
+                            <span className={pillClass(gravityEnabled)}>
                                 {gravityEnabled ? "On" : "Off"}
                             </span>
                         </div>
                     </div>
                     )}
                     {/* Bottom spacer for mobile scroll */}
-                    <div className="h-24 md:h-0" />
-            </ScrollArea>
+                    <div className="h-24 sm:h-0" />
+            </FiltersScroller>
         </MobilePanel>
     );
 }

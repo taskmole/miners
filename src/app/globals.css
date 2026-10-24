@@ -1117,12 +1117,12 @@
 /* ── Desktop: the bottom row and photo arrows a size down, closer to the
    28px chips. Phones keep 44px tap targets. ── */
 @media (min-width: 640px) {
-  .poi-bar .poi-main, .poi-bar .poi-pill, .poi-bar .poi-main-slot { height: 40px; min-width: 100px; border-radius: 11px; }
+  .poi-bar .poi-main, .poi-bar .poi-pill, .poi-bar .poi-main-slot { height: 40px; min-width: 100px; border-radius: 12px; }
   .poi-bar .poi-main { font-size: 14px; }
   .poi-bar .poi-pill { font-size: 13px; }
   /* Only the bottom row's ⋯: the notes composer's paperclip stays 44px
      beside its 44px field. */
-  .poi-bar .poi-ib, .poi-tile { width: 40px; height: 40px; border-radius: 11px; }
+  .poi-bar .poi-ib, .poi-tile { width: 40px; height: 40px; border-radius: 12px; }
   .poi-bar .poi-ib svg { width: 17px; height: 17px; }
   .poi-tile.is-bg img { width: 23px; height: 23px; }
   .poi-tile.is-glyph svg { width: 18px; height: 18px; }
@@ -1934,4 +1934,269 @@
 .whats-new-streak { animation: whats-new-streak 0.9s linear infinite; will-change: transform; }
 @media (prefers-reduced-motion: reduce) {
   .whats-new-race, .whats-new-streak { animation: none; }
+}
+
+/* ── Map tools: the five-button bar on the right, its panels and the phone
+   bottom bar. Same family as the map card (.poi-*): ink #18181b, grey fill
+   at 6% black on glass, 12px corners, Inter body, Outfit titles, and every
+   text line on a 16px edge (8px body padding + 8px row padding). ── */
+:root {
+  /* The bar's right edge, clear of a landscape iPhone's notch. */
+  --mt-right: max(24px, calc(env(safe-area-inset-right, 0px) + 12px));
+}
+.mt-font { font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif; }
+
+/* One shape system for every floating control on the map: rounded squares,
+   one size per screen. A group is a frosted tray with 4px of padding round
+   its buttons (tray corner = button corner + 4px), and a button on its own
+   (NEW, profile) is exactly as big as a tray.
+   Phones: 48px trays and tiles (16px corners), 40px buttons (12px).
+   Desktop: 36px trays and tiles (12px corners), 28px buttons (8px), the
+   size the map style toggle has always had. */
+/* The .glass frost, shared by trays and lone buttons. */
+.mt-tray, .mt-float {
+  border-radius: 16px;
+  background: rgba(255,255,255,0.58); backdrop-filter: blur(36px) saturate(180%); -webkit-backdrop-filter: blur(36px) saturate(180%);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.22);
+}
+.mt-tray { padding: 4px; }
+.mt-float {
+  display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 8px;
+  height: 48px; min-width: 48px; color: #18181b; transition: background-color 150ms;
+}
+.mt-float.is-text { padding: 0 12px; }
+/* Inside a tray the tray is the glass; the buttons are plain cells. */
+.mt-tray .mt-float {
+  height: 40px; min-width: 40px; border-radius: 12px;
+  background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none;
+}
+@media (min-width: 640px) {
+  .mt-tray { border-radius: 12px; }
+  .mt-float { height: 36px; min-width: 36px; border-radius: 12px; }
+  .mt-tray .mt-float { height: 28px; min-width: 28px; border-radius: 8px; }
+  .mt-float.is-text { padding: 0 10px; gap: 6px; }
+  .mt-float:hover { background: rgba(255,255,255,0.75); }
+  .mt-tray .mt-float:hover { background: rgba(0,0,0,0.05); }
+}
+
+.mt-rail { position: fixed; top: 24px; right: var(--mt-right); z-index: 50; display: flex; flex-direction: column; gap: 8px; }
+/* Phones use the bottom bar. Hidden by CSS too, so it never flashes while
+   useMobile() still reads false on the first render. */
+@media (max-width: 639.98px) { .mt-rail { display: none; } }
+/* A desktop tray on its side: 4px of even padding around 28px cells, 6px
+   apart like the map style toggle's (GAP in MapToolRail.tsx). No border:
+   .glass removes it anyway, and a border-box width then left 2px spare on
+   the right. */
+.mt-bar { display: flex; flex-direction: column; gap: 6px; box-sizing: content-box; width: 28px; padding: 4px; border: 0; border-radius: 12px; }
+.mt-cell {
+  position: relative; z-index: 1; display: flex; width: 28px; height: 28px;
+  align-items: center; justify-content: center; border-radius: 8px; color: #71717a;
+  transition: color 160ms ease;
+}
+.mt-cell:hover, .mt-cell.is-on { color: #18181b; }
+.mt-cell.is-drawing { color: #0d9488; }
+/* The white tile that slides to the open tool. */
+.mt-hl {
+  position: absolute; left: 4px; top: 4px; width: 28px; height: 28px; border-radius: 8px;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.12); pointer-events: none;
+  transition: transform 280ms cubic-bezier(.3,.8,.2,1), opacity 160ms ease;
+}
+.mt-new {
+  /* A tile as big as the bar is wide, like every lone button on desktop. */
+  position: relative; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px;
+  background: #18181b; color: #fff; font: 800 10px var(--font-inter), sans-serif; letter-spacing: -0.01em;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.22), 0 0 0 1px rgba(255,255,255,0.15);
+  transition: background-color 150ms, transform 100ms;
+}
+.mt-new:hover { background: #27272a; }
+.mt-new:active { transform: scale(.96); }
+
+/* "Something unread" on NEW and Activity (desktop and phone): coloured light
+   inside the button itself, no ring. A thin rainbow line drifts back and
+   forth along the bottom edge and lights the button up from below, softly
+   breathing. Both layers sit under the label (isolation + z-index -1) and
+   are clipped to the button's corners. "is-light" is for a see-through
+   button on the frosted bars (Activity), plain for the black NEW tile. With
+   reduced motion it holds still in the middle. */
+@property --mt-x { syntax: "<percentage>"; initial-value: 50%; inherits: false; }
+.mt-lit { isolation: isolate; overflow: hidden; }
+/* Each layer drifts on its own, so only the two layers restyle per frame. */
+.mt-lit::before, .mt-lit::after {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  animation: mt-drift 3.2s ease-in-out infinite alternate;
+}
+/* The light rising from the edge. */
+.mt-lit::before {
+  inset: 0;
+  background:
+    radial-gradient(55% 95% at var(--mt-x) 100%, rgba(255,79,163,0.95), transparent 75%),
+    radial-gradient(45% 80% at calc(var(--mt-x) - 26%) 100%, rgba(62,232,181,0.85), transparent 75%),
+    radial-gradient(45% 80% at calc(var(--mt-x) + 26%) 100%, rgba(71,181,255,0.9), transparent 75%);
+  filter: blur(3px) saturate(1.3);
+  animation: mt-drift 3.2s ease-in-out infinite alternate, mt-breathe 2.4s ease-in-out infinite;
+}
+/* The line on the edge. */
+.mt-lit::after {
+  left: 0; right: 0; bottom: 0; height: 2.5px;
+  background: linear-gradient(90deg, transparent, #3ee8b5 calc(var(--mt-x) - 26%), #ff4fa3 var(--mt-x), #47b5ff calc(var(--mt-x) + 26%), transparent);
+}
+@keyframes mt-drift { from { --mt-x: 22%; } to { --mt-x: 78%; } }
+@keyframes mt-breathe { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+/* A touch softer on the light bars, where the same colours read stronger. */
+@keyframes mt-breathe-light { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.9; } }
+.mt-lit.is-light::before { animation-name: mt-drift, mt-breathe-light; }
+@media (prefers-reduced-motion: reduce) {
+  .mt-lit::before, .mt-lit::after { animation: none; }
+}
+
+/* Hover name to the left of the bar. */
+.mt-tip {
+  position: fixed; top: 0; right: calc(var(--mt-right) + 48px); z-index: 61; height: 28px; padding: 0 10px;
+  display: flex; align-items: center; border-radius: 8px; background: #18181b; color: #fff;
+  font: 500 12.5px var(--font-inter), sans-serif; white-space: nowrap; pointer-events: none;
+  transition: transform 160ms cubic-bezier(.3,.8,.2,1);
+}
+
+/* Panel frame: opens beside the bar, never taller than the screen. */
+.mt-panel {
+  position: fixed; top: 24px; right: calc(var(--mt-right) + 48px); z-index: 60;
+  width: 320px; max-width: calc(100vw - var(--mt-right) - 72px); max-height: calc(100dvh - 48px);
+  display: flex; flex-direction: column; border-radius: 20px; overflow: hidden; color: #18181b;
+  transform-origin: top right; animation: mt-panel-in 220ms cubic-bezier(.2,.8,.2,1);
+}
+@keyframes mt-panel-in {
+  from { opacity: 0; transform: translateX(8px) scale(.97); }
+}
+/* Panel body: fills what the header leaves and scrolls. On phones the sheet scrolls instead. */
+.mt-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 8px 8px; }
+@media (max-width: 639.98px) { .mt-body { overflow: visible; padding-bottom: 16px; } }
+
+.mt-head { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 8px; padding: 16px 16px 12px; }
+.mt-head-end { display: flex; align-items: center; gap: 8px; }
+.mt-title { font: 600 17px/1.2 var(--font-outfit), sans-serif; letter-spacing: -0.01em; color: #18181b; }
+.mt-x {
+  position: relative; display: grid; flex: none; place-items: center; width: 28px; height: 28px; border-radius: 99px;
+  background: rgba(0,0,0,0.06); color: #52525b; transition: background-color 150ms;
+}
+.mt-x:hover { background: rgba(0,0,0,0.1); }
+.mt-x svg { width: 15px; height: 15px; }
+/* 44px to tap, 28px to see. */
+.mt-x::after { content: ""; position: absolute; inset: -8px; }
+
+.mt-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 14px;
+  border-radius: 12px; font: 600 14px var(--font-inter), sans-serif; white-space: nowrap;
+  transition: background-color 150ms, transform 100ms;
+}
+.mt-btn svg { width: 16px; height: 16px; }
+.mt-btn:active { transform: scale(.98); }
+.mt-btn:disabled { opacity: 0.5; pointer-events: none; }
+.mt-btn-dark { background: #18181b; color: #fff; }
+.mt-btn-dark:hover { background: #27272a; }
+.mt-btn-grey { background: rgba(0,0,0,0.06); color: #27272a; }
+.mt-btn-grey:hover { background: rgba(0,0,0,0.1); }
+.mt-pill {
+  display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border-radius: 99px;
+  background: rgba(0,0,0,0.06); color: #3f3f46; font: 600 12px var(--font-inter), sans-serif; white-space: nowrap;
+  transition: background-color 150ms;
+}
+button.mt-pill:hover { background: rgba(0,0,0,0.1); }
+.mt-pill.is-sm { height: 24px; padding: 0 9px; }
+.mt-pill.is-dark { background: #18181b; color: #fff; }
+.mt-pill.is-on { background: #dcfce7; color: #15803d; }
+
+/* A row: tile, two lines of text, something on the end. */
+.mt-row { display: flex; width: 100%; align-items: center; gap: 12px; padding: 10px 8px; border-radius: 12px; text-align: left; transition: background-color 150ms; }
+.mt-row.is-top { align-items: flex-start; }
+.mt-row.is-top > .mt-tile { margin-top: 1px; }
+.mt-row.is-link { cursor: pointer; }
+.mt-row.is-link:hover { background: rgba(0,0,0,0.05); }
+.mt-tile { display: grid; flex: none; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(0,0,0,0.06); color: #3f3f46; }
+.mt-tile svg { width: 17px; height: 17px; }
+.mt-t1 { font: 500 14px/1.3 var(--font-inter), sans-serif; color: #18181b; }
+.mt-t2 { font: 400 12.5px/1.3 var(--font-inter), sans-serif; color: #71717a; margin-top: 1px; }
+/* Section header (Filters): Outfit, like the card's headings. */
+.mt-sec { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 8px; border-radius: 12px; text-align: left; transition: background-color 150ms; }
+.mt-sec:hover { background: rgba(0,0,0,0.04); }
+.mt-sec-title { display: flex; align-items: center; gap: 8px; font: 600 15px var(--font-outfit), sans-serif; letter-spacing: -0.01em; color: #18181b; }
+.mt-sec-title > svg { width: 16px; height: 16px; color: #71717a; transition: transform 200ms ease-out; }
+.mt-sec-title > svg.is-open { transform: rotate(90deg); }
+
+/* Segmented control: grey track, white knob. */
+.mt-seg { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: rgba(0,0,0,0.06); overflow-x: auto; scrollbar-width: none; }
+.mt-seg::-webkit-scrollbar { display: none; }
+.mt-seg > button {
+  flex: 1 1 0; min-width: 0; height: 32px; padding: 0 8px; border-radius: 9px; white-space: nowrap;
+  font: 600 13px var(--font-inter), sans-serif; color: #71717a; transition: color 150ms, background-color 150ms;
+}
+.mt-seg > button:hover { color: #18181b; }
+.mt-seg > button.is-on { background: #fff; color: #18181b; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+.mt-seg small { margin-left: 4px; font: 500 11px var(--font-inter), sans-serif; color: #71717a; }
+.mt-seg-label { display: block; margin: 0 0 4px 2px; font: 500 12px var(--font-inter), sans-serif; color: #71717a; }
+
+/* Draw panel tiles. */
+.mt-tool {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; height: 84px;
+  border-radius: 12px; background: rgba(0,0,0,0.06); color: #27272a; font: 600 13px var(--font-inter), sans-serif;
+  transition: background-color 150ms, color 150ms, transform 100ms;
+}
+.mt-tool:hover { background: rgba(0,0,0,0.1); }
+.mt-tool:active { transform: scale(.98); }
+.mt-tool.is-on { background: rgba(13,148,136,0.14); color: #0f766e; }
+.mt-tool svg { width: 24px; height: 24px; }
+.mt-hint { padding: 12px 16px 16px; font: 400 12.5px/1.4 var(--font-inter), sans-serif; color: #71717a; text-align: center; }
+
+/* Activity rows. */
+.mt-act { position: relative; display: block; width: 100%; padding: 10px 8px 10px 22px; border-radius: 12px; text-align: left; font: 400 13.5px/1.4 var(--font-inter), sans-serif; color: #52525b; transition: background-color 150ms; }
+.mt-act.is-link { cursor: pointer; }
+.mt-act.is-link:hover { background: rgba(0,0,0,0.05); }
+.mt-act.is-unread { background: rgba(255,59,48,0.07); }
+.mt-act.is-unread::before { content: ""; position: absolute; left: 9px; top: 17px; width: 7px; height: 7px; border-radius: 99px; background: #ff3b30; }
+.mt-act b { font-weight: 600; color: #18181b; }
+.mt-when { display: block; margin-top: 2px; font-size: 12px; color: #71717a; }
+
+/* Empty and loading states. */
+.mt-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 24px 16px; text-align: center; }
+.mt-empty > svg { width: 28px; height: 28px; margin-bottom: 4px; color: #a1a1aa; }
+.mt-empty-title { font: 500 14px var(--font-inter), sans-serif; color: #52525b; }
+.mt-empty-hint { font: 400 12.5px var(--font-inter), sans-serif; color: #71717a; }
+
+/* Desktop panels on the same scale as the map controls: a click target, not
+   a thumb one. Buttons and the segmented track are 32px (8px corners), and
+   the close button and segment knobs 28px, the size of the map's buttons.
+   Phones keep the 44px sizes above. */
+@media (min-width: 640px) {
+  .mt-head { padding: 14px 16px 10px; }
+  .mt-title { font-size: 16px; }
+  .mt-btn { height: 32px; padding: 0 12px; border-radius: 8px; font-size: 13px; }
+  .mt-btn svg { width: 15px; height: 15px; }
+  .mt-pill { height: 24px; padding: 0 9px; font-size: 11.5px; }
+  .mt-pill.is-sm { height: 22px; padding: 0 8px; }
+  .mt-row { gap: 10px; padding: 8px; }
+  .mt-tile { width: 32px; height: 32px; border-radius: 8px; }
+  .mt-tile svg { width: 16px; height: 16px; }
+  .mt-t1 { font-size: 13.5px; }
+  .mt-t2 { font-size: 12px; }
+  .mt-sec { min-height: 36px; padding: 6px 8px; border-radius: 8px; }
+  .mt-sec-title { font-size: 14px; }
+  .mt-seg { padding: 2px; border-radius: 10px; }
+  .mt-seg > button { height: 28px; border-radius: 8px; font-size: 12.5px; }
+  .mt-tool { height: 72px; gap: 6px; border-radius: 10px; font-size: 12.5px; }
+  .mt-tool svg { width: 22px; height: 22px; }
+  .mt-hint { font-size: 12px; }
+  .mt-act { padding: 8px 8px 8px 22px; border-radius: 8px; font-size: 13px; }
+  .mt-act.is-unread::before { top: 15px; }
+}
+
+.mt-float:focus-visible, .mt-cell:focus-visible, .mt-new:focus-visible, .mt-x:focus-visible, .mt-btn:focus-visible, .mt-pill:focus-visible,
+.mt-tool:focus-visible, .mt-seg > button:focus-visible, .mt-row:focus-visible, .mt-sec:focus-visible, .mt-act:focus-visible {
+  outline: 2px solid #18181b; outline-offset: 2px;
+}
+/* Inset where a scrolling parent would clip a ring drawn outside. */
+.mt-seg > button:focus-visible, .mt-row:focus-visible, .mt-sec:focus-visible, .mt-act:focus-visible { outline-offset: -2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mt-hl, .mt-tip { transition: none; }
+  .mt-panel { animation: none; }
+  .mt-new:active, .mt-btn:active, .mt-tool:active { transform: none; }
 }

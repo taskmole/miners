@@ -11,6 +11,9 @@ export interface PointCategory {
   createdAt: string;  // ISO timestamp
 }
 
+// The type a newly added place starts with (changeable in its pop-up)
+export const NEW_PLACE_CATEGORY = 'cat-places-for-rent';
+
 // Default system categories - these cannot be deleted
 export const DEFAULT_CATEGORIES: PointCategory[] = [
   { id: 'cat-cafe', name: 'Cafe', isSystem: true, createdAt: new Date().toISOString() },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo, type ElementType, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   X,
@@ -84,8 +85,6 @@ export function LocationSearch({
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [expandedLeft, setExpandedLeft] = useState(24);
   const { query, setQuery, results, reset } = useLocationSearch(
     cafes,
     properties,
@@ -93,9 +92,6 @@ export function LocationSearch({
   );
 
   const handleOpen = useCallback(() => {
-    if (buttonRef.current) {
-      setExpandedLeft(buttonRef.current.getBoundingClientRect().left);
-    }
     setIsOpen(true);
     setTimeout(() => inputRef.current?.focus(), 50);
   }, []);
@@ -212,135 +208,136 @@ export function LocationSearch({
   if (!isOpen) {
     return (
       <button
-        ref={buttonRef}
         onClick={handleOpen}
-        className="glass flex items-center justify-center p-2.5 rounded-2xl md:px-3 md:py-2 md:rounded-xl hover:bg-white/20 transition-all"
+        className="mt-float"
         aria-label="Search locations"
       >
-        <Search className="w-5 h-5 md:w-4 md:h-4 text-zinc-500" />
+        <Search className="w-[18px] h-[18px] sm:w-4 sm:h-4 text-zinc-500" />
       </button>
     );
   }
 
-  // Expanded state: fixed overlay on left with backdrop fade
+  // Expanded state: fixed overlay on left with backdrop fade. Rendered on the
+  // page body: the button sits in a frosted tray, and a blurred parent can
+  // trap fixed children inside itself (Safari) and stop their own blur.
   return (
     <>
       {/* Spacer to keep flex row from collapsing */}
-      <div className="p-2.5 md:px-3 md:py-2 invisible">
-        <Search className="w-5 h-5 md:w-4 md:h-4" />
-      </div>
+      <div className="w-10 h-10 sm:w-7 sm:h-7 invisible" />
 
-      {/* Backdrop fade */}
-      <div
-        className="fixed inset-0 z-[65] pointer-events-none transition-opacity duration-150"
-        style={{ background: "rgba(0, 0, 0, 0.25)" }}
-      />
-
-      {/* Fixed search overlay */}
-      <div
-        ref={containerRef}
-        className={`fixed z-[70] ${isMobile ? "left-6 right-4" : "w-[420px]"}`}
-        style={
-          isMobile
-            ? { top: "calc(24px + env(safe-area-inset-top, 0px))" }
-            : { top: "24px", left: `${expandedLeft}px` }
-        }
-      >
-        {/* Search input bar */}
-        <div className="glass flex items-center gap-3 px-4 h-12 rounded-2xl">
-          <Search className="w-5 h-5 text-zinc-400 shrink-0" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setHighlightedIndex(-1);
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder="Search addresses, places..."
-            className="flex-1 bg-transparent text-sm text-zinc-900 placeholder:text-zinc-400 outline-none"
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-          />
-          <button
-            onClick={query ? handleClear : handleClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/10 transition-colors shrink-0"
-            aria-label={query ? "Clear search" : "Close search"}
-          >
-            <X className="w-4 h-4 text-zinc-500" />
-          </button>
-        </div>
-
-        {/* Results dropdown */}
-        {query.length >= 2 && (
+      {createPortal(
+        <>
+          {/* Backdrop fade */}
           <div
-            ref={resultsRef}
-            className="mt-2 glass rounded-2xl overflow-x-hidden overflow-y-auto overscroll-contain"
-            style={{ maxHeight: isMobile ? "calc(100vh - 120px)" : "400px" }}
-          >
-            {results.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-zinc-500">
-                No places found
-              </div>
-            ) : (
-              <div className="py-1">
-                {groupedResults.map((group) => (
-                  <div key={group.type}>
-                    <div className="px-4 pt-2 pb-1">
-                      <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
-                        {TYPE_LABELS[group.type] || group.type}
-                      </span>
-                    </div>
-                    {group.items.map((result) => {
-                      const currentFlatIndex = flatIndex++;
-                      const isHighlighted = currentFlatIndex === highlightedIndex;
-                      const config = TYPE_ICONS[result.type] || {
-                        icon: MapPin,
-                        color: "text-zinc-500",
-                      };
-                      const Icon = config.icon;
+            className="fixed inset-0 z-[65] pointer-events-none transition-opacity duration-150"
+            style={{ background: "rgba(0, 0, 0, 0.25)" }}
+          />
 
-                      return (
-                        <button
-                          key={result.placeId}
-                          data-search-result
-                          onClick={() => handleSelect(result)}
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                            isHighlighted ? "bg-zinc-100" : "hover:bg-zinc-50"
-                          }`}
-                        >
-                          <div className="w-8 h-8 rounded-lg bg-zinc-50 flex items-center justify-center shrink-0">
-                            <Icon className={`w-4 h-4 ${config.color}`} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm text-zinc-700 truncate">
-                              <HighlightedText text={result.name} query={query} />
-                            </div>
-                            {result.address && result.address !== result.name && (
-                              <div className="text-xs text-zinc-400 truncate">
-                                <HighlightedText text={result.address} query={query} />
-                              </div>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
+          {/* Fixed search overlay: lies exactly over the city and search tray
+              (same left, top and height as in page.tsx), so none of it peeks out. */}
+          <div
+            ref={containerRef}
+            className="fixed z-[70] left-4 right-4 sm:left-6 sm:right-auto sm:w-[420px]"
+            style={{ top: "calc(24px + env(safe-area-inset-top, 0px))" }}
+          >
+            {/* Search input bar: the closed tray's height and corner (48px on phones, 36px on desktop) */}
+            <div className="glass flex items-center gap-3 px-4 h-12 rounded-[16px] sm:gap-2 sm:pl-3 sm:pr-1 sm:h-9 sm:rounded-[12px]">
+              <Search className="w-5 h-5 sm:w-4 sm:h-4 text-zinc-400 shrink-0" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setHighlightedIndex(-1);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Search addresses, places..."
+                className="flex-1 bg-transparent text-sm text-zinc-900 placeholder:text-zinc-400 outline-none"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+              <button
+                onClick={query ? handleClear : handleClose}
+                className="w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-full sm:rounded-[8px] hover:bg-black/10 transition-colors shrink-0"
+                aria-label={query ? "Clear search" : "Close search"}
+              >
+                <X className="w-4 h-4 text-zinc-500" />
+              </button>
+            </div>
+
+            {/* Results dropdown */}
+            {query.length >= 2 && (
+              <div
+                ref={resultsRef}
+                className="mt-2 glass rounded-[20px] overflow-x-hidden overflow-y-auto overscroll-contain"
+                style={{ maxHeight: isMobile ? "calc(100vh - 120px)" : "400px" }}
+              >
+                {results.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-sm text-zinc-500">
+                    No places found
                   </div>
-                ))}
+                ) : (
+                  <div className="py-1">
+                    {groupedResults.map((group) => (
+                      <div key={group.type}>
+                        <div className="px-4 pt-2 pb-1">
+                          <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
+                            {TYPE_LABELS[group.type] || group.type}
+                          </span>
+                        </div>
+                        {group.items.map((result) => {
+                          const currentFlatIndex = flatIndex++;
+                          const isHighlighted = currentFlatIndex === highlightedIndex;
+                          const config = TYPE_ICONS[result.type] || {
+                            icon: MapPin,
+                            color: "text-zinc-500",
+                          };
+                          const Icon = config.icon;
+
+                          return (
+                            <button
+                              key={result.placeId}
+                              data-search-result
+                              onClick={() => handleSelect(result)}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                                isHighlighted ? "bg-zinc-100" : "hover:bg-zinc-50"
+                              }`}
+                            >
+                              <div className="w-8 h-8 rounded-lg bg-zinc-50 flex items-center justify-center shrink-0">
+                                <Icon className={`w-4 h-4 ${config.color}`} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm text-zinc-700 truncate">
+                                  <HighlightedText text={result.name} query={query} />
+                                </div>
+                                {result.address && result.address !== result.name && (
+                                  <div className="text-xs text-zinc-400 truncate">
+                                    <HighlightedText text={result.address} query={query} />
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Hint when query is too short */}
+            {query.length === 1 && (
+              <div className="mt-2 glass rounded-[20px] px-4 py-3 text-center text-sm text-zinc-500">
+                Type at least 2 characters
               </div>
             )}
           </div>
-        )}
-
-        {/* Hint when query is too short */}
-        {query.length === 1 && (
-          <div className="mt-2 glass rounded-2xl px-4 py-3 text-center text-sm text-zinc-500">
-            Type at least 2 characters
-          </div>
-        )}
-      </div>
+        </>,
+        document.body,
+      )}
     </>
   );
 }

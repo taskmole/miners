@@ -1951,7 +1951,7 @@ export function EnhancedMapContainer({
                 zoom={13}
                 className="w-full h-full"
             >
-                <MapStyleSwitcher onStyleChange={() => setMapStyleKey(k => k + 1)} trafficEnabled={trafficEnabled} />
+                <MapStyleSwitcher onStyleChange={() => setMapStyleKey(k => k + 1)} />
 
                 {/* Opens the card PendingFocusOpener found */}
                 <NavigationEventListener

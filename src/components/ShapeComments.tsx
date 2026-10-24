@@ -17,6 +17,7 @@ import { AttachmentGallery } from '@/components/attachments';
 import type { Attachment } from '@/types/attachments';
 import { validateFile, IMAGE_COMPRESSION, getFileCategory } from '@/types/attachments';
 import type { ShapeComment, ShapeMetadata } from '@/types/draw';
+import { NEW_PLACE_CATEGORY } from '@/types/point-categories';
 import type { Feature, Polygon } from 'geojson';
 import { getCachedStats, invalidateStatsCache, formatArea, formatPopulation, formatIncome } from '@/lib/area-calculations';
 import { useGeoData } from '@/contexts/GeoDataContext';
@@ -27,19 +28,21 @@ import { reverseGeocode, formatShortAddress } from '@/lib/geocoding';
 import { getCurrentUserId, canEditShape } from '@/lib/browser-session';
 import { logActivity } from '@/lib/supabaseHelpers';
 import { apiFetch } from '@/lib/api-client';
+import { enqueueMetadata } from '@/lib/shape-writes';
 import { useShapeDataContext } from '@/contexts/ShapeDataContext';
 import { useMobile } from '@/hooks/useMobile';
-import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { BottomSheet, SHEET_ICON_BUTTON } from '@/components/ui/bottom-sheet';
 import { LoadingOrb } from '@/components/LoadingOrb';
 
 /**
  * Sync a single shape's metadata via the server API (fire-and-forget).
- * Calls the update_drawn_feature_metadata RPC through the API route.
+ * Calls the update_drawn_feature_metadata RPC through the API route, queued
+ * behind the shape's own save so the two always land in order.
  */
 function syncMetadataToApi(shapeId: string, meta: ShapeMetadata): void {
   const userId = getCurrentUserId();
 
-  apiFetch('/api/db/drawn-features', {
+  void enqueueMetadata(shapeId, () => apiFetch('/api/db/drawn-features', {
     method: 'POST',
     body: JSON.stringify({
       action: 'update_metadata',
@@ -56,9 +59,7 @@ function syncMetadataToApi(shapeId: string, meta: ShapeMetadata): void {
         feature_attachments: meta.attachments || null,
       },
     }),
-  }).catch((error) => {
-    console.error('[syncMetadata] API call failed:', error);
-  });
+  }));
 }
 
 /**
@@ -481,6 +482,7 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
 
   // Reset editing state when selection changes
   // Also stamp authorship on NEW shapes and lazy-load comments
+  const selectedIsPoint = selectedFeature?.geometry.type === 'Point';
   useEffect(() => {
     if (selectedId) {
       const metadata = allMetadata[selectedId];
@@ -491,18 +493,16 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
       // Only stamp authorship after Supabase metadata has loaded (prevents overwriting real owners)
       if (!isMetadataLoaded) return;
 
-      if (metadata && metadata.createdBy === undefined && Object.keys(metadata).length === 0) {
-        // This is a completely new shape with empty metadata, stamp it
-        const newMeta = { ...metadata, createdBy: getCurrentUserId() };
-        const updated = { ...allMetadata, [selectedId]: newMeta };
-        setAllMetadata(updated);
-
-        syncMetadataToApi(selectedId, newMeta);
-      } else if (!metadata) {
-        // No metadata at all, create it with authorship
-        const newMeta: ShapeMetadata = { createdBy: getCurrentUserId() };
-        const updated = { ...allMetadata, [selectedId]: newMeta };
-        setAllMetadata(updated);
+      // A brand-new shape (no details at all, or an empty object): stamp
+      // who made it. A new place also starts as "Places for Rent", written in
+      // the same save; its type can be changed in this pop-up.
+      if (!metadata || (metadata.createdBy === undefined && Object.keys(metadata).length === 0)) {
+        const newMeta: ShapeMetadata = {
+          ...metadata,
+          createdBy: getCurrentUserId(),
+          ...(selectedIsPoint ? { categoryId: NEW_PLACE_CATEGORY } : {}),
+        };
+        setAllMetadata(prev => ({ ...prev, [selectedId]: newMeta }));
 
         syncMetadataToApi(selectedId, newMeta);
       }
@@ -515,11 +515,20 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     setCategoryDropdownOpen(false);
     setIsAddingCategory(false);
     setNewCategoryName('');
-  }, [selectedId, allMetadata, fetchCommentsForShape, isMetadataLoaded]);
+  }, [selectedId, selectedIsPoint, allMetadata, fetchCommentsForShape, isMetadataLoaded]);
+
+  // The latest details, for async work that finishes after more edits.
+  const latestMetadata = useRef(allMetadata);
+  latestMetadata.current = allMetadata;
+  // The lookup in flight ("id@lon,lat"): the effect re-runs as the new
+  // place's details are stamped, and must not look the same address up twice.
+  const addressLookup = useRef<string | null>(null);
 
   // Auto-fetch address for Points: when created OR when moved to new coordinates
   useEffect(() => {
-    if (!selectedId || !selectedFeature) return;
+    // Not before the details have loaded: the save sends every detail, so
+    // one made from an empty copy would wipe the place's real ones.
+    if (!selectedId || !selectedFeature || !isMetadataLoaded) return;
 
     // Only for Points, not Polygons
     if (selectedFeature.geometry.type !== 'Point') return;
@@ -538,29 +547,31 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
     );
 
     if (!needsFetch) return;
+    const lookup = `${selectedId}@${lon},${lat}`;
+    if (addressLookup.current === lookup) return;
+    addressLookup.current = lookup;
 
     setIsFetchingAddress(true);
 
     reverseGeocode(lat, lon)
       .then((address) => {
-        // Save address AND the coordinates used to fetch it
-        const newMeta = {
-          ...allMetadata[selectedId],
-          address,
-          addressCoords: [lon, lat] as [number, number]
-        };
-        const updated = { ...allMetadata, [selectedId]: newMeta };
-        setAllMetadata(updated);
+        // Save address AND the coordinates used to fetch it, merged into the
+        // details as they are now: the lookup can take a while, and the copy
+        // from when it started would wipe the new place's type or a name
+        // typed meanwhile.
+        const addressCoords = [lon, lat] as [number, number];
+        setAllMetadata(prev => ({ ...prev, [selectedId]: { ...prev[selectedId], address, addressCoords } }));
 
-        syncMetadataToApi(selectedId, newMeta);
+        syncMetadataToApi(selectedId, { ...latestMetadata.current[selectedId], address, addressCoords });
       })
       .catch((error) => {
         console.error('Failed to fetch address:', error);
       })
       .finally(() => {
+        if (addressLookup.current === lookup) addressLookup.current = null;
         setIsFetchingAddress(false);
       });
-  }, [selectedId, selectedFeature, allMetadata]);
+  }, [selectedId, selectedFeature, allMetadata, isMetadataLoaded]);
 
   // Handlers
   const handleSaveName = useCallback(() => {
@@ -793,9 +804,9 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
         {/* Header - Name with action buttons */}
         <div className="popup-header" style={{ padding: '16px 20px 12px' }}>
           {/* Action buttons - top right. On mobile, BottomSheet handles close + delete buttons.
-              Uses CSS hiding (hidden md:flex) to avoid hydration flash from useMobile() delay. */}
+              Uses CSS hiding (hidden sm:flex, useMobile()'s 640px) to avoid hydration flash from useMobile() delay. */}
           {!isMobile && (
-            <div className="hidden md:flex absolute top-2.5 right-3 z-20 items-center gap-1.5">
+            <div className="hidden sm:flex absolute top-2.5 right-3 z-20 items-center gap-1.5">
               {canEdit && (
                 <button
                   onClick={handleDeleteShape}
@@ -1459,8 +1470,9 @@ export function ShapeComments({ cityId }: ShapeCommentsProps) {
   const mobileHeaderButtons = canEdit ? (
     <button
       onClick={handleDeleteShape}
-      className="w-10 h-10 flex items-center justify-center rounded-full bg-white/90 shadow-md text-zinc-500 hover:bg-gray-100 hover:scale-105 transition-all duration-200"
+      className={SHEET_ICON_BUTTON}
       title="Delete shape"
+      aria-label="Delete shape"
     >
       <Trash2 className="w-5 h-5" />
     </button>

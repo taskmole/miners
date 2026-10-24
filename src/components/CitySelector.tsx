@@ -48,23 +48,23 @@ export function CitySelector({ selectedCity, onCityChange, available = cities }:
     <div className="z-50">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="glass flex items-center gap-2 px-4 py-2 rounded-2xl md:px-3 md:py-1.5 md:rounded-xl hover:bg-white/20 transition-all text-[15px] md:text-sm font-semibold text-zinc-900 font-heading">
+          <button className="mt-float is-text text-[15px] sm:text-sm font-semibold font-heading">
             {FLAGS[selectedCity.countryCode] && (
-              <span className="w-5 h-4 md:w-4 md:h-3 rounded-[2px] overflow-hidden flex-shrink-0">
+              <span className="w-5 h-4 sm:w-4 sm:h-3 rounded-[2px] overflow-hidden flex-shrink-0">
                 {React.createElement(FLAGS[selectedCity.countryCode], { className: "w-full h-full" })}
               </span>
             )}
             {selectedCity.name}
-            <ChevronDown className="w-5 h-5 md:w-4 md:h-4 text-zinc-500" />
+            <ChevronDown className="w-4 h-4 text-zinc-500" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="glass border-none p-1 rounded-xl min-w-[140px]">
+        <DropdownMenuContent align="start" className="glass border-none p-1 rounded-[16px] min-w-[140px]">
           {available.map((city) => (
             <DropdownMenuItem
               key={city.id}
               disabled={!city.active}
               className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors",
+                "flex items-center gap-2 px-3 py-2 rounded-[12px] cursor-pointer transition-colors",
                 "focus:bg-black/10 data-[highlighted]:bg-black/10",
                 !city.active && "opacity-50 cursor-not-allowed",
                 selectedCity.id === city.id && "bg-black/5"

@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useRef, useEffect } from "react";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMobile } from "@/hooks/useMobile";
+import { MAP_TOOL_MARKER } from "@/lib/map-tools";
 import { BottomSheet } from "./bottom-sheet";
 
 interface MobilePanelProps {
@@ -12,37 +14,27 @@ interface MobilePanelProps {
   onClose: () => void;
   // Content to render inside the panel
   children: React.ReactNode;
-  // Desktop position (for fixed panels)
-  desktopPosition?: {
-    top?: string;
-    right?: string;
-    left?: string;
-    bottom?: string;
-  };
   // Optional class names
   className?: string;
   // Optional title for mobile sheet
   title?: string;
-  // Whether to show the collapsed button (desktop only)
-  collapsedButton?: React.ReactNode;
-  // Panel width on desktop (default: w-80)
-  desktopWidth?: string;
-  // Z-index for desktop panel
-  zIndex?: number;
   // Snap point for mobile sheet
   snapPoint?: "partial" | "full";
 }
 
+/**
+ * One of the map tool panels (Filters, Lists, Trips, Draw, Activity).
+ *
+ * Desktop: a frosted panel beside the tool bar (see .mt-panel), never taller
+ * than the screen. Its scroll area is a `.mt-body` that fills what the header
+ * leaves. Phones: a bottom sheet.
+ */
 export function MobilePanel({
   isOpen,
   onClose,
   children,
-  desktopPosition = { top: "24px", right: "24px" },
   className,
   title,
-  collapsedButton,
-  desktopWidth = "w-80",
-  zIndex = 40,
   snapPoint = "partial",
 }: MobilePanelProps) {
   const isMobile = useMobile();
@@ -55,8 +47,9 @@ export function MobilePanel({
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (panelRef.current && !panelRef.current.contains(target)) {
-        // Don't close when clicking inside Radix portals (dropdowns, dialogs)
-        if (target.closest("[data-radix-popper-content-wrapper], [role='dialog'], [role='menu']")) {
+        // Don't close when clicking inside Radix portals (dropdowns, dialogs),
+        // or on the tool bar: its buttons switch or close the panel themselves.
+        if (target.closest(`[data-radix-popper-content-wrapper], [role='dialog'], [role='menu'], [${MAP_TOOL_MARKER}]`)) {
           return;
         }
         onClose();
@@ -82,98 +75,70 @@ export function MobilePanel({
     );
   }
 
-  // Desktop: use fixed positioning
-  // Show collapsed button when closed, expanded panel when open
-  if (!isOpen) {
-    return collapsedButton ? (
-      <div
-        ref={panelRef}
-        className="fixed"
-        style={{
-          ...desktopPosition,
-          zIndex,
-        }}
-      >
-        {collapsedButton}
-      </div>
-    ) : null;
-  }
+  if (!isOpen) return null;
 
   return (
     <div
       ref={panelRef}
-      className="fixed"
-      style={{
-        ...desktopPosition,
-        zIndex: zIndex + 10, // Expanded panel above collapsed buttons
-      }}
+      role="region"
+      aria-label={title}
+      className={cn("mt-panel mt-font glass", className)}
     >
-      <div
-        className={cn(
-          "glass rounded-[20px] overflow-hidden border border-white/40",
-          "animate-in fade-in-0 zoom-in-95 duration-200",
-          "max-w-[80vw]",
-          desktopWidth,
-          className
-        )}
-      >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The one header every tool panel uses: Outfit title, round grey close X,
+ * and a slot for extra buttons before it. On phones the sheet already shows
+ * the title and its own close X, so only the extra buttons render.
+ */
+export function MobilePanelHeader({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children?: React.ReactNode; // Extra header buttons, e.g. "Mark all read"
+}) {
+  const isMobile = useMobile();
+
+  if (isMobile) {
+    return children ? (
+      <div className="flex items-center justify-end gap-2 px-4 pb-3">{children}</div>
+    ) : null;
+  }
+
+  return (
+    <div className="mt-head">
+      <h2 className="mt-title">{title}</h2>
+      <div className="mt-head-end">
         {children}
+        <button type="button" onClick={onClose} className="mt-x" aria-label={`Close ${title.toLowerCase()}`}>
+          <X strokeWidth={2.2} />
+        </button>
       </div>
     </div>
   );
 }
 
-// Header component for panels - consistent styling
-export function MobilePanelHeader({
+/** Empty state: one icon, one line, one hint. Same everywhere. */
+export function PanelEmpty({
+  icon: Icon,
   title,
-  onClose,
-  children,
-  icon,
+  hint,
 }: {
+  icon: React.ElementType;
   title: string;
-  onClose: () => void;
-  children?: React.ReactNode; // Additional header content (e.g., buttons)
-  icon?: React.ReactNode;
+  hint?: string;
 }) {
-  const isMobile = useMobile();
-
-  // On mobile, the BottomSheet handles the title, so we just render children
-  if (isMobile) {
-    return children ? (
-      <div className="p-4 flex items-center justify-end gap-2">
-        {children}
-      </div>
-    ) : null;
-  }
-
-  // Desktop header
   return (
-    <div className="p-4 flex items-center justify-between border-b border-white/10">
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className="text-sm font-bold text-zinc-900">{title}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        {children}
-        <button
-          onClick={onClose}
-          className="w-7 h-7 rounded-md text-zinc-400 flex items-center justify-center hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
+    <div className="mt-empty">
+      <Icon strokeWidth={1.75} aria-hidden />
+      <p className="mt-empty-title">{title}</p>
+      {hint && <p className="mt-empty-hint">{hint}</p>}
     </div>
   );
 }

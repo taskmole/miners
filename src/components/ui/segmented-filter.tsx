@@ -4,14 +4,13 @@ import React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Reusable segmented toggle row.
+ * Reusable segmented toggle row: grey track, white knob (see .mt-seg).
  *
- * Lifted out of Sidebar.tsx unchanged so the Scouting panel's "Mine & team /
- * All in city" switch looks exactly like the map's property sub-filters rather
- * than inventing a second style for the same control.
+ * Used by the map's property sub-filters and the Scouting panel's
+ * "Mine & team / All in city" switch, so the two always look alike.
  *
- * It already survives 375px on its own: the track scrolls sideways and each
- * option is `flex-1 min-w-0 whitespace-nowrap`.
+ * It survives 375px on its own: the track scrolls sideways and each option
+ * is `flex: 1 1 0; min-width: 0; white-space: nowrap`.
  */
 export function SegmentedFilterRow<T extends string>({
     label,
@@ -19,39 +18,30 @@ export function SegmentedFilterRow<T extends string>({
     value,
     onChange,
     counts,
+    hideLabel = false,
 }: {
-    label: string;
+    label?: string;
+    /** Keep the label for screen readers only. */
+    hideLabel?: boolean;
     options: { value: T; label: string }[];
     value: T;
     onChange?: (v: T) => void;
     counts?: number[];
 }) {
     return (
-        <div className="pr-3">
-            <span className="text-[10px] font-medium text-zinc-500 mb-1 block">{label}</span>
-            <div className="flex bg-zinc-300/60 rounded-lg p-1 overflow-x-auto scrollbar-hide">
+        <div>
+            {label && !hideLabel && <span className="mt-seg-label">{label}</span>}
+            <div className="mt-seg" role="group" aria-label={label}>
                 {options.map((opt, i) => (
                     <button
                         key={opt.value}
+                        type="button"
                         onClick={() => onChange?.(opt.value)}
-                        className={cn(
-                            "flex-1 text-xs font-semibold px-2 py-1.5 rounded-md transition-all whitespace-nowrap text-center min-w-0",
-                            value === opt.value
-                                ? "bg-white text-zinc-900 shadow-sm"
-                                : "text-zinc-500 hover:text-zinc-700"
-                        )}
+                        className={cn(value === opt.value && "is-on")}
+                        aria-pressed={value === opt.value}
                     >
                         {opt.label}
-                        {counts && counts[i] != null && (
-                            <span className={cn(
-                                "ml-1 text-[10px] font-medium",
-                                value === opt.value
-                                    ? "text-zinc-400"
-                                    : "text-zinc-400/60"
-                            )}>
-                                {counts[i]}
-                            </span>
-                        )}
+                        {counts && counts[i] != null && <small>{counts[i]}</small>}
                     </button>
                 ))}
             </div>
