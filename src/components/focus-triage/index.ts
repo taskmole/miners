@@ -12,5 +12,4 @@ export { ImageCarousel } from "./ImageCarousel";
 // bundle-size tactic here; it does nothing.
 // export { RevenueSimulator } from "./RevenueSimulator";
 export { FocusTriageCard } from "./FocusTriageCard";
-export { AssignSheet } from "./AssignSheet";
-export { ActionsSheet } from "./ActionsSheet";
+export { StepSheet } from "./StepSheet";

@@ -1117,9 +1117,9 @@
 /* ── Desktop: the bottom row and photo arrows a size down, closer to the
    28px chips. Phones keep 44px tap targets. ── */
 @media (min-width: 640px) {
-  .poi-main, .poi-pill, .poi-main-slot { height: 40px; min-width: 100px; border-radius: 11px; }
-  .poi-main { font-size: 14px; }
-  .poi-pill { font-size: 13px; }
+  .poi-bar .poi-main, .poi-bar .poi-pill, .poi-bar .poi-main-slot { height: 40px; min-width: 100px; border-radius: 11px; }
+  .poi-bar .poi-main { font-size: 14px; }
+  .poi-bar .poi-pill { font-size: 13px; }
   /* Only the bottom row's ⋯: the notes composer's paperclip stays 44px
      beside its 44px field. */
   .poi-bar .poi-ib, .poi-tile { width: 40px; height: 40px; border-radius: 11px; }
@@ -1790,15 +1790,55 @@
   }
 }
 
-/* Focus triage card animations */
-@keyframes triage-card-exit {
-  from { transform: translateX(0) rotate(0); opacity: 1; }
-  to { transform: translateX(-120%) rotate(-8deg); opacity: 0; }
+/* ── New listings window ──
+   Wide screens: trainers get the tall window for the "Why" panel; everyone
+   else gets a window exactly as tall as a 4:3 photo in the 44% photo column
+   plus the 76px band under it (0.44 × 0.75 = 0.33 of the window's width). */
+@media (min-width: 1024px) {
+  .triage-win { height: min(calc(76px + min(1120px, 100vw - 48px) * 0.33), calc(100dvh - 32px)); }
+  .triage-win.is-tall { height: min(684px, calc(100dvh - 32px)); }
+}
+/* Skip: the quiet partner of the map card's main button, same height and corner. */
+.triage-skip {
+  flex: 0 0 38%;
+  height: 44px;
+  border-radius: 12px;
+  background: #f4f4f5;
+  color: #27272a;
+  font: 600 15px var(--font-inter), sans-serif;
+  white-space: nowrap;
+  transition: background 0.15s, transform 0.1s;
+}
+.triage-skip:hover { background: #e4e4e7; }
+.triage-skip:active { transform: scale(0.98); }
+/* A count that rolls up into place when it changes. */
+.triage-roll { display: inline-flex; overflow: hidden; vertical-align: bottom; }
+.triage-roll > span { animation: triage-roll-in 240ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+/* The score tip waits a beat on hover, so passing the mouse over the photo
+   does not flash it. Taps open it at once. */
+@media (hover: hover) {
+  .triage-win .poi-tip { animation: triage-tip-in 160ms ease-out 300ms both; }
 }
 
-@keyframes triage-card-enter {
-  from { transform: translateX(40px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+/* The next listing slides in from the side it comes from. */
+.triage-enter-right { animation: triage-enter-right 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.triage-enter-left { animation: triage-enter-left 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes triage-enter-right {
+  from { transform: translateX(28px); opacity: 0; }
+}
+@keyframes triage-enter-left {
+  from { transform: translateX(-28px); opacity: 0; }
+}
+@keyframes triage-roll-in {
+  from { transform: translateY(70%); opacity: 0; filter: blur(2px); }
+}
+@keyframes triage-tip-in {
+  from { opacity: 0; transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .triage-roll > span, .triage-win .poi-tip, .triage-enter-right, .triage-enter-left { animation: none; }
+  .triage-skip { transition: none; }
+  .triage-skip:active { transform: none; }
 }
 
 @keyframes triage-toast-in {

@@ -154,26 +154,15 @@ export default function UserGuidePage() {
               },
               {
                 q: "What do I see on each property card?",
-                a: "Photos. The AI score (top-left). Rent. A short AI note about the location. Links to the listing and Google Maps.",
+                a: "Photos. The AI score (top-left; point at it to see what it means). Rent, and the transfer fee when there is one. Size and rent per m². A short AI note. Links to the listing and Google Maps.",
               },
               {
-                q: "What do Seen, next and Mark all seen do?",
-                a: '"Seen, next" ticks the property off and moves to the next new one. Changed your mind? Press "Undo" right away, or use the arrows at the top to go back to it until you close the window. "Mark all seen" ticks off the whole batch. Nothing is deleted. The properties stay on the map.',
+                q: "What do Skip and Mark all seen do?",
+                a: '"Skip" ticks the property off and moves to the next new one. Changed your mind? Press "Undo" right away, or use the arrows at the top (or the arrow keys) to go back to it until you close the window. "Mark all seen" ticks off the whole batch. Nothing is deleted. The properties stay on the map.',
               },
               {
-                q: "What is the Action button?",
-                a: (
-                  <>
-                    It opens a menu with all things you can do. The menu changes based on
-                    your role. If a button is missing, read the small grey text at the top.
-                    It tells you why.
-                    <GuideImage src="/assets/guide/actions-sheet.png" alt="The Actions menu with the action list marked in red." />
-                  </>
-                ),
-              },
-              {
-                q: "What does the grey text in the Actions menu mean?",
-                a: '"Assigned to [name]" = the property belongs to someone. "Waiting for a reviewer" = your request was sent. "Already scouted" = a trip exists for it. "Pre-rejected" = head office said no to this property.',
+                q: "What are the buttons at the bottom?",
+                a: 'The same as on the map. The black button is "Assign" for head office and "Request" for everyone else. If the property already has a status, you see it there instead, for example "Assigned" or "Requested". The ⋯ button holds the rest: Share, Save, Notes & files, Hide, and more for head office.',
               },
             ]}
           />

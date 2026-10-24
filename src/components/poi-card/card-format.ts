@@ -31,7 +31,7 @@ export function formatPrice(price: number | undefined, source: PropertyData["sou
 }
 
 /** "€12k" or "350k Kč", for the transfer fee chip. */
-function formatShortMoney(amount: number, source: PropertyData["source"]): string {
+export function formatShortMoney(amount: number, source: PropertyData["source"]): string {
   const n = amount >= 1000 ? `${Math.round(amount / 1000)}k` : String(Math.round(amount));
   return isCzk(source) ? `${n} Kč` : `€${n}`;
 }
