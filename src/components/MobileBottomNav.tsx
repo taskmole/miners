@@ -5,6 +5,7 @@ import { useSheet } from "@/contexts/SheetContext";
 import { useMobile } from "@/hooks/useMobile";
 import { cn } from "@/lib/utils";
 import { MAP_TOOL_BY_ID, mapToolLabel, newListingsLabel, type MapToolId } from "@/lib/map-tools";
+import { UnreadBeam } from "@/components/BeamGlow";
 
 // The phone bar keeps the order it has always had.
 const PHONE_ORDER: MapToolId[] = ["filters", "draw", "lists", "scouting", "activity"];
@@ -40,7 +41,6 @@ export function MobileBottomNav({
           {PHONE_TOOLS.map((tool) => {
             const { id, icon: Icon } = tool;
             const isOpen = activeSheet === id;
-            const glow = id === "activity" && activityGlow;
             return (
               <button
                 key={id}
@@ -54,10 +54,15 @@ export function MobileBottomNav({
                   isOpen
                     ? "bg-white text-zinc-900 shadow-[0_1px_3px_rgba(0,0,0,0.12)]"
                     : "text-zinc-700 active:text-zinc-900",
-                  glow && "mt-lit is-light",
                 )}
               >
-                <Icon className="w-[22px] h-[22px]" strokeWidth={1.5} aria-hidden />
+                {id === "activity" ? (
+                  <UnreadBeam on={activityGlow} borderRadius={12} theme="light">
+                    <Icon className="w-[22px] h-[22px]" strokeWidth={1.5} aria-hidden />
+                  </UnreadBeam>
+                ) : (
+                  <Icon className="w-[22px] h-[22px]" strokeWidth={1.5} aria-hidden />
+                )}
               </button>
             );
           })}
@@ -65,15 +70,14 @@ export function MobileBottomNav({
         <button
           type="button"
           onClick={onNewListingsOpen}
-          className={cn(
-            // A 48px tile, as tall as the tray beside it.
-            "relative flex items-center justify-center w-12 h-12 rounded-[16px] bg-zinc-900 shadow-lg active:scale-95 transition-transform",
-            newGlow && "mt-lit",
-          )}
+          // A 48px tile, as tall as the tray beside it.
+          className="relative flex items-center justify-center w-12 h-12 rounded-[16px] bg-zinc-900 shadow-lg active:scale-95 transition-transform"
           aria-label={newListingsLabel(newCount)}
           aria-haspopup="dialog"
         >
-          <span className="mt-font text-[11px] font-extrabold text-white tracking-tight">NEW</span>
+          <UnreadBeam on={newGlow} borderRadius={16} theme="dark">
+            <span className="mt-font text-[11px] font-extrabold text-white tracking-tight">NEW</span>
+          </UnreadBeam>
         </button>
       </div>
     </div>

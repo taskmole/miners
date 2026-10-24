@@ -2011,50 +2011,6 @@
 .mt-new:hover { background: #27272a; }
 .mt-new:active { transform: scale(.96); }
 
-/* "Something unread" on NEW and Activity (desktop and phone): light inside
-   the button itself, no ring. Two layers under the label (isolation +
-   z-index -1): ::after is a 1px rainbow line on the straight part of the
-   bottom edge (it stops before the corners, so nothing cuts it), ::before
-   a wide glow whose brightest point sits on that line. It softly breathes.
-   "is-light" is for the frosted bars (Activity): stronger colour, as a pale
-   glow on white looks stuck under the frost. With reduced motion it holds
-   still. */
-.mt-lit { isolation: isolate; }
-.mt-lit::before, .mt-lit::after {
-  content: ""; position: absolute; z-index: -1; pointer-events: none;
-  animation: mt-breathe 2.4s ease-in-out infinite;
-}
-.mt-lit::before {
-  inset: 0; border-radius: inherit;
-  background:
-    radial-gradient(24% 22% at 50% 100%, rgba(255,140,205,0.85), transparent),
-    radial-gradient(55% 80% at 50% 100%, rgba(255,190,230,0.6), rgba(255,110,200,0.24) 35%, rgba(255,110,200,0.06) 65%, transparent 80%),
-    radial-gradient(90% 55% at 50% 100%, rgba(90,150,255,0.18), transparent 75%);
-}
-.mt-lit::after {
-  left: 25%; right: 25%; bottom: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, #3ee8b5 22%, #ff4fa3 50%, #47b5ff 78%, transparent);
-}
-.mt-lit.is-light::before {
-  background:
-    radial-gradient(24% 22% at 50% 100%, rgba(255,40,140,0.75), transparent),
-    radial-gradient(50% 60% at 50% 100%, rgba(255,60,150,0.38), rgba(255,60,150,0.12) 35%, rgba(255,60,150,0.03) 65%, transparent 80%),
-    radial-gradient(90% 55% at 50% 100%, rgba(40,130,255,0.14), transparent 75%);
-}
-/* No bezel round the black tile while it glows. */
-.mt-new.mt-lit { box-shadow: 0 4px 20px rgba(0,0,0,0.22); }
-/* Activity is the last tool, so its light sits on its bar's real edge: out
-   through the bar's 4px padding, with the bar's corners (.mt-bar: 12px;
-   .mt-tray on phones: 16px). The line stays clear of those corners. */
-.mt-bar .mt-lit:last-child::before { inset: 0 -4px -4px; border-radius: 0 0 12px 12px; }
-.mt-bar .mt-lit:last-child::after { left: 5px; right: 5px; bottom: -4px; }
-.mt-tray .mt-lit:last-child::before { inset: -4px; border-radius: 0 16px 16px 0; }
-.mt-tray .mt-lit:last-child::after { left: 8px; right: 8px; bottom: -4px; }
-@keyframes mt-breathe { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) {
-  .mt-lit::before, .mt-lit::after { animation: none; }
-}
-
 /* Hover name to the left of the bar. */
 .mt-tip {
   position: fixed; top: 0; right: calc(var(--mt-right) + 48px); z-index: 61; height: 28px; padding: 0 10px;

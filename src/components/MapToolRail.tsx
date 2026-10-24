@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useSheet } from "@/contexts/SheetContext";
 import { useMobile } from "@/hooks/useMobile";
 import { MAP_TOOLS, MAP_TOOL_MARKER, mapToolLabel, newListingsLabel, useDrawingNow } from "@/lib/map-tools";
+import { UnreadBeam } from "@/components/BeamGlow";
 
 // One cell plus the gap to the next (.mt-cell height + .mt-bar gap in
 // globals.css): how far the white tile slides per tool.
@@ -55,7 +56,6 @@ export function MapToolRail({
         />
         {MAP_TOOLS.map((tool) => {
           const isOpen = activeSheet === tool.id;
-          const glow = tool.id === "activity" && activityGlow;
           const Icon = tool.icon;
           return (
             <button
@@ -69,11 +69,16 @@ export function MapToolRail({
                 "mt-cell",
                 isOpen && "is-on",
                 tool.id === "draw" && drawing && "is-drawing",
-                glow && "mt-lit is-light",
               )}
               {...tip.handlers(tool.name)}
             >
-              <Icon size={18} strokeWidth={1.75} aria-hidden />
+              {tool.id === "activity" ? (
+                <UnreadBeam on={activityGlow} borderRadius={8} theme="light">
+                  <Icon size={18} strokeWidth={1.75} aria-hidden />
+                </UnreadBeam>
+              ) : (
+                <Icon size={18} strokeWidth={1.75} aria-hidden />
+              )}
             </button>
           );
         })}
@@ -85,10 +90,10 @@ export function MapToolRail({
         onClick={onNewListingsOpen}
         aria-label={newListingsLabel(newCount)}
         aria-haspopup="dialog"
-        className={cn("mt-new", newGlow && "mt-lit")}
+        className="mt-new"
         {...tip.handlers("New listings")}
       >
-        NEW
+        <UnreadBeam on={newGlow} borderRadius={12} theme="dark">NEW</UnreadBeam>
       </button>
 
       {tip.shown && (
