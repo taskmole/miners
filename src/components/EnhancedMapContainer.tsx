@@ -60,6 +60,7 @@ import { cn } from "@/lib/utils";
 import { ListingCard } from "@/components/poi-card/ListingCard";
 import { CafeCard, PlaceCard } from "@/components/poi-card/PlaceCards";
 import { formatCompactNumber } from "@/lib/format-numbers";
+import { LoadingOrb } from "@/components/LoadingOrb";
 
 // Context for sharing cafe profile data with popup components
 const CafeProfilesContext = React.createContext<{
@@ -2615,7 +2616,7 @@ export function EnhancedMapContainer({
             {isLoading && (
                 <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-50">
                     <div className="flex flex-col items-center gap-2">
-                        <div className="w-8 h-8 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
+                        <LoadingOrb size={64} />
                         <span className="text-sm text-zinc-600">Loading map data...</span>
                     </div>
                 </div>

@@ -2160,12 +2160,6 @@ button.mt-pill:hover { background: rgba(0,0,0,0.1); }
 .mt-empty > svg { width: 28px; height: 28px; margin-bottom: 4px; color: #a1a1aa; }
 .mt-empty-title { font: 500 14px var(--font-inter), sans-serif; color: #52525b; }
 .mt-empty-hint { font: 400 12.5px var(--font-inter), sans-serif; color: #71717a; }
-.mt-skel {
-  height: 52px; margin: 4px 0; border-radius: 12px;
-  background: linear-gradient(90deg, rgba(0,0,0,0.05) 25%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.05) 75%);
-  background-size: 200% 100%; animation: mt-skel 1.2s linear infinite;
-}
-@keyframes mt-skel { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* Desktop panels on the same scale as the map controls: a click target, not
    a thumb one. Buttons and the segmented track are 32px (8px corners), and
@@ -2192,7 +2186,6 @@ button.mt-pill:hover { background: rgba(0,0,0,0.1); }
   .mt-hint { font-size: 12px; }
   .mt-act { padding: 8px 8px 8px 22px; border-radius: 8px; font-size: 13px; }
   .mt-act.is-unread::before { top: 15px; }
-  .mt-skel { height: 44px; border-radius: 8px; }
 }
 
 .mt-float:focus-visible, .mt-cell:focus-visible, .mt-new:focus-visible, .mt-x:focus-visible, .mt-btn:focus-visible, .mt-pill:focus-visible,
@@ -2202,6 +2195,6 @@ button.mt-pill:hover { background: rgba(0,0,0,0.1); }
 
 @media (prefers-reduced-motion: reduce) {
   .mt-hl, .mt-tip { transition: none; }
-  .mt-panel, .mt-skel { animation: none; }
+  .mt-panel { animation: none; }
   .mt-new:active, .mt-btn:active, .mt-tool:active { transform: none; }
 }

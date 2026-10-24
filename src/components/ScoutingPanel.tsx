@@ -14,11 +14,11 @@ import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { useCityScoutedTrips } from "@/hooks/useCityScoutedTrips";
 import { useSheetState } from "@/contexts/SheetContext";
 import { MobilePanel, MobilePanelHeader, PanelEmpty } from "@/components/ui/mobile-panel";
-import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { SegmentedFilterRow } from "@/components/ui/segmented-filter";
 import { navigateAndOpenPopup } from "@/components/ListsPanel";
 import type { ScoutingTrip, ScoutingTripStatus } from "@/types/scouting";
 import { statusLabels, statusColors } from "@/types/scouting";
+import { LoadingOrb } from "@/components/LoadingOrb";
 
 // Props for the panel
 interface ScoutingPanelProps {
@@ -350,7 +350,7 @@ export function ScoutingPanel({
           scrolls inside the panel, on phones the sheet scrolls. */}
       <div className="mt-body">
         {!listLoaded ? (
-          <LoadingSkeleton />
+          <div className="p-4 flex justify-center"><LoadingOrb label="Loading scouting trips" /></div>
         ) : rows.length === 0 ? (
           <PanelEmpty
             icon={Route}

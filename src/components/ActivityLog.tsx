@@ -5,7 +5,7 @@ import { History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSheetState, useSheet } from "@/contexts/SheetContext";
 import { MobilePanel, MobilePanelHeader, PanelEmpty } from "@/components/ui/mobile-panel";
-import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+import { LoadingOrb } from "@/components/LoadingOrb";
 import { useActivities, type ActivityItem } from "@/hooks/useActivities";
 import { navigateAndOpenPopup } from "@/components/ListsPanel";
 import { useShapeDataContext } from "@/contexts/ShapeDataContext";
@@ -120,7 +120,7 @@ export function ActivityLog({ onUnreadCountChange }: { onUnreadCountChange?: (co
 
             <div className="mt-body">
                 {isLoading && activitiesWithOrphanStatus.length === 0 ? (
-                    <LoadingSkeleton />
+                    <div className="p-4 flex justify-center"><LoadingOrb label="Loading activity" /></div>
                 ) : error && !isLoading ? (
                     <div className="mt-empty">
                         <p className="mt-empty-title">{error}</p>

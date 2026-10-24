@@ -3,6 +3,7 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { Plus, Upload } from 'lucide-react';
 import { ALL_SUPPORTED_TYPES, validateFile } from '@/types/attachments';
+import { LoadingOrb } from '@/components/LoadingOrb';
 
 interface AttachmentUploaderProps {
   onUpload: (file: File) => Promise<{ success: boolean; error?: string }>;
@@ -133,7 +134,7 @@ export function AttachmentUploader({
         disabled={disabled}
       />
       {isUploading ? (
-        <div className="w-5 h-5 border-2 border-zinc-300 border-t-zinc-600 rounded-full animate-spin" />
+        <LoadingOrb state="working" />
       ) : (
         <Plus className="w-5 h-5" />
       )}

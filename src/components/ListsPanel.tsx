@@ -31,7 +31,6 @@ import { evaluatePropertyActions } from "@/lib/property-actions";
 import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { cityForCoordinates } from "@/lib/notify-routing";
 import { MobilePanel, MobilePanelHeader, PanelEmpty } from "@/components/ui/mobile-panel";
-import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import type { LinkedItem, ScoutingTrip } from "@/types/scouting";
 import {
     DropdownMenu,
@@ -50,6 +49,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { LocationList, ListItem, VisitLog } from "@/types/lists";
+import { LoadingOrb } from "@/components/LoadingOrb";
 
 // Custom event to navigate to location AND open popup
 // Also includes placeType so the filter can be enabled if needed
@@ -513,7 +513,7 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
             {/* Lists - scrollable */}
             <div className="mt-body">
                 {!isLoaded ? (
-                    <LoadingSkeleton />
+                    <div className="p-4 flex justify-center"><LoadingOrb label="Loading lists" /></div>
                 ) : sortedLists.length === 0 ? (
                     <PanelEmpty
                         icon={Bookmark}
