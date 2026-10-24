@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, type ChangeEvent, type KeyboardEvent } from "react";
-import { MessageSquareText, Paperclip, X, Loader2 } from "lucide-react";
+import { MessageSquareText, Paperclip, X } from "lucide-react";
 import { useMobile } from "@/hooks/useMobile";
 import { useToast } from "@/contexts/ToastContext";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import type { User } from "@supabase/supabase-js";
 import type { City } from "@/components/CitySelector";
+import { LoadingOrb } from "@/components/LoadingOrb";
 
 interface FeedbackButtonProps {
   selectedCity: City;
@@ -234,7 +235,7 @@ export function FeedbackButton({ selectedCity, user, onExposeOpen }: FeedbackBut
         >
           {sending ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <LoadingOrb state="working" onDark />
               Sending...
             </>
           ) : (

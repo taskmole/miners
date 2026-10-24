@@ -30,7 +30,8 @@ import { trainsAiAnywhere } from '@/lib/permissions';
 import { cityNames, cityOptions } from '@/lib/cities';
 import { accessSummary } from '@/components/admin/CityAccessEditor';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Chips, DecisionPanel, EmptyRow, ErrorBar, FoldedSection, InlineError, ListCard, PageIntro, SectionHeader, StatusBadge, formatShortDate } from '@/components/admin/admin-ui';
+import { Chips, DecisionPanel, EmptyRow, ErrorBar, FoldedSection, InlineError, ListCard, LoadingRow, PageIntro, SectionHeader, StatusBadge, formatShortDate } from '@/components/admin/admin-ui';
+import { LoadingOrb } from '@/components/LoadingOrb';
 
 type Tab = 'submissions' | 'requests' | 'users' | 'settings' | 'cafe-profiles' | 'teams' | 'ai-scout';
 const DEFAULT_TAB: Tab = 'requests';
@@ -1112,7 +1113,7 @@ function AdminContent() {
   if (usersLoading) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-        <div className="text-zinc-500">Loading...</div>
+        <LoadingOrb size={64} label="Loading" />
       </div>
     );
   }
@@ -1222,7 +1223,7 @@ function AdminContent() {
 
             {/* First load only: a refetch after a decision keeps the list in place. */}
             {submissionsLoading && pendingSubmissions.length + processedSubmissions.length === 0 && (
-              <div className="text-center py-8 text-sm text-zinc-500">Loading pitches...</div>
+              <LoadingRow>Loading pitches...</LoadingRow>
             )}
 
             {/* Waiting for a decision */}
@@ -1403,7 +1404,7 @@ function AdminContent() {
               )}
 
               {cafesLoading && (
-                <div className="text-center py-8 text-sm text-zinc-500">Loading cafes...</div>
+                <LoadingRow>Loading cafes...</LoadingRow>
               )}
 
               {!cafesLoading && !showAddCafe && cafeProfiles.length === 0 && (
@@ -1825,7 +1826,7 @@ function TeamsPanel({ users }: TeamsPanelProps) {
   };
 
   if (!isLoaded) {
-    return <div className="text-center py-8 text-zinc-500">Loading teams...</div>;
+    return <LoadingRow>Loading teams...</LoadingRow>;
   }
 
   return (
@@ -1914,7 +1915,7 @@ function TeamsPanel({ users }: TeamsPanelProps) {
             {expandedTeam === team.id && (
               <div className="px-4 pb-4 space-y-2">
                 {loadingMembers ? (
-                  <div className="text-sm text-zinc-500 py-2">Loading...</div>
+                  <div className="py-2"><LoadingOrb label="Loading team members" /></div>
                 ) : (
                   <>
                     {teamMembers.map(member => {
@@ -2007,7 +2008,7 @@ export default function AdminPage() {
     <AdminErrorBoundary>
       <Suspense fallback={
         <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-          <div className="text-zinc-500">Loading...</div>
+          <LoadingOrb size={64} label="Loading" />
         </div>
       }>
         <AdminContent />

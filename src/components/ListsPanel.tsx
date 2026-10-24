@@ -50,6 +50,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { LocationList, ListItem, VisitLog } from "@/types/lists";
+import { LoadingOrb } from "@/components/LoadingOrb";
 
 // Custom event to navigate to location AND open popup
 // Also includes placeType so the filter can be enabled if needed
@@ -539,7 +540,7 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
             {/* Lists - scrollable */}
             <div className={cn("overflow-y-auto", isMobile ? "flex-1" : "max-h-[400px]")}>
                 {!isLoaded ? (
-                    <div className="p-4 text-center text-zinc-500 text-sm">Loading...</div>
+                    <div className="p-4 flex justify-center"><LoadingOrb label="Loading lists" /></div>
                 ) : sortedLists.length === 0 ? (
                     <div className="p-6 text-center">
                         <FolderOpen className="w-8 h-8 text-zinc-300 mx-auto mb-2" />

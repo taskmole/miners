@@ -9,6 +9,7 @@
 import { useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LoadingOrb } from "@/components/LoadingOrb";
 import { cn } from "@/lib/utils";
 
 /** "19 Oct", plus the year when it is not this year. */
@@ -153,6 +154,16 @@ export function EmptyRow({ children }: { children: ReactNode }) {
     <ListCard>
       <div className="px-4 py-8 text-center text-sm text-zinc-500">{children}</div>
     </ListCard>
+  );
+}
+
+/** A tab's first load: the orb above a short "Loading ..." line. */
+export function LoadingRow({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-2 py-8 text-sm text-zinc-500">
+      <LoadingOrb />
+      <span>{children}</span>
+    </div>
   );
 }
 
