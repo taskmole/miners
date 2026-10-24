@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useState, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 import { BorderBeam } from "border-beam";
 import { useReducedMotion } from "framer-motion";
 
@@ -70,6 +70,57 @@ export function NewButtonGlow({
     </BeamGlow>
   );
 }
+
+/**
+ * "Something unread" on NEW and Activity (desktop and phone): Beam's light
+ * rides round the button's edge for as long as `on` is true. Goes inside
+ * the button, so the button keeps its focus ring, shadow and tap shrink.
+ * `borderRadius` must match the button's corners. `theme` is the button's
+ * own background: "light" on the frosted bars, "dark" on the black NEW tile.
+ */
+export function UnreadBeam({
+  on,
+  borderRadius,
+  theme,
+  children,
+}: {
+  on: boolean;
+  borderRadius: number;
+  theme: "light" | "dark";
+  children: ReactNode;
+}) {
+  return (
+    <BorderBeam
+      size="md"
+      colorVariant="colorful"
+      strength={0.7}
+      theme={theme}
+      active={on}
+      borderRadius={borderRadius}
+      css={HOLD_STILL}
+      style={BOOST[theme]}
+      className="w-full h-full flex items-center justify-center"
+    >
+      {children}
+    </BorderBeam>
+  );
+}
+
+// Beam's own dials for its line, inner glow and bloom, turned up: its
+// presets are made for big cards, and on a 28-48px button the line all but
+// disappears. The pale frosted bar needs more than the black tile.
+const BOOST = {
+  light: { "--beam-stroke-opacity": 8, "--beam-inner-opacity": 2, "--beam-bloom-opacity": 2 } as CSSProperties,
+  dark: { "--beam-stroke-opacity": 3, "--beam-inner-opacity": 1.5, "--beam-bloom-opacity": 2 } as CSSProperties,
+};
+
+// Beam's "md" style keeps spinning under "reduce motion". For an unread
+// signal, hiding it would lose the message, so it stops mid-turn instead:
+// fully shown, light parked on the top edge, no colour drift.
+const HOLD_STILL = `@media (prefers-reduced-motion: reduce) {
+  [data-beam="{id}"][data-active] { animation: none; --beam-opacity-{id}: 1; --beam-angle-{id}: 135deg; }
+  [data-beam="{id}"][data-active]::before, [data-beam="{id}"][data-active]::after { animation: none; }
+}`;
 
 /**
  * Two soft green breaths inside a light box (AI Summary, "All caught up").
