@@ -27,6 +27,10 @@ export interface ActivityItem {
   lon?: number;
   isOrphaned?: boolean;
   actionType?: string;
+  /** Drawn point/area rows: the shape, kept apart from place ids. */
+  shapeId?: string;
+  /** Scouting trip rows: the trip to open. */
+  tripId?: string;
 }
 
 function getLastReadTimestamp(): string | null {
@@ -244,10 +248,12 @@ function transformActivityLogRow(
     time: formatRelativeTime(row.created_at),
     createdAt: row.created_at,
     isRead: new Date(row.created_at).getTime() <= lastReadTime,
-    entityId: (summary.placeId as string) || (summary.shapeId as string) || undefined,
+    entityId: (summary.placeId as string) || undefined,
+    shapeId: (summary.shapeId as string) || undefined,
     lat,
     lon,
     actionType: row.action_type,
+    tripId: typeof summary.tripId === 'string' ? summary.tripId : undefined,
   };
 }
 

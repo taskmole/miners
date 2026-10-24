@@ -32,11 +32,12 @@ import { useWhatsNew } from "@/hooks/useWhatsNew";
 import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { cityForCoordinates } from "@/lib/notify-routing";
 import { clearPendingFocus, readPendingFocus, savePendingFocus } from "@/lib/share";
+import { GO_TO_PLACE_EVENT, type PlaceRequest } from "@/lib/go-to-place";
 import { ListsProvider } from "@/contexts/ListsContext";
 import { HiddenPoisProvider } from "@/contexts/HiddenPoisContext";
 import { GeoDataProvider } from "@/contexts/GeoDataContext";
 import { LinkingProvider, useLinking } from "@/contexts/LinkingContext";
-import { ScoutingTripsProvider } from "@/contexts/ScoutingTripsContext";
+import { ScoutingTripsProvider, useScoutingTripsContext } from "@/contexts/ScoutingTripsContext";
 import { PointCategoriesProvider } from "@/contexts/PointCategoriesContext";
 import { SheetProvider, useSheet } from "@/contexts/SheetContext";
 import { WalkingRadiusProvider } from "@/contexts/WalkingRadiusContext";
@@ -98,7 +99,7 @@ function HomeContent() {
    * colleagues. Exempting it would offer cities whose data the database then
    * refuses to hand over, which is a blank map rather than a demo.
    */
-  const { visibleCities, accessResolved, canApproveIn } = useUserProfiles();
+  const { visibleCities, accessResolved, canApproveIn, canAccessDashboard } = useUserProfiles();
   const grantedCities = React.useMemo(() => {
     if (!user || !accessResolved) return cities;
     return cities.filter(c => visibleCities.includes(c.id));
@@ -158,9 +159,10 @@ function HomeContent() {
   const [savedCityApplied, setSavedCityApplied] = useState(false);
   // Parked until we know who this is; then handed to the map as pendingFocus.
   const [parkedFocus, setParkedFocus] = useState<string | null>(null);
-  const [pendingFocus, setPendingFocus] = useState<{ placeId: string; cityId: string } | null>(null);
+  const [pendingFocus, setPendingFocus] = useState<{ placeId?: string; lat: number; lon: number; cityId: string } | null>(null);
   const [noAccessCity, setNoAccessCity] = useState<City | null>(null);
   const { showToast } = useToast();
+  const { getTrip } = useScoutingTripsContext();
 
   // "What's new" popup. Held back for anyone who arrived through an email or
   // share link: they came for one thing, so a popup on top would be noise.
@@ -439,27 +441,14 @@ function HomeContent() {
       }
     };
 
-    // From ListsPanel & Activity Log (has placeType in event detail)
+    // Fired by the map just before it opens a card (placeType in the detail)
     const handleNavigateAndOpenPopup = (e: CustomEvent) => {
       const { placeType } = e.detail;
       if (placeType) enableFilterForType(placeType);
     };
 
-    // From Activity Log fallback & comments (has placeId, extract type from prefix)
-    const handleOpenPoiPopup = (e: CustomEvent) => {
-      const { placeId } = e.detail;
-      if (placeId) {
-        const placeType = placeId.split('-')[0];
-        enableFilterForType(placeType);
-      }
-    };
-
     window.addEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
-    window.addEventListener('open-poi-popup', handleOpenPoiPopup as EventListener);
-    return () => {
-      window.removeEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
-      window.removeEventListener('open-poi-popup', handleOpenPoiPopup as EventListener);
-    };
+    return () => window.removeEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
   }, [activeFilters]);
 
   /**
@@ -481,32 +470,25 @@ function HomeContent() {
     if (!cityOverlays.locationScore) { setGravityEnabled(false); }
   }, [user]);
 
-  /**
-   * Act on a parked shared link once we know who this is and what they hold.
-   *
-   * Waits for: signed in, account active, city access loaded, saved city
-   * applied, and the first-time city picker out of the way. Then either says
-   * they have no access to that city, or switches to it and hands the place
-   * to the map, which opens the card once that city's data has loaded.
-   */
+  // The map found the place (or not) and is done with it.
   const handlePendingFocusDone = useCallback((found: boolean) => {
     setPendingFocus(null);
     if (!found) showToast("This place is no longer on the map", "error");
   }, [showToast]);
 
-  useEffect(() => {
-    if (!parkedFocus) return;
-    if (!user || isActive !== true || !accessResolved || !savedCityApplied || showCityPicker) return;
-    const placeId = parkedFocus;
-    setParkedFocus(null);
-    clearPendingFocus();
-
+  /**
+   * Take the map to a place (shared link, or a click in Activity / Lists /
+   * Scouting): find its city, explain if they have no access to it, switch
+   * to it without making it their default, and hand it to the map.
+   */
+  const focusPlace = useCallback((request: PlaceRequest) => {
     // "No cities at all" already has its own full-screen explanation.
     if (grantedCities.length === 0) return;
 
-    const coords = parseCoordinatesFromPlaceId(placeId);
-    const city = cityById(coords && cityForCoordinates(coords.lat, coords.lon));
-    if (!city) {
+    const spot = (request.placeId && parseCoordinatesFromPlaceId(request.placeId))
+      || (request.lat != null && request.lon != null ? { lat: request.lat, lon: request.lon } : null);
+    const city = cityById(spot && cityForCoordinates(spot.lat, spot.lon));
+    if (!spot || !city) {
       handlePendingFocusDone(false);
       return;
     }
@@ -515,8 +497,28 @@ function HomeContent() {
       return;
     }
     if (city.id !== selectedCity.id) switchCity(city, { saveAsDefault: false });
-    setPendingFocus({ placeId, cityId: city.id });
-  }, [parkedFocus, user, isActive, accessResolved, savedCityApplied, showCityPicker, grantedCities, selectedCity.id, switchCity, handlePendingFocusDone]);
+    setPendingFocus({ placeId: request.placeId, ...spot, cityId: city.id });
+  }, [grantedCities, selectedCity.id, switchCity, handlePendingFocusDone]);
+
+  /**
+   * Act on a parked shared link once we know who this is and what they hold.
+   * Waits for: signed in, account active, city access loaded, saved city
+   * applied, and the first-time city picker out of the way.
+   */
+  useEffect(() => {
+    if (!parkedFocus) return;
+    if (!user || isActive !== true || !accessResolved || !savedCityApplied || showCityPicker) return;
+    setParkedFocus(null);
+    clearPendingFocus();
+    focusPlace({ placeId: parkedFocus });
+  }, [parkedFocus, user, isActive, accessResolved, savedCityApplied, showCityPicker, focusPlace]);
+
+  // In-app "go to this place" clicks (Activity, Lists, Scouting)
+  useEffect(() => {
+    const handleGoToPlace = (e: Event) => focusPlace((e as CustomEvent<PlaceRequest>).detail);
+    window.addEventListener(GO_TO_PLACE_EVENT, handleGoToPlace);
+    return () => window.removeEventListener(GO_TO_PLACE_EVENT, handleGoToPlace);
+  }, [focusPlace]);
 
   // Deep-link: open new listings modal from email CTA (?listings=open)
   useEffect(() => {
@@ -641,7 +643,19 @@ function HomeContent() {
             propertyPitchStatusFilter={propertyPitchStatusFilter}
             onPropertyPitchStatusFilterChange={setPropertyPitchStatusFilter}
           />
-          <ActivityLog onUnreadCountChange={setActivityUnreadCount} />
+          <ActivityLog
+            onUnreadCountChange={setActivityUnreadCount}
+            onOpenTrip={(tripId) => {
+              // Only their own trips are loaded; reviewers open others in the dashboard
+              if (!getTrip(tripId)) {
+                showToast(canAccessDashboard ? "Find this pitch in the dashboard under Pitches" : "This trip is no longer available", "error");
+                return false;
+              }
+              setSelectedTripId(tripId);
+              setIsScoutingDetailOpen(true);
+              return true;
+            }}
+          />
           <ListsPanel
             cityId={selectedCity.id}
             onCreateTripFromList={(trip) => {
@@ -811,13 +825,13 @@ function HomeContent() {
         </div>
       )}
 
-      {/* A shared link pointed at a city this person cannot view */}
+      {/* A shared link or a click pointed at a city this person cannot view */}
       <Dialog open={!!noAccessCity} onOpenChange={(open) => { if (!open) setNoAccessCity(null); }}>
         <DialogContent className="sm:max-w-sm" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>You don&apos;t have access to {noAccessCity?.name} yet</DialogTitle>
             <DialogDescription>
-              Someone shared a place in {noAccessCity?.name} with you. Ask your admin to add you to that city, then open the link again.
+              That place is in {noAccessCity?.name}. Ask your admin to add you to that city, then try again.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

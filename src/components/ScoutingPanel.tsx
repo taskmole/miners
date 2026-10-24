@@ -20,7 +20,7 @@ import { MobilePanel } from "@/components/ui/mobile-panel";
 import { SegmentedFilterRow } from "@/components/ui/segmented-filter";
 import { useMobile } from "@/hooks/useMobile";
 import { Button } from "@/components/ui/button";
-import { navigateAndOpenPopup } from "@/components/ListsPanel";
+import { goToPlace } from "@/lib/go-to-place";
 import type { ScoutingTrip, ScoutingTripStatus } from "@/types/scouting";
 import { statusLabels, statusColors } from "@/types/scouting";
 import { LoadingOrb } from "@/components/LoadingOrb";
@@ -311,7 +311,7 @@ export function ScoutingPanel({
     const trip = cityTrips.find((t) => t.id === tripId);
     if (!trip || !trip.placeId || trip.lat == null || trip.lon == null) return;
     close();
-    navigateAndOpenPopup(trip.lat, trip.lon, trip.placeId, "property");
+    goToPlace({ placeId: trip.placeId, lat: trip.lat, lon: trip.lon });
   };
 
   const handleRowClick = (rowId: string) => {
