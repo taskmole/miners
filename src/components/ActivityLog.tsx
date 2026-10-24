@@ -7,23 +7,25 @@ import { useSheetState, useSheet } from "@/contexts/SheetContext";
 import { MobilePanel, MobilePanelHeader, PanelEmpty } from "@/components/ui/mobile-panel";
 import { LoadingOrb } from "@/components/LoadingOrb";
 import { useActivities, type ActivityItem } from "@/hooks/useActivities";
-import { navigateAndOpenPopup } from "@/components/ListsPanel";
 import { useShapeDataContext } from "@/contexts/ShapeDataContext";
 import { useToast } from "@/contexts/ToastContext";
+import { useScoutingTripsContext } from "@/contexts/ScoutingTripsContext";
+import { goToPlace } from "@/lib/go-to-place";
+import { activityDestination } from "@/lib/activity-destination";
 
-// Custom event for map navigation
-export const navigateToLocation = (lat: number, lon: number) => {
-    window.dispatchEvent(new CustomEvent('navigate-to-location', {
-        detail: { lat, lon }
-    }));
-};
-
-export function ActivityLog({ onUnreadCountChange }: { onUnreadCountChange?: (count: number) => void }) {
+export function ActivityLog({
+    onUnreadCountChange,
+    onOpenTrip,
+}: {
+    onUnreadCountChange?: (count: number) => void;
+    onOpenTrip?: (tripId: string) => void;
+}) {
     const { isOpen: isExpanded, close } = useSheetState("activity");
     const { openSheet } = useSheet();
     const { activities, isLoading, error, refetch, unreadCount, markAllAsRead } = useActivities();
     const { allMetadata, isMetadataLoaded } = useShapeDataContext();
     const { showToast } = useToast();
+    const { getTrip } = useScoutingTripsContext();
 
     // Drives the glow on the Activity button: on while anything is unread.
     React.useEffect(() => {
@@ -38,70 +40,35 @@ export function ActivityLog({ onUnreadCountChange }: { onUnreadCountChange?: (co
     const activitiesWithOrphanStatus = useMemo(() => {
         if (!isMetadataLoaded) return activities;
         return activities.map(item => {
-            if (
-                (item.actionType === 'created_point' || item.actionType === 'created_area') &&
-                item.entityId &&
-                !(item.entityId in allMetadata)
-            ) {
+            if (item.shapeId && !(item.shapeId in allMetadata)) {
                 return { ...item, isOrphaned: true };
             }
             return item;
         });
     }, [activities, allMetadata, isMetadataLoaded]);
 
-    // Check if an activity entry has a navigable target
-    const isNavigable = useCallback((item: ActivityItem): boolean => {
-        if (item.isOrphaned) return false;
-        if (item.target.type === 'list' && item.type === 'created') return true;
-        if (item.lat != null && item.lon != null) return true;
-        if (item.entityId) return true;
-        return false;
-    }, []);
-
-    // Handle clicking an activity entry — navigate to the relevant location or panel
+    // Every click either goes somewhere or says why it can't
     const handleActivityClick = useCallback((item: ActivityItem) => {
-        if (item.isOrphaned) {
-            showToast('This point has been deleted', 'error');
-            return;
+        const destination = activityDestination(item);
+        switch (destination.kind) {
+            case 'message':
+                showToast(destination.text, 'error');
+                return;
+            case 'lists':
+                close();
+                openSheet('lists');
+                return;
+            case 'trip':
+                close();
+                // Only their own trips can open here; team and others' trips live in Scouting
+                if (getTrip(destination.tripId)) onOpenTrip?.(destination.tripId);
+                else openSheet('scouting');
+                return;
+            case 'place':
+                close();
+                goToPlace(destination.request);
         }
-        // List created → open Lists panel
-        if (item.target.type === 'list' && item.type === 'created') {
-            close();
-            openSheet('lists');
-            return;
-        }
-
-        // POI comment → search map data by placeId (no lat/lon stored in comments)
-        if (item.type === 'commented' && item.entityId && !item.lat) {
-            close();
-            window.dispatchEvent(new CustomEvent('open-poi-popup', {
-                detail: { placeId: item.entityId }
-            }));
-            return;
-        }
-
-        // Activity with lat/lon (from activity_log: list items, attachments, shapes)
-        if (item.lat != null && item.lon != null) {
-            close();
-            if (item.entityId) {
-                // Extract placeType from entityId (format: "type-lat-lon") so the filter auto-enables
-                const placeType = item.entityId.split('-')[0];
-                navigateAndOpenPopup(item.lat, item.lon, item.entityId, placeType);
-            } else {
-                navigateToLocation(item.lat, item.lon);
-            }
-            return;
-        }
-
-        // Fallback: any item with a placeId-style entityId — try to find it on the map
-        if (item.entityId) {
-            close();
-            window.dispatchEvent(new CustomEvent('open-poi-popup', {
-                detail: { placeId: item.entityId }
-            }));
-            return;
-        }
-    }, [close, openSheet, showToast]);
+    }, [close, openSheet, showToast, getTrip, onOpenTrip]);
 
     return (
         <MobilePanel
@@ -136,7 +103,8 @@ export function ActivityLog({ onUnreadCountChange }: { onUnreadCountChange?: (co
                     />
                 ) : (
                     activitiesWithOrphanStatus.map((item) => {
-                        const navigable = isNavigable(item);
+                        // Rows that lead somewhere get link styling; the rest explain on click
+                        const navigable = activityDestination(item).kind !== 'message';
                         return (
                             <button
                                 key={item.id}

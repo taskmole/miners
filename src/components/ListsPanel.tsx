@@ -50,14 +50,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { LocationList, ListItem, VisitLog } from "@/types/lists";
 import { LoadingOrb } from "@/components/LoadingOrb";
-
-// Custom event to navigate to location AND open popup
-// Also includes placeType so the filter can be enabled if needed
-export const navigateAndOpenPopup = (lat: number, lon: number, placeId: string, placeType?: string) => {
-    window.dispatchEvent(new CustomEvent('navigate-and-open-popup', {
-        detail: { lat, lon, placeId, placeType }
-    }));
-};
+import { goToPlace } from "@/lib/go-to-place";
 
 // Export a list as CSV file
 function exportListAsCSV(list: LocationList): void {
@@ -476,10 +469,9 @@ export function ListsPanel({ cityId, onCreateTripFromList }: ListsPanelProps) {
         createTripWithProperty(selectedListForTrip, item, area);
     };
 
-    // Handle clicking on a POI item - navigate AND open popup
-    // Also passes placeType so the filter can be enabled if not already on
+    // Handle clicking on a POI item - go there and open its card
     const handleItemClick = (item: ListItem) => {
-        navigateAndOpenPopup(item.lat, item.lon, item.placeId, item.placeType);
+        goToPlace({ placeId: item.placeId, lat: item.lat, lon: item.lon });
         close();
     };
 

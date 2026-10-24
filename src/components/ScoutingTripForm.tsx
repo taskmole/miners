@@ -17,6 +17,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { goToPlace } from "@/lib/go-to-place";
+import { generatePlaceId } from "@/lib/place-id";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMobile } from "@/hooks/useMobile";
@@ -590,10 +592,7 @@ export function ScoutingTripForm({
 
   const handleNavigateToCompetitor = (lat: number, lon: number) => {
     handleSaveDraft();
-    const placeId = `cafe-${lat.toFixed(5)}-${lon.toFixed(5)}`;
-    window.dispatchEvent(new CustomEvent('navigate-and-open-popup', {
-      detail: { lat, lon, placeId, placeType: 'cafe' },
-    }));
+    goToPlace({ placeId: generatePlaceId('cafe', lat, lon), lat, lon });
   };
 
   const handleNavigateToProperty = () => {
@@ -602,9 +601,7 @@ export function ScoutingTripForm({
     const lon = property.data.longitude ?? property.data.lon;
     if (lat == null || lon == null) return;
     handleSaveDraft();
-    window.dispatchEvent(new CustomEvent('navigate-and-open-popup', {
-      detail: { lat, lon, placeId: property.id, placeType: 'property', data: property.data },
-    }));
+    goToPlace({ placeId: property.id, lat, lon, data: property.data });
   };
 
   if (!isOpen) return null;

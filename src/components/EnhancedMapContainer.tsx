@@ -21,6 +21,7 @@ import { DrawingIndicator } from "@/components/DrawingIndicator";
 import { MapStyleSwitcher } from "@/components/MapStyleSwitcher";
 import { generatePlaceId, generatePropertyPlaceId, parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { evaluatePropertyActions } from "@/lib/property-actions";
+import type { PendingFocus } from "@/lib/go-to-place";
 import { useToast } from "@/contexts/ToastContext";
 import { useLinking } from "@/contexts/LinkingContext";
 import type { City } from "@/components/CitySelector";
@@ -1047,103 +1048,50 @@ function RadiusCircleLayer() {
 // Zoom threshold for switching between clusters and icon markers
 const ICON_ZOOM_THRESHOLD = 14;
 
-// Component to listen for navigation events from ActivityLog and ListsPanel
+/**
+ * Fly to a place and open its card. Fired with the place's data by
+ * PendingFocusOpener and by search (whose results are already loaded); anything
+ * else should call goToPlace. page.tsx also hears it to switch the layer on.
+ */
 function NavigationEventListener({
-    onOpenCafePopup,
-    onOpenPropertyPopup,
-    onOpenPoiPopup,
     setSelectedCafe,
     setSelectedProperty,
     setSelectedPoi,
+    clearSavedDisambiguation,
 }: {
-    onOpenCafePopup?: (placeId: string) => void;
-    onOpenPropertyPopup?: (placeId: string) => void;
-    onOpenPoiPopup?: (placeId: string) => void;
-    // Direct setters for when data is available (avoids O(n) search)
-    setSelectedCafe?: (value: { cafe: CafeData; coordinates: [number, number] } | null) => void;
-    setSelectedProperty?: (value: { property: PropertyData; coordinates: [number, number] } | null) => void;
-    setSelectedPoi?: (value: { poi: OtherPoiData; coordinates: [number, number] } | null) => void;
+    clearSavedDisambiguation: () => void;
+    setSelectedCafe: (value: { cafe: CafeData; coordinates: [number, number] } | null) => void;
+    setSelectedProperty: (value: { property: PropertyData; coordinates: [number, number] } | null) => void;
+    setSelectedPoi: (value: { poi: OtherPoiData; coordinates: [number, number] } | null) => void;
 }) {
     const { map, isLoaded } = useMap();
 
     useEffect(() => {
         if (!map || !isLoaded) return;
 
-        // Simple navigation (just fly to location)
-        const handleNavigate = (e: CustomEvent<{ lat: number; lon: number }>) => {
-            const { lat, lon } = e.detail;
-            map.flyTo({
-                center: [lon, lat],
-                zoom: 16,
-                duration: 1500,
-            });
-        };
+        const handleNavigateAndOpenPopup = (e: CustomEvent<FocusTarget & { placeId: string }>) => {
+            const { lat, lon, placeId } = e.detail;
+            const data = e.detail.data as any;
+            map.flyTo({ center: [lon, lat], zoom: 16, duration: 600 });
 
-        // Navigation AND open popup (from ListsPanel or ScoutingTripDetail)
-        const handleNavigateAndOpenPopup = (e: CustomEvent<{ lat: number; lon: number; placeId: string; placeType?: string; data?: any }>) => {
-            const { lat, lon, placeId, data } = e.detail;
-
-            // Fly to location (fast animation)
-            map.flyTo({
-                center: [lon, lat],
-                zoom: 16,
-                duration: 600,
-            });
-
-            // Parse placeId to determine type (format: "type-lat-lon")
-            const parts = placeId.split('-');
-            const type = parts[0];
-
-            // Open popup after flight completes
-            setTimeout(() => {
-                // If POI data was passed, use it directly (O(1) - no search needed)
-                if (data) {
-                    if (type === 'cafe' || type === 'eu_coffee_trip' || type === 'regular_cafe') {
-                        setSelectedCafe?.({ cafe: data, coordinates: [lon, lat] });
-                    } else if (type === 'property') {
-                        setSelectedProperty?.({ property: rehydratePropertyData(data), coordinates: [lon, lat] });
-                    } else {
-                        setSelectedPoi?.({ poi: data, coordinates: [lon, lat] });
-                    }
-                } else {
-                    // Fallback: search for POI (O(n) - for backward compatibility)
-                    if (type === 'cafe' || type === 'eu_coffee_trip' || type === 'regular_cafe') {
-                        onOpenCafePopup?.(placeId);
-                    } else if (type === 'property') {
-                        onOpenPropertyPopup?.(placeId);
-                    } else {
-                        onOpenPoiPopup?.(placeId);
-                    }
-                }
-            }, 650); // Wait for 600ms animation to complete
-        };
-
-        // Open POI popup by placeId only (from Activity Log — no lat/lon needed)
-        // Searches loaded POI data, gets coordinates, flies there, opens popup
-        const handleOpenPoiById = (e: CustomEvent<{ placeId: string }>) => {
-            const { placeId } = e.detail;
+            // Type from the id prefix ("type-lat-lon"); open once the flight lands
             const type = placeId.split('-')[0];
-
-            // Search by type and call the appropriate open handler (which searches + opens)
-            if (type === 'cafe' || type === 'eu_coffee_trip' || type === 'regular_cafe') {
-                onOpenCafePopup?.(placeId);
-            } else if (type === 'property') {
-                onOpenPropertyPopup?.(placeId);
-            } else {
-                onOpenPoiPopup?.(placeId);
-            }
+            setTimeout(() => {
+                // A card opened from elsewhere must not bring back an old stacked-pin picker
+                clearSavedDisambiguation();
+                if (type === 'cafe' || type === 'eu_coffee_trip' || type === 'regular_cafe') {
+                    setSelectedCafe({ cafe: data, coordinates: [lon, lat] });
+                } else if (type === 'property') {
+                    setSelectedProperty({ property: rehydratePropertyData(data), coordinates: [lon, lat] });
+                } else {
+                    setSelectedPoi({ poi: data, coordinates: [lon, lat] });
+                }
+            }, 650);
         };
 
-        window.addEventListener('navigate-to-location', handleNavigate as EventListener);
         window.addEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
-        window.addEventListener('open-poi-popup', handleOpenPoiById as EventListener);
-
-        return () => {
-            window.removeEventListener('navigate-to-location', handleNavigate as EventListener);
-            window.removeEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
-            window.removeEventListener('open-poi-popup', handleOpenPoiById as EventListener);
-        };
-    }, [map, isLoaded, onOpenCafePopup, onOpenPropertyPopup, onOpenPoiPopup, setSelectedCafe, setSelectedProperty, setSelectedPoi]);
+        return () => window.removeEventListener('navigate-and-open-popup', handleNavigateAndOpenPopup as EventListener);
+    }, [map, isLoaded, setSelectedCafe, setSelectedProperty, setSelectedPoi, clearSavedDisambiguation]);
 
     return null;
 }
@@ -1360,7 +1308,7 @@ const IconMarker = React.memo(function IconMarker({
     );
 });
 
-/** What a shared link resolved to: the navigate-and-open-popup detail. */
+/** What a place request resolved to: the navigate-and-open-popup detail. */
 interface FocusTarget {
     lat: number;
     lon: number;
@@ -1370,37 +1318,50 @@ interface FocusTarget {
 }
 
 /**
- * Open the card a shared link points at, once the map can show it.
+ * Open the card a shared link or an in-app click points at, once the map can
+ * show it.
  *
  * page.tsx has already checked access and switched to the right city. This
  * waits for the map, then for that city's data (`ready`; useMapData's own
- * timeouts make a failed load "ready" too), finds the place and fires the
- * same navigate-and-open-popup event the lists panel uses, so zooming,
- * switching the layer on and opening the card all reuse that path. Its zoom
- * also cancels CityNavigator's fly-over, so the two never fight. Rendered
- * after NavigationEventListener, whose listener is therefore already attached.
+ * timeouts make a failed load "ready" too), finds the place and fires
+ * navigate-and-open-popup, which zooms, switches the layer on and opens the
+ * card. Its zoom also cancels CityNavigator's fly-over, so the two never
+ * fight. A place that is gone, or a bare spot (a drawn shape), still gets a
+ * flight to where it is or was. Rendered after NavigationEventListener, whose
+ * listener is therefore already attached.
  */
 function PendingFocusOpener({
-    placeId,
+    focus,
     ready,
     find,
     onDone,
 }: {
-    placeId: string;
+    /** The spot is where it is or was; page.tsx works it out once. */
+    focus: PendingFocus;
     ready: boolean;
     find: (placeId: string) => FocusTarget | null;
+    /** false when the place id matched nothing loaded. */
     onDone: (found: boolean) => void;
 }) {
     const { map, isLoaded } = useMap();
 
     useEffect(() => {
         if (!map || !isLoaded || !ready) return;
-        const target = find(placeId);
+        const { placeId, lat, lon, data, shapeId } = focus;
+        // Loaded data first; card data saved elsewhere (a trip's linked place) next
+        const target = placeId
+            ? find(placeId) ?? (data ? { lat, lon, placeType: placeId.split("-")[0], data } : null)
+            : null;
         if (target) {
             window.dispatchEvent(new CustomEvent("navigate-and-open-popup", { detail: { ...target, placeId } }));
+        } else {
+            map.flyTo({ center: [lon, lat], zoom: 16, duration: 600 });
+            if (shapeId) {
+                setTimeout(() => window.dispatchEvent(new CustomEvent("select-drawn-shape", { detail: { shapeId } })), 650);
+            }
         }
-        onDone(!!target);
-    }, [map, isLoaded, ready, placeId, find, onDone]);
+        onDone(!placeId || !!target);
+    }, [map, isLoaded, ready, focus, find, onDone]);
 
     return null;
 }
@@ -1426,8 +1387,8 @@ interface EnhancedMapContainerProps {
     propertyPriceChangeFilter?: PropertyPriceChangeFilter;
     propertyPitchStatusFilter?: PropertyPitchStatusFilter;
     demoMode?: boolean;
-    /** A shared link's place to open once its city's data is in. */
-    pendingFocus?: { placeId: string; cityId: string } | null;
+    /** A place (shared link or in-app click) to open once its city's data is in. */
+    pendingFocus?: PendingFocus | null;
     onPendingFocusDone?: (found: boolean) => void;
 }
 
@@ -1914,72 +1875,16 @@ export function EnhancedMapContainer({
         }
     }, [savedDisambiguationCoords, getColocatedPois]);
 
+    const clearSavedDisambiguation = React.useCallback(() => setSavedDisambiguationCoords(null), []);
+
     // Dismiss disambiguation menu and clear saved coordinates
     const handleDisambiguationClose = React.useCallback(() => {
         setDisambiguationData(null);
         setSavedDisambiguationCoords(null);
     }, []);
 
-    // Callbacks for opening popups from ListsPanel navigation
-    const handleOpenCafePopup = React.useCallback((placeId: string) => {
-        const coords = parseCoordinatesFromPlaceId(placeId);
-        if (!coords) return;
-
-        const allCafes = [...minersCafes, ...cafes];
-        const matchingCafe = allCafes.find(cafe =>
-            coordsMatch(cafe.lat, coords.lat) && coordsMatch(cafe.lon, coords.lon)
-        );
-        if (matchingCafe) {
-            setSavedDisambiguationCoords(null);
-            setSelectedCafe({
-                cafe: matchingCafe,
-                coordinates: [matchingCafe.lon, matchingCafe.lat]
-            });
-        }
-    }, [minersCafes, cafes]);
-
-    const handleOpenPropertyPopup = React.useCallback((placeId: string) => {
-        // Try exact match first (new format with URL hash)
-        let matchingProperty = properties.find(p =>
-            generatePropertyPlaceId(p) === placeId
-        );
-
-        // Fallback for old-format placeIds: match by coordinates
-        if (!matchingProperty) {
-            const coords = parseCoordinatesFromPlaceId(placeId);
-            if (!coords) return;
-            matchingProperty = properties.find(p =>
-                coordsMatch(p.latitude, coords.lat) && coordsMatch(p.longitude, coords.lon)
-            );
-        }
-
-        if (matchingProperty) {
-            setSavedDisambiguationCoords(null);
-            setSelectedProperty({
-                property: matchingProperty,
-                coordinates: [matchingProperty.longitude, matchingProperty.latitude]
-            });
-        }
-    }, [properties]);
-
-    const handleOpenPoiPopup = React.useCallback((placeId: string) => {
-        const coords = parseCoordinatesFromPlaceId(placeId);
-        if (!coords) return;
-
-        const matchingPoi = otherPois.find(poi =>
-            coordsMatch(poi.lat, coords.lat) && coordsMatch(poi.lon, coords.lon)
-        );
-        if (matchingPoi) {
-            setSavedDisambiguationCoords(null);
-            setSelectedPoi({
-                poi: matchingPoi,
-                coordinates: [matchingPoi.lon, matchingPoi.lat]
-            });
-        }
-    }, [otherPois]);
-
     /**
-     * Resolve a shared link's place id against the loaded data, or null when
+     * Resolve a place id (shared link or in-app click) against the loaded data, or null when
      * the place is gone (a listing taken down, a cafe removed).
      */
     const findFocusTarget = React.useCallback((placeId: string): FocusTarget | null => {
@@ -2061,11 +1966,9 @@ export function EnhancedMapContainer({
             >
                 <MapStyleSwitcher onStyleChange={() => setMapStyleKey(k => k + 1)} />
 
-                {/* Navigation event listener for ActivityLog and ListsPanel clicks */}
+                {/* Opens the card PendingFocusOpener found */}
                 <NavigationEventListener
-                    onOpenCafePopup={handleOpenCafePopup}
-                    onOpenPropertyPopup={handleOpenPropertyPopup}
-                    onOpenPoiPopup={handleOpenPoiPopup}
+                    clearSavedDisambiguation={clearSavedDisambiguation}
                     setSelectedCafe={setSelectedCafe}
                     setSelectedProperty={setSelectedProperty}
                     setSelectedPoi={setSelectedPoi}
@@ -2107,10 +2010,10 @@ export function EnhancedMapContainer({
                 {/* City navigator - flies to selected city */}
                 <CityNavigator city={selectedCity} />
 
-                {/* Shared link: open its card once that city's data has loaded */}
+                {/* Shared link or in-app click: open its card once that city's data has loaded */}
                 {pendingFocus && onPendingFocusDone && (
                     <PendingFocusOpener
-                        placeId={pendingFocus.placeId}
+                        focus={pendingFocus}
                         ready={selectedCity?.id === pendingFocus.cityId && !isLoading}
                         find={findFocusTarget}
                         onDone={onPendingFocusDone}

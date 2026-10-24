@@ -52,6 +52,7 @@ import { AttachmentGallery } from "@/components/attachments";
 import { generateTripPdf } from "@/components/TripPdfExport";
 import { generateTripDocx } from "@/components/TripDocxExport";
 import type { ScoutingTrip, ScoutingTripStatus } from "@/types/scouting";
+import { goToPlace } from "@/lib/go-to-place";
 
 interface ScoutingTripDetailProps {
   tripId: string;
@@ -306,33 +307,9 @@ export function ScoutingTripDetail({
     // Close the detail modal first
     onClose();
 
-    // For POIs (type 'place'), parse coordinates from the ID
-    // Format: "type-lat-lon" where lon can be negative (e.g., "cafe-40.4168--3.7038")
+    // Places: same path as Activity and Lists (city switch, "no longer on the map")
     if (linkedItem.type === 'place') {
-      // Use regex to extract coordinates - handles negative numbers correctly
-      // Match: type-<number>-<number> where numbers can be negative
-      const match = linkedItem.id.match(/^([a-z_]+)-(-?\d+\.?\d*)-(-?\d+\.?\d*)(?:-[0-9a-f]+)?$/i);
-
-      if (match) {
-        const placeType = match[1];
-        const lat = parseFloat(match[2]);
-        const lon = parseFloat(match[3]);
-
-        if (!isNaN(lat) && !isNaN(lon)) {
-          // Dispatch with POI data for fast popup (avoids O(n) search)
-          window.dispatchEvent(
-            new CustomEvent("navigate-and-open-popup", {
-              detail: {
-                lat,
-                lon,
-                placeId: linkedItem.id,
-                placeType,
-                data: linkedItem.data, // Pass full POI data if available
-              },
-            })
-          );
-        }
-      }
+      goToPlace({ placeId: linkedItem.id, data: linkedItem.data });
     } else {
       // For drawn areas, select the shape
       window.dispatchEvent(
