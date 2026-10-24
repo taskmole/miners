@@ -2012,42 +2012,60 @@
 .mt-new:active { transform: scale(.96); }
 
 /* "Something unread" on NEW and Activity (desktop and phone): light inside
-   the button itself, no ring. One layer under the label (isolation +
-   z-index -1): a thin rainbow line on the bottom edge with light rising
-   from it, drifting back and forth and softly breathing. It is all
-   backgrounds, so it clips to the layer's own corners and never pokes out.
-   "is-light" is for the frosted bars (Activity): stronger colours kept low
-   by the edge, as a pale haze on white looks stuck under the frost. With
-   reduced motion it holds still in the middle. */
+   the button itself, no ring. Two layers under the label (isolation +
+   z-index -1), both shaped like the button so nothing is ever cut off:
+   ::after is a thin line of light that follows the bottom edge round the
+   corners and fades out up the sides; ::before is a soft glow rising from
+   it. They drift back and forth and softly breathe. "is-light" is for the
+   frosted bars (Activity): stronger colours kept low by the edge, as a pale
+   haze on white looks stuck under the frost. With reduced motion it holds
+   still in the middle. */
 @property --mt-x { syntax: "<percentage>"; initial-value: 50%; inherits: false; }
 .mt-lit { isolation: isolate; }
-.mt-lit::before {
+.mt-lit::before, .mt-lit::after {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   border-radius: inherit;
-  background:
-    linear-gradient(90deg, transparent calc(var(--mt-x, 50%) - 34%), #3ee8b5 calc(var(--mt-x, 50%) - 18%), #ff4fa3 var(--mt-x, 50%), #47b5ff calc(var(--mt-x, 50%) + 18%), transparent calc(var(--mt-x, 50%) + 34%)) center bottom / 100% 1.5px no-repeat,
-    radial-gradient(30% 22% at var(--mt-x, 50%) 100%, rgba(255,150,205,0.9), rgba(255,79,163,0.35) 45%, transparent) no-repeat,
-    radial-gradient(36% 60% at calc(var(--mt-x, 50%) - 16%) 100%, rgba(62,232,181,0.4), rgba(62,232,181,0.1) 50%, transparent) no-repeat,
-    radial-gradient(36% 60% at calc(var(--mt-x, 50%) + 16%) 100%, rgba(71,140,255,0.45), rgba(71,140,255,0.1) 50%, transparent) no-repeat,
-    radial-gradient(50% 75% at var(--mt-x, 50%) 100%, rgba(200,90,255,0.4), rgba(160,90,255,0.1) 55%, transparent) no-repeat;
   animation: mt-drift 3.2s ease-in-out infinite alternate, mt-breathe 2.4s ease-in-out infinite;
+}
+/* The glow: centred above the edge and gone before any side. */
+.mt-lit::before {
+  background:
+    radial-gradient(28% 30% at var(--mt-x, 50%) 92%, rgba(255,150,205,0.75), rgba(255,79,163,0.25) 50%, transparent) no-repeat,
+    radial-gradient(26% 40% at calc(var(--mt-x, 50%) - 14%) 95%, rgba(62,232,181,0.4), rgba(62,232,181,0.1) 50%, transparent) no-repeat,
+    radial-gradient(26% 40% at calc(var(--mt-x, 50%) + 14%) 95%, rgba(71,140,255,0.45), rgba(71,140,255,0.1) 50%, transparent) no-repeat,
+    radial-gradient(40% 60% at var(--mt-x, 50%) 100%, rgba(200,90,255,0.35), rgba(160,90,255,0.08) 55%, transparent) no-repeat;
+}
+/* The line: the button's outline, kept only along the bottom, where the
+   colours are. Mask = border box minus padding box. */
+.mt-lit::after {
+  padding: 1.5px;
+  background:
+    radial-gradient(44% 60% at var(--mt-x, 50%) 100%, #ff4fa3, rgba(255,79,163,0.5) 40%, transparent 75%) no-repeat,
+    radial-gradient(24% 50% at calc(var(--mt-x, 50%) - 20%) 100%, #3ee8b5, transparent 75%) no-repeat,
+    radial-gradient(24% 50% at calc(var(--mt-x, 50%) + 20%) 100%, #47b5ff, transparent 75%) no-repeat;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
 .mt-lit.is-light::before {
   background:
-    linear-gradient(90deg, transparent calc(var(--mt-x, 50%) - 34%), #10c98f calc(var(--mt-x, 50%) - 18%), #ff2289 var(--mt-x, 50%), #1e90ff calc(var(--mt-x, 50%) + 18%), transparent calc(var(--mt-x, 50%) + 34%)) center bottom / 100% 2px no-repeat,
-    radial-gradient(14px 9px at var(--mt-x, 50%) 100%, rgba(255,34,137,0.85), rgba(255,34,137,0.3) 50%, transparent) no-repeat,
-    radial-gradient(11px 11px at calc(var(--mt-x, 50%) - 10px) 100%, rgba(16,201,143,0.7), rgba(16,201,143,0.2) 50%, transparent) no-repeat,
-    radial-gradient(11px 11px at calc(var(--mt-x, 50%) + 10px) 100%, rgba(30,144,255,0.7), rgba(30,144,255,0.2) 50%, transparent) no-repeat;
+    radial-gradient(30% 34% at var(--mt-x, 50%) 94%, rgba(255,34,137,0.6), rgba(255,34,137,0.18) 50%, transparent) no-repeat,
+    radial-gradient(24% 40% at calc(var(--mt-x, 50%) - 16%) 96%, rgba(16,201,143,0.45), rgba(16,201,143,0.1) 50%, transparent) no-repeat,
+    radial-gradient(24% 40% at calc(var(--mt-x, 50%) + 16%) 96%, rgba(30,144,255,0.45), rgba(30,144,255,0.1) 50%, transparent) no-repeat;
 }
+.mt-lit.is-light::after { padding: 2px; }
 /* Activity is the last tool, so its light fills the end of its bar: out
    through the bar's 4px padding to its real edge, with the bar's corners
    (.mt-bar: 12px; .mt-tray on phones: 16px). Position and corners only. */
-.mt-bar .mt-lit:last-child::before { inset: 0 -4px -4px; border-radius: 0 0 12px 12px; }
-.mt-tray .mt-lit:last-child::before { inset: -4px; border-radius: 0 16px 16px 0; }
-@keyframes mt-drift { from { --mt-x: 38%; } to { --mt-x: 62%; } }
-@keyframes mt-breathe { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+.mt-bar .mt-lit:last-child::before, .mt-bar .mt-lit:last-child::after { inset: 0 -4px -4px; border-radius: 0 0 12px 12px; }
+.mt-tray .mt-lit:last-child::before, .mt-tray .mt-lit:last-child::after { inset: -4px; border-radius: 0 16px 16px 0; }
+/* No line where the layer ends inside the bar. */
+.mt-bar .mt-lit:last-child::after { padding-top: 0; }
+.mt-tray .mt-lit:last-child::after { padding-left: 0; }
+@keyframes mt-drift { from { --mt-x: 40%; } to { --mt-x: 60%; } }
+@keyframes mt-breathe { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
-  .mt-lit::before { animation: none; }
+  .mt-lit::before, .mt-lit::after { animation: none; }
 }
 
 /* Hover name to the left of the bar. */
