@@ -1953,10 +1953,13 @@
    Phones: 48px trays and tiles (16px corners), 40px buttons (12px).
    Desktop: 36px trays and tiles (12px corners), 28px buttons (8px), the
    size the map style toggle has always had. */
-/* The .glass frost, shared by trays and lone buttons. */
+/* The .glass frost, shared by trays and lone buttons. backdrop-filter is
+   written once, unprefixed, as in .glass: the build adds the -webkit- copy
+   itself, and writing both made it keep only that one (no frost in Chrome
+   or on Android). */
 .mt-tray, .mt-float {
   border-radius: 16px;
-  background: rgba(255,255,255,0.58); backdrop-filter: blur(36px) saturate(180%); -webkit-backdrop-filter: blur(36px) saturate(180%);
+  background: rgba(255,255,255,0.58); backdrop-filter: blur(36px) saturate(180%);
   box-shadow: 0 4px 20px rgba(0,0,0,0.22);
 }
 .mt-tray { padding: 4px; }
@@ -1968,7 +1971,7 @@
 /* Inside a tray the tray is the glass; the buttons are plain cells. */
 .mt-tray .mt-float {
   height: 40px; min-width: 40px; border-radius: 12px;
-  background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none;
+  background: transparent; backdrop-filter: none; box-shadow: none;
 }
 @media (min-width: 640px) {
   .mt-tray { border-radius: 12px; }
