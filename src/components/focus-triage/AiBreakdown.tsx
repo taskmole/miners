@@ -205,24 +205,7 @@ export function AiBreakdown({ placeId, breakdown, openByDefault = false }: AiBre
   const canTrain = breakdown.canTrain;
 
   return (
-    <div className="space-y-3">
-      {breakdown.secondLook && (
-        <div
-          className="rounded-xl px-4 py-3"
-          style={{
-            backgroundColor: "rgba(255, 251, 235, 0.8)",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.04), inset 0 0 0 1px rgba(245,158,11,0.3)",
-          }}
-        >
-          <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wide mb-1.5">
-            Worth a second look
-          </p>
-          <p className="text-[13px] text-zinc-700 leading-relaxed break-words">
-            {breakdown.secondLook}
-          </p>
-        </div>
-      )}
-
+    <div>
       <div className="rounded-xl border border-zinc-200 overflow-hidden">
         <button
           type="button"
@@ -239,17 +222,29 @@ export function AiBreakdown({ placeId, breakdown, openByDefault = false }: AiBre
           }}
           aria-expanded={open}
           aria-controls={panelId}
-          className="w-full min-h-[44px] flex items-center justify-between px-4 py-3 text-left hover:bg-zinc-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
+          className="w-full min-h-[44px] flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-zinc-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
         >
-          <span
-            className="text-[15px] font-semibold text-zinc-900"
-            style={{ fontFamily: "var(--font-outfit)" }}
-          >
-            Why {breakdown.blend}?
+          <span className="min-w-0">
+            <span
+              className="block text-[15px] font-semibold text-zinc-900"
+              style={{ fontFamily: "var(--font-outfit)" }}
+            >
+              Why {breakdown.blend}?
+            </span>
+            {/* "Worth a second look" belongs to the score, so it sits under
+                its title as a note rather than a box of its own. It shows
+                with the panel closed too, and wraps rather than cutting off
+                the numbers. */}
+            {breakdown.secondLook && (
+              <span className="mt-1 flex items-start gap-2 text-[12.5px] leading-snug text-amber-700 break-words">
+                <span aria-hidden="true" className="mt-[6px] w-1.5 h-1.5 shrink-0 rounded-full bg-amber-500" />
+                <span>Worth a second look: {breakdown.secondLook}</span>
+              </span>
+            )}
           </span>
           <ChevronDown
             aria-hidden="true"
-            className={`w-4 h-4 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+            className={`w-4 h-4 shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
           />
         </button>
 

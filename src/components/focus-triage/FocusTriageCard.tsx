@@ -53,6 +53,19 @@ interface FocusTriageCardProps {
 //   return `${months} months`;
 // }
 
+/** A big figure with its name in small grey type underneath. */
+function Figure({ value, label, transfer = false }: { value: string; label: string; transfer?: boolean }) {
+  return (
+    <div className="shrink-0">
+      {/* Transfer in the map card's transfer orange. */}
+      <p className={`poi-price leading-none whitespace-nowrap ${transfer ? "text-orange-700" : ""}`}>
+        {value}
+      </p>
+      <p className="mt-1.5 text-[12px] text-zinc-500">{label}</p>
+    </div>
+  );
+}
+
 export function FocusTriageCard({
   property,
   isDesktop,
@@ -85,7 +98,7 @@ export function FocusTriageCard({
   const quiet = [
     isShown(property.size) ? `${property.size} m²` : null,
     hasPrice && isShown(property.size)
-      ? `${formatPrice(property.price / property.size, property.source)}/m²`
+      ? `${formatPrice(property.price / property.size, property.source)} per m²`
       : null,
   ].filter(Boolean).join(" · ");
 
@@ -125,27 +138,23 @@ export function FocusTriageCard({
           On wide screens the window's top row sits over its first 48px. */}
       <div className="flex-1 flex flex-col lg:min-h-0 lg:min-w-0 lg:pt-12">
         <div className="px-5 pt-6 pb-4 space-y-6 lg:flex-1 lg:overflow-y-auto lg:px-6 lg:pt-1 lg:space-y-5">
-          {/* Money first, then the listing's own links. */}
+          {/* Money first, then the listing's own links. Two tiers: rent and
+              transfer as big figures, each named underneath, side by side on
+              every screen; size and rent per m² on a quieter line below. */}
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <div className="flex items-baseline flex-wrap gap-x-4 gap-y-1 text-zinc-900">
+              <div className="flex items-start gap-7 text-zinc-900">
                 {hasPrice ? (
-                  <span className="poi-price">
-                    {formatPrice(property.price, property.source)}
-                    <small>/mo</small>
-                  </span>
+                  <Figure value={formatPrice(property.price, property.source)} label="per month" />
                 ) : (
                   <span className="poi-price is-request">On request</span>
                 )}
                 {isShown(property.transfer) && (
-                  <span className="poi-price triage-transfer">
-                    {formatShortMoney(property.transfer, source)}
-                    <small>transfer</small>
-                  </span>
+                  <Figure value={formatShortMoney(property.transfer, source)} label="transfer fee" transfer />
                 )}
               </div>
               {quiet && (
-                <p className="mt-1 text-[13px] text-zinc-500" style={{ fontVariantNumeric: "tabular-nums" }}>
+                <p className="mt-3 text-[13px] text-zinc-500" style={{ fontVariantNumeric: "tabular-nums" }}>
                   {quiet}
                 </p>
               )}
