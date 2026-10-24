@@ -1,30 +1,30 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import {
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Loader2,
-} from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, X, Loader2 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { useMobile, useWideScreen } from "@/hooks/useMobile";
 import { apiFetch } from "@/lib/api-client";
 import { usePropertyAssignmentContext } from "@/contexts/PropertyAssignmentContext";
 import { usePitchStatusContext } from "@/contexts/PitchStatusContext";
 import { evaluatePropertyActions, pendingPropertyActions } from "@/lib/property-actions";
-import { useListsContext } from "@/contexts/ListsContext";
 import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { usePropertyRequests } from "@/hooks/usePropertyRequests";
 import { logActivity } from "@/lib/supabaseHelpers";
 import { notifyTeam } from "@/lib/notify-team";
-import { FocusTriageCard, AssignSheet, ActionsSheet } from "@/components/focus-triage";
+import { FocusTriageCard, StepSheet } from "@/components/focus-triage";
+import { AssignList } from "@/components/AssignList";
+import { PoiCardScope, MoreMenu } from "@/components/poi-card/PoiCard";
+import { listingMainSlot, listingMoreItems } from "@/components/poi-card/listing-actions";
+import { useExclusive } from "@/hooks/useExclusive";
+import { usePlaceCard, PreRejectForm } from "@/components/poi-card/CardSteps";
+import { statusPill, type StatusPill } from "@/components/poi-card/card-format";
+import type { PropertyActionState } from "@/lib/property-actions";
 import { BreatheGlow } from "@/components/BeamGlow";
 import { nextUnseenIndex } from "@/lib/triage-deck";
+import { formatPrice } from "@/types/inbox";
 import type { InboxProperty } from "@/types/inbox";
-import type { PlaceInfo } from "@/types/lists";
 import type { LinkedItem } from "@/types/scouting";
 
 interface NewListingsModalProps {
@@ -34,7 +34,7 @@ interface NewListingsModalProps {
 }
 
 /**
- * How long "Undo" stays up after "Seen, next". The server is only told once
+ * How long "Undo" stays up after "Skip". The server is only told once
  * this runs out, so undoing never needs an "unread" call of its own.
  */
 const UNDO_MS = 4000;
@@ -66,16 +66,13 @@ export function NewListingsModal({
     preRejectProperty,
     removeAssignment,
     assignments,
-    users: assignableUsers,
     getAssignment,
     isAssignedToMe,
   } = usePropertyAssignmentContext();
-  const { getPitchStatus } = usePitchStatusContext();
+  const { getPitchStatus, getPitchDate, getPitchRejectionReason, getPitchReturnReason } =
+    usePitchStatusContext();
   const { canAccessDashboard, accessResolved } = useUserProfiles();
   const { hasPendingRequest, wasRejectedForMe, requestProperty } = usePropertyRequests();
-  // writableLists, not lists: "add to list" here writes to lists[0], so a
-  // read-only list sorting first would drop the property in someone else's.
-  const { writableLists: lists, addToList, isPlaceInList, createList } = useListsContext();
   const { createTrip, updateTrip } = useScoutingTrips();
 
   // Data state
@@ -104,9 +101,13 @@ export function NewListingsModal({
   // Seen listings the server has not been told about yet, each with the
   // timer that will tell it. Undo cancels the timer.
   const pendingReads = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  const [cardAnim, setCardAnim] = useState<"idle" | "exiting" | "entering">("idle");
-  const [activeSheet, setActiveSheet] = useState<"assign" | "actions" | null>(null);
-  const [snapshotProperty, setSnapshotProperty] = useState<InboxProperty | null>(null);
+  // Which side the next card slides in from: right going forward, left going
+  // back. Null on open, so the first card just appears.
+  const [enterFrom, setEnterFrom] = useState<"left" | "right" | null>(null);
+  const [activeSheet, setActiveSheet] = useState<TriageStep | null>(null);
+  const [busy, runExclusive] = useExclusive();
+  // When Skip last moved on, so a double click cannot skip two listings.
+  const lastSkipAt = useRef(0);
   // Plays the "All caught up" glow. Bumped only when the scout's own action
   // empties the deck, and reset on every load and close, so an inbox that was
   // already empty shows the tick without a glow.
@@ -134,10 +135,13 @@ export function NewListingsModal({
     return found >= 0 ? found : Math.min(cursor.index, deck.length - 1);
   }, [cursor, deck]);
 
+  // A step belongs to the listing it was opened on, so moving closes it.
   const goTo = useCallback(
     (index: number) => {
       const p = deck[index];
-      if (p) setCursor({ id: p.id, index });
+      if (!p) return;
+      setCursor({ id: p.id, index });
+      setActiveSheet(null);
     },
     [deck],
   );
@@ -147,8 +151,11 @@ export function NewListingsModal({
     [deck, seenIds],
   );
 
-  // Current property (use snapshot during exit animation)
-  const currentProperty = snapshotProperty ?? deck[currentIndex];
+  const currentProperty: InboxProperty | undefined = deck[currentIndex];
+
+  // Trainers get the tall window, for the "Why" panel. Decided per batch, not
+  // per listing, so the window keeps one height while you go through it.
+  const isTall = useMemo(() => deck.some((p) => p.aiBreakdown), [deck]);
 
   // One decision for the whole sheet, shared with the map popup. This sheet
   // used to hardcode "Create trip", so a franchisee could start a trip on a
@@ -159,9 +166,6 @@ export function NewListingsModal({
     const placeId = currentProperty?.placeId ?? "";
     const assignment = placeId ? getAssignment(placeId) : null;
     const preRejected = assignment?.status === "pre_rejected";
-    const assignee = assignment?.assigned_to
-      ? assignableUsers.find((u) => u.id === assignment.assigned_to)
-      : null;
 
     return evaluatePropertyActions({
       isAdmin: canAccessDashboard,
@@ -169,7 +173,8 @@ export function NewListingsModal({
       rejectionReason: assignment?.rejection_reason ?? null,
       hasAssignment: !!assignment && !preRejected,
       isAssignedToMe: placeId ? isAssignedToMe(placeId) : false,
-      assigneeLabel: assignee?.display_name || assignee?.email || null,
+      // Never a name in this window: "Assigned" is enough.
+      assigneeLabel: null,
       pitchStatus: placeId ? getPitchStatus(placeId) : null,
       hasPendingRequest: placeId ? hasPendingRequest(placeId) : false,
       wasRejectedForMe: placeId ? wasRejectedForMe(placeId) : false,
@@ -178,13 +183,51 @@ export function NewListingsModal({
     accessResolved,
     currentProperty,
     getAssignment,
-    assignableUsers,
     canAccessDashboard,
     isAssignedToMe,
     getPitchStatus,
     hasPendingRequest,
     wasRejectedForMe,
   ]);
+
+  // The status that takes the main button's place, worded as on the map card
+  // and with no name in it, not even in its tooltip.
+  const pill = useMemo(() => {
+    const placeId = currentProperty?.placeId;
+    if (!placeId) return null;
+    const assignment = getAssignment(placeId);
+    const pitchStatus = getPitchStatus(placeId);
+    return statusPill({
+      stage: actions.stage,
+      isAssignedToMe: isAssignedToMe(placeId),
+      assigneeLabel: null,
+      preRejectReason: assignment?.rejection_reason ?? null,
+      pitchStatus,
+      pitchDate: getPitchDate(placeId),
+      pitchReason:
+        pitchStatus === "rejected" ? getPitchRejectionReason(placeId)
+          : pitchStatus === "returned" ? getPitchReturnReason(placeId)
+            : null,
+    });
+  }, [
+    actions.stage,
+    currentProperty,
+    getAssignment,
+    getPitchStatus,
+    isAssignedToMe,
+    getPitchDate,
+    getPitchRejectionReason,
+    getPitchReturnReason,
+  ]);
+
+  // Someone else may claim or pre-reject the listing while Assign or
+  // Pre-reject is open (assignments refresh in the background): step back.
+  const stepGone =
+    (activeSheet === "assign" && !actions.showAssign) ||
+    (activeSheet === "prereject" && !actions.showPreReject);
+  useEffect(() => {
+    if (stepGone && actions.stage !== "loading") setActiveSheet(null);
+  }, [stepGone, actions.stage]);
 
   // Load listings
   useEffect(() => {
@@ -205,6 +248,8 @@ export function NewListingsModal({
           setSeenIds(new Set());
           setDoneView(false);
           setUndoId(null);
+          setEnterFrom(null);
+          setActiveSheet(null);
         }
       } catch (err) {
         console.error("Failed to load listings:", err);
@@ -321,7 +366,10 @@ export function NewListingsModal({
     pendingReads.current.delete(undoId);
     unsee([undoId]);
     const index = deck.findIndex((p) => p.id === undoId);
-    if (index >= 0) goTo(index);
+    if (index >= 0) {
+      setEnterFrom("left");
+      goTo(index);
+    }
     setDoneView(false);
   }, [undoId, deck, unsee, goTo]);
 
@@ -355,8 +403,8 @@ export function NewListingsModal({
     }
   }, [deck, unseenCount, cancelPendingReads, properties, sendMarkRead, showToast, unsee]);
 
-  // Move on to the next new listing, with animation. `markRead` ticks the
-  // current one off first; `undoable` is only for the "Seen, next" button.
+  // Move on to the next new listing, which slides in from the right.
+  // `markRead` ticks the current one off first; `undoable` is only for Skip.
   const handleAdvance = useCallback(
     (markRead = true, undoable = false) => {
       if (!currentProperty) return;
@@ -377,18 +425,8 @@ export function NewListingsModal({
         return;
       }
 
-      setSnapshotProperty(currentProperty);
+      setEnterFrom("right");
       goTo(next);
-      setCardAnim("exiting");
-
-      setTimeout(() => {
-        setSnapshotProperty(null);
-        setCardAnim("entering");
-      }, 350);
-
-      setTimeout(() => {
-        setCardAnim("idle");
-      }, 600);
     },
     [currentProperty, seenIds, markSeen, deck, currentIndex, goTo],
   );
@@ -415,22 +453,35 @@ export function NewListingsModal({
     [markSeen],
   );
 
-  // Header arrows: browse everything, seen or not, without ticking anything.
-  // From "All caught up" they first bring back the last card shown.
+  // Skip: tick off and move on, with Undo. A second press within a quarter
+  // second is a double click, not a second skip.
+  const handleSkip = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSkipAt.current < 250) return;
+    lastSkipAt.current = now;
+    handleAdvance(true, true);
+  }, [handleAdvance]);
+
+  // Top row arrows and the arrow keys: browse everything, seen or not,
+  // without ticking anything. From "All caught up" they first bring back the
+  // last card shown.
   const handleBrowse = useCallback(
     (step: -1 | 1) => {
       if (doneView) {
         setDoneView(false);
         return;
       }
-      goTo(Math.min(deck.length - 1, Math.max(0, currentIndex + step)));
+      const index = Math.min(deck.length - 1, Math.max(0, currentIndex + step));
+      if (index === currentIndex) return;
+      setEnterFrom(step > 0 ? "right" : "left");
+      goTo(index);
     },
     [doneView, deck.length, currentIndex, goTo],
   );
 
   // Assign handler
   const handleAssign = useCallback(
-    async (targetId: string, targetName: string, type: "team" | "user") => {
+    (targetId: string, targetName: string, type: "team" | "user") => runExclusive(async () => {
       if (!currentProperty) return;
 
       const propertyMeta = propertyMetaOf(currentProperty);
@@ -480,11 +531,12 @@ export function NewListingsModal({
 
       showToast(`Assigned to ${targetName}`);
       finishAction(currentProperty.id);
-    },
-    [currentProperty, assignProperty, showToast, finishAction],
+    }),
+    [currentProperty, assignProperty, showToast, finishAction, runExclusive],
   );
 
-  // Create trip handler
+  // Plan trip: the trip form opens on the page, behind this window, so the
+  // window closes, as the map card does.
   const handleCreateTrip = useCallback(() => {
     if (!currentProperty) return;
     const tripName = currentProperty.name || currentProperty.address;
@@ -502,40 +554,12 @@ export function NewListingsModal({
         detail: { trip: { ...trip, name: tripName, property: linkedItem } },
       }),
     );
-    showToast("Trip created");
-  }, [currentProperty, cityId, createTrip, updateTrip, showToast]);
-
-  // Add to list handler (adds to first list, or creates a default one)
-  const handleAddToList = useCallback(() => {
-    if (!currentProperty) return;
-    const placeInfo: PlaceInfo = {
-      placeId: currentProperty.placeId,
-      placeType: "property",
-      placeName: currentProperty.name || currentProperty.address,
-      placeAddress: currentProperty.address,
-      lat: currentProperty.latitude,
-      lon: currentProperty.longitude,
-    };
-    // Add, never toggle: pressing this on a listing that is already saved
-    // used to remove it while the toast still said "Added".
-    if (lists.length > 0) {
-      const list = lists[0];
-      if (isPlaceInList(placeInfo.placeId, list.id)) {
-        showToast(`Already in ${list.name}`);
-        return;
-      }
-      addToList(list.id, placeInfo);
-      showToast(`Added to ${list.name}`);
-    } else {
-      const list = createList("Saved properties");
-      addToList(list.id, placeInfo);
-      showToast("Added to Saved properties");
-    }
-  }, [currentProperty, lists, addToList, isPlaceInList, createList, showToast]);
+    onClose();
+  }, [currentProperty, cityId, createTrip, updateTrip, onClose]);
 
   // Undo pre-reject. Pre-rejected properties are filtered out of a
   // franchisee's deck entirely, so only a reviewer ever reaches this.
-  const handleUndoPreReject = useCallback(async () => {
+  const handleUndoPreReject = useCallback(() => runExclusive(async () => {
     if (!currentProperty) return;
     try {
       await removeAssignment(currentProperty.placeId);
@@ -543,10 +567,10 @@ export function NewListingsModal({
     } catch {
       showToast("Failed to undo pre-rejection", "error");
     }
-  }, [currentProperty, removeAssignment, showToast]);
+  }), [currentProperty, removeAssignment, showToast, runExclusive]);
 
   // Free an assigned property so it can be reassigned or pre-rejected.
-  const handleRemoveAssignment = useCallback(async () => {
+  const handleRemoveAssignment = useCallback(() => runExclusive(async () => {
     if (!currentProperty) return;
     try {
       await removeAssignment(currentProperty.placeId);
@@ -554,11 +578,11 @@ export function NewListingsModal({
     } catch {
       showToast("Failed to remove assignment", "error");
     }
-  }, [currentProperty, removeAssignment, showToast]);
+  }), [currentProperty, removeAssignment, showToast, runExclusive]);
 
   // Pre-reject handler
   const handlePreReject = useCallback(
-    async (reason: string) => {
+    (reason: string) => runExclusive(async () => {
       if (!currentProperty) return;
 
       setActiveSheet(null);
@@ -579,13 +603,13 @@ export function NewListingsModal({
       } catch {
         showToast("Failed to pre-reject", "error");
       }
-    },
-    [currentProperty, preRejectProperty, showToast, finishAction],
+    }),
+    [currentProperty, preRejectProperty, showToast, finishAction, runExclusive],
   );
 
   // Request handler (franchisees). Copies the listing details onto the request
   // so the review queue still reads correctly after the listing is re-scraped.
-  const handleRequest = useCallback(async () => {
+  const handleRequest = useCallback(() => runExclusive(async () => {
     if (!currentProperty) return;
 
     try {
@@ -607,7 +631,7 @@ export function NewListingsModal({
 
     showToast("Request sent");
     finishAction(currentProperty.id);
-  }, [currentProperty, requestProperty, showToast, finishAction]);
+  }), [currentProperty, requestProperty, showToast, finishAction, runExclusive]);
 
   // Backing out of a sheet must not throw you out of the whole screen. Each
   // sheet's own backdrop only covers the card, so a click on the margin around
@@ -622,23 +646,29 @@ export function NewListingsModal({
   }, [activeSheet, onClose]);
 
   // Escape follows the same rule. This modal is a hand-rolled overlay rather
-  // than a BottomSheet, so it has no Escape handling of its own.
+  // than a BottomSheet, so it has no Escape handling of its own. An open ⋯
+  // menu or step handles Escape itself (and marks it used), so that closes
+  // first and the window stays.
+  // The left and right arrow keys browse, like the arrows in the top row,
+  // unless a step is open or the key is meant for a field or the menu.
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleDismiss();
+      if (e.defaultPrevented) return;
+      if (e.key === "Escape") {
+        handleDismiss();
+        return;
+      }
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || activeSheet || loading) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true'], [role='menu']")) return;
+      e.preventDefault();
+      handleBrowse(e.key === "ArrowRight" ? 1 : -1);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, handleDismiss]);
-
-  // Card animation styles
-  const cardTransform =
-    cardAnim === "exiting"
-      ? { animation: "triage-card-exit 300ms ease-in forwards" }
-      : cardAnim === "entering"
-        ? { animation: "triage-card-enter 250ms ease-out forwards" }
-        : {};
+  }, [isOpen, handleDismiss, handleBrowse, activeSheet, loading]);
 
   if (!isOpen) return null;
 
@@ -650,13 +680,14 @@ export function NewListingsModal({
       />
 
       {/* Narrow windows get the classic 512px card. Wide screens (lg) get a
-          wide, fixed-height window for the side-by-side layout, kept clear of
-          the screen edges so it fits a short laptop screen. */}
+          wide window for the side-by-side layout, kept clear of the screen
+          edges so it fits a short laptop screen. Its height is set in
+          globals.css (.triage-win): tall for trainers, else just the photo. */}
       <div
-        className={`relative flex flex-col overflow-hidden ${
+        className={`triage-win relative flex flex-col overflow-hidden ${isTall ? "is-tall" : ""} ${
           isMobile
             ? "w-full h-full"
-            : "max-w-lg w-full max-h-[80vh] rounded-2xl lg:max-w-[1120px] lg:w-[calc(100vw-48px)] lg:max-h-none lg:h-[min(684px,calc(100dvh-32px))]"
+            : "max-w-lg w-full max-h-[80vh] rounded-2xl lg:max-w-[1120px] lg:w-[calc(100vw-48px)] lg:max-h-none"
         }`}
         style={{
           background: isMobile ? "#ffffff" : "rgba(255, 255, 255, 0.92)",
@@ -666,76 +697,73 @@ export function NewListingsModal({
             : "0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 32px rgba(0, 0, 0, 0.12)",
         }}
       >
-        {/* Header */}
+        {/* Top row: where you are, how many are left, Mark all seen, close.
+            It belongs to the window, not the card, so close and the arrows
+            stay on the loading, error and "All caught up" screens. On wide
+            screens it sits over the details column, and the photo runs to
+            the top of the window. */}
         <div
-          className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0"
+          className="flex items-center gap-1 px-2 h-12 shrink-0 lg:absolute lg:top-0 lg:right-0 lg:z-10 lg:w-[56%] lg:pl-4 lg:pr-3"
           style={
             isMobile
-              ? { paddingTop: "calc(12px + env(safe-area-inset-top, 0px))" }
+              ? { height: "auto", paddingTop: "calc(4px + env(safe-area-inset-top, 0px))", paddingBottom: 4 }
               : undefined
           }
         >
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleBrowse(-1)}
-              disabled={deck.length === 0 || (currentIndex === 0 && !doneView)}
-              aria-label="Previous listing"
-              className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30"
-            >
-              <ChevronLeft className="w-5 h-5 text-zinc-600" />
-            </button>
+          <button
+            onClick={() => handleBrowse(-1)}
+            disabled={deck.length === 0 || (currentIndex === 0 && !doneView)}
+            aria-label="Previous listing"
+            className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            <ChevronLeft className="w-5 h-5 text-zinc-600" />
+          </button>
+          <span
+            className="text-sm font-medium text-zinc-600 whitespace-nowrap"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {deck.length > 0 ? (
+              <>
+                <Roll value={currentIndex + 1} /> / {deck.length}
+              </>
+            ) : (
+              "0 / 0"
+            )}
+          </span>
+          <button
+            onClick={() => handleBrowse(1)}
+            disabled={deck.length === 0 || (currentIndex >= deck.length - 1 && !doneView)}
+            aria-label="Next listing"
+            className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            <ChevronRight className="w-5 h-5 text-zinc-600" />
+          </button>
+          {deck.length > 0 && (
             <span
-              className="text-sm font-medium text-zinc-500"
+              className="ml-1 text-xs text-zinc-400 whitespace-nowrap"
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
-              {deck.length > 0 ? `${currentIndex + 1} / ${deck.length}` : "0 / 0"}
+              <Roll value={unseenCount} /> left
             </span>
-            <button
-              onClick={() => handleBrowse(1)}
-              disabled={deck.length === 0 || (currentIndex >= deck.length - 1 && !doneView)}
-              aria-label="Next listing"
-              className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30"
-            >
-              <ChevronRight className="w-5 h-5 text-zinc-600" />
-            </button>
-            {deck.length > 0 && (
-              <span
-                className="ml-1 text-xs text-zinc-400 whitespace-nowrap"
-                style={{ fontVariantNumeric: "tabular-nums" }}
-              >
-                {unseenCount} left
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
+          )}
+          <div className="ml-auto flex items-center gap-1 shrink-0">
             {unseenCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors px-2 py-1 whitespace-nowrap"
+                className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors px-2 py-2 whitespace-nowrap"
               >
                 Mark all seen
               </button>
             )}
             <button
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors"
+              aria-label="Close"
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors"
             >
               <X className="w-5 h-5 text-zinc-400" />
             </button>
           </div>
         </div>
-
-        {/* Progress bar */}
-        {deck.length > 0 && (
-          <div className="w-full h-[3px] bg-zinc-100 shrink-0">
-            <div
-              className="h-full bg-zinc-900 transition-all duration-300"
-              style={{
-                width: `${((currentIndex + 1) / deck.length) * 100}%`,
-              }}
-            />
-          </div>
-        )}
 
         {/* Content */}
         {loading ? (
@@ -769,39 +797,43 @@ export function NewListingsModal({
             </p>
           </div>
         ) : currentProperty ? (
-          <div
-            key={currentProperty.id}
-            className="flex-1 min-h-0 overflow-y-auto flex flex-col lg:flex-row lg:overflow-hidden"
-            style={cardTransform}
-          >
-            <FocusTriageCard
+          <PoiCardScope close={onClose}>
+            <TriageListing
+              key={currentProperty.id}
               property={currentProperty}
-              isDesktop={!isMobile}
+              isMobile={isMobile}
               isWide={isWide}
-              isSeen={seenIds.has(currentProperty.id)}
-              onActions={() => setActiveSheet("actions")}
-              onNext={() => {
-                // Ignore taps while a card is still sliding out.
-                if (cardAnim === "idle") handleAdvance(true, true);
-              }}
+              enterFrom={enterFrom}
+              actions={actions}
+              pill={pill}
+              busy={busy}
+              step={activeSheet}
+              onStep={setActiveSheet}
+              onSkip={handleSkip}
+              onAssign={handleAssign}
+              onRequest={handleRequest}
+              onPlanTrip={handleCreateTrip}
+              onPreReject={handlePreReject}
+              onRemoveAssignment={handleRemoveAssignment}
+              onUndoPreReject={handleUndoPreReject}
             />
-          </div>
+          </PoiCardScope>
         ) : null}
 
-        {/* Undo for the last "Seen, next". Above the buttons on narrow
-            screens, in the empty middle of the header on wide ones. Below
-            the sheets (z-40/50) so an open sheet covers it. */}
+        {/* Undo for the last Skip, just above the bottom row (centred on the
+            details column on wide screens). Below the steps (z-40/50) so an
+            open step covers it. */}
         {/* Always mounted, so screen readers announce the text when it
             appears (a live region that arrives with its text is often
             skipped). */}
         <p role="status" className="sr-only">
-          {undoId ? "Marked as seen. Undo is available for a few seconds." : ""}
+          {undoId ? "Skipped. Undo is available for a few seconds." : ""}
         </p>
         {undoId && (
           <div
-            className="absolute left-1/2 -translate-x-1/2 bottom-28 lg:bottom-auto lg:top-2.5 z-30 flex items-center gap-3 rounded-full bg-zinc-900 text-white text-[13px] pl-4 pr-1.5 py-1.5 shadow-lg whitespace-nowrap"
+            className="absolute left-1/2 -translate-x-1/2 bottom-28 lg:left-[72%] lg:bottom-[92px] z-30 flex items-center gap-3 rounded-full bg-zinc-900 text-white text-[13px] pl-4 pr-1.5 py-1.5 shadow-lg whitespace-nowrap"
           >
-            Marked as seen
+            Skipped
             <button
               type="button"
               onClick={handleUndo}
@@ -811,31 +843,161 @@ export function NewListingsModal({
             </button>
           </div>
         )}
-
-        {/* Assign sheet */}
-        {activeSheet === "assign" && (
-          <AssignSheet
-            onAssign={handleAssign}
-            onClose={() => setActiveSheet(null)}
-          />
-        )}
-
-        {/* Actions sheet */}
-        {activeSheet === "actions" && currentProperty && (
-          <ActionsSheet
-            actions={actions}
-            hasRequested={hasPendingRequest(currentProperty.placeId)}
-            onAssign={() => setActiveSheet("assign")}
-            onRequest={handleRequest}
-            onCreateTrip={handleCreateTrip}
-            onAddToList={handleAddToList}
-            onPreReject={handlePreReject}
-            onUndoPreReject={handleUndoPreReject}
-            onRemoveAssignment={handleRemoveAssignment}
-            onClose={() => setActiveSheet(null)}
-          />
-        )}
       </div>
     </div>
+  );
+}
+
+/** The window's second steps, opened from the bottom row or the ⋯ menu. */
+type TriageStep = "assign" | "prereject" | "notes" | "saved";
+
+/** A number that rolls up into place when it changes ("5 / 36", "32 left"). */
+function Roll({ value }: { value: number }) {
+  return (
+    <span className="triage-roll">
+      <span key={value}>{value}</span>
+    </span>
+  );
+}
+
+interface TriageListingProps {
+  property: InboxProperty;
+  isMobile: boolean;
+  isWide: boolean;
+  enterFrom: "left" | "right" | null;
+  actions: PropertyActionState;
+  pill: StatusPill | null;
+  busy: boolean;
+  step: TriageStep | null;
+  onStep: (step: TriageStep | null) => void;
+  onSkip: () => void;
+  onAssign: (targetId: string, targetName: string, type: "team" | "user") => void;
+  onRequest: () => void;
+  onPlanTrip: () => void;
+  onPreReject: (reason: string) => void;
+  onRemoveAssignment: () => void;
+  onUndoPreReject: () => void;
+}
+
+/**
+ * One listing: the card, its bottom row, and its second steps. Keyed by the
+ * listing, so notes, the pre-reject reason and the slide-in start fresh for
+ * each one. The bottom row is the map card's, piece for piece: the main
+ * button (or the status that replaces it), then Skip, then the same ⋯ menu,
+ * all decided by evaluatePropertyActions.
+ */
+function TriageListing({
+  property,
+  isMobile,
+  isWide,
+  enterFrom,
+  actions,
+  pill,
+  busy,
+  step,
+  onStep,
+  onSkip,
+  onAssign,
+  onRequest,
+  onPlanTrip,
+  onPreReject,
+  onRemoveAssignment,
+  onUndoPreReject,
+}: TriageListingProps) {
+  const [reasonDraft, setReasonDraft] = useState("");
+  const title = property.name || property.address;
+  const price = property.price > 0 ? `${formatPrice(property.price, property.source)}/mo` : null;
+  const subtitle = [price, property.district].filter(Boolean).join(" · ");
+
+  // Share, Save, Notes & files and Hide, exactly as on the map card. Save and
+  // Notes open their step in this window instead of inside a map card.
+  const card = usePlaceCard({
+    place: {
+      placeId: property.placeId,
+      placeType: "property",
+      placeName: title,
+      placeAddress: property.address,
+      lat: property.latitude,
+      lon: property.longitude,
+    },
+    notesType: "property",
+    share: {
+      placeId: property.placeId,
+      placeType: "property",
+      // "€2,400/mo · 95 m²", as the map card shares it.
+      title: [price ?? "On request", property.size > 0 ? `${property.size} m²` : null].filter(Boolean).join(" · "),
+      address: property.address,
+      photoUrl: property.photos?.[0] ?? property.image_url ?? null,
+      listingUrl: property.url || undefined,
+    },
+    subtitle,
+  });
+
+  // Same main slot and ⋯ items as the map card, from the same helpers.
+  // Save and Notes open their step in this window instead of a map card.
+  const main = listingMainSlot(actions, pill, busy, {
+    onAssign: () => onStep("assign"),
+    onPlanTrip,
+    onRequest,
+  });
+  const moreItems = listingMoreItems(
+    actions,
+    {
+      ...card.items,
+      save: { ...card.items.save, onSelect: () => onStep("saved") },
+      notes: { ...card.items.notes, onSelect: () => onStep("notes") },
+    },
+    {
+      onPlanTrip,
+      onPreReject: () => onStep("prereject"),
+      onRemoveAssignment,
+      onUndoPreReject,
+    },
+  );
+
+  const closeStep = useCallback(() => onStep(null), [onStep]);
+  const placeStep = step === "notes" || step === "saved" ? card.steps[step] : null;
+
+  return (
+    <>
+      <div
+        className={`flex-1 min-h-0 overflow-y-auto flex flex-col lg:flex-row lg:overflow-hidden ${
+          enterFrom ? `triage-enter-${enterFrom}` : ""
+        }`}
+      >
+        <FocusTriageCard
+          property={property}
+          isDesktop={!isMobile}
+          isWide={isWide}
+          actions={
+            <>
+              {main}
+              <button type="button" className="triage-skip" onClick={onSkip}>
+                Skip
+              </button>
+              <MoreMenu items={moreItems} deferSteps />
+            </>
+          }
+        />
+      </div>
+
+      {step === "assign" && (
+        <StepSheet title="Assign" subtitle={subtitle} onClose={closeStep}>
+          <div className="poi-pad">
+            <AssignList onAssign={onAssign} disabled={busy} />
+          </div>
+        </StepSheet>
+      )}
+      {step === "prereject" && (
+        <StepSheet title="Pre-reject" subtitle={subtitle} onClose={closeStep}>
+          <PreRejectForm reason={reasonDraft} setReason={setReasonDraft} busy={busy} onConfirm={onPreReject} />
+        </StepSheet>
+      )}
+      {placeStep && (
+        <StepSheet title={placeStep.title} subtitle={subtitle} footer={placeStep.footer} onClose={closeStep}>
+          {placeStep.body}
+        </StepSheet>
+      )}
+    </>
   );
 }

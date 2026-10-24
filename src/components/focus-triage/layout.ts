@@ -4,5 +4,5 @@
  * rise over exactly the details column. Full class strings, so Tailwind
  * finds them.
  */
-export const PHOTO_COLUMN = "lg:w-[51%]";
-export const DETAILS_SHEET = "lg:left-auto lg:w-[49%]";
+export const PHOTO_COLUMN = "lg:w-[44%]";
+export const DETAILS_SHEET = "lg:left-auto lg:w-[56%]";

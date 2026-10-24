@@ -6,6 +6,8 @@ import { ImageCarousel } from "./ImageCarousel";
 import { AiBreakdown } from "./AiBreakdown";
 import { PHOTO_COLUMN } from "./layout";
 import { BreatheGlow } from "@/components/BeamGlow";
+import { MapsTile, LinkTile } from "@/components/poi-card/PoiCard";
+import { formatShortMoney, isShown } from "@/components/poi-card/card-format";
 import { formatPrice } from "@/types/inbox";
 import type { InboxProperty } from "@/types/inbox";
 
@@ -14,12 +16,11 @@ interface FocusTriageCardProps {
   isDesktop: boolean;
   /** Wide screen (lg): photo left, details right, "Why" open by default. */
   isWide: boolean;
-  /** Already ticked off this session, so the button just moves on. */
-  isSeen: boolean;
-  /** Opens the actions menu, which holds every role-specific choice. */
-  onActions: () => void;
-  /** Ticks this property off as seen and moves to the next new one. */
-  onNext: () => void;
+  /**
+   * The bottom row: the main button (or status), Skip and More. Built by the
+   * window, which owns what each one does; the card only lays it out.
+   */
+  actions: ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -34,6 +35,8 @@ interface FocusTriageCardProps {
 // RevenueSimulator.tsx is kept whole; it is just not mounted. Dropping this
 // file's imports of it and of the revenue model is what took 8.4 kB off every
 // visitor's download, measured. Put them back when the numbers come back.
+// The payback figure's slot in the old stats row went when rent and transfer
+// became the big numbers; the two helpers below are what it used.
 // ---------------------------------------------------------------------------
 
 // off: see header
@@ -50,39 +53,11 @@ interface FocusTriageCardProps {
 //   return `${months} months`;
 // }
 
-/** One figure in the stats row: a small caps label over a bold number. */
-function Stat({
-  label,
-  className,
-  muted = false,
-  children,
-}: {
-  label: string;
-  className: string;
-  /** Grey value, for a figure worked out from the others. */
-  muted?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div className={className}>
-      <p className="text-[11px] text-zinc-400 uppercase tracking-wide">{label}</p>
-      <p
-        className={`text-xl font-bold ${muted ? "text-zinc-500" : "text-zinc-900"}`}
-        style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}
-      >
-        {children}
-      </p>
-    </div>
-  );
-}
-
 export function FocusTriageCard({
   property,
   isDesktop,
   isWide,
-  isSeen,
-  onActions,
-  onNext,
+  actions,
 }: FocusTriageCardProps) {
   // off: see header
   // const [showRevenue, setShowRevenue] = useState(false);
@@ -101,10 +76,18 @@ export function FocusTriageCard({
   const hasFeatures =
     property.hasStorefront || property.hasAirConditioning || property.hasBathroom;
 
-  // Rent per square metre, worked out here rather than trusting priceByArea,
-  // so it always matches the rent and size shown next to it.
-  const pricePerM2 =
-    property.price > 0 && property.size > 0 ? property.price / property.size : null;
+  // Rent and transfer are the two numbers that decide a listing, so they are
+  // big, in the map card's price type. Size and rent per m² follow on a quiet
+  // line. Per m² is worked out here rather than trusting priceByArea, so it
+  // always matches the rent and size beside it.
+  const source = property.source === "sreality" ? "sreality" : "idealista";
+  const hasPrice = isShown(property.price);
+  const quiet = [
+    isShown(property.size) ? `${property.size} m²` : null,
+    hasPrice && isShown(property.size)
+      ? `${formatPrice(property.price / property.size, property.source)}/m²`
+      : null,
+  ].filter(Boolean).join(" · ");
 
   return (
     <>
@@ -131,91 +114,58 @@ export function FocusTriageCard({
                 className="text-white text-base font-medium"
                 style={{ fontFamily: "var(--font-outfit)" }}
               >
-                {property.district} &middot; {property.size} m&sup2;
+                {property.district}
               </p>
             </div>
           }
         />
       </div>
 
-      {/* Details column. On narrow screens it is just the rest of the card. */}
-      <div className="flex-1 flex flex-col lg:min-h-0 lg:min-w-0">
-        <div className="px-5 pt-8 pb-4 space-y-8 lg:flex-1 lg:overflow-y-auto lg:px-6 lg:pt-5 lg:space-y-5">
-          {/* Stats row: Rent, link buttons */}
-          <div className="flex items-center">
-            <Stat label="Rent" className="flex-1 min-w-0 lg:flex-none">
-              {property.price > 0
-                ? formatPrice(property.price, property.source)
-                : "N/A"}
-            </Stat>
-            {/* Size and rent per m2: wide screens only. On a phone the size is
-                already in the photo caption and the row has no room. Rent keeps
-                flex-1 on narrow screens; on wide ones the three sit together. */}
-            {property.size > 0 && (
-              <Stat label="Size" className="hidden lg:block shrink-0 ml-6">
-                {property.size} m&sup2;
-              </Stat>
-            )}
-            {pricePerM2 != null && (
-              <Stat label="Per m²" className="hidden lg:block shrink-0 ml-6" muted>
-                {formatPrice(pricePerM2, property.source)}
-              </Stat>
-            )}
-            {/* off: see header. Rent keeps flex-1, so it sits on the left and
-                the link buttons stay on the right. */}
-            {/*
+      {/* Details column. On narrow screens it is just the rest of the card.
+          On wide screens the window's top row sits over its first 48px. */}
+      <div className="flex-1 flex flex-col lg:min-h-0 lg:min-w-0 lg:pt-12">
+        <div className="px-5 pt-6 pb-4 space-y-6 lg:flex-1 lg:overflow-y-auto lg:px-6 lg:pt-1 lg:space-y-5">
+          {/* Money first, then the listing's own links. */}
+          <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-zinc-400 uppercase tracking-wide">
-                Est. payback
-              </p>
-              <p
-                className="text-xl font-bold"
-                style={{
-                  color: paybackColor(result?.paybackMonths),
-                  fontVariantNumeric: "tabular-nums",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {paybackLabel(result?.paybackMonths)}
-              </p>
+              <div className="flex items-baseline flex-wrap gap-x-4 gap-y-1 text-zinc-900">
+                {hasPrice ? (
+                  <span className="poi-price">
+                    {formatPrice(property.price, property.source)}
+                    <small>/mo</small>
+                  </span>
+                ) : (
+                  <span className="poi-price is-request">On request</span>
+                )}
+                {isShown(property.transfer) && (
+                  <span className="poi-price triage-transfer">
+                    {formatShortMoney(property.transfer, source)}
+                    <small>transfer</small>
+                  </span>
+                )}
+              </div>
+              {quiet && (
+                <p className="mt-1 text-[13px] text-zinc-500" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {quiet}
+                </p>
+              )}
             </div>
-            */}
-            <div className="flex gap-2 shrink-0 lg:ml-auto">
+            <div className="flex gap-2 shrink-0">
+              <MapsTile
+                href={`https://www.google.com/maps/search/?api=1&query=${property.latitude},${property.longitude}`}
+              />
               {property.url && (
-                <a
+                <LinkTile
                   href={property.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 rounded-lg overflow-hidden"
-                  style={{
-                    border: "1px solid rgba(0,0,0,0.08)",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                  }}
+                  label={source === "sreality" ? "Open on Sreality" : "Open on Idealista"}
+                  kind="fill"
                 >
                   <img
-                    src={property.source === "sreality" ? "/assets/sreality-logo.png" : "/assets/idealista-logo.png"}
-                    alt={property.source === "sreality" ? "Sreality" : "Idealista"}
-                    className="w-full h-full object-cover"
+                    src={source === "sreality" ? "/assets/sreality-logo.png" : "/assets/idealista-logo.png"}
+                    alt=""
                   />
-                </a>
+                </LinkTile>
               )}
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${property.latitude},${property.longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-10 h-10 rounded-lg flex items-center justify-center"
-                style={{
-                  background: "#F5F5F5",
-                  border: "1px solid rgba(0,0,0,0.08)",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                }}
-              >
-                <img
-                  src="/assets/google-maps-logo-bare.png"
-                  alt="Google Maps"
-                  className="w-6 h-6 object-contain"
-                />
-              </a>
             </div>
           </div>
 
@@ -308,26 +258,10 @@ export function FocusTriageCard({
           */}
         </div>
 
-        {/* Sticky action buttons. On wide screens the details column scrolls by
-            itself, so these simply sit at its foot. */}
-        <div className="sticky bottom-0 mt-auto px-5 pt-3 pb-8 bg-white lg:static lg:shrink-0 lg:px-6 lg:pb-5 lg:border-t lg:border-zinc-100">
-          {/* Everything a person can do lives behind Action, so the row stays
-              the same whoever is looking at it. "Seen, next" sits on the
-              right, under the thumb, since it is the one pressed most often. */}
-          <div className="flex gap-3 items-center">
-            <button
-              onClick={onActions}
-              className="flex-[3] py-3.5 rounded-full bg-zinc-900 text-sm font-medium text-white"
-            >
-              Action
-            </button>
-            <button
-              onClick={onNext}
-              className="flex-[2] py-3.5 rounded-full bg-zinc-100 text-sm font-medium text-zinc-600"
-            >
-              {isSeen ? "Next" : "Seen, next"}
-            </button>
-          </div>
+        {/* The bottom row stays at the foot: sticky on narrow screens, and on
+            wide ones a 76px band that lines up with the thumbnail strip. */}
+        <div className="sticky bottom-0 mt-auto px-5 pt-3 pb-8 bg-white flex items-center gap-2 lg:static lg:shrink-0 lg:h-[76px] lg:px-6 lg:py-0 lg:border-t lg:border-zinc-100">
+          {actions}
         </div>
       </div>
     </>
