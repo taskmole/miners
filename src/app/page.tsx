@@ -326,7 +326,13 @@ function HomeContent() {
           // The saved city is already in the stored session, so start its data
           // now instead of after the two account checks below. This is the
           // city half of applyCityForUser, which repeats it later as a no-op.
-          if (hasStoredDefaultCity(session.user)) setSelectedCity(getStoredDefaultCity(session.user));
+          // Not while a shared place is waiting to open: that switches city
+          // itself, and the old order (Madrid first, saved city after the
+          // checks) has a Madrid link's data cached by then, which measured
+          // faster than loading the saved city first.
+          if (hasStoredDefaultCity(session.user) && !readPendingFocus()) {
+            setSelectedCity(getStoredDefaultCity(session.user));
+          }
           setMapCityReady(true);
           await migrateAnonymousData(session.user.id);
           setUser(session.user);
