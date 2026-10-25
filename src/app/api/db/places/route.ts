@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest } from "@/lib/supabase-server";
+import { authenticateAlongside } from "@/lib/supabase-server";
 import { parseWkbPoint } from "@/lib/wkb";
 import { PROPERTY_SOURCES } from "@/lib/place-id";
 
@@ -24,21 +24,20 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "city_id required" }, { status: 400 });
     }
 
-    const auth = await authenticateRequest(request);
-    if (auth.error) return auth.error;
-
     try {
-        const { supabase } = auth;
-        // The AI score and its one-line reason are picked out of the
-        // image_analysis JSON by the database, so the rest of that JSON (the
-        // full photo analysis) never leaves it. Both are absent until the AI
-        // scout has rated the listing.
-        const { data, error } = await supabase
+        // The query starts alongside the sign-in check rather than after it;
+        // its rows are only used once the check has passed. The AI score and
+        // its one-line reason are picked out of the image_analysis JSON by the
+        // database, so the rest of that JSON (the full photo analysis) never
+        // leaves it. Both are absent until the AI scout has rated the listing.
+        const auth = await authenticateAlongside(request, async (supabase) => supabase
             .from("places")
             .select("name, address, location, source, metadata, photos, updated_at, created_at, ai_score:image_analysis->text->qualitative_score, ai_reason:image_analysis->text->>reason")
             .eq("city_id", cityId)
             .in("source", PROPERTY_SOURCES)
-            .eq("status", "active");
+            .eq("status", "active"));
+        if (auth.error) return auth.error;
+        const { data, error } = auth.result;
 
         if (error) {
             console.error("[api/db/places] query error:", error);

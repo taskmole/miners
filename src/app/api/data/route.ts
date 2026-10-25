@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parse } from "csv-parse/sync";
 import fs from "fs";
 import path from "path";
-import { authenticateRequest, mayViewCity } from "@/lib/supabase-server";
+import { authenticateAlongside, mayViewCity } from "@/lib/supabase-server";
 
 // Prevent static generation - this route needs to run at request time
 export const dynamic = "force-dynamic";
@@ -52,20 +52,31 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") || "cafes";
 
-    const auth = await authenticateRequest(request);
-    if (auth.error) return auth.error;
+    // The city whose grant this file needs, or null for a request that is
+    // malformed (unknown type, gravity without a city). Worked out up front so
+    // the grant check can run alongside the sign-in check; the 400 for a
+    // malformed request is still only given to someone who is signed in.
+    const city = type === "gravity"
+        ? searchParams.get("city")
+        : type === "metro"
+            ? (searchParams.get("city") === "prague" ? "prague" : "madrid")
+            : FILE_MAP[type]?.city ?? null;
 
     try {
+        const auth = await authenticateAlongside(request, async (supabase) =>
+            city ? mayViewCity(supabase, city) : null);
+        if (auth.error) return auth.error;
+        const mayView = auth.result;
+
         // The gravity score layer. It used to be fetched straight from
         // /data/gravity_<city>.geojson, which meant it stayed world-readable
         // after everything around it was locked down: location scores for a
         // whole city, to anyone with the URL.
         if (type === "gravity") {
-            const city = searchParams.get("city");
             if (!city) {
                 return NextResponse.json({ error: "city required" }, { status: 400 });
             }
-            if (!(await mayViewCity(auth.supabase, city))) {
+            if (!mayView) {
                 return NextResponse.json({ error: "Forbidden" }, { status: 403 });
             }
             // The city is checked against the grants above, but it also lands
@@ -85,8 +96,7 @@ export async function GET(request: NextRequest) {
         // Metro is a GeoJSON file rather than a CSV, and its city comes from a
         // separate parameter. Same rule applies.
         if (type === "metro") {
-            const city = searchParams.get("city") === "prague" ? "prague" : "madrid";
-            if (!(await mayViewCity(auth.supabase, city))) {
+            if (!mayView) {
                 return NextResponse.json({ error: "Forbidden" }, { status: 403 });
             }
             const fileName = city === "prague" ? "metro_prague.geojson" : "metro.geojson";
@@ -107,7 +117,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Invalid type" }, { status: 400 });
         }
 
-        if (!(await mayViewCity(auth.supabase, fileConfig.city))) {
+        if (!mayView) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 

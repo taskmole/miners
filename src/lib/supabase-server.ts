@@ -85,6 +85,46 @@ export async function authenticateRequest(
 }
 
 /**
+ * authenticateRequest, but the read starts at the same time as the sign-in
+ * check instead of after it.
+ *
+ * Every map-data call used to wait for Supabase Auth to answer before it even
+ * began its query. On a page open ~25 calls ask at once, and that wait alone
+ * was 0.2-0.3 s per call. Running both together costs nothing in safety:
+ * `work` gets the caller's own client, so the database checks their token and
+ * applies their row rules, and its result is only handed back once getUser has
+ * also said yes. A caller who fails the check gets the same 401 as before,
+ * whatever `work` did.
+ *
+ * Only for reads. `work` runs before we know who is asking, so it must not
+ * write anything or depend on the user id.
+ */
+export async function authenticateAlongside<T>(
+  req: Request,
+  work: (supabase: SupabaseClient<Database>) => Promise<T>
+): Promise<
+  | { supabase: SupabaseClient<Database>; userId: string; result: T; error?: never }
+  | { error: NextResponse; supabase?: never; userId?: never; result?: never }
+> {
+  const unauthorized = () => ({ error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) });
+
+  const token = getTokenFromRequest(req);
+  if (!token) return unauthorized();
+
+  const supabase = createServerSupabase(token);
+  const [auth, read] = await Promise.allSettled([supabase.auth.getUser(token), work(supabase)]);
+
+  const user = auth.status === "fulfilled" && !auth.value.error ? auth.value.data.user : null;
+  if (!user) return unauthorized();
+
+  // Signed in, but the read itself blew up: let the route's own catch answer,
+  // exactly as when the read ran after the check.
+  if (read.status === "rejected") throw read.reason;
+
+  return { supabase, userId: user.id, result: read.value };
+}
+
+/**
  * The repo's hand-written Database type does not describe every table, so the
  * typed query builder collapses to `never` on the ones it misses. Routes that
  * touch those tables drop the schema generic through this and lean on their
