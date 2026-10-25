@@ -31,7 +31,7 @@ import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { useWhatsNew } from "@/hooks/useWhatsNew";
 import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
 import { cityForCoordinates } from "@/lib/notify-routing";
-import { clearPendingFocus, readPendingFocus, savePendingFocus } from "@/lib/share";
+import { clearPendingFocus, pendingPlaceCity, readPendingFocus, savePendingFocus } from "@/lib/share";
 import { GO_TO_PLACE_EVENT, type PendingFocus, type PlaceRequest } from "@/lib/go-to-place";
 import { ListsProvider } from "@/contexts/ListsContext";
 import { HiddenPoisProvider } from "@/contexts/HiddenPoisContext";
@@ -116,14 +116,19 @@ function HomeContent() {
    * and survives being narrowed, so somebody moved out of Madrid would keep
    * asking for Madrid forever. And useMapData falls back to "madrid" for an
    * empty city id, which would request a city they cannot have and sit on a
-   * retry loop.
+   * retry loop. A shared link can also open the app in its place's city
+   * before we know they hold it; then they land on their own saved city, with
+   * the "no access" message over it.
    */
   useEffect(() => {
     if (grantedCities.length === 0) return;
     if (grantedCities.some(c => c.id === selectedCity.id)) return;
-    const fallback = grantedCities.find(c => c.active) ?? grantedCities[0];
+    const savedId = user && hasStoredDefaultCity(user) ? getStoredDefaultCity(user).id : null;
+    const fallback = grantedCities.find(c => c.active && c.id === savedId)
+      ?? grantedCities.find(c => c.active)
+      ?? grantedCities[0];
     setSelectedCity(fallback);
-  }, [grantedCities, selectedCity.id]);
+  }, [grantedCities, selectedCity.id, user]);
 
   const [authError, setAuthError] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -291,6 +296,9 @@ function HomeContent() {
 
     // Show picker for any signed-in user without a saved city; otherwise apply
     // the saved city. Madrid is the in-memory fallback while the picker renders.
+    // Not while a shared place in a live city is waiting: it opens in that
+    // city (set below, or by focusPlace), and the saved city would only be
+    // downloaded to be left again seconds later.
     //
     // Once per person, not on every SIGNED_IN: Supabase can fire that event
     // again seconds later (tab refocus), which used to be harmless but would
@@ -300,7 +308,7 @@ function HomeContent() {
       savedCityAppliedFor.current = u.id;
       if (shouldShowOnboardingPicker(u)) {
         setShowCityPicker(true);
-      } else if (hasStoredDefaultCity(u)) {
+      } else if (hasStoredDefaultCity(u) && !pendingPlaceCity()) {
         setSelectedCity(getStoredDefaultCity(u));
       }
       setSavedCityApplied(true);
@@ -323,16 +331,13 @@ function HomeContent() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       enqueue('initial session', async () => {
         if (session?.user && !signedOutSince) {
-          // The saved city is already in the stored session, so start its data
-          // now instead of after the two account checks below. This is the
-          // city half of applyCityForUser, which repeats it later as a no-op.
-          // Not while a shared place is waiting to open: that switches city
-          // itself, and the old order (Madrid first, saved city after the
-          // checks) has a Madrid link's data cached by then, which measured
-          // faster than loading the saved city first.
-          if (hasStoredDefaultCity(session.user) && !readPendingFocus()) {
-            setSelectedCity(getStoredDefaultCity(session.user));
-          }
+          // Start the right city's data now instead of after the two account
+          // checks below: a waiting shared place's city (its id says where it
+          // is), else the saved city from the stored session (the city half of
+          // applyCityForUser, which repeats it later as a no-op).
+          const firstCity = pendingPlaceCity()
+            ?? (hasStoredDefaultCity(session.user) ? getStoredDefaultCity(session.user) : null);
+          if (firstCity) setSelectedCity(firstCity);
           setMapCityReady(true);
           await migrateAnonymousData(session.user.id);
           setUser(session.user);
