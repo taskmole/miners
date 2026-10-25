@@ -440,21 +440,31 @@ const SWR_OPTIONS = {
     keepPreviousData: true,
 } as const;
 
-export function useMapData(cityId?: string) {
+/**
+ * The map's data for one city.
+ *
+ * `null` means "which city is not known yet": nothing is requested and
+ * isLoading stays true, so the map shows "Loading map data" as it would while
+ * fetching. The page passes null until it has read the saved city from the
+ * session, which is what stops a Prague user downloading Madrid first.
+ * `undefined` still means Madrid.
+ */
+export function useMapData(cityId?: string | null) {
+    const waiting = cityId === null;
     const effectiveCity = cityId || "madrid";
 
     const cafesSWR = useSWR(
-        ["useMapData/cafes", effectiveCity],
+        waiting ? null : ["useMapData/cafes", effectiveCity],
         ([, city]) => loadCafes(city),
         SWR_OPTIONS,
     );
     const propertiesSWR = useSWR(
-        ["useMapData/properties", effectiveCity],
+        waiting ? null : ["useMapData/properties", effectiveCity],
         ([, city]) => loadProperties(city),
         SWR_OPTIONS,
     );
     const otherPoisSWR = useSWR(
-        ["useMapData/otherPois", effectiveCity],
+        waiting ? null : ["useMapData/otherPois", effectiveCity],
         ([, city]) => loadOtherPois(city),
         SWR_OPTIONS,
     );
@@ -463,7 +473,7 @@ export function useMapData(cityId?: string) {
     const properties = propertiesSWR.data ?? [];
     const otherPois = otherPoisSWR.data ?? [];
 
-    const isLoading = cafesSWR.isLoading || propertiesSWR.isLoading || otherPoisSWR.isLoading;
+    const isLoading = waiting || cafesSWR.isLoading || propertiesSWR.isLoading || otherPoisSWR.isLoading;
 
     // Only properties can blank the map. Cafes and other POIs are supporting
     // layers, and this used to take the first error from any of the three, so

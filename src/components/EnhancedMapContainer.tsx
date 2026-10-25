@@ -1379,6 +1379,8 @@ interface EnhancedMapContainerProps {
     incomeWealthyFilter?: number;
     trafficHour?: number;
     selectedCity?: City;
+    /** False while the page is still finding out which city to load; no map data is fetched until then. */
+    cityReady?: boolean;
     isLinkingMode?: boolean;
     showHiddenPois?: boolean;
     gravityEnabled?: boolean;
@@ -1405,6 +1407,7 @@ export function EnhancedMapContainer({
     incomeWealthyFilter = 0,
     trafficHour,
     selectedCity,
+    cityReady,
     isLinkingMode = false,
     showHiddenPois = false,
     gravityEnabled = false,
@@ -1416,7 +1419,7 @@ export function EnhancedMapContainer({
     pendingFocus = null,
     onPendingFocusDone,
 }: EnhancedMapContainerProps) {
-    const { cafes, properties, otherPois, isLoading, error, retry } = useMapData(selectedCity?.id);
+    const { cafes, properties, otherPois, isLoading, error, retry } = useMapData(cityReady === false ? null : selectedCity?.id);
     const { cafes: dbCafes, profilesByPlaceId: cafeProfilesByPlaceId } = useCafeProfiles(true);
     const { canSeeRevenue, canAccessDashboard } = useUserProfiles();
     const cafeProfilesCtx = useMemo(() => ({ profilesByPlaceId: cafeProfilesByPlaceId, canSeeRevenue }), [cafeProfilesByPlaceId, canSeeRevenue]);
