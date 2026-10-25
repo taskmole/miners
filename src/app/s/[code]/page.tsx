@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { focusPath } from "@/lib/place-id";
 import { getShare } from "./get-share";
+import { buildShareForwardScript } from "./forward-script";
 import { ShareRedirect } from "./ShareRedirect";
 
 /**
@@ -11,7 +13,9 @@ import { ShareRedirect } from "./ShareRedirect";
  * the preview tags in its HTML: a server redirect would hand them the app's
  * landing page instead. People get a small card and are forwarded straight on
  * to /?focus=<placeId>, where the app signs them in, checks their access to
- * the city and opens the card.
+ * the city and opens the card. Signed-in people are forwarded by a tiny
+ * script in the HTML itself, before the page's app code loads (see
+ * forward-script.ts); everyone else once it has.
  *
  * A link that does not exist answers 404 (not-found.tsx); a database error
  * answers 500 (app/error.tsx), so chat apps try again later rather than
@@ -50,9 +54,12 @@ export default async function SharePage({ params }: Props) {
   const { code } = await params;
   const share = await getShare(code);
   if (!share) notFound();
+  const forwardScript = buildShareForwardScript(focusPath(share.placeId), process.env.NEXT_PUBLIC_SUPABASE_URL);
 
   return (
     <>
+      {/* First, so a signed-in browser leaves before the photo starts downloading. */}
+      {forwardScript && <script dangerouslySetInnerHTML={{ __html: forwardScript }} />}
       {share.photoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={share.photoUrl} alt="" className="w-full h-56 object-cover bg-zinc-100" />
