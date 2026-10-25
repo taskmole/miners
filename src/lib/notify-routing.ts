@@ -28,7 +28,7 @@ import { cities } from "@/lib/cities";
  * with it. The list now lives in src/lib/cities.ts, which is plain data, so a
  * server route can import it without any of that.
  */
-const CITY_CENTRES: { id: string; country: string; lat: number; lon: number }[] =
+export const CITY_CENTRES: { id: string; country: string; lat: number; lon: number }[] =
   cities.map((city) => ({
     id: city.id,
     country: city.countryCode,
@@ -41,8 +41,11 @@ const CITY_CENTRES: { id: string; country: string; lat: number; lon: number }[] 
  * city. Wide enough for any commuter belt, tight enough that a point in
  * another country (Berlin is ~280 km from Prague) is left unknown rather than
  * guessed at.
+ *
+ * Exported with CITY_CENTRES for the map head script (map-prefetch.ts), which
+ * repeats this rule in plain JavaScript; a test keeps the two in step.
  */
-const MAX_CITY_RADIUS_KM = 150;
+export const MAX_CITY_RADIUS_KM = 150;
 
 /** Rough great-circle distance. Precision beyond a kilometre is irrelevant here. */
 function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number): number {

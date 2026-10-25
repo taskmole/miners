@@ -43,12 +43,13 @@ export function focusPath(placeId: string): string {
   return `/?focus=${encodeURIComponent(placeId)}`;
 }
 
+/** A place id's type, latitude, longitude and optional hash. Shared with the map head script. */
+export const PLACE_ID_COORDS_RE = /^[a-z_]+-(-?\d+\.?\d*)-(-?\d+\.?\d*)(?:-[0-9a-f]+)?$/i;
+
 export function parseCoordinatesFromPlaceId(
   placeId: string,
 ): { lat: number; lon: number } | null {
-  const match = placeId.match(
-    /^[a-z_]+-(-?\d+\.?\d*)-(-?\d+\.?\d*)(?:-[0-9a-f]+)?$/i,
-  );
+  const match = placeId.match(PLACE_ID_COORDS_RE);
   if (match) {
     return { lat: parseFloat(match[1]), lon: parseFloat(match[2]) };
   }
