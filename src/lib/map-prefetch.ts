@@ -13,16 +13,9 @@
  * already on its way. Anything unexpected (no session, a different token, an
  * error, an answer that is too old) and useMapData simply fetches as before,
  * so the worst case is today's behaviour plus a few unused requests.
- *
- * A shared or email link (/?focus=<placeId>, or a link parked across the
- * Google sign-in) opens in the place's city, not the saved one. The script
- * works that city out from the place id with the same rule the app uses
- * (nearest city centre within 150 km, see notify-routing.ts).
  */
 import { activeCities } from "./cities";
-import { CITY_CENTRES, MAX_CITY_RADIUS_KM } from "./notify-routing";
-import { PLACE_ID_COORDS_RE } from "./place-id";
-import { PENDING_KEY, PENDING_TTL_MS } from "./share";
+import { PENDING_KEY } from "./share";
 
 /**
  * What useMapData's loaders request for each city, listings first because the
@@ -76,46 +69,26 @@ type PrefetchWindow = Window & { __minersMapPrefetch?: MapPrefetch };
 /**
  * The head script, or null when Supabase is not configured.
  *
- * It does nothing unless this is an open of the map (path "/") with no query,
- * or with exactly ?focus=<placeId> (other queries, such as sign-in errors or
- * older email links, are left alone), and the stored session has 5+ minutes
- * left. A shared place (in the address, or parked within the last 30 minutes)
- * decides the city; otherwise the person's saved city does. Either way the
- * city must be live, or nothing is fetched. It never throws.
+ * It does nothing unless this is a plain open of the map (path "/", no query,
+ * so shared links, email links and sign-in errors are left alone), no shared
+ * place is waiting to open, the stored session has 5+ minutes left, and the
+ * person has a saved city that is live. It never throws.
  */
 export function buildMapPrefetchScript(supabaseUrl: string | undefined): string | null {
   if (!supabaseUrl) return null;
   const urlsByCity: Record<string, string[]> = {};
   for (const city of activeCities) urlsByCity[city.id] = mapDataUrlsFor(city.id);
-  const centres = CITY_CENTRES.map(({ id, lat, lon }) => ({ id, lat, lon }));
 
   return `(function () {
-  var URLS = ${JSON.stringify(urlsByCity)};
-  var CENTRES = ${JSON.stringify(centres)};
   try {
-    if (location.pathname !== "/") return;
+    if (location.pathname !== "/" || location.search) return;
     if (typeof AbortSignal === "undefined" || !AbortSignal.timeout) return;
-    var placeId = null;
-    if (location.search) {
-      var linked = /^\\?focus=([^&]+)$/.exec(location.search);
-      if (!linked) return;
-      placeId = decodeURIComponent(linked[1]);
-    } else {
-      var pending = JSON.parse(sessionStorage.getItem(${JSON.stringify(PENDING_KEY)}) || "null");
-      if (pending && typeof pending.placeId === "string" && typeof pending.at === "number" &&
-          Date.now() - pending.at <= ${PENDING_TTL_MS}) placeId = pending.placeId;
-    }
+    if (sessionStorage.getItem(${JSON.stringify(PENDING_KEY)})) return;
     var session = JSON.parse(localStorage.getItem(${JSON.stringify(sessionStorageKey(supabaseUrl))}) || "null");
     var token = session && session.access_token;
     if (!token || !(session.expires_at * 1000 > Date.now() + 300000)) return;
-    var cityId;
-    if (placeId !== null) {
-      cityId = placeCity(placeId);
-    } else {
-      var meta = session.user && session.user.user_metadata;
-      cityId = meta && meta.default_city;
-    }
-    var urls = cityId && Object.prototype.hasOwnProperty.call(URLS, cityId) && URLS[cityId];
+    var meta = session.user && session.user.user_metadata;
+    var urls = meta && ${JSON.stringify(urlsByCity)}[meta.default_city];
     if (!urls) return;
     var responses = {};
     urls.forEach(function (url) {
@@ -128,25 +101,6 @@ export function buildMapPrefetchScript(supabaseUrl: string | undefined): string 
     window.__minersMapPrefetch = { tokenTail: token.slice(-${TOKEN_TAIL}), startedAt: Date.now(), responses: responses };
     setTimeout(function () { delete window.__minersMapPrefetch; }, ${MAX_AGE_MS});
   } catch (e) {}
-
-  // Same rule as cityForCoordinates in notify-routing.ts, step for step.
-  function placeCity(id) {
-    var match = ${PLACE_ID_COORDS_RE.toString()}.exec(id);
-    if (!match) return null;
-    var lat = parseFloat(match[1]), lon = parseFloat(match[2]);
-    var best = null, bestKm = 0;
-    CENTRES.forEach(function (c) {
-      var km = distanceKm(lat, lon, c.lat, c.lon);
-      if (!best || km < bestKm) { best = c; bestKm = km; }
-    });
-    return best && bestKm <= ${MAX_CITY_RADIUS_KM} ? best.id : null;
-  }
-  function distanceKm(aLat, aLon, bLat, bLon) {
-    var toRad = function (deg) { return (deg * Math.PI) / 180; };
-    var dLat = toRad(bLat - aLat), dLon = toRad(bLon - aLon);
-    var h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLon / 2) ** 2;
-    return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
-  }
 })();`;
 }
 

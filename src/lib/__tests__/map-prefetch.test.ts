@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { cities } from "@/lib/cities";
-import { PENDING_KEY, PENDING_TTL_MS, pendingPlaceCity, savePendingFocus } from "@/lib/share";
+import { PENDING_KEY } from "@/lib/share";
 import {
     MAP_DATA_URLS,
     buildMapPrefetchScript,
@@ -20,8 +20,6 @@ vi.mock("@/lib/api-client", () => ({
 const SUPABASE_URL = "https://sybuvcpmybdsuduthvom.supabase.co";
 const KEY = sessionStorageKey(SUPABASE_URL);
 const TOKEN = "header.payload.signature-abcdefghijklmnop";
-const MADRID_ID = "property-40.43578--3.70034-184bf122";
-const PRAGUE_ID = "property-50.08996-14.42357-87199d31";
 type W = Window & { __minersMapPrefetch?: { tokenTail: string; startedAt: number; responses: Record<string, Promise<Response | null>> } };
 const w = window as W;
 
@@ -91,13 +89,8 @@ describe("head script", () => {
     const skips: [string, () => void][] = [
         ["signed out", () => {}],
         ["another page", () => { storeSession(); window.history.replaceState({}, "", "/admin"); }],
-        ["a link with more in its query (older emails)", () => { storeSession(); window.history.replaceState({}, "", `/?focus=${MADRID_ID}&city=madrid`); }],
-        ["a sign-in error", () => { storeSession(); window.history.replaceState({}, "", "/?auth_error=nope"); }],
-        ["a link to a place in a city that is not live", () => { storeSession(); window.history.replaceState({}, "", "/?focus=cafe-41.38740-2.17340"); }],
-        ["a link to a place in no city", () => { storeSession(); window.history.replaceState({}, "", "/?focus=cafe-52.52000-13.40500"); }],
-        ["a link without coordinates", () => { storeSession(); window.history.replaceState({}, "", "/?focus=abc"); }],
-        ["a link that cannot be decoded", () => { storeSession(); window.history.replaceState({}, "", "/?focus=%E0%A4%A"); }],
-        ["a waiting place in no city", () => { storeSession(); savePendingFocus("cafe-52.52000-13.40500"); }],
+        ["a shared or email link", () => { storeSession(); window.history.replaceState({}, "", "/?focus=abc"); }],
+        ["a shared place waiting to open", () => { storeSession(); sessionStorage.setItem(PENDING_KEY, "{}"); }],
         ["a token about to expire", () => storeSession({ default_city: "prague" }, 120)],
         ["no saved city (the picker shows)", () => storeSession({})],
         ["a city that is not live", () => storeSession({ default_city: "barcelona" })],
@@ -111,63 +104,6 @@ describe("head script", () => {
             expect(w.__minersMapPrefetch).toBeUndefined();
         });
     }
-
-    it("starts a shared link's city, not the saved one", () => {
-        storeSession({ default_city: "prague" });
-        window.history.replaceState({}, "", `/?focus=${encodeURIComponent(MADRID_ID)}`);
-        runScript();
-        expect(requested).toEqual(MAP_DATA_URLS.madrid);
-    });
-
-    it("starts a shared link's city for someone with no saved city yet", () => {
-        storeSession({});
-        window.history.replaceState({}, "", `/?focus=${PRAGUE_ID}`);
-        runScript();
-        expect(requested).toEqual(MAP_DATA_URLS.prague);
-    });
-
-    it("starts a waiting place's city after the sign-in round trip", () => {
-        storeSession({ default_city: "prague" });
-        savePendingFocus(MADRID_ID);
-        runScript();
-        expect(requested).toEqual(MAP_DATA_URLS.madrid);
-    });
-
-    it("falls back to the saved city for a stale or broken waiting place", () => {
-        storeSession({ default_city: "prague" });
-        savePendingFocus(MADRID_ID, Date.now() - PENDING_TTL_MS - 1);
-        runScript();
-        expect(requested).toEqual(MAP_DATA_URLS.prague);
-        delete w.__minersMapPrefetch;
-        sessionStorage.setItem(PENDING_KEY, "{}");
-        recordFetch();
-        runScript();
-        expect(requested).toEqual(MAP_DATA_URLS.prague);
-    });
-
-    it("picks the same city as the app for any place", () => {
-        // City centres, the suburbs, both sides of the 150 km line, far away,
-        // not-live cities, upper case ids.
-        const ids = [
-            "property-40.41680--3.70380-abc", "cafe-50.07550-14.43780", "PROPERTY-40.43578--3.70034-184BF122",
-            "gym-40.28410--3.77940", "cafe-41.73000--3.70380", "cafe-41.77000--3.70380",
-            "cafe-50.07550-16.53000", "cafe-50.07550-16.62000", "cafe-49.40000-14.43780", "cafe-48.70000-14.43780",
-            "cafe-41.38740-2.17340", "cafe-37.38910--5.98450", "cafe-39.90000--4.60000", "cafe-0.00000-0.00000",
-            "cafe-52.52000-13.40500", "cafe-40.4-3.7", "metro-40.41680--3.70380",
-        ];
-        for (const id of ids) {
-            sessionStorage.clear();
-            delete w.__minersMapPrefetch;
-            savePendingFocus(id);
-            const appCity = pendingPlaceCity()?.id ?? null;
-            storeSession({});
-            window.history.replaceState({}, "", `/?focus=${encodeURIComponent(id)}`);
-            recordFetch();
-            runScript();
-            const scriptCity = requested.length ? new URL(requested[0], "http://x").searchParams.get("city_id") : null;
-            expect(scriptCity, id).toBe(appCity);
-        }
-    });
 
     it("is not built without Supabase", () => {
         expect(buildMapPrefetchScript(undefined)).toBeNull();
