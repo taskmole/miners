@@ -72,7 +72,11 @@ function HomeContent() {
     () => cities.find(c => c.id === "madrid") ?? cities[0]
   );
 
-  const { cafes, properties, otherPois, counts } = useMapData(selectedCity.id);
+  // No map data is requested until we know which city to load. That is a few
+  // milliseconds after the stored session is read, so a Prague user no longer
+  // downloads Madrid first and then waits for two account checks to switch.
+  const [mapCityReady, setMapCityReady] = useState(false);
+  const { cafes, properties, otherPois, counts } = useMapData(mapCityReady ? selectedCity.id : null);
 
   const { startLinking, isLinking } = useLinking();
 
@@ -271,6 +275,7 @@ function HomeContent() {
   // Check for auth session on mount and listen for changes
   useEffect(() => {
     if (!supabase) {
+      setMapCityReady(true);
       setAuthChecked(true);
       return;
     }
@@ -318,6 +323,11 @@ function HomeContent() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       enqueue('initial session', async () => {
         if (session?.user && !signedOutSince) {
+          // The saved city is already in the stored session, so start its data
+          // now instead of after the two account checks below. This is the
+          // city half of applyCityForUser, which repeats it later as a no-op.
+          if (hasStoredDefaultCity(session.user)) setSelectedCity(getStoredDefaultCity(session.user));
+          setMapCityReady(true);
           await migrateAnonymousData(session.user.id);
           setUser(session.user);
           setAuthUserId(session.user.id);
@@ -325,6 +335,7 @@ function HomeContent() {
           setShowLanding(false);
           applyCityForUser(session.user);
         }
+        setMapCityReady(true);
         setAuthChecked(true);
       });
     });
@@ -567,6 +578,7 @@ function HomeContent() {
           incomeWealthyFilter={incomeWealthyFilter}
           trafficHour={trafficHour}
           selectedCity={selectedCity}
+          cityReady={mapCityReady}
           isLinkingMode={isLinking}
           showHiddenPois={showHiddenPois}
           gravityEnabled={gravityEnabled}
