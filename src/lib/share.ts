@@ -141,7 +141,8 @@ export function placeTypeLabel(type: string): string {
 // them in, checked their access and loaded the city.
 // ---------------------------------------------------------------------------
 
-const PENDING_KEY = "miners:pending-focus";
+/** Exported for the map head script, which stays out of the way while a shared place is waiting. */
+export const PENDING_KEY = "miners:pending-focus";
 /** Long enough for a slow sign-in, short enough that a stale tab forgets. */
 export const PENDING_TTL_MS = 30 * 60 * 1000;
 

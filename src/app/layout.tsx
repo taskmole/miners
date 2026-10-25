@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { buildMapPrefetchScript } from "@/lib/map-prefetch";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -14,6 +15,9 @@ const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
 });
+
+// Starts the map's data downloads before the app's code has loaded (see map-prefetch.ts).
+const mapPrefetchScript = buildMapPrefetchScript(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
 export const metadata: Metadata = {
   title: "Miners Location Scout",
@@ -53,6 +57,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {mapPrefetchScript && <script dangerouslySetInnerHTML={{ __html: mapPrefetchScript }} />}
         {/* Open connections to the map style/tile servers and the database
             while the page's JavaScript is still loading, so the first map
             tiles and the session check don't each pay for a fresh handshake. */}

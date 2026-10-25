@@ -5,6 +5,7 @@ import { priceChange } from "@/components/poi-card/card-format";
 import useSWR from "swr";
 import { isRecentlyAdded, isNewPoi } from "@/lib/dateUtils";
 import { getAuthToken, getRefreshedAuthToken } from "@/lib/api-client";
+import { takePrefetchedResponse } from "@/lib/map-prefetch";
 
 export interface CafeData {
     type: "cafe";
@@ -120,6 +121,16 @@ async function fetchWithTimeout(url: string, timeoutMs = TIMEOUT_MS): Promise<Re
     }
 
     const token = await getAuthToken();
+
+    // The page head may already have asked for this (see map-prefetch.ts).
+    // Its answer is only used when it came back fine; anything else and the
+    // request is simply made again, as it always was.
+    const early = takePrefetchedResponse(url, token);
+    if (early) {
+        const earlyRes = await early;
+        if (earlyRes?.ok) return earlyRes;
+    }
+
     const res = await send(token);
 
     // A 401 here is the whole map turning into "Error loading data: Places API
