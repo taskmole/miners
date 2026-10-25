@@ -7,6 +7,8 @@
  * Imports nothing browser-only or server-only, so both can use it.
  */
 
+import { cityById, type City } from "@/lib/cities";
+import { cityForCoordinates } from "@/lib/notify-routing";
 import { parseCoordinatesFromPlaceId } from "@/lib/place-id";
 
 /** 10 base62 characters: about 8 x 10^17 codes, so links cannot be guessed. */
@@ -168,6 +170,22 @@ export function readPendingFocus(now = Date.now()): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * The live city of the shared place waiting to open, or null.
+ *
+ * Worked out from the place id's coordinates, the same rule focusPlace uses
+ * when it opens the place, so the app can start in that city instead of
+ * loading the person's saved city first and switching seconds later. Null
+ * when no link is waiting (or it is stale), the id has no coordinates, or the
+ * place is in no city or one that is not live.
+ */
+export function pendingPlaceCity(now = Date.now()): City | null {
+  const placeId = readPendingFocus(now);
+  const spot = placeId ? parseCoordinatesFromPlaceId(placeId) : null;
+  const city = spot ? cityById(cityForCoordinates(spot.lat, spot.lon)) : undefined;
+  return city?.active ? city : null;
 }
 
 export function clearPendingFocus(): void {

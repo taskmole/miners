@@ -6,6 +6,7 @@ import {
   clearPendingFocus,
   isAllowedPhotoUrl,
   makeShareCode,
+  pendingPlaceCity,
   readPendingFocus,
   savePendingFocus,
   shareUrl,
@@ -139,5 +140,44 @@ describe("pending focus", () => {
   it("ignores junk in storage", () => {
     sessionStorage.setItem("miners:pending-focus", "{not json");
     expect(readPendingFocus()).toBeNull();
+  });
+});
+
+describe("pendingPlaceCity", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
+  it("is the waiting place's city, worked out from its id", () => {
+    savePendingFocus(PROPERTY_ID);
+    expect(pendingPlaceCity()?.id).toBe("prague");
+    savePendingFocus(MADRID_POI_ID);
+    expect(pendingPlaceCity()?.id).toBe("madrid");
+  });
+
+  it("accepts ids in any case, like focusPlace", () => {
+    savePendingFocus("PROPERTY-40.43578--3.70034-184BF122");
+    expect(pendingPlaceCity()?.id).toBe("madrid");
+  });
+
+  it("is null for a place in a city that is not live yet", () => {
+    savePendingFocus("cafe-41.38740-2.17340"); // Barcelona
+    expect(pendingPlaceCity()).toBeNull();
+  });
+
+  it("is null for a place in no city", () => {
+    savePendingFocus("cafe-52.52000-13.40500"); // Berlin
+    expect(pendingPlaceCity()).toBeNull();
+  });
+
+  it("is null for an id without coordinates", () => {
+    savePendingFocus("not-a-place");
+    expect(pendingPlaceCity()).toBeNull();
+  });
+
+  it("is null when no link is waiting, or it is stale", () => {
+    expect(pendingPlaceCity()).toBeNull();
+    savePendingFocus(PROPERTY_ID, 1_000);
+    expect(pendingPlaceCity(1_000 + PENDING_TTL_MS + 1)).toBeNull();
   });
 });
