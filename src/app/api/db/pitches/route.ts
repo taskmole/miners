@@ -10,12 +10,15 @@ import {
 import { cities } from "@/lib/cities";
 import { canAccessDashboard, canReadCityScouting } from "@/lib/permissions";
 import { sendTeamEmails } from "@/lib/team-notify-server";
+import { sendSubmissionEmails, type SubmittedPitch } from "@/lib/submission-email";
 
 export const dynamic = "force-dynamic";
 
 // Postgres raises this when a rule refuses a write: the review-field trigger
 // (only reviewers decide a pitch, only your own files) or a row policy.
 const INSUFFICIENT_PRIVILEGE = "42501";
+// Postgres: a row with this primary key already exists.
+const UNIQUE_VIOLATION = "23505";
 
 /**
  * A refused write is a 403, not a 500. This matters beyond the label: the
@@ -23,12 +26,20 @@ const INSUFFICIENT_PRIVILEGE = "42501";
  * a 5xx forever, so a refused save must not come back as a server fault.
  */
 function writeFailure(where: string, error: { code?: string; message: string }): NextResponse {
+  // The database's own wording stays in the server log. The reply says only
+  // what happened, so it never carries rule or table details.
   console.error(`[api/db/pitches] ${where} error:`, error);
-  if (error.code === INSUFFICIENT_PRIVILEGE) {
-    return NextResponse.json({ error: error.message }, { status: 403 });
-  }
-  return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error.code === INSUFFICIENT_PRIVILEGE) return refused();
+  return NextResponse.json({ error: "Could not save the pitch, please try again." }, { status: 500 });
 }
+
+/** A save the row rules did not let through, answered like any other refusal. */
+function refused(): NextResponse {
+  return NextResponse.json({ error: "You cannot change this pitch." }, { status: 403 });
+}
+
+/** A pitch row as the save returns it. Only the columns read here are named. */
+type SavedPitch = SubmittedPitch & { status: string | null };
 
 const DECISIONS = ["approved", "rejected", "returned"] as const;
 type Decision = (typeof DECISIONS)[number];
@@ -264,25 +275,71 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * Save a pitch (the trip sync queue's only write, src/lib/trip-sync.ts).
+ *
+ * This used to be one upsert. An upsert is checked against the INSERT rule
+ * even when the row already exists ("you created it and may contribute"), so
+ * a teammate editing a returned team pitch was refused, and since that
+ * refusal became a 403 the queue dropped the edit silently. Now the route
+ * reads first and picks the rule that really applies: a new pitch is
+ * inserted, an existing one updated.
+ *
+ * The read also tells us the status before the save, which is how the
+ * "new trip submitted" emails are sent here, from the saved row, exactly when
+ * a pitch becomes submitted. A save retried after a lost response finds it
+ * already submitted and sends nothing.
+ */
 export async function POST(request: NextRequest) {
-  const token = getTokenFromRequest(request);
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await authenticateRequest(request);
+  if (auth.error) return auth.error;
+  const { supabase, userId } = auth;
 
   try {
     const body = await request.json();
-    const supabase = createServerSupabase(token);
+    const id = body?.id;
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
+    }
 
-    const { data, error } = await supabase
-      .from("pitches")
-      .upsert(body, { onConflict: "id" })
-      .select()
-      .single();
+    // Whether the caller can see this pitch, and its status before the save.
+    const readBefore = async () => {
+      const { data, error } = await db(supabase)
+        .from("pitches").select("status").eq("id", id).maybeSingle();
+      const row = data as { status: string | null } | null;
+      return { found: row !== null, status: row?.status ?? null, error };
+    };
 
-    if (error) return writeFailure("upsert", error);
+    // Answer with the saved row. When this save is the one that made the
+    // pitch submitted, email the reviewers and team once the reply is out.
+    const respond = (saved: SavedPitch | null, statusBefore: string | null) => {
+      if (!saved) return refused();
+      if (saved.status === "submitted" && statusBefore !== "submitted") {
+        after(() => sendSubmissionEmails(supabase, saved, userId));
+      }
+      return NextResponse.json(saved);
+    };
 
-    return NextResponse.json(data);
+    let before = await readBefore();
+    if (before.error) return writeFailure("read", before.error);
+
+    if (!before.found) {
+      const { data, error } = await db(supabase).from("pitches").insert(body).select().maybeSingle();
+      if (!error) return respond(data, null);
+      if (error.code !== UNIQUE_VIOLATION) return writeFailure("insert", error);
+      // The id exists after all: another device created it a moment ago, or
+      // it is somebody else's pitch this caller cannot see. Read once more;
+      // if it is still invisible, so is the right to change it.
+      before = await readBefore();
+      if (before.error) return writeFailure("read", before.error);
+      if (!before.found) return refused();
+    }
+
+    const { data, error } = await db(supabase).from("pitches").update(body).eq("id", id).select().maybeSingle();
+    if (error) return writeFailure("update", error);
+    // No row back means the update rule did not match it (not the owner or
+    // the team, or the pitch is no longer a draft or returned).
+    return respond(data, before.status);
   } catch (err) {
     console.error("[api/db/pitches] unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

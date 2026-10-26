@@ -12,12 +12,7 @@ import { getAuthUserId } from '@/lib/browser-session';
 
 type SyncAction =
   | { type: 'upsert_trip'; tripId: string; payload: Record<string, unknown> }
-  | { type: 'delete_trip'; tripId: string; payload: { tripId: string } }
-  | {
-      type: 'notify_submission';
-      tripId: string;
-      payload: { tripName: string; address: string; cityId: string; authorName: string; submittedAt: string; teamId: string | null; ownerId: string | null };
-    };
+  | { type: 'delete_trip'; tripId: string; payload: { tripId: string } };
 
 interface QueueEntry {
   id: string;
@@ -180,6 +175,9 @@ async function executeEntry(entry: QueueEntry): Promise<boolean> {
 }
 
 async function executeAction(action: SyncAction): Promise<void> {
+  // A retired 'notify_submission' job may still sit in someone's saved
+  // queue. It matches no case here, so it counts as done and is removed. The
+  // server now sends that email itself when the save lands.
   switch (action.type) {
     case 'upsert_trip':
       await apiFetch('/api/db/pitches', {
@@ -191,13 +189,6 @@ async function executeAction(action: SyncAction): Promise<void> {
     case 'delete_trip':
       await apiFetch(`/api/db/pitches?id=${encodeURIComponent(action.tripId)}`, {
         method: 'DELETE',
-      });
-      break;
-
-    case 'notify_submission':
-      await apiFetch('/api/notify-submission', {
-        method: 'POST',
-        body: JSON.stringify(action.payload),
       });
       break;
   }

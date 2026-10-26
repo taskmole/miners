@@ -58,6 +58,12 @@ interface ScoutingTripDetailProps {
   tripId: string;
   onClose: () => void;
   onEdit?: (trip: ScoutingTrip) => void;
+  /**
+   * May this person change the trip at all (contribute in its city). The
+   * database refuses edits from view-only people, so the button hides too.
+   * Left out means no limit.
+   */
+  canEdit?: (trip: ScoutingTrip) => boolean;
 }
 
 // Format date for display
@@ -252,6 +258,7 @@ export function ScoutingTripDetail({
   tripId,
   onClose,
   onEdit,
+  canEdit,
 }: ScoutingTripDetailProps) {
   const isMobile = useMobile();
   const { getTrips, deleteTrip, updateChecklist } = useScoutingTrips();
@@ -688,7 +695,7 @@ export function ScoutingTripDetail({
         {/* Footer */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-t border-zinc-200 bg-zinc-50 rounded-b-2xl">
           <div>
-            {onEdit && (trip.status === "draft" || trip.status === "returned") && (
+            {onEdit && (trip.status === "draft" || trip.status === "returned") && (canEdit?.(trip) ?? true) && (
               <Button size="lg" onClick={() => onEdit(trip)} className="h-11 border border-transparent">Edit Trip</Button>
             )}
           </div>
