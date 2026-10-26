@@ -242,7 +242,6 @@ describe("POST /api/db/pitches", () => {
         expect.objectContaining({
           trip_name: "Real trip",
           address: "Calle Real 1",
-          author_name: "Real Author",
           team_id: "team-1",
         }),
         "caller-1",

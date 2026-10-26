@@ -2,7 +2,10 @@
  * Server-side: the "new trip submitted" emails.
  *
  * Sent by the pitch save route (POST /api/db/pitches) at the moment a pitch
- * becomes "submitted", and built only from the row the database just saved.
+ * becomes "submitted". The pitch is the scout's own text, so only its place
+ * and trip name are shown (cut to length); the author comes from their
+ * profile and the time from the server.
+ *
  * The browser used to ask /api/notify-submission to send these with its own
  * title, author and team, so any signed-in person could email the reviewers
  * (or any team they were on) with their own text, as often as they liked.
@@ -28,6 +31,10 @@ export const SUBMISSION_REVIEWERS = [
   "founders@taskmole.co",
 ];
 
+// Longest place or trip name the email shows. The text is the scout's own,
+// so it is cut to a card-sized line rather than trusted to be one.
+const MAX_TITLE = 120;
+
 /** The columns of a saved pitch that the emails read. */
 export type SubmittedPitch = {
   city_id: string | null;
@@ -35,9 +42,26 @@ export type SubmittedPitch = {
   team_id: string | null;
   trip_name: string | null;
   address: string | null;
-  author_name: string | null;
-  submitted_at: string | null;
 };
+
+/**
+ * The pitch owner's name as their profile has it. The pitch's own
+ * author_name is text the browser saved, so the email never shows it: a
+ * scout could otherwise submit under somebody else's name.
+ */
+async function ownerName(supabase: SupabaseClient, ownerId: string | null): Promise<string> {
+  if (!ownerId) return "Scout";
+  try {
+    const { data, error } = await supabase.rpc("people_directory");
+    if (error) throw error;
+    const owner = ((data || []) as Array<{ id: string; display_name: string | null }>)
+      .find((p) => p.id === ownerId);
+    return owner?.display_name || "Scout";
+  } catch (err) {
+    console.warn("[submission-email] owner name lookup failed:", err);
+    return "Scout";
+  }
+}
 
 /**
  * Email the reviewers, then the pitch's team (if it has one). Best effort:
@@ -57,9 +81,9 @@ export async function sendSubmissionEmails(
     return;
   }
 
-  // Card title + subject use the place address; fall back to the trip name.
-  const title = pitch.address || pitch.trip_name || "Untitled trip";
-  const authorName = pitch.author_name || "Scout";
+  // Card title uses the place address; fall back to the trip name.
+  const title = (pitch.address || pitch.trip_name || "Untitled trip").slice(0, MAX_TITLE);
+  const authorName = await ownerName(supabase, pitch.created_by);
 
   try {
     const html = await render(
@@ -67,7 +91,9 @@ export async function sendSubmissionEmails(
         title,
         cityLabel: toCityLabel(pitch.city_id || ""),
         authorName,
-        submittedAt: pitch.submitted_at || undefined,
+        // The save that triggers this is the submission, so its time is now.
+        // The row's submitted_at is the browser's clock.
+        submittedAt: new Date().toISOString(),
         appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://theminers.vercel.app",
       }),
     );
@@ -86,7 +112,7 @@ export async function sendSubmissionEmails(
       await sendTeamEmails(supabase, {
         teamId: pitch.team_id,
         kind: "submitted",
-        tripName: pitch.trip_name || undefined,
+        tripName: pitch.trip_name?.slice(0, MAX_TITLE) || undefined,
         placeName: title,
         actorName: authorName,
         excludeUserId: callerId,
