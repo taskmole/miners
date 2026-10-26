@@ -17,6 +17,28 @@ vi.mock("@/lib/team-notify-server", () => ({
   },
 }));
 
+// The service-role log behind the hourly limit.
+const log = { count: 0, countError: null as unknown, inserted: [] as unknown[], disabled: false };
+vi.mock("@/lib/supabase-server", () => ({
+  createServiceSupabase: () =>
+    log.disabled
+      ? null
+      : {
+          from: (table: string) => {
+            expect(table).toBe("submission_email_log");
+            return {
+              select: () => ({
+                eq: () => ({ gte: async () => ({ count: log.count, error: log.countError }) }),
+              }),
+              insert: async (row: unknown) => {
+                log.inserted.push(row);
+                return { error: null };
+              },
+            };
+          },
+        },
+}));
+
 const { sendSubmissionEmails, SUBMISSION_REVIEWERS } = await import("../submission-email");
 
 // The caller's database: only the people directory is read.
@@ -24,6 +46,7 @@ const supabase = (directory: unknown, error: unknown = null) =>
   ({ rpc: async () => ({ data: directory, error }) }) as never;
 
 const pitch = {
+  id: "pitch-1",
   city_id: "madrid",
   created_by: "owner-1",
   team_id: "team-1",
@@ -35,6 +58,10 @@ beforeEach(() => {
   sent.length = 0;
   teamCalls.length = 0;
   process.env.RESEND_API_KEY = "test";
+  log.count = 0;
+  log.countError = null;
+  log.inserted.length = 0;
+  log.disabled = false;
 });
 
 describe("sendSubmissionEmails", () => {
@@ -68,5 +95,34 @@ describe("sendSubmissionEmails", () => {
     await sendSubmissionEmails(supabase([]), { ...pitch, team_id: null }, "caller-1");
     expect(sent).toHaveLength(1);
     expect(teamCalls).toHaveLength(0);
+  });
+
+  describe("hourly limit", () => {
+    it("logs each send against the caller", async () => {
+      log.count = 9;
+      await sendSubmissionEmails(supabase([]), pitch, "caller-1");
+      expect(sent).toHaveLength(1);
+      expect(log.inserted).toEqual([{ user_id: "caller-1", pitch_id: "pitch-1" }]);
+    });
+
+    it("skips every email once the caller has used the hour's sends", async () => {
+      log.count = 10;
+      await sendSubmissionEmails(supabase([]), pitch, "caller-1");
+      expect(sent).toHaveLength(0);
+      expect(teamCalls).toHaveLength(0);
+      expect(log.inserted).toHaveLength(0);
+    });
+
+    it("still sends when the limit cannot be checked", async () => {
+      log.countError = { message: "down" };
+      await sendSubmissionEmails(supabase([]), pitch, "caller-1");
+      expect(sent).toHaveLength(1);
+    });
+
+    it("still sends without a service role (local dev)", async () => {
+      log.disabled = true;
+      await sendSubmissionEmails(supabase([]), pitch, "caller-1");
+      expect(sent).toHaveLength(1);
+    });
   });
 });
