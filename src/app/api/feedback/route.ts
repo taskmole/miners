@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { getFromAddress } from "@/lib/email";
+import { authenticateRequest } from "@/lib/supabase-server";
 
 const MAX_FILES = 3;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // Signed-in users only. Without this, anyone on the internet could send
+    // unlimited emails through our Resend account and use up the quota that
+    // the digest and weekly summary depend on.
+    const auth = await authenticateRequest(request);
+    if (auth.error) return auth.error;
+
     if (!process.env.RESEND_API_KEY) {
       return NextResponse.json(
         { error: "Email service not configured" },
@@ -27,8 +34,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const city = (formData.get("city") as string) ?? "Unknown";
     const device = (formData.get("device") as string) ?? "Unknown";
     const timestamp = (formData.get("timestamp") as string) ?? new Date().toISOString();
-    const userId = formData.get("userId") as string | null;
-    const userEmail = formData.get("userEmail") as string | null;
+    // Who sent it comes from the verified session, never from the form.
+    const { userId, email: userEmail } = auth;
 
     const files = formData.getAll("files") as File[];
 
@@ -58,9 +65,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const resend = new Resend(process.env.RESEND_API_KEY!);
 
-    const userLine = userEmail
-      ? `${userEmail} (${userId ?? "no id"})`
-      : userId ?? "Anonymous";
+    const userLine = userEmail ? `${userEmail} (${userId})` : userId;
 
     const html = `
       <div style="font-family: sans-serif; max-width: 600px;">

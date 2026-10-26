@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   accessFor,
   authenticateRequest,
@@ -9,8 +9,29 @@ import {
 } from "@/lib/supabase-server";
 import { cities } from "@/lib/cities";
 import { canAccessDashboard, canReadCityScouting } from "@/lib/permissions";
+import { sendTeamEmails } from "@/lib/team-notify-server";
 
 export const dynamic = "force-dynamic";
+
+// Postgres raises this when a rule refuses a write: the review-field trigger
+// (only reviewers decide a pitch, only your own files) or a row policy.
+const INSUFFICIENT_PRIVILEGE = "42501";
+
+/**
+ * A refused write is a 403, not a 500. This matters beyond the label: the
+ * trip sync queue (src/lib/trip-sync.ts) drops a 4xx as permanent but retries
+ * a 5xx forever, so a refused save must not come back as a server fault.
+ */
+function writeFailure(where: string, error: { code?: string; message: string }): NextResponse {
+  console.error(`[api/db/pitches] ${where} error:`, error);
+  if (error.code === INSUFFICIENT_PRIVILEGE) {
+    return NextResponse.json({ error: error.message }, { status: 403 });
+  }
+  return NextResponse.json({ error: error.message }, { status: 500 });
+}
+
+const DECISIONS = ["approved", "rejected", "returned"] as const;
+type Decision = (typeof DECISIONS)[number];
 
 const ALL_CITY_IDS = cities.map((c) => c.id);
 
@@ -259,10 +280,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error) {
-      console.error("[api/db/pitches] upsert error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    if (error) return writeFailure("upsert", error);
 
     return NextResponse.json(data);
   } catch (err) {
@@ -272,10 +290,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const token = getTokenFromRequest(request);
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await authenticateRequest(request);
+  if (auth.error) return auth.error;
+  const { supabase, userId } = auth;
 
   try {
     const body = await request.json();
@@ -285,8 +302,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
-    const supabase = createServerSupabase(token);
-
     const { data, error } = await supabase
       .from("pitches")
       .update(updates)
@@ -294,9 +309,46 @@ export async function PATCH(request: NextRequest) {
       .select()
       .single();
 
-    if (error) {
-      console.error("[api/db/pitches] update error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return writeFailure("update", error);
+
+    // A reviewer decided the pitch: email its team. Everything in the email
+    // comes from the row just saved, not from the browser, which used to ask
+    // /api/notify-team to send it with its own text. Only a reviewer can get
+    // here with a decision, because the database refuses a status change from
+    // anyone else (20261026000002). The owner is skipped: they already get the
+    // personal email from /api/send-trip-status.
+    // The hand-written Database type does not describe these columns, so the
+    // typed builder gives `never`; name the ones used here instead.
+    const saved = data as unknown as {
+      team_id: string | null;
+      created_by: string | null;
+      trip_name: string | null;
+      address: string | null;
+      rejection_notes: string | null;
+      return_notes: string | null;
+    } | null;
+    if (DECISIONS.includes(updates.status) && saved?.team_id) {
+      const status = updates.status as Decision;
+      const reason =
+        status === "rejected" ? saved.rejection_notes :
+        status === "returned" ? saved.return_notes :
+        null;
+      const teamEmail = {
+        teamId: saved.team_id,
+        kind: "status" as const,
+        status,
+        tripName: saved.trip_name || saved.address || "Untitled trip",
+        reason: reason || undefined,
+        excludeUserId: userId,
+        excludeUserIds: saved.created_by ? [saved.created_by] : undefined,
+      };
+      after(async () => {
+        try {
+          await sendTeamEmails(supabase, teamEmail);
+        } catch (err) {
+          console.error("[api/db/pitches] team decision email failed:", err);
+        }
+      });
     }
 
     return NextResponse.json(data);

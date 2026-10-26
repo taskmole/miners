@@ -228,4 +228,34 @@ describe('apiFetch authorisation', () => {
     expect(headers.get('Authorization')).toBeNull();
     expect(getSession).not.toHaveBeenCalled();
   });
+
+  it('lets the browser set Content-Type for a FormData body', async () => {
+    // The feedback form posts files as FormData. A JSON Content-Type would
+    // replace the multipart one, boundary included, and the server could not
+    // read the form at all.
+    const { apiFetch } = await freshClient();
+    withSession('token-from-supabase');
+    const fetchMock = vi.fn().mockResolvedValue(ok());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const form = new FormData();
+    form.append('text', 'hello');
+    await apiFetch('/api/feedback', { method: 'POST', body: form });
+
+    const headers = fetchMock.mock.calls[0][1].headers as Headers;
+    expect(headers.get('Content-Type')).toBeNull();
+    expect(headers.get('Authorization')).toBe('Bearer token-from-supabase');
+  });
+
+  it('still defaults a string body to JSON', async () => {
+    const { apiFetch } = await freshClient();
+    withSession('token-from-supabase');
+    const fetchMock = vi.fn().mockResolvedValue(ok());
+    vi.stubGlobal('fetch', fetchMock);
+
+    await apiFetch('/api/db/lists', { method: 'POST', body: '{}' });
+
+    const headers = fetchMock.mock.calls[0][1].headers as Headers;
+    expect(headers.get('Content-Type')).toBe('application/json');
+  });
 });

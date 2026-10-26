@@ -19,7 +19,6 @@ import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { useToast } from "@/contexts/ToastContext";
 import { evaluatePropertyActions, pendingPropertyActions } from "@/lib/property-actions";
 import { logActivity } from "@/lib/supabaseHelpers";
-import { notifyTeam } from "@/lib/notify-team";
 import { capitalizeFirst } from "@/lib/text";
 import { AssignList } from "@/components/AssignList";
 import type { PlaceInfo } from "@/types/lists";
@@ -168,16 +167,16 @@ export function ListingCard({ property, placeId, mapsUrl, cityId, onClose, reque
 
   const handleAssign = (targetId: string, targetName: string, type: "team" | "user") => runExclusive(async () => {
     try {
+      // The server emails the team or person (skipping the actor) once the
+      // assignment is saved. Name and address are only text for that email.
+      const emailText = { placeName: property.title, placeAddress: property.address };
       if (type === "team") {
-        await assignProperty(placeId, null, { teamId: targetId });
+        await assignProperty(placeId, null, { teamId: targetId, ...emailText });
         // Tag with team_id so every member sees it in their activity feed.
         logActivity("assigned_property", { ...propertyMeta, team_id: targetId, teamName: targetName });
-        // Email the team (skips the actor). Never blocks the assignment.
-        notifyTeam({ teamId: targetId, placeId, kind: "assigned", placeName: property.title, placeAddress: property.address });
       } else {
-        await assignProperty(placeId, targetId);
+        await assignProperty(placeId, targetId, emailText);
         logActivity("assigned_property", { ...propertyMeta, assigned_to: targetId, assigneeName: targetName });
-        notifyTeam({ userId: targetId, kind: "assigned", placeId, placeName: property.title, placeAddress: property.address });
       }
       showToast(`Assigned to ${targetName}`);
       setStep(null);

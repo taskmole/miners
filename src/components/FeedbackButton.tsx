@@ -6,13 +6,12 @@ import { useMobile } from "@/hooks/useMobile";
 import { useToast } from "@/contexts/ToastContext";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
-import type { User } from "@supabase/supabase-js";
 import type { City } from "@/components/CitySelector";
 import { LoadingOrb } from "@/components/LoadingOrb";
+import { apiFetch } from "@/lib/api-client";
 
 interface FeedbackButtonProps {
   selectedCity: City;
-  user: User | null;
   onExposeOpen?: (openFn: () => void) => void;
 }
 
@@ -20,7 +19,7 @@ const MAX_CHARS = 1000;
 const MAX_FILES = 3;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-export function FeedbackButton({ selectedCity, user, onExposeOpen }: FeedbackButtonProps) {
+export function FeedbackButton({ selectedCity, onExposeOpen }: FeedbackButtonProps) {
   const isMobile = useMobile();
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -125,16 +124,14 @@ export function FeedbackButton({ selectedCity, user, onExposeOpen }: FeedbackBut
       formData.append("city", selectedCity.name);
       formData.append("device", isMobile ? "mobile" : "desktop");
       formData.append("timestamp", new Date().toISOString());
-      if (user?.id) formData.append("userId", user.id);
-      if (user?.email) formData.append("userEmail", user.email);
       files.forEach((f) => formData.append("files", f));
 
-      const res = await fetch("/api/feedback", {
+      // apiFetch adds the sign-in token (the server reads who sent it from
+      // there) and throws on any error status.
+      await apiFetch("/api/feedback", {
         method: "POST",
         body: formData,
       });
-
-      if (!res.ok) throw new Error("Send failed");
 
       showToast("Feedback sent, thank you!");
       handleClose();
@@ -143,7 +140,7 @@ export function FeedbackButton({ selectedCity, user, onExposeOpen }: FeedbackBut
     } finally {
       setSending(false);
     }
-  }, [text, files, selectedCity, user, isMobile, sending, showToast, handleClose]);
+  }, [text, files, selectedCity, isMobile, sending, showToast, handleClose]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {

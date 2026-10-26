@@ -142,7 +142,9 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
     assignedTo: string | null,
     // placeUuid is the listing's places.id. Optional: only the inbox has it,
     // and the server uses it for the AI scout's learning signal alone.
-    options?: { teamId?: string; notes?: string; placeUuid?: string }
+    // placeName/placeAddress are only shown in the "assigned to you" email,
+    // which the server now sends itself once the assignment is saved.
+    options?: { teamId?: string; notes?: string; placeUuid?: string; placeName?: string; placeAddress?: string }
   ) => {
     const result = await apiFetch<PropertyAssignment>('/api/db/property-assignments', {
       method: 'POST',
@@ -153,6 +155,8 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
         status: 'assigned',
         notes: options?.notes ?? null,
         place_uuid: options?.placeUuid,
+        place_name: options?.placeName,
+        place_address: options?.placeAddress,
       }),
     });
     setAssignments(prev => {

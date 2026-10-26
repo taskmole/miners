@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { authenticateRequest, createServerSupabase, getTokenFromRequest } from "@/lib/supabase-server";
 import { recordAiSignal } from "@/lib/ai-signal";
+import { sendAssigneeEmail, sendTeamEmails } from "@/lib/team-notify-server";
 
 export const dynamic = "force-dynamic";
 
@@ -76,11 +77,54 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Tell whoever was given it. Who to email, and that an assignment really
+    // happened, come from the row the database just saved, never from the
+    // browser: it used to post its own "assigned to you" email request to
+    // /api/notify-team, which let anyone signed in email anyone. The name and
+    // address are only display text for the email, trimmed, and React Email
+    // escapes them. Sent after the response so the assign never waits on it.
+    // The hand-written Database type does not describe this table, so the
+    // typed builder gives `never`; name the columns used here instead.
+    const saved = data as unknown as {
+      property_place_id: string;
+      status: string;
+      assigned_to: string | null;
+      assigned_to_team: string | null;
+    } | null;
+    if (saved?.status === "assigned" && (saved.assigned_to || saved.assigned_to_team)) {
+      const { assigned_to: person, assigned_to_team: team } = saved;
+      const display = {
+        kind: "assigned" as const,
+        placeId: saved.property_place_id,
+        placeName: displayText(body.place_name),
+        placeAddress: displayText(body.place_address),
+        excludeUserId: userId,
+      };
+      after(async () => {
+        try {
+          if (team) {
+            await sendTeamEmails(supabase, { ...display, teamId: team, isTeam: true });
+          } else if (person) {
+            await sendAssigneeEmail(supabase, { ...display, userId: person });
+          }
+        } catch (err) {
+          console.error("[api/db/property-assignments] assignment email failed:", err);
+        }
+      });
+    }
+
     return NextResponse.json(data);
   } catch (err) {
     console.error("[api/db/property-assignments] unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+}
+
+/** Browser-supplied text that only ever appears inside an email body. */
+function displayText(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim().slice(0, 200);
+  return trimmed || undefined;
 }
 
 export async function DELETE(request: NextRequest) {

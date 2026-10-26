@@ -10,7 +10,6 @@ import { usePropertyRequests } from '@/hooks/usePropertyRequests';
 import { useCafeProfiles, CafeProfile, CafeCategory, CATEGORY_LABELS } from '@/hooks/useCafeProfiles';
 import { apiFetch } from '@/lib/api-client';
 import { logActivity } from '@/lib/supabaseHelpers';
-import { notifyTeam } from '@/lib/notify-team';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -1074,9 +1073,9 @@ function AdminContent() {
     }).catch(() => {});
   };
 
-  // Record the reviewer decision in the activity feed (so the scout and the
-  // pitch's team see it in-app) and email the team. The owner already gets the
-  // personal status email above, so they are excluded from the team email.
+  // Record the reviewer decision in the activity feed, so the scout and the
+  // pitch's team see it in-app. The team email is sent by the server as part
+  // of saving the decision (PATCH /api/db/pitches).
   const notifyTeamStatus = (pitchId: string, status: 'approved' | 'rejected' | 'returned', reason?: string) => {
     const pitch = [...pendingSubmissions, ...processedSubmissions].find(p => p.id === pitchId);
     if (!pitch) return;
@@ -1093,16 +1092,6 @@ function AdminContent() {
       team_id: pitch.teamId ?? null,
       ...(reason ? { reason: reason.split('\n')[0].slice(0, 80) } : {}),
     });
-    if (pitch.teamId) {
-      notifyTeam({
-        teamId: pitch.teamId,
-        kind: 'status',
-        status,
-        tripName,
-        reason,
-        excludeUserIds: pitch.createdBy ? [pitch.createdBy] : undefined,
-      });
-    }
   };
 
   const toggleExpand = (id: string) => {

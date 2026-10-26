@@ -711,7 +711,7 @@ function HomeContent() {
             newGlow={newGlow}
             newCount={newListingsCount}
           />
-          <FeedbackButton selectedCity={selectedCity} user={user} onExposeOpen={handleExposeOpen} />
+          <FeedbackButton selectedCity={selectedCity} onExposeOpen={handleExposeOpen} />
           <ProfileMenu
             onFeedbackOpen={() => feedbackOpenRef.current?.()}
             onOpen={() => setWhatsNewSnoozed(true)}
