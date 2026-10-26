@@ -26,11 +26,11 @@ const UNIQUE_VIOLATION = "23505";
  * a 5xx forever, so a refused save must not come back as a server fault.
  */
 function writeFailure(where: string, error: { code?: string; message: string }): NextResponse {
+  // The database's own wording stays in the server log. The reply says only
+  // what happened, so it never carries rule or table details.
   console.error(`[api/db/pitches] ${where} error:`, error);
-  if (error.code === INSUFFICIENT_PRIVILEGE) {
-    return NextResponse.json({ error: error.message }, { status: 403 });
-  }
-  return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error.code === INSUFFICIENT_PRIVILEGE) return refused();
+  return NextResponse.json({ error: "Could not save the pitch, please try again." }, { status: 500 });
 }
 
 /** A save the row rules did not let through, answered like any other refusal. */

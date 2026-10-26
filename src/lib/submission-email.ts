@@ -125,7 +125,7 @@ export async function sendSubmissionEmails(
 
   // Card title uses the place address; fall back to the trip name.
   const title = (pitch.address || pitch.trip_name || "Untitled trip").slice(0, MAX_TITLE);
-  const authorName = await ownerName(pitch.created_by);
+  const authorName = (await ownerName(pitch.created_by)).slice(0, MAX_TITLE);
 
   try {
     const html = await render(
