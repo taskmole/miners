@@ -20,10 +20,10 @@
 -- Contribute. Deleting your own draft stays allowed by the DELETE policy;
 -- that is cleanup, not a change to the pitch.
 --
--- WHY HERE AND NOT IN THE POLICY. The upsert that older app tabs still send
--- takes the UPDATE path for an existing row, which fires this trigger
--- against the real OLD row, so one check covers both the plain update the
--- save route now uses and the old upsert.
+-- WHY HERE AND NOT IN THE POLICY. This trigger already holds every other
+-- rule about who may change a pitch, so the new one sits with them. It also
+-- covers any upsert that reaches an existing row, because the conflict path
+-- fires BEFORE UPDATE against the real OLD row.
 --
 -- Undo (paste as one block): re-run the CREATE OR REPLACE FUNCTION from
 -- 20261026000002_guard_pitch_review_fields.sql, then the REVOKE below.

@@ -53,20 +53,20 @@ export type SubmittedPitch = {
 /**
  * The pitch owner's name as their profile has it. The pitch's own
  * author_name is text the browser saved, so the email never shows it: a
- * scout could otherwise submit under somebody else's name.
+ * scout could otherwise submit under somebody else's name. Read with the
+ * service role, because a teammate who submits cannot read the owner's
+ * profile row.
  */
-async function ownerName(supabase: SupabaseClient, ownerId: string | null): Promise<string> {
-  if (!ownerId) return "Scout";
-  try {
-    const { data, error } = await supabase.rpc("people_directory");
-    if (error) throw error;
-    const owner = ((data || []) as Array<{ id: string; display_name: string | null }>)
-      .find((p) => p.id === ownerId);
-    return owner?.display_name || "Scout";
-  } catch (err) {
-    console.warn("[submission-email] owner name lookup failed:", err);
-    return "Scout";
-  }
+async function ownerName(ownerId: string | null): Promise<string> {
+  const service = createServiceSupabase();
+  if (!ownerId || !service) return "Scout";
+  const { data, error } = await service
+    .from("user_profiles")
+    .select("display_name")
+    .eq("id", ownerId)
+    .maybeSingle();
+  if (error) console.warn("[submission-email] owner name lookup failed:", error.message);
+  return (data as { display_name: string | null } | null)?.display_name || "Scout";
 }
 
 /**
@@ -81,32 +81,31 @@ async function claimEmailSlot(callerId: string, pitchId: string): Promise<boolea
     console.warn("[submission-email] no service role, sending without the limit");
     return true;
   }
-  try {
-    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { count, error } = await service
-      .from("submission_email_log")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", callerId)
-      .gte("sent_at", since);
-    if (error) throw error;
-    if ((count ?? 0) >= MAX_PER_HOUR) {
-      console.warn(`[submission-email] ${callerId} is over the hourly limit, skipping email for ${pitchId}`);
-      return false;
-    }
-    const { error: logError } = await service
-      .from("submission_email_log")
-      .insert({ user_id: callerId, pitch_id: pitchId });
-    if (logError) throw logError;
-  } catch (err) {
-    console.error("[submission-email] limit check failed, sending anyway:", err);
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count, error } = await service
+    .from("submission_email_log")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", callerId)
+    .gte("sent_at", since);
+  if (error) {
+    console.error("[submission-email] limit check failed, sending anyway:", error.message);
+    return true;
   }
+  if ((count ?? 0) >= MAX_PER_HOUR) {
+    console.warn(`[submission-email] ${callerId} is over the hourly limit, skipping email for ${pitchId}`);
+    return false;
+  }
+  const { error: logError } = await service
+    .from("submission_email_log")
+    .insert({ user_id: callerId, pitch_id: pitchId });
+  if (logError) console.error("[submission-email] could not log the send:", logError.message);
   return true;
 }
 
 /**
  * Email the reviewers, then the pitch's team (if it has one), at most
- * MAX_PER_HOUR times per person. Best effort: each part catches its own
- * errors, so a mail problem never reaches the save.
+ * MAX_PER_HOUR times per person. Best effort and never throws: each part
+ * handles its own errors, so a mail problem never reaches the save.
  *
  * `callerId` is the signed-in person who saved the pitch. They and the pitch
  * owner are left out of the team email.
@@ -126,7 +125,7 @@ export async function sendSubmissionEmails(
 
   // Card title uses the place address; fall back to the trip name.
   const title = (pitch.address || pitch.trip_name || "Untitled trip").slice(0, MAX_TITLE);
-  const authorName = await ownerName(supabase, pitch.created_by);
+  const authorName = await ownerName(pitch.created_by);
 
   try {
     const html = await render(
@@ -144,7 +143,7 @@ export async function sendSubmissionEmails(
     // tags each subject with the address it was really meant for.
     const sends = await sendAppEmails(SUBMISSION_REVIEWERS, { subject: "New trip submitted", html });
     sends.forEach((s, i) => {
-      if (s.error) console.warn(`[submission-email] reviewer ${i + 1} failed:`, s.error);
+      if (s.error) console.warn(`[submission-email] ${SUBMISSION_REVIEWERS[i]} failed:`, s.error);
     });
   } catch (err) {
     console.error("[submission-email] reviewer email failed:", err);

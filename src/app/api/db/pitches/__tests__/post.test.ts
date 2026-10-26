@@ -15,6 +15,12 @@ const state = {
   updated: [] as unknown[],
 };
 
+// A row list as .maybeSingle() hands it back: the one row, or null.
+const single = (r: DbResult): DbResult => ({
+  data: Array.isArray(r.data) ? r.data[0] ?? null : r.data,
+  error: r.error,
+});
+
 const fakeSupabase = {
   from: (table: string) => {
     expect(table).toBe("pitches");
@@ -28,19 +34,23 @@ const fakeSupabase = {
         }),
       }),
       insert: (row: unknown) => ({
-        select: async () => {
-          state.calls.push("insert");
-          state.inserted.push(row);
-          return state.insert;
-        },
+        select: () => ({
+          maybeSingle: async () => {
+            state.calls.push("insert");
+            state.inserted.push(row);
+            return single(state.insert);
+          },
+        }),
       }),
       update: (row: unknown) => ({
         eq: () => ({
-          select: async () => {
-            state.calls.push("update");
-            state.updated.push(row);
-            return state.update;
-          },
+          select: () => ({
+            maybeSingle: async () => {
+              state.calls.push("update");
+              state.updated.push(row);
+              return single(state.update);
+            },
+          }),
         }),
       }),
     };

@@ -302,54 +302,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
-    // The status before this save, or null when the caller sees no such pitch.
-    const readBefore = () =>
-      db(supabase).from("pitches").select("status").eq("id", id).maybeSingle();
+    // Whether the caller can see this pitch, and its status before the save.
+    const readBefore = async () => {
+      const { data, error } = await db(supabase)
+        .from("pitches").select("status").eq("id", id).maybeSingle();
+      const row = data as { status: string | null } | null;
+      return { found: row !== null, status: row?.status ?? null, error };
+    };
+
+    // Answer with the saved row. When this save is the one that made the
+    // pitch submitted, email the reviewers and team once the reply is out.
+    const respond = (saved: SavedPitch | null, statusBefore: string | null) => {
+      if (!saved) return refused();
+      if (saved.status === "submitted" && statusBefore !== "submitted") {
+        after(() => sendSubmissionEmails(supabase, saved, userId));
+      }
+      return NextResponse.json(saved);
+    };
 
     let before = await readBefore();
     if (before.error) return writeFailure("read", before.error);
 
-    let saved: SavedPitch | null = null;
-
-    if (!before.data) {
-      const { data, error } = await db(supabase).from("pitches").insert(body).select();
-      if (!error) {
-        saved = data?.[0] ?? null;
-        if (!saved) return refused();
-      } else if (error.code === UNIQUE_VIOLATION) {
-        // The id exists after all: another device created it a moment ago,
-        // or it is somebody else's pitch this caller cannot see. Read once
-        // more; if it is still invisible, so is the right to change it.
-        before = await readBefore();
-        if (before.error) return writeFailure("read", before.error);
-        if (!before.data) return refused();
-      } else {
-        return writeFailure("insert", error);
-      }
+    if (!before.found) {
+      const { data, error } = await db(supabase).from("pitches").insert(body).select().maybeSingle();
+      if (!error) return respond(data, null);
+      if (error.code !== UNIQUE_VIOLATION) return writeFailure("insert", error);
+      // The id exists after all: another device created it a moment ago, or
+      // it is somebody else's pitch this caller cannot see. Read once more;
+      // if it is still invisible, so is the right to change it.
+      before = await readBefore();
+      if (before.error) return writeFailure("read", before.error);
+      if (!before.found) return refused();
     }
 
-    if (!saved) {
-      const { data, error } = await db(supabase).from("pitches").update(body).eq("id", id).select();
-      if (error) return writeFailure("update", error);
-      // No row back means the update rule did not match it (not the owner or
-      // the team, or the pitch is no longer a draft or returned).
-      saved = data?.[0] ?? null;
-      if (!saved) return refused();
-    }
-
-    const statusBefore = (before.data as { status: string | null } | null)?.status ?? null;
-    if (saved.status === "submitted" && statusBefore !== "submitted") {
-      const pitch = saved;
-      after(async () => {
-        try {
-          await sendSubmissionEmails(supabase, pitch, userId);
-        } catch (err) {
-          console.error("[api/db/pitches] submission email failed:", err);
-        }
-      });
-    }
-
-    return NextResponse.json(saved);
+    const { data, error } = await db(supabase).from("pitches").update(body).eq("id", id).select().maybeSingle();
+    if (error) return writeFailure("update", error);
+    // No row back means the update rule did not match it (not the owner or
+    // the team, or the pitch is no longer a draft or returned).
+    return respond(data, before.status);
   } catch (err) {
     console.error("[api/db/pitches] unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
