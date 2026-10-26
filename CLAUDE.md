@@ -93,6 +93,18 @@ Since 2026-10-30 Supabase gives new tables in "public" no API access by default.
 - PostGIS lives in the `extensions` schema, not `public`. A function that uses ST_* or geography and pins its `search_path` must include `extensions` (e.g. `SET search_path = public, extensions`). CI (`src/lib/__tests__/migration-postgis-path.test.ts`) checks this.
 - New extensions go in `extensions` (`CREATE EXTENSION ... WITH SCHEMA extensions`). One in `public` puts its tables on the API, and Supabase owns them so no migration can lock them. The same CI test checks this.
 
+# Security checklist (Miners, used by `.p` on top of the general one)
+How the general checklist applies in this app. Background: the 2026-10-26 audit (PR #98).
+- **API routes:** every handler calls `authenticateRequest` (or `authenticateAlongside` for reads), or checks `CRON_SECRET`/`DIGEST_SECRET`. CI (`src/lib/__tests__/api-route-auth.test.ts`) fails otherwise. A handler that must stay open goes in its `PUBLIC_HANDLERS` list with a reason, and only with the owner's OK.
+- **Identity and email:** user id and email come from the session. Who gets an email, and which event happened, come from the saved row on the server. Never send an email on the strength of fields in the request body.
+- **Row rules:** an UPDATE policy without a tight `WITH CHECK` lets owners change anything on their row. Lock power fields (status, review, role, owner) with a BEFORE trigger, like `enforce_pitch_review_fields` and `enforce_profile_field_locks`. Upserts fire BEFORE INSERT triggers and check the INSERT policy on the proposed row even when the row exists.
+- **`is_admin()` is city-blind:** it is true for an approver in any city. List writes also need `checkListWrite()`.
+- **Files:** storage paths are built on the server under `<userId>/`. Any column that stores a path, or anything else that grants access, needs an ownership check in the database.
+- **SECURITY DEFINER functions:** pin `search_path`, revoke EXECUTE from `PUBLIC` and `anon`, and check every caller's `prosecdef` before revoking (a revoke once broke assigning for 2 days).
+- **Prove it on prod safely:** rehearse every rule change inside `BEGIN ... ROLLBACK`, signed in as real users, with "allowed" and "refused" cases. After applying, confirm with `pg_policies`, `pg_trigger` and `has_table_privilege`.
+- **Refusals:** map Postgres `42501` to 403. The trip sync queue retries 5xx forever.
+- **Public repo:** no scoring rules, AI instructions, customer data or internal numbers in code, comments or test fixtures.
+
 # Available Tools & Skills
 - Code simplifier plugin
 - Feature development plugin
