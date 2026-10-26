@@ -66,8 +66,8 @@ export function getTokenFromRequest(req: Request): string | null {
 export async function authenticateRequest(
   req: Request
 ): Promise<
-  | { supabase: SupabaseClient<Database>; userId: string; error?: never }
-  | { error: NextResponse; supabase?: never; userId?: never }
+  | { supabase: SupabaseClient<Database>; userId: string; email: string | null; error?: never }
+  | { error: NextResponse; supabase?: never; userId?: never; email?: never }
 > {
   const token = getTokenFromRequest(req);
   if (!token) {
@@ -81,7 +81,7 @@ export async function authenticateRequest(
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
-  return { supabase, userId: user.id };
+  return { supabase, userId: user.id, email: user.email ?? null };
 }
 
 /**

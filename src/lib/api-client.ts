@@ -106,7 +106,9 @@ export async function apiFetch<T = unknown>(
   const { noAuth, ...fetchOptions } = options;
 
   const headers = new Headers(fetchOptions.headers);
-  if (!headers.has("Content-Type") && fetchOptions.body) {
+  // A FormData body needs the browser to write its own multipart Content-Type
+  // (it carries the boundary), so only default to JSON for everything else.
+  if (!headers.has("Content-Type") && fetchOptions.body && !(fetchOptions.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 

@@ -12,7 +12,6 @@ import { useScoutingTrips } from "@/hooks/useScoutingTrips";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { usePropertyRequests } from "@/hooks/usePropertyRequests";
 import { logActivity } from "@/lib/supabaseHelpers";
-import { notifyTeam } from "@/lib/notify-team";
 import { FocusTriageCard, StepSheet } from "@/components/focus-triage";
 import { AssignList } from "@/components/AssignList";
 import { PoiCardScope, MoreMenu } from "@/components/poi-card/PoiCard";
@@ -490,39 +489,31 @@ export function NewListingsModal({
       setActiveSheet(null);
 
       try {
+        // The server emails the team or person once the assignment is saved.
+        const emailText = {
+          placeName: currentProperty.name || currentProperty.address,
+          placeAddress: currentProperty.address,
+        };
         if (type === "team") {
           await assignProperty(currentProperty.placeId, null, {
             teamId: targetId,
             placeUuid: currentProperty.id,
+            ...emailText,
           });
           logActivity("assigned_property", {
             ...propertyMeta,
             team_id: targetId,
             teamName: targetName,
           });
-          notifyTeam({
-            teamId: targetId,
-            kind: "assigned",
-            placeId: currentProperty.placeId,
-            placeName: currentProperty.name || currentProperty.address,
-            placeAddress: currentProperty.address,
-          });
         } else {
           await assignProperty(currentProperty.placeId, targetId, {
             placeUuid: currentProperty.id,
+            ...emailText,
           });
           logActivity("assigned_property", {
             ...propertyMeta,
             assigned_to: targetId,
             assigneeName: targetName,
-          });
-          // Same as the team branch above: tell the person they were given it.
-          notifyTeam({
-            userId: targetId,
-            kind: "assigned",
-            placeId: currentProperty.placeId,
-            placeName: currentProperty.name || currentProperty.address,
-            placeAddress: currentProperty.address,
           });
         }
       } catch {
