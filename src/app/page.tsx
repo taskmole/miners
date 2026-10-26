@@ -101,7 +101,7 @@ function HomeContent() {
    * colleagues. Exempting it would offer cities whose data the database then
    * refuses to hand over, which is a blank map rather than a demo.
    */
-  const { visibleCities, accessResolved, canApproveIn } = useUserProfiles();
+  const { visibleCities, accessResolved, canApproveIn, canContributeIn } = useUserProfiles();
   const grantedCities = React.useMemo(() => {
     if (!user || !accessResolved) return cities;
     return cities.filter(c => visibleCities.includes(c.id));
@@ -767,6 +767,8 @@ function HomeContent() {
             setSelectedTrip(trip);
             setIsScoutingFormOpen(true);
           }}
+          // View-only in the trip's city: no editing. Hidden until access loads.
+          canEdit={(t) => canContributeIn(t.cityId)}
         />
       )}
 

@@ -582,8 +582,9 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
 
   const submitTrip = useCallback((tripId: string, teamId?: string | null): void => {
     // Skip if already submitted: stops a double-tap or a spurious re-submit
-    // from firing duplicate reviewer emails. A returned/draft trip (status
-    // differs) still submits and notifies as normal.
+    // from saving again. The reviewer and team emails are sent by the server
+    // when this save lands (POST /api/db/pitches), only on the change to
+    // submitted, so they survive offline submits with the save itself.
     if (tripsRef.current.find(t => t.id === tripId)?.status === 'submitted') return;
 
     const updated = mutateTrip(tripId, (current) => ({
@@ -596,25 +597,7 @@ export function ScoutingTripsProvider({ children }: { children: React.ReactNode 
       // just because the assignment map was still loading.
       teamId: teamId ?? current.teamId,
     }));
-    if (updated) {
-      logTripActivity("submitted_scouting_trip", updated);
-      // Notify reviewers (Matus + founders) of every submission, incl. resubmits,
-      // plus the trip's team if it has one. Routed through the sync queue so it
-      // survives offline submits in the field.
-      enqueue({
-        type: 'notify_submission',
-        tripId,
-        payload: {
-          tripName: updated.name || 'Untitled trip',
-          address: updated.address || updated.property?.address || '',
-          cityId: updated.cityId,
-          authorName: updated.authorName || 'Scout',
-          submittedAt: updated.submittedAt || '',
-          teamId: updated.teamId ?? null,
-          ownerId: updated.createdBy || null,
-        },
-      });
-    }
+    if (updated) logTripActivity("submitted_scouting_trip", updated);
   }, [mutateTrip]);
 
   const approveTrip = useCallback((tripId: string, reviewerName: string = 'Admin'): void => {
