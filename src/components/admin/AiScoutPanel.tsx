@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { ToastProvider, useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api-client";
-import { UNLOCK_RATINGS } from "@/lib/ai-scout-unlock";
+import { UNLOCK_RATINGS, soFarLine } from "@/lib/ai-scout-unlock";
 import { cn } from "@/lib/utils";
 import { Chips, EmptyRow, ListCard, PageIntro, StatusBadge, formatShortDate } from "@/components/admin/admin-ui";
 import type {
@@ -206,6 +206,7 @@ function AiScoutPanelInner() {
   const ruleLength = ruleText.replace(/\s+/g, " ").trim().length;
   const rated = Math.min(data.ratedSinceSuggestions, UNLOCK_RATINGS);
   const ratingsLeft = UNLOCK_RATINGS - rated;
+  const soFar = soFarLine(data.soFar);
 
   return (
     <div className="space-y-6">
@@ -228,6 +229,7 @@ function AiScoutPanelInner() {
               {data.week.agreement !== null && `, you agreed with the AI ${pct(data.week.agreement)} of the time`}.
             </p>
           )}
+          {soFar && <p className="text-xs text-zinc-500 mt-1">{soFar}</p>}
         </div>
         <Button asChild variant="outline" size="action" className="shrink-0">
           <Link href="/">Open map</Link>

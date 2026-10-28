@@ -489,16 +489,17 @@ export function NewListingsModal({
       setActiveSheet(null);
 
       try {
-        // The server emails the team or person once the assignment is saved.
-        const emailText = {
+        // The server emails the team or person once the assignment is saved;
+        // the link lets it find the listing for the AI scout.
+        const listing = {
           placeName: currentProperty.name || currentProperty.address,
           placeAddress: currentProperty.address,
+          placeUrl: currentProperty.url,
         };
         if (type === "team") {
           await assignProperty(currentProperty.placeId, null, {
             teamId: targetId,
-            placeUuid: currentProperty.id,
-            ...emailText,
+            ...listing,
           });
           logActivity("assigned_property", {
             ...propertyMeta,
@@ -506,10 +507,7 @@ export function NewListingsModal({
             teamName: targetName,
           });
         } else {
-          await assignProperty(currentProperty.placeId, targetId, {
-            placeUuid: currentProperty.id,
-            ...emailText,
-          });
+          await assignProperty(currentProperty.placeId, targetId, listing);
           logActivity("assigned_property", {
             ...propertyMeta,
             assigned_to: targetId,
@@ -580,12 +578,7 @@ export function NewListingsModal({
       setActiveSheet(null);
 
       try {
-        await preRejectProperty(
-          currentProperty.placeId,
-          reason,
-          undefined,
-          currentProperty.id,
-        );
+        await preRejectProperty(currentProperty.placeId, reason, { placeUrl: currentProperty.url });
         logActivity("pre_rejected_property", {
           ...propertyMetaOf(currentProperty),
           rejectionReason: reason,
@@ -609,7 +602,6 @@ export function NewListingsModal({
         property_name: currentProperty.name || null,
         property_address: currentProperty.address || null,
         property_url: currentProperty.url || null,
-        place_uuid: currentProperty.id,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to send request";

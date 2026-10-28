@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Saved. Teach the AI scout, best effort (see recordAiSignal).
     if (row.status === "assigned" || row.status === "pre_rejected") {
       recordAiSignal(supabase, userId, {
-        placeUuid: body.place_uuid,
+        url: body.property_url,
         propertyPlaceId: row.property_place_id,
         kind: row.status === "assigned" ? "assign" : "reject",
         note: row.status === "pre_rejected" ? row.rejection_reason : null,

@@ -168,14 +168,15 @@ export function ListingCard({ property, placeId, mapsUrl, cityId, onClose, reque
   const handleAssign = (targetId: string, targetName: string, type: "team" | "user") => runExclusive(async () => {
     try {
       // The server emails the team or person (skipping the actor) once the
-      // assignment is saved. Name and address are only text for that email.
-      const emailText = { placeName: property.title, placeAddress: property.address };
+      // assignment is saved. Name and address are only text for that email;
+      // the link lets the server find the listing for the AI scout.
+      const listing = { placeName: property.title, placeAddress: property.address, placeUrl: property.url };
       if (type === "team") {
-        await assignProperty(placeId, null, { teamId: targetId, ...emailText });
+        await assignProperty(placeId, null, { teamId: targetId, ...listing });
         // Tag with team_id so every member sees it in their activity feed.
         logActivity("assigned_property", { ...propertyMeta, team_id: targetId, teamName: targetName });
       } else {
-        await assignProperty(placeId, targetId, emailText);
+        await assignProperty(placeId, targetId, listing);
         logActivity("assigned_property", { ...propertyMeta, assigned_to: targetId, assigneeName: targetName });
       }
       showToast(`Assigned to ${targetName}`);
@@ -187,7 +188,7 @@ export function ListingCard({ property, placeId, mapsUrl, cityId, onClose, reque
 
   const handlePreReject = (reason: string) => runExclusive(async () => {
     try {
-      await preRejectProperty(placeId, reason);
+      await preRejectProperty(placeId, reason, { placeUrl: property.url });
       showToast("Pre-rejected");
       logActivity("pre_rejected_property", { ...propertyMeta, rejectionReason: reason });
       setReasonDraft("");

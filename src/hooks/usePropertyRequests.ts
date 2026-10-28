@@ -27,8 +27,6 @@ export interface RequestSnapshot {
   property_address?: string | null;
   property_url?: string | null;
   note?: string | null;
-  /** The listing's places.id, for the AI scout's learning signal. Optional. */
-  place_uuid?: string;
 }
 
 /**
