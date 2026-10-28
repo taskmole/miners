@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildAiScoutEmail, type RawAiScoutRows } from "../ai-scout-email-queries";
+import { soFarLine } from "../ai-scout-unlock";
 
 const start = new Date("2026-10-16T08:00:00Z");
 const end = new Date("2026-10-23T08:00:00Z");
@@ -27,6 +28,7 @@ function quiet(thisWeek: number, sinceSuggestions: number, ready = false): boole
         : [],
       activePoints: [],
       ratedSinceSuggestions: sinceSuggestions,
+      soFar: { listingsTaught: 0, changesThatHelped: 0 },
     },
     start,
     end,
@@ -49,5 +51,21 @@ describe("Friday email: quiet version", () => {
 
   it("is full whenever a suggestion is ready", () => {
     expect(quiet(0, 0, true)).toBe(false);
+  });
+});
+
+describe("Friday email and AI scout tab: the So far line", () => {
+  it("names the listings and the changes that helped", () => {
+    expect(soFarLine({ listingsTaught: 23, changesThatHelped: 2 })).toBe(
+      "So far: learned from 23 listings, 2 changes made it agree with you more.",
+    );
+    expect(soFarLine({ listingsTaught: 1, changesThatHelped: 1 })).toBe(
+      "So far: learned from 1 listing, 1 change made it agree with you more.",
+    );
+  });
+
+  it("leaves out a zero instead of showing it", () => {
+    expect(soFarLine({ listingsTaught: 5, changesThatHelped: 0 })).toBe("So far: learned from 5 listings.");
+    expect(soFarLine({ listingsTaught: 0, changesThatHelped: 0 })).toBeNull();
   });
 });

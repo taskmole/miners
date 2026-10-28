@@ -1,7 +1,13 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from 'react';
-import { usePropertyAssignments, type PropertyAssignment, type AssignableUser } from '@/hooks/usePropertyAssignments';
+import {
+  usePropertyAssignments,
+  type AssignOptions,
+  type AssignableUser,
+  type PreRejectOptions,
+  type PropertyAssignment,
+} from '@/hooks/usePropertyAssignments';
 import { useTeamsContext } from '@/contexts/TeamsContext';
 
 interface PropertyAssignmentContextValue {
@@ -11,8 +17,8 @@ interface PropertyAssignmentContextValue {
   getAssignment: (placeId: string) => PropertyAssignment | null;
   isAssignedToMe: (placeId: string) => boolean;
   canPitch: (placeId: string) => { allowed: boolean; reason: string | null };
-  assignProperty: (placeId: string, assignedTo: string | null, options?: { teamId?: string; notes?: string; placeUuid?: string; placeName?: string; placeAddress?: string }) => Promise<PropertyAssignment>;
-  preRejectProperty: (placeId: string, reason: string, notes?: string, placeUuid?: string) => Promise<PropertyAssignment>;
+  assignProperty: (placeId: string, assignedTo: string | null, options?: AssignOptions) => Promise<PropertyAssignment>;
+  preRejectProperty: (placeId: string, reason: string, options?: PreRejectOptions) => Promise<PropertyAssignment>;
   removeAssignment: (placeId: string) => Promise<void>;
   refreshAssignments: () => Promise<void>;
 }

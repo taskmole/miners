@@ -25,6 +25,26 @@ export interface AssignableUser {
   role: string;
 }
 
+/**
+ * placeUrl is the listing's web link: the server uses it only to find the
+ * listing for the AI scout's learning signal. placeName and placeAddress are
+ * only shown in the "assigned to you" email, which the server sends itself
+ * once the assignment is saved.
+ */
+export interface AssignOptions {
+  teamId?: string;
+  notes?: string;
+  placeUrl?: string;
+  placeName?: string;
+  placeAddress?: string;
+}
+
+/** placeUrl: as in AssignOptions. */
+export interface PreRejectOptions {
+  notes?: string;
+  placeUrl?: string;
+}
+
 async function fetchAssignments(): Promise<PropertyAssignment[]> {
   try {
     const data = await apiFetch<PropertyAssignment[]>('/api/db/property-assignments');
@@ -140,11 +160,7 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
   const assignProperty = useCallback(async (
     placeId: string,
     assignedTo: string | null,
-    // placeUuid is the listing's places.id. Optional: only the inbox has it,
-    // and the server uses it for the AI scout's learning signal alone.
-    // placeName/placeAddress are only shown in the "assigned to you" email,
-    // which the server now sends itself once the assignment is saved.
-    options?: { teamId?: string; notes?: string; placeUuid?: string; placeName?: string; placeAddress?: string }
+    options?: AssignOptions
   ) => {
     const result = await apiFetch<PropertyAssignment>('/api/db/property-assignments', {
       method: 'POST',
@@ -154,7 +170,7 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
         assigned_to_team: options?.teamId ?? null,
         status: 'assigned',
         notes: options?.notes ?? null,
-        place_uuid: options?.placeUuid,
+        property_url: options?.placeUrl,
         place_name: options?.placeName,
         place_address: options?.placeAddress,
       }),
@@ -169,9 +185,7 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
   const preRejectProperty = useCallback(async (
     placeId: string,
     reason: string,
-    notes?: string,
-    /** The listing's places.id, for the AI scout. Optional, see assignProperty. */
-    placeUuid?: string
+    options?: PreRejectOptions
   ) => {
     const result = await apiFetch<PropertyAssignment>('/api/db/property-assignments', {
       method: 'POST',
@@ -179,8 +193,8 @@ export function usePropertyAssignments(userTeamIds: string[] = []) {
         property_place_id: placeId,
         status: 'pre_rejected',
         rejection_reason: reason,
-        notes: notes ?? null,
-        place_uuid: placeUuid,
+        notes: options?.notes ?? null,
+        property_url: options?.placeUrl,
       }),
     });
     setAssignments(prev => {

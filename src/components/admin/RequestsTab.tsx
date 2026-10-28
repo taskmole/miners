@@ -167,7 +167,13 @@ export function RequestsTab({
                     <DecisionPanel
                       key={panel}
                       label={panel === "rejected" ? "Why are you rejecting it?" : "Add a note (optional)"}
-                      placeholder="The requester will see this"
+                      // The reason also teaches the AI scout, so nudge it
+                      // towards what is wrong with the place itself.
+                      placeholder={
+                        panel === "rejected"
+                          ? "e.g. basement with stairs, quiet street. The requester sees this."
+                          : "The requester will see this"
+                      }
                       confirmLabel={panel === "rejected" ? "Reject request" : "Approve request"}
                       destructive={panel === "rejected"}
                       required={panel === "rejected"}

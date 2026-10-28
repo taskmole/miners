@@ -146,6 +146,14 @@ describe("scoreboard maths", () => {
     expect(sampleLabels(labels, 1).map((l) => l.placeId)).toEqual(["x"]);
   });
 
+  it("lets a rejected viewing request override the scout's earlier request", () => {
+    const labels = buildLabels([
+      { place_id: "x", kind: "request", point_id: null, human_value: null, verdict: null, at: "2026-10-01", old_blend: null },
+      { place_id: "x", kind: "reject", point_id: null, human_value: null, verdict: null, at: "2026-10-03", old_blend: null },
+    ]);
+    expect(labels).toEqual([{ kind: "decision", placeId: "x", at: "2026-10-03", want: "low" }]);
+  });
+
   it("finds a weight move that fixes the decisions", () => {
     // Head office rejects listings that rate well on a and badly on b.
     const base = profile({ a: 50, b: 50 });

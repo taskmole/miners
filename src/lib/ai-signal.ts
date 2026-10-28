@@ -1,10 +1,7 @@
 import { after } from "next/server";
 import { accessFor, untypedDb } from "@/lib/supabase-server";
 import { canTrainAiIn } from "@/lib/permissions";
-import { parseWkbPoint } from "@/lib/wkb";
-import { generatePropertyPlaceId } from "@/lib/place-id";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { findListingRow } from "@/lib/share-place";
 
 /**
  * Best-effort learning signal for the AI scout: a decision by somebody with
@@ -14,51 +11,46 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * every error. This write path had a 2-day outage once; nothing here may
  * change what the caller gets back.
  *
- * Needs the listing's places.id (`place_uuid`), which the client sends when
- * it has one. It is only trusted if it really is the same listing as
- * property_place_id, so a stray uuid can never file a signal on another place.
- * No uuid, no signal.
+ * Finds the listing from its web link (`url`), which the map card, the inbox
+ * and every request carry. findListingRow only trusts a row that really is
+ * the listing behind property_place_id, so a stray link can never file a
+ * signal on another place. No link, no signal.
  */
 export function recordAiSignal(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   userId: string,
   signal: {
-    placeUuid: unknown;
+    url: unknown;
     propertyPlaceId: string;
     kind: "assign" | "reject" | "request";
     note: string | null;
   },
 ) {
-  if (typeof signal.placeUuid !== "string" || !UUID_RE.test(signal.placeUuid)) return;
-  const placeUuid = signal.placeUuid;
+  if (typeof signal.url !== "string" || !signal.url) return;
 
   try {
     after(async () => {
       try {
-        const { data: place } = await untypedDb(supabase)
-          .from("places")
-          .select("id, city_id, location, url:metadata->>url")
-          .eq("id", placeUuid)
-          .maybeSingle();
-        if (!place?.city_id) return;
-
-        const coords = parseWkbPoint(place.location);
-        if (!coords) return;
-        const samePlace =
-          generatePropertyPlaceId({
-            latitude: coords.lat,
-            longitude: coords.lon,
-            url: place.url || "",
-          }) === signal.propertyPlaceId;
-        if (!samePlace) return;
+        const place = await findListingRow<{ location: string | null; id: string; city_id: string | null }>(
+          untypedDb(supabase),
+          signal.propertyPlaceId,
+          signal.url,
+          "id, city_id",
+        );
+        if (!place?.city_id) {
+          // Not an error, but if it starts happening for every decision (a
+          // new link format, moved pins) the AI stops learning: say so.
+          console.warn(`[ai-signal] ${signal.kind}: no listing matches ${signal.propertyPlaceId}`);
+          return;
+        }
 
         const access = await accessFor(supabase, userId);
         if (!access || !canTrainAiIn(access, place.city_id)) return;
 
         // city_id is filled in by a trigger from the place.
         const { error } = await untypedDb(supabase).from("ai_feedback").insert({
-          place_id: placeUuid,
+          place_id: place.id,
           user_id: userId,
           kind: signal.kind,
           note: signal.note ? signal.note.slice(0, 500) : null,

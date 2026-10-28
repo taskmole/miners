@@ -108,8 +108,6 @@ export async function POST(request: NextRequest) {
     property_address?: string | null;
     property_url?: string | null;
     note?: string | null;
-    /** The listing's places.id, for the AI scout's learning signal. Optional. */
-    place_uuid?: string;
   };
 
   try {
@@ -202,7 +200,7 @@ export async function POST(request: NextRequest) {
 
     // Saved. Teach the AI scout, best effort (see recordAiSignal).
     recordAiSignal(supabase, userId, {
-      placeUuid: body.place_uuid,
+      url: data.property_url,
       propertyPlaceId: data.property_place_id,
       kind: "request",
       note: data.note ?? null,
@@ -346,11 +344,41 @@ export async function PATCH(request: NextRequest) {
     // Emails are best effort and never block the decision.
     after(() => sendDecisionEmail(supabase, updated, userId, decision, reason));
 
+    // Decided. Teach the AI scout, best effort (see recordAiSignal): an
+    // approval sends a scout, a rejection says no, with its reason. Only this
+    // reviewer's own decision; the automatic rejections above teach nothing.
+    // An approval's note is for the requester (logistics), not about the place.
+    // A rejection of a listing that is already assigned or pre-rejected only
+    // clears a stale request ("already taken"); teaching it would overwrite
+    // the real decision on that listing.
+    if (decision === "approved" || !(await hasAssignment(supabase, updated.property_place_id))) {
+      recordAiSignal(supabase, userId, {
+        url: updated.property_url,
+        propertyPlaceId: updated.property_place_id,
+        kind: decision === "approved" ? "assign" : "reject",
+        note: decision === "approved" ? null : reason,
+      });
+    }
+
     return NextResponse.json(updated);
   } catch (err) {
     console.error("[api/db/property-requests] unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+}
+
+/** Is the property already assigned or pre-rejected? A failed read says yes, so nothing is taught. */
+async function hasAssignment(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  propertyPlaceId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("property_assignments")
+    .select("property_place_id")
+    .eq("property_place_id", propertyPlaceId)
+    .maybeSingle();
+  return !!error || !!data;
 }
 
 /**

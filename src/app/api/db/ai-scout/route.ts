@@ -5,7 +5,7 @@ import {
   createServiceSupabase,
   untypedDb as db,
 } from "@/lib/supabase-server";
-import { listingsRatedSinceSuggestions } from "@/lib/ai-scout-unlock";
+import { type AiScoutSoFar, aiScoutSoFar, listingsRatedSinceSuggestions } from "@/lib/ai-scout-unlock";
 import { trainsAiAnywhere } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +78,8 @@ export interface AiScoutOverview {
   suggestions: AiScoutSuggestion[];
   /** Distinct listings with feedback since the learner last asked the model: what unlocks the next suggestions. */
   ratedSinceSuggestions: number;
+  /** All-time: listings that taught it, and changes that helped. */
+  soFar: AiScoutSoFar;
   week: {
     /** Distinct listings rated in the last 7 days. */
     listingsRated: number;
@@ -195,11 +197,18 @@ function errorResponse(where: string, error: { code?: string; message: string })
   );
 }
 
-/** Feedback since the learner's last run, read with the service role. */
-async function serviceCount(): Promise<number> {
+/**
+ * The counts that span every city, read with the service role: feedback since
+ * the learner's last run, and the all-time totals.
+ */
+async function serviceCounts(): Promise<Pick<AiScoutOverview, "ratedSinceSuggestions" | "soFar">> {
   const service = createServiceSupabase();
   if (!service) throw new Error("Supabase service role is not configured");
-  return listingsRatedSinceSuggestions(db(service));
+  const [ratedSinceSuggestions, soFar] = await Promise.all([
+    listingsRatedSinceSuggestions(db(service)),
+    aiScoutSoFar(db(service)),
+  ]);
+  return { ratedSinceSuggestions, soFar };
 }
 
 /**
@@ -215,7 +224,7 @@ export async function GET(request: NextRequest) {
   const since = new Date(Date.now() - 7 * DAY_MS).toISOString();
 
   try {
-    const [versionsRes, activeRes, suggestionsRes, feedbackRes, ratedSinceSuggestions] = await Promise.all([
+    const [versionsRes, activeRes, suggestionsRes, feedbackRes, counts] = await Promise.all([
       db(supabase)
         .from("ai_profiles")
         .select("id, version, is_active, note, scoreboard, created_at")
@@ -247,9 +256,9 @@ export async function GET(request: NextRequest) {
         .in("kind", ["point", "overall"])
         .gte("updated_at", since)
         .order("updated_at", { ascending: false }),
-      // Service role, so the count matches the learner's across every city
+      // Service role, so the counts match the learner's across every city
       // (only trainers get this far). Throws on a failed read, caught below.
-      serviceCount(),
+      serviceCounts(),
     ]);
 
     const failed = [versionsRes, activeRes, suggestionsRes, feedbackRes].find(
@@ -284,7 +293,7 @@ export async function GET(request: NextRequest) {
         scoreboard: v.scoreboard ?? null,
       })),
       suggestions: ((suggestionsRes.data as SuggestionRow[]) || []).map(toSuggestion),
-      ratedSinceSuggestions,
+      ...counts,
       week: {
         listingsRated: new Set(thisWeek.map((f) => f.place_id)).size,
         ratings: thisWeek.length,

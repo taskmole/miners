@@ -9,7 +9,7 @@ import {
   type AiScoutEmailData,
   type AiScoutMisses,
 } from "@/lib/ai-scout-email-queries";
-import { UNLOCK_RATINGS } from "@/lib/ai-scout-unlock";
+import { UNLOCK_RATINGS, soFarLine } from "@/lib/ai-scout-unlock";
 
 /**
  * "Your AI scout this week." Friday morning, to everyone who trains the AI.
@@ -98,6 +98,7 @@ export function AiScoutWeekly({
 }: Partial<AiScoutEmailData>) {
   const heading = "Your AI scout this week";
   const reviewUrl = `${appUrl}/admin?tab=${AI_SCOUT_TAB}`;
+  const soFar = soFarLine(stats.soFar);
   const ready = suggestions.filter((s) => s.status === "ready");
 
   // ---- quiet week ---------------------------------------------------------
@@ -116,8 +117,9 @@ export function AiScoutWeekly({
           Your AI scout learns from the listings you rate. Every time head
           office has rated {UNLOCK_RATINGS} more, it suggests ways to match your
           taste better.
-          {stats.ratedSinceSuggestions > 0 && ` ${stats.ratedSinceSuggestions} rated so far.`}
+          {stats.ratedSinceSuggestions > 0 && ` ${stats.ratedSinceSuggestions} of ${UNLOCK_RATINGS} done.`}
         </Text>
+        {soFar && <Text style={footnoteStyle}>{soFar}</Text>}
 
         <Link href={appUrl} style={buttonStyle}>
           Open the app
@@ -176,7 +178,7 @@ export function AiScoutWeekly({
       </table>
       <Text style={footnoteStyle}>
         Based on {stats.listingsRated} {plural(stats.listingsRated, "listing", "listings")} head
-        office rated this week.
+        office rated this week.{soFar && ` ${soFar}`}
       </Text>
 
       {missLines.length > 0 && (

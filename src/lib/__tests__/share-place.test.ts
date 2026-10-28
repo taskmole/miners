@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { findListing } from "../share-place";
+import { findListing, findListingRow } from "../share-place";
 import { generatePropertyPlaceId } from "../place-id";
 
 /** A PostGIS EWKB point, as the database returns `location`. */
@@ -66,5 +66,25 @@ describe("findListing", () => {
 
   it("throws on a database error", async () => {
     await expect(findListing(db({ data: null, error: { message: "boom" } }), "madrid", PLACE_ID, URL_)).rejects.toThrow();
+  });
+});
+
+describe("findListingRow (the AI scout's learning signal)", () => {
+  it("finds the row by link alone, in any city", async () => {
+    const seen: Record<string, string> = {};
+    const row = await findListingRow(db({ data: [{ ...ROW, id: "uuid-1" }], error: null }, seen), PLACE_ID, URL_, "id");
+    expect(row).toMatchObject({ id: "uuid-1" });
+    expect(seen.city_id).toBeUndefined();
+  });
+
+  it("picks the right one when a link matches several places", async () => {
+    const elsewhere = { ...ROW, id: "uuid-0", location: wkb(41.0, 2.0) };
+    const row = await findListingRow(db({ data: [elsewhere, { ...ROW, id: "uuid-1" }], error: null }), PLACE_ID, URL_, "id");
+    expect(row).toMatchObject({ id: "uuid-1" });
+  });
+
+  it("refuses a link from another listing", async () => {
+    const row = await findListingRow(db({ data: [ROW], error: null }), PLACE_ID, "https://www.idealista.com/inmueble/999/", "id");
+    expect(row).toBeNull();
   });
 });
